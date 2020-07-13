@@ -1529,9 +1529,9 @@
 
 		nss0: nss@40000000 {
 			compatible = "qcom,nss";
-			qcom,low_frequency = <110000000>;
-			qcom,mid_frequency = <550000000>;
-			qcom,max_frequency = <733000000>;
+			qcom,low-frequency = <110000000>;
+			qcom,mid-frequency = <550000000>;
+			qcom,max-frequency = <733000000>;
 
 			interrupts = <GIC_SPI 213 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH>;
@@ -1576,9 +1576,9 @@
 
 		nss1: nss@40800000 {
 			compatible = "qcom,nss";
-			qcom,low_frequency = <110000000>;
-			qcom,mid_frequency = <550000000>;
-			qcom,max_frequency = <733000000>;
+			qcom,low-frequency = <110000000>;
+			qcom,mid-frequency = <550000000>;
+			qcom,max-frequency = <733000000>;
 
 			interrupts = <GIC_SPI 214 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 233 IRQ_TYPE_LEVEL_HIGH>;
