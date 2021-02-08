@@ -3,6 +3,11 @@
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
+define Device/dsa-migration
+  DEVICE_COMPAT_VERSION := 1.1
+  DEVICE_COMPAT_MESSAGE := Config cannot be migrated from swconfig to DSA
+endef
+
 DEVICE_VARS += NETGEAR_BOARD_ID NETGEAR_HW_ID
 DEVICE_VARS += TPLINK_BOARD_ID
 
@@ -258,6 +263,7 @@ TARGET_DEVICES += netgear_r7500v2
 
 define Device/netgear_r7800
 	$(call Device/DniImage)
+	$(Device/dsa-migration)
 	DEVICE_VENDOR := NETGEAR
 	DEVICE_MODEL := Nighthawk X4S R7800
 	SOC := qcom-ipq8065
