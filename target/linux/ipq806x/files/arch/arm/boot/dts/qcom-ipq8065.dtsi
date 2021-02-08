@@ -12,12 +12,6 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-	cpus {
-		qcom,l2 {
-			qcom,l2-cpufreq = <384000000 600000000 1400000000>;
-		};
-	};
-
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -153,5 +147,6 @@
 		opp-microvolt-speed0-pvs6-v0 = <1050000>;
 		opp-supported-hw = <0x1>;
 		clock-latency-ns = <100000>;
+		opp-level = <2>;
 	};
 };
