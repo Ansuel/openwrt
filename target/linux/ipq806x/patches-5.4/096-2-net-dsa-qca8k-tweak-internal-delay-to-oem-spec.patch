@@ -1,0 +1,55 @@
+From 05f1be94d4817cbe1f09ff6fa69f76588c54ec63 Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Fri, 5 Feb 2021 14:59:34 +0100
+Subject: [PATCH 2/5] net: dsa: qca8k: tweak internal delay to oem spec
+
+The original code had the internal dalay set to 1 for tx and 2 for rx.
+Apply the oem internal dalay to fix some switch comunication error.
+
+Signed-off-by: Ansuel Smith <ansuelsmth@gmail.com>
+---
+ drivers/net/dsa/qca8k.c | 6 ++++--
+ drivers/net/dsa/qca8k.h | 9 ++++-----
+ 2 files changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index be58a53daa28..33041c035bba 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -850,8 +850,10 @@ qca8k_phylink_mac_config(struct dsa_switch *ds, int port, unsigned int mode,
+ 		 */
+ 		qca8k_write(priv, reg,
+ 			    QCA8K_PORT_PAD_RGMII_EN |
+-			    QCA8K_PORT_PAD_RGMII_TX_DELAY(QCA8K_MAX_DELAY) |
+-			    QCA8K_PORT_PAD_RGMII_RX_DELAY(QCA8K_MAX_DELAY));
++			    QCA8K_PORT_PAD_RGMII_TX_DELAY(1) |
++			    QCA8K_PORT_PAD_RGMII_RX_DELAY(2) |
++			    QCA8K_PORT_PAD_RGMII_TX_DELAY_EN |
++			    QCA8K_PORT_PAD_RGMII_RX_DELAY_EN);
+ 		qca8k_write(priv, QCA8K_REG_PORT5_PAD_CTRL,
+ 			    QCA8K_PORT_PAD_RGMII_RX_DELAY_EN);
+ 		break;
+diff --git a/drivers/net/dsa/qca8k.h b/drivers/net/dsa/qca8k.h
+index 7ca4b93e0bb5..e0b679133880 100644
+--- a/drivers/net/dsa/qca8k.h
++++ b/drivers/net/dsa/qca8k.h
+@@ -32,12 +32,11 @@
+ #define QCA8K_REG_PORT5_PAD_CTRL			0x008
+ #define QCA8K_REG_PORT6_PAD_CTRL			0x00c
+ #define   QCA8K_PORT_PAD_RGMII_EN			BIT(26)
+-#define   QCA8K_PORT_PAD_RGMII_TX_DELAY(x)		\
+-						((0x8 + (x & 0x3)) << 22)
+-#define   QCA8K_PORT_PAD_RGMII_RX_DELAY(x)		\
+-						((0x10 + (x & 0x3)) << 20)
+-#define   QCA8K_MAX_DELAY				3
++#define   QCA8K_PORT_PAD_RGMII_TX_DELAY(x)		((x) << 22)
++#define   QCA8K_PORT_PAD_RGMII_RX_DELAY(x)		((x) << 20)
++#define	  QCA8K_PORT_PAD_RGMII_TX_DELAY_EN		BIT(25)
+ #define   QCA8K_PORT_PAD_RGMII_RX_DELAY_EN		BIT(24)
++#define   QCA8K_MAX_DELAY				3
+ #define   QCA8K_PORT_PAD_SGMII_EN			BIT(7)
+ #define QCA8K_REG_PWS					0x010
+ #define   QCA8K_PWS_SERDES_AEN_DIS			BIT(7)
+-- 
+2.29.2
+

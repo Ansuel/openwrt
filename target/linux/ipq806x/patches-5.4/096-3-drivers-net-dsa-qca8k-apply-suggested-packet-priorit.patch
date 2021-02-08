@@ -1,0 +1,106 @@
+From 8a56382c008b3b55d39200be93ff505ab85078c4 Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Sat, 6 Feb 2021 19:06:30 +0100
+Subject: [PATCH 5/5] drivers: net: dsa: qca8k: apply suggested packet priority
+
+The port 5 of the ar8337 have some problem in flood condition. The
+original legacy driver had some specific buffer and priority settings
+for the different port suggested by the QCA switch team. Add this
+missing settings to improve switch stability under load condition.
+
+Signed-off-by: Ansuel Smith <ansuelsmth@gmail.com>
+---
+ drivers/net/dsa/qca8k.c | 41 +++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/qca8k.h | 24 ++++++++++++++++++++++++
+ 2 files changed, 65 insertions(+)
+
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index f71b8e7bcc1e..49c82fd029cd 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -786,6 +786,47 @@ qca8k_setup(struct dsa_switch *ds)
+ 		priv->port_mtu[i] = ETH_FRAME_LEN + ETH_FCS_LEN;
+ 	qca8k_write(priv, QCA8K_MAX_FRAME_SIZE, ETH_FRAME_LEN + ETH_FCS_LEN);
+ 
++	/* The port 5 of the switch ar8337 have some problem in flood condition.
++	 * To fix this the original code has some specific priority values
++	 * suggested by the QCA switch team.
++	 */
++	for (i = 0; i < QCA8K_NUM_PORTS; i++) {
++		switch(i) {
++			/* The 2 CPU port and port 5 requires some different
++			 * priority than any other ports.
++			 */
++			case 0:
++			case 5:
++			case 6:
++				mask = QCA8K_PORT_HOL_CTRL0_EG_PRI0(0x3) |
++				       QCA8K_PORT_HOL_CTRL0_EG_PRI1(0x4) |
++				       QCA8K_PORT_HOL_CTRL0_EG_PRI2(0x4) |
++				       QCA8K_PORT_HOL_CTRL0_EG_PRI3(0x4) |
++				       QCA8K_PORT_HOL_CTRL0_EG_PRI4(0x6) |
++				       QCA8K_PORT_HOL_CTRL0_EG_PRI5(0x8) |
++				       QCA8K_PORT_HOL_CTRL0_EG_PORT(0x1e);
++				break;
++			default:
++				mask = QCA8K_PORT_HOL_CTRL0_EG_PRI0(0x3) |
++				       QCA8K_PORT_HOL_CTRL0_EG_PRI1(0x4) |
++				       QCA8K_PORT_HOL_CTRL0_EG_PRI2(0x6) |
++				       QCA8K_PORT_HOL_CTRL0_EG_PRI3(0x8) |
++				       QCA8K_PORT_HOL_CTRL0_EG_PORT(0x19);
++		}
++		qca8k_write(priv, QCA8K_REG_PORT_HOL_CTRL0(i), mask);
++
++		mask = QCA8K_PORT_HOL_CTRL1_ING(0x6) |
++		       QCA8K_PORT_HOL_CTRL1_EG_PRI_BUF_EN |
++		       QCA8K_PORT_HOL_CTRL1_EG_PORT_BUF_EN |
++		       QCA8K_PORT_HOL_CTRL1_WRED_EN;
++		qca8k_rmw(priv, QCA8K_REG_PORT_HOL_CTRL1(i),
++				QCA8K_PORT_HOL_CTRL1_ING_BUF |
++				QCA8K_PORT_HOL_CTRL1_EG_PRI_BUF_EN |
++				QCA8K_PORT_HOL_CTRL1_EG_PORT_BUF_EN |
++				QCA8K_PORT_HOL_CTRL1_WRED_EN,
++				mask);
++	}
++
+ 	/* Flush the FDB table */
+ 	qca8k_fdb_flush(priv);
+ 
+diff --git a/drivers/net/dsa/qca8k.h b/drivers/net/dsa/qca8k.h
+index e0b679133880..0ff7abbd40dc 100644
+--- a/drivers/net/dsa/qca8k.h
++++ b/drivers/net/dsa/qca8k.h
+@@ -163,6 +163,30 @@
+ #define   QCA8K_PORT_LOOKUP_STATE			GENMASK(18, 16)
+ #define   QCA8K_PORT_LOOKUP_LEARN			BIT(20)
+ 
++#define QCA8K_REG_PORT_HOL_CTRL0(_i)			(0x970 + (_i) * 0x8)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI0_BUF		GENMASK(3, 0)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI0(x)		((x) << 0)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI1_BUF		GENMASK(7, 4)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI1(x)		((x) << 4)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI2_BUF		GENMASK(11, 8)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI2(x)		((x) << 8)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI3_BUF		GENMASK(15, 12)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI3(x)		((x) << 12)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI4_BUF		GENMASK(19, 16)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI4(x)		((x) << 16)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI5_BUF		GENMASK(23, 20)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PRI5(x)		((x) << 20)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PORT_BUF		GENMASK(29, 24)
++#define   QCA8K_PORT_HOL_CTRL0_EG_PORT(x)		((x) << 24)
++
++#define QCA8K_REG_PORT_HOL_CTRL1(_i)			(0x974 + (_i) * 0x8)
++#define   QCA8K_PORT_HOL_CTRL1_ING_BUF			GENMASK(3, 0)
++#define   QCA8K_PORT_HOL_CTRL1_ING(x)			((x) << 0)
++#define   QCA8K_PORT_HOL_CTRL1_EG_PRI_BUF_EN		BIT(6)
++#define   QCA8K_PORT_HOL_CTRL1_EG_PORT_BUF_EN		BIT(7)
++#define   QCA8K_PORT_HOL_CTRL1_WRED_EN			BIT(8)
++#define   QCA8K_PORT_HOL_CTRL1_EG_MIRROR_EN		BIT(16)
++
+ /* Pkt edit registers */
+ #define QCA8K_EGRESS_VLAN(x)				(0x0c70 + (4 * (x / 2)))
+ 
+-- 
+2.29.2
+

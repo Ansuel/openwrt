@@ -1,0 +1,37 @@
+From 17e5309cce9d02e45abe9f61d0dd5fd772083329 Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Fri, 5 Feb 2021 14:45:25 +0100
+Subject: [PATCH 1/5] net: dsa: qca8k: handle error with set_page
+
+Better handle function qca8k_set_page. The original code requires a
+deleay of 5us and set the current page only if the bus write has not
+failed.
+
+Signed-off-by: Ansuel Smith <ansuelsmth@gmail.com>
+---
+ drivers/net/dsa/qca8k.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index 5bdac669a339..be58a53daa28 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -133,10 +133,14 @@ qca8k_set_page(struct mii_bus *bus, u16 page)
+ 	if (page == qca8k_current_page)
+ 		return;
+ 
+-	if (bus->write(bus, 0x18, 0, page) < 0)
++	if (bus->write(bus, 0x18, 0, page)) {
+ 		dev_err_ratelimited(&bus->dev,
+ 				    "failed to set qca8k page\n");
++		return;
++	}
++
+ 	qca8k_current_page = page;
++	udelay(5);
+ }
+ 
+ static u32
+-- 
+2.29.2
+
