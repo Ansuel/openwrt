@@ -1,0 +1,80 @@
+From 9c266f3a9aaeb1c73d4e3467a2dbdcc8d3a7ecfe Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Tue, 9 Feb 2021 09:49:33 +0100
+Subject: [PATCH 1/5] net: dsa: qca8k: add mac_power_sel support
+
+Add missing mac power sel support needed for some switch that requires
+additional setup. ar8327 have a different setup than 8337.
+
+Signed-off-by: Ansuel Smith <ansuelsmth@gmail.com>
+---
+ drivers/net/dsa/qca8k.c | 29 +++++++++++++++++++++++++++++
+ drivers/net/dsa/qca8k.h |  5 +++++
+ 2 files changed, 34 insertions(+)
+
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index 49c82fd029cd..9e295484f309 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -697,6 +697,31 @@ qca8k_setup_mdio_bus(struct qca8k_priv *priv)
+ 	return 0;
+ }
+ 
++static int
++qca8k_setup_mac_pwr_sel(struct qca8k_priv *priv)
++{
++	struct device_node *node = priv->dev->of_node;
++	u32 mask = 0;
++	int ret = 0;
++
++	if (of_property_read_bool(node, "qca8k,rgmii0_1_8v"))
++		mask |= QCA8K_MAC_PWR_RGMII0_1_8V;
++
++	if (of_property_read_bool(node, "qca8k,rgmii56_1_8v"))
++		mask |= QCA8K_MAC_PWR_RGMII1_1_8V;
++
++	if (mask) {
++		ret = qca8k_rmw(priv, QCA8K_REG_MAC_PWR_SEL,
++				QCA8K_MAC_PWR_RGMII0_1_8V |
++					QCA8K_MAC_PWR_RGMII1_1_8V,
++				mask);
++	}
++
++	of_node_put(node);
++
++	return ret;
++}
++
+ static int
+ qca8k_setup(struct dsa_switch *ds)
+ {
+@@ -827,6 +852,10 @@ qca8k_setup(struct dsa_switch *ds)
+ 				mask);
+ 	}
+ 
++	ret = qca8k_setup_mac_pwr_sel(priv);
++	if (ret < 0)
++		return ret;
++
+ 	/* Flush the FDB table */
+ 	qca8k_fdb_flush(priv);
+ 
+diff --git a/drivers/net/dsa/qca8k.h b/drivers/net/dsa/qca8k.h
+index 0ff7abbd40dc..003f9a340706 100644
+--- a/drivers/net/dsa/qca8k.h
++++ b/drivers/net/dsa/qca8k.h
+@@ -94,6 +94,11 @@
+ #define   QCA8K_SGMII_MODE_CTRL_PHY			(1 << 22)
+ #define   QCA8K_SGMII_MODE_CTRL_MAC			(2 << 22)
+ 
++/* MAC_PWR_SEL registers */
++#define QCA8K_REG_MAC_PWR_SEL				0x0e4
++#define   QCA8K_MAC_PWR_RGMII1_1_8V			BIT(18)
++#define   QCA8K_MAC_PWR_RGMII0_1_8V			BIT(19)
++
+ /* EEE control registers */
+ #define QCA8K_REG_EEE_CTRL				0x100
+ #define  QCA8K_REG_EEE_CTRL_LPI_EN(_i)			((_i + 1) * 2)
+-- 
+2.29.2
+
