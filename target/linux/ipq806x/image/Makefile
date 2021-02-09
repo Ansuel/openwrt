@@ -97,6 +97,7 @@ define Device/ZyXELImage
 endef
 
 define Device/asrock_g10
+	$(Device/dsa-migration)
 	$(call Device/FitImage)
 	$(call Device/UbiFit)
 	SOC := qcom-ipq8064

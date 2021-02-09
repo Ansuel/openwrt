@@ -12,7 +12,6 @@ board_config_update
 board=$(board_name)
 
 case "$board" in
-asrock,g10 |\
 nec,wg2600hp)
 	ucidef_add_switch "switch0" \
 		"2:lan" "3:lan" "4:lan" "5:lan" "6@eth1" "1:wan" "0@eth0"
@@ -50,6 +49,7 @@ nec,wg2600hp3)
 	ucidef_add_switch "switch0" \
 		"2:lan" "3:lan" "4:lan" "5:lan" "0@eth1" "1:wan" "6@eth0"
 	;;
+asrock,g10 |\
 netgear,r7800)
 	ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" "wan"
 	;;
