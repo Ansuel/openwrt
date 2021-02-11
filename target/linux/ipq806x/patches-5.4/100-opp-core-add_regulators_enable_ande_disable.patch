@@ -1,0 +1,106 @@
+From 8d45719caaf56c859be0172447f8559c0df40f93 Mon Sep 17 00:00:00 2001
+From: Kamil Konieczny <k.konieczny@samsung.com>
+Date: Fri, 19 Jul 2019 17:05:32 +0200
+Subject: opp: core: add regulators enable and disable
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add enable regulators to dev_pm_opp_set_regulators() and disable
+regulators to dev_pm_opp_put_regulators(). Even if bootloader
+leaves regulators enabled, they should be enabled in kernel in
+order to increase the reference count.
+
+Tested-by: Marek Szyprowski <m.szyprowski@samsung.com>
+Acked-by: Clément Péron <peron.clem@gmail.com>
+Tested-by: Clément Péron <peron.clem@gmail.com>
+Signed-off-by: Kamil Konieczny <k.konieczny@samsung.com>
+[ Viresh: Enable the regulator only after it is programmed and add a
+	  flag to track its status. ]
+Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
+---
+ drivers/opp/core.c | 28 ++++++++++++++++++++++++++--
+ drivers/opp/opp.h  |  2 ++
+ 2 files changed, 28 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/opp/core.c b/drivers/opp/core.c
+index 5e1035a041aee..8efe12a90ce89 100644
+--- a/drivers/opp/core.c
++++ b/drivers/opp/core.c
+@@ -685,7 +685,7 @@ static inline int _generic_set_opp_clk_only(struct device *dev, struct clk *clk,
+ 	return ret;
+ }
+ 
+-static int _generic_set_opp_regulator(const struct opp_table *opp_table,
++static int _generic_set_opp_regulator(struct opp_table *opp_table,
+ 				      struct device *dev,
+ 				      unsigned long old_freq,
+ 				      unsigned long freq,
+@@ -720,6 +720,18 @@ static int _generic_set_opp_regulator(const struct opp_table *opp_table,
+ 			goto restore_freq;
+ 	}
+ 
++	/*
++	 * Enable the regulator after setting its voltages, otherwise it breaks
++	 * some boot-enabled regulators.
++	 */
++	if (unlikely(!opp_table->regulator_enabled)) {
++		ret = regulator_enable(reg);
++		if (ret < 0)
++			dev_warn(dev, "Failed to enable regulator: %d", ret);
++		else
++			opp_table->regulator_enabled = true;
++	}
++
+ 	return 0;
+ 
+ restore_freq:
+@@ -845,6 +857,11 @@ int dev_pm_opp_set_rate(struct device *dev, unsigned long target_freq)
+ 			ret = -EINVAL;
+ 		}
+ 
++		if (opp_table->regulator_enabled) {
++			regulator_disable(opp_table->regulators[0]);
++			opp_table->regulator_enabled = false;
++		}
++
+ 		goto put_opp_table;
+ 	}
+ 
+@@ -1680,6 +1697,13 @@ void dev_pm_opp_put_regulators(struct opp_table *opp_table)
+ 	/* Make sure there are no concurrent readers while updating opp_table */
+ 	WARN_ON(!list_empty(&opp_table->opp_list));
+ 
++	if (opp_table->regulator_enabled) {
++		for (i = opp_table->regulator_count - 1; i >= 0; i--)
++			regulator_disable(opp_table->regulators[i]);
++
++		opp_table->regulator_enabled = false;
++	}
++
+ 	for (i = opp_table->regulator_count - 1; i >= 0; i--)
+ 		regulator_put(opp_table->regulators[i]);
+ 
+diff --git a/drivers/opp/opp.h b/drivers/opp/opp.h
+index 2b81ffef1ba4e..e51646ff279eb 100644
+--- a/drivers/opp/opp.h
++++ b/drivers/opp/opp.h
+@@ -147,6 +147,7 @@ enum opp_table_access {
+  * @clk: Device's clock handle
+  * @regulators: Supply regulators
+  * @regulator_count: Number of power supply regulators. Its value can be -1
++ * @regulator_enabled: Set to true if regulators were previously enabled.
+  * (uninitialized), 0 (no opp-microvolt property) or > 0 (has opp-microvolt
+  * property).
+  * @paths: Interconnect path handles
+@@ -194,6 +195,7 @@ struct opp_table {
+ 	struct clk *clk;
+ 	struct regulator **regulators;
+ 	int regulator_count;
++	bool regulator_enabled;
+ 	bool genpd_performance_state;
+  	bool is_genpd;
+ 
+-- 
+cgit 1.2.3-1.el7
+
