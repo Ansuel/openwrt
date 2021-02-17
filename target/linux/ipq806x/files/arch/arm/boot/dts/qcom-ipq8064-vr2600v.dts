@@ -288,7 +288,7 @@
 	pinctrl-names = "default";
 
 	switch@10 {
-		compatible = "qca,qca8327";
+		compatible = "qca,qca8337";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x10>;
