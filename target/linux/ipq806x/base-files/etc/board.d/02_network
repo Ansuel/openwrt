@@ -21,8 +21,7 @@ compex,wpq864 |\
 netgear,d7800 |\
 netgear,r7500 |\
 netgear,r7500v2 |\
-qcom,ipq8064-ap148 |\
-tplink,vr2600v)
+qcom,ipq8064-ap148)
 	ucidef_add_switch "switch0" \
 		"1:lan" "2:lan" "3:lan" "4:lan" "6@eth1" "5:wan" "0@eth0"
 	;;
@@ -45,6 +44,7 @@ nec,wg2600hp3)
 asrock,g10 |\
 tplink,ad7200 |\
 tplink,c2600 | \
+tplink,vr2600v |\
 netgear,r7800)
 	ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" "wan"
 	;;
