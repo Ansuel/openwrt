@@ -152,6 +152,7 @@ endef
 TARGET_DEVICES += edgecore_ecw5410
 
 define Device/linksys_ea7500-v1
+	$(Device/dsa-migration)
 	$(call Device/LegacyImage)
 	DEVICE_VENDOR := Linksys
 	DEVICE_MODEL := EA7500
@@ -169,6 +170,7 @@ endef
 TARGET_DEVICES += linksys_ea7500-v1
 
 define Device/linksys_ea8500
+	$(Device/dsa-migration)
 	$(call Device/LegacyImage)
 	DEVICE_VENDOR := Linksys
 	DEVICE_MODEL := EA8500
@@ -340,6 +342,7 @@ endef
 TARGET_DEVICES += qcom_ipq8064-db149
 
 define Device/tplink_ad7200
+	$(Device/dsa-migration)
 	$(call Device/TpSafeImage)
 	DEVICE_VENDOR := TP-Link
 	DEVICE_MODEL := AD7200
@@ -356,6 +359,7 @@ endef
 TARGET_DEVICES += tplink_ad7200
 
 define Device/tplink_c2600
+	$(Device/dsa-migration)
 	$(call Device/TpSafeImage)
 	DEVICE_VENDOR := TP-Link
 	DEVICE_MODEL := Archer C2600
