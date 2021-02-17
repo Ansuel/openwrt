@@ -531,7 +531,7 @@
  	firmware {
  		scm {
  			compatible = "qcom,scm-ipq806x", "qcom,scm";
-@@ -120,6 +588,99 @@
+@@ -120,6 +588,95 @@
  			reg-names = "lpass-lpaif";
  		};
  
@@ -592,7 +592,6 @@
 +					regulator-max-microvolt = <1150000>;
 +
 +					qcom,switch-mode-frequency = <1200000>;
-+					regulator-boot-on;
 +				};
 +
 +				smb208_s1b: s1b {
@@ -600,7 +599,6 @@
 +					regulator-max-microvolt = <1150000>;
 +
 +					qcom,switch-mode-frequency = <1200000>;
-+					regulator-boot-on;
 +				};
 +
 +				smb208_s2a: s2a {
@@ -608,7 +606,6 @@
 +					regulator-max-microvolt = <1250000>;
 +
 +					qcom,switch-mode-frequency = <1200000>;
-+					regulator-boot-on;
 +				};
 +
 +				smb208_s2b: s2b {
@@ -616,7 +613,6 @@
 +					regulator-max-microvolt = <1250000>;
 +
 +					qcom,switch-mode-frequency = <1200000>;
-+					regulator-boot-on;
 +				};
 +			};
 +		};
