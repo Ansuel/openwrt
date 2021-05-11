@@ -1,0 +1,400 @@
+From 96a7b07433e585eef3b4ff8cb15265813ecb0997 Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Thu, 4 Mar 2021 10:03:32 +0100
+Subject: [PATCH 4/7] drivers: net: dsa: qca8k: add support for led config
+
+Add support for led control and led toggle.
+qca8337 switch have various reg to control port leds.
+The current implementation permit to toggle them on/off and to declare
+their blink rules based on the entry in the dts.
+They can also be declared in userspace by the "control_rule" entry in
+the led sysfs.
+Due to some hardware limitation, the led can only be turned off or set
+to follow the control_rule. This is due to a limitation where multiple
+leds are connected to one reg and only one of them would actually follow
+the "always-on" rule with the other following the blink rules like blink
+on rx/tx traffic.
+
+Signed-off-by: Ansuel Smith <ansuelsmth@gmail.com>
+---
+ drivers/net/dsa/qca8k.c | 283 ++++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/qca8k.h |  41 ++++++
+ 2 files changed, 324 insertions(+)
+
+diff --git a/drivers/net/dsa/qca8k.c b/drivers/net/dsa/qca8k.c
+index a90f2c8e9fa7..ed904f8de41f 100644
+--- a/drivers/net/dsa/qca8k.c
++++ b/drivers/net/dsa/qca8k.c
+@@ -18,6 +18,7 @@
+ #include <linux/phylink.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/etherdevice.h>
++#include <linux/leds.h>
+ 
+ #include "qca8k.h"
+ 
+@@ -980,6 +981,284 @@ qca8k_setup_mac_pwr_sel(struct qca8k_priv *priv)
+ 	return ret;
+ }
+ 
++static u32 qca8k_get_leds_reg(int rule)
++{
++	switch (rule) {
++	case 0:
++	case 1:
++		return QCA8K_LED_CTRL0_REG;
++	case 2:
++	case 3:
++		return QCA8K_LED_CTRL1_REG;
++	case 4:
++	case 5:
++		return QCA8K_LED_CTRL2_REG;
++	/* We can't reach this as the reg is validated on led registration */
++	default:
++		return -EINVAL;
++	}
++}
++
++static int
++qca8k_setup_led_rules(struct qca8k_led *led, struct device_node *node)
++{
++	const char **rules;
++	int i, count, ret;
++	const char *rule;
++	u32 val = 0;
++
++	rules = kcalloc(QCA8K_LED_RULE_MAX, sizeof(*rules), GFP_KERNEL);
++	if (!rules)
++		return -ENOMEM;
++
++	ret = of_property_read_string_array(node, "qca8k,led_rules", rules, QCA8K_LED_RULE_MAX);
++	if (ret < 0)
++		return ret;
++
++	count = (unsigned int)ret;
++
++	for (i=0; i < count; i++) {
++		rule = rules[i];
++
++		if (!(val & QCA8K_LED_PATTERN_EN_MASK)) {
++			if (!strcmp(rule, "always-off"))
++				val |= QCA8K_LED_ALWAYS_OFF << QCA8K_LED_PATTERN_EN_SHIFT;
++			else if (!strcmp(rule, "always-blink-4hz"))
++				val |= QCA8K_LED_ALWAYS_BLINK_4HZ << QCA8K_LED_PATTERN_EN_SHIFT;
++			else if (!strcmp(rule, "always-on"))
++				val |= QCA8K_LED_ALWAYS_ON << QCA8K_LED_PATTERN_EN_SHIFT;
++			else if (!strcmp(rule, "rule-controlled"))
++				val |= QCA8K_LED_RULE_CONTROLLED << QCA8K_LED_PATTERN_EN_SHIFT;
++		}
++
++		if (!strcmp(rule, "tx-blink"))
++			val |= QCA8K_LED_TX_BLINK_MASK;
++
++		if (!strcmp(rule, "rx-blink"))
++			val |= QCA8K_LED_RX_BLINK_MASK;
++
++		if (!strcmp(rule, "collision-blink"))
++			val |= QCA8K_LED_COL_BLINK_MASK;
++
++		if (!strcmp(rule, "link-10M"))
++			val |= QCA8K_LED_LINK_10M_EN_MASK;
++
++		if (!strcmp(rule, "link-100M"))
++			val |= QCA8K_LED_LINK_100M_EN_MASK;
++
++		if (!strcmp(rule, "link-1000M"))
++			val |= QCA8K_LED_LINK_1000M_EN_MASK;
++
++		if (!strcmp(rule, "half-duplex"))
++			val |= QCA8K_LED_HALF_DUPLEX_MASK;
++
++		if (!strcmp(rule, "full-duplex"))
++			val |= QCA8K_LED_FULL_DUPLEX_MASK;
++
++		if (!strcmp(rule, "linkup-over"))
++			val |= QCA8K_LED_LINKUP_OVER_MASK;
++
++		if (!strcmp(rule, "power-on-reset"))
++			val |= QCA8K_LED_POWER_ON_LIGHT_MASK;
++
++		if (!(val & QCA8K_LED_BLINK_FREQ_MASK)) {
++			if (!strcmp(rule, "blink-2hz"))
++				val |= QCA8K_LED_BLINK_2HZ << QCA8K_LED_BLINK_FREQ_SHITF;
++			else if (!strcmp(rule, "blink-4hz"))
++				val |= QCA8K_LED_BLINK_4HZ << QCA8K_LED_BLINK_FREQ_SHITF;
++			else if (!strcmp(rule, "blink-8hz"))
++				val |= QCA8K_LED_BLINK_8HZ << QCA8K_LED_BLINK_FREQ_SHITF;
++			else if (!strcmp(rule, "blink-auto"))
++				val |= QCA8K_LED_BLINK_AUTO << QCA8K_LED_BLINK_FREQ_SHITF;
++		}
++	}
++
++	kfree(rules);
++
++	ret = qca8k_rmw(led->priv, qca8k_get_leds_reg(led->rule_num),
++			QCA8K_LED_CTRL_MASK << QCA8K_LED_CTRL_SHIFT(led->rule_num),
++			val << QCA8K_LED_CTRL_SHIFT(led->rule_num));
++
++	return ret;
++}
++
++static ssize_t control_rule_show(struct device *dev, struct device_attribute *attr,
++			      char *buf)
++{
++	struct led_classdev *led_cdev = dev_get_drvdata(dev);
++	struct qca8k_led *led = container_of(led_cdev, struct qca8k_led, cdev);
++	int rule = led->rule_num;
++	u32 value;
++
++	value = qca8k_read(led->priv, qca8k_get_leds_reg(rule));
++	value &= QCA8K_LED_CTRL_MASK << QCA8K_LED_CTRL_SHIFT(rule);
++
++	return sprintf(buf, "%x\n", value >> QCA8K_LED_CTRL_SHIFT(rule));
++}
++
++static ssize_t control_rule_store(struct device *dev,
++			       struct device_attribute *attr, const char *buf,
++			       size_t size)
++{
++	struct led_classdev *led_cdev = dev_get_drvdata(dev);
++	struct qca8k_led *led = container_of(led_cdev, struct qca8k_led, cdev);
++	int ret, rule = led->rule_num;
++	ssize_t status;
++	long value;
++
++	status = kstrtol(buf, 0, &value);
++	if (status)
++		return status;
++
++	if (value < 0)
++		return -EINVAL;
++
++	value &= QCA8K_LED_CTRL_MASK;
++
++	ret = qca8k_rmw(led->priv, qca8k_get_leds_reg(rule),
++			QCA8K_LED_CTRL_MASK << QCA8K_LED_CTRL_SHIFT(rule),
++			value << QCA8K_LED_CTRL_SHIFT(rule));
++	if (ret)
++		return ret;
++
++	return size;
++}
++
++static DEVICE_ATTR_RW(control_rule);
++
++static struct attribute *qca8k_leds_attrs[] = {
++	&dev_attr_control_rule.attr,
++	NULL,
++};
++
++static struct attribute_group qca8k_leds_rule_group = {
++	.attrs = qca8k_leds_attrs,
++};
++
++static const struct attribute_group *qca8k_leds_groups[] = {
++	&qca8k_leds_rule_group,
++	NULL,
++};
++
++static void qca8k_cled_brightness_set(struct led_classdev *ldev,
++					enum led_brightness b)
++{
++	struct qca8k_led *led = container_of(ldev, struct qca8k_led, cdev);
++	int rule = led->rule_num;
++	u32 val;
++
++	/* Only last led follow the on off rule. To switch off other led
++	 * a wipe of the control rule is required.
++	 * Save old rule and restore when asked to turn on leds.
++	 */
++	if (b) {
++		qca8k_rmw(led->priv, qca8k_get_leds_reg(rule),
++			  QCA8K_LED_CTRL_MASK << QCA8K_LED_CTRL_SHIFT(rule),
++			  led->old_rule << QCA8K_LED_CTRL_SHIFT(rule));
++	} else {
++		val = qca8k_read(led->priv, qca8k_get_leds_reg(rule));
++		val &= QCA8K_LED_CTRL_MASK << QCA8K_LED_CTRL_SHIFT(rule);
++		led->old_rule = val >> QCA8K_LED_CTRL_SHIFT(rule);
++		qca8k_rmw(led->priv,  qca8k_get_leds_reg(rule),
++			QCA8K_LED_CTRL_MASK << QCA8K_LED_CTRL_SHIFT(rule),
++			0 << QCA8K_LED_CTRL_SHIFT(rule));
++	}
++
++	return;
++}
++
++static enum led_brightness qca8k_led_brightness_get(struct qca8k_led *led)
++{
++	int rule = led->rule_num;
++	u32 val;
++
++	val = qca8k_read(led->priv, qca8k_get_leds_reg(rule));
++
++	val >>= QCA8K_LED_CTRL_SHIFT(led->rule_num);
++	val &= QCA8K_LED_PATTERN_EN_MASK;
++	val >>= QCA8K_LED_PATTERN_EN_SHIFT;
++
++	return val ? 1 : 0;
++}
++
++static enum led_brightness qca8k_cled_brightness_get(struct led_classdev *ldev)
++{
++	struct qca8k_led *led = container_of(ldev, struct qca8k_led, cdev);
++
++	return qca8k_led_brightness_get(led);
++}
++
++static int
++qca8k_setup_led_ctrl(struct qca8k_priv *priv)
++{
++	struct device_node *node = priv->dev->of_node, *leds, *led;
++	struct qca8k_led *port_led;
++	const char *state;
++	int port_num;
++	int ret;
++
++	leds = of_find_node_by_name(node, "leds");
++	if(!leds) {
++		dev_warn(priv->dev, "No LEDs specified in device tree!\n");
++		return 0;
++	}
++
++	led = of_get_next_available_child(leds, led);
++	while(led) {
++
++		if (of_property_read_u32(led, "reg", &port_num))
++			continue;
++
++		if (port_num >= QCA8K_LED_RULE_COUNT) {
++			dev_warn(priv->dev, "Invalid LED reg defined %d", port_num);
++			continue;
++		}
++
++		port_led = &priv->ports_led[port_num];
++		port_led->rule_num = port_num;
++		port_led->priv = priv;
++		port_led->cdev.name = of_get_property(led, "label", NULL) ? : led->name;
++
++		ret = of_property_read_string(led, "default-state", &state);
++		if (!ret) {
++			if (!strcmp(state, "on"))
++				port_led->cdev.brightness = 1;
++			else if (!strcmp(state, "off"))
++				port_led->cdev.brightness = 0;
++			else if (!strcmp(state, "keep"))
++				port_led->cdev.brightness =
++					qca8k_led_brightness_get(port_led);
++		}
++
++		/* 3 brightness settings can be applied from Documentation:
++		 * 0 always off
++		 * 1 blink at 4Hz
++		 * 2 always on
++		 * 3 rule controlled
++		 * Suppots only 2 mode: (pcb limitation, with always on and blink
++		 * only the last led is set to this mode)
++		 * 0 always off (sets all leds off)
++		 * 3 rule controlled
++		 */
++		port_led->cdev.max_brightness = 1;
++		port_led->cdev.brightness_set = qca8k_cled_brightness_set;
++		port_led->cdev.brightness_get = qca8k_cled_brightness_get;
++		port_led->cdev.groups = qca8k_leds_groups;
++
++		ret = qca8k_setup_led_rules(port_led, led);
++		if (ret)
++			dev_warn(priv->dev, "Failed to apply led control rules for %s", port_led->cdev.name);
++
++		led_classdev_register(priv->dev, &port_led->cdev);
++
++		led = of_get_next_available_child(leds, led);
++	}
++
++	of_node_put(leds);
++
++	return 0;
++}
++
+ static int
+ qca8k_setup(struct dsa_switch *ds)
+ {
+@@ -1018,6 +1297,10 @@ qca8k_setup(struct dsa_switch *ds)
+ 		qca8k_reg_set(priv, QCA8K_REG_PORT0_PAD_CTRL,
+ 			      QCA8K_PORT_PAD0_MAC6_EXCHANGE_EN);
+ 
++	ret = qca8k_setup_led_ctrl(priv);
++	if (ret)
++		return ret;
++
+ 	/* Enable CPU Port */
+ 	ret = qca8k_reg_set(priv, QCA8K_REG_GLOBAL_FW_CTRL0,
+ 			    QCA8K_GLOBAL_FW_CTRL0_CPU_PORT_EN);
+diff --git a/drivers/net/dsa/qca8k.h b/drivers/net/dsa/qca8k.h
+index 37c730e6d08c..29289d3b72b0 100644
+--- a/drivers/net/dsa/qca8k.h
++++ b/drivers/net/dsa/qca8k.h
+@@ -65,6 +65,39 @@
+ #define   QCA8K_MDIO_MASTER_DATA_MASK			GENMASK(15, 0)
+ #define   QCA8K_MDIO_MASTER_MAX_PORTS			5
+ #define   QCA8K_MDIO_MASTER_MAX_REG			32
++
++/* LED control register */
++#define QCA8K_LED_RULE_COUNT				6
++#define QCA8K_LED_RULE_MAX				12
++#define QCA8K_LED_CTRL0_REG				0x50
++#define QCA8K_LED_CTRL1_REG				0x54
++#define QCA8K_LED_CTRL2_REG				0x58
++#define QCA8K_LED_CTRL3_REG				0x5C
++#define   QCA8K_LED_CTRL_SHIFT(_i)			((_i % 2) * 16)
++#define   QCA8K_LED_CTRL_MASK				GENMASK(15, 0)
++#define QCA8K_LED_BLINK_FREQ_MASK			GENMASK(1, 0)
++#define QCA8K_LED_BLINK_FREQ_SHITF			0
++#define   QCA8K_LED_BLINK_2HZ				0
++#define   QCA8K_LED_BLINK_4HZ				1
++#define   QCA8K_LED_BLINK_8HZ				2
++#define   QCA8K_LED_BLINK_AUTO				3
++#define QCA8K_LED_LINKUP_OVER_MASK			BIT(2)
++#define QCA8K_LED_TX_BLINK_MASK				BIT(4)
++#define QCA8K_LED_RX_BLINK_MASK				BIT(5)
++#define QCA8K_LED_COL_BLINK_MASK			BIT(7)
++#define QCA8K_LED_LINK_10M_EN_MASK			BIT(8)
++#define QCA8K_LED_LINK_100M_EN_MASK			BIT(9)
++#define QCA8K_LED_LINK_1000M_EN_MASK			BIT(10)
++#define QCA8K_LED_POWER_ON_LIGHT_MASK			BIT(11)
++#define QCA8K_LED_HALF_DUPLEX_MASK			BIT(12)
++#define QCA8K_LED_FULL_DUPLEX_MASK			BIT(13)
++#define QCA8K_LED_PATTERN_EN_MASK			GENMASK(15, 14)
++#define QCA8K_LED_PATTERN_EN_SHIFT			14
++#define   QCA8K_LED_ALWAYS_OFF				0
++#define   QCA8K_LED_ALWAYS_BLINK_4HZ			1
++#define   QCA8K_LED_ALWAYS_ON				2
++#define   QCA8K_LED_RULE_CONTROLLED			3
++
+ #define QCA8K_GOL_MAC_ADDR0				0x60
+ #define QCA8K_GOL_MAC_ADDR1				0x64
+ #define QCA8K_MAX_FRAME_SIZE				0x78
+@@ -256,6 +289,13 @@ struct qca8k_match_data {
+ 	u8 id;
+ };
+ 
++struct qca8k_led {
++	u8 rule_num;
++	u16 old_rule;
++	struct qca8k_priv *priv;
++	struct led_classdev cdev;
++};
++
+ struct qca8k_priv {
+ 	u8 switch_id;
+ 	u8 switch_revision;
+@@ -271,6 +311,7 @@ struct qca8k_priv {
+ 	struct dsa_switch_ops ops;
+ 	struct gpio_desc *reset_gpio;
+ 	unsigned int port_mtu[QCA8K_NUM_PORTS];
++	struct qca8k_led ports_led[QCA8K_LED_RULE_COUNT];
+ };
+ 
+ struct qca8k_mib_desc {
+-- 
+2.31.1
+

@@ -1,0 +1,100 @@
+From 38e07d9284f2e539c3efbfc6f6a267101948a357 Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Thu, 4 Mar 2021 10:08:59 +0100
+Subject: [PATCH 5/7] Documentation: devicetree: net: dsa: qca8k: document
+ configurable led support
+
+Document binding for configurable led. Ports led can now be set on/off
+and the blink/on rules can be configured using the "qca8k,led_rules"
+binding. Refer to the Documentation on how to configure them.
+
+Signed-off-by: Ansuel Smith <ansuelsmth@gmail.com>
+---
+ .../devicetree/bindings/net/dsa/qca8k.txt     | 67 +++++++++++++++++++
+ 1 file changed, 67 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/dsa/qca8k.txt b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+index 6e73e2bfbce2..65a40310793f 100644
+--- a/Documentation/devicetree/bindings/net/dsa/qca8k.txt
++++ b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+@@ -32,6 +32,40 @@ the mdio MASTER is used as communication.
+ Don't use mixed external and internal mdio-bus configurations, as this is
+ not supported by the hardware.
+ 
++A leds subnode can be declared to configure leds port behaviour.
++Reg binding refer to the control rule:
++0: 	phy0-phy3 led0 control rule
++1:	phy4 led0 control rule
++2:	phy0-phy3 led1 control rule
++3:	phy4 led1 control rule
++4:	phy0-phy3 led2 control rule
++5:	phy4 led2 control rule
++The binding "default-state" can be declared to set them off by default or to
++follow leds control_rule
++The binding "qca8k,led_rules" can be used to declare the control_rule set on
++switch setup. The following rules can be applied decalred in an array of string
++in the dts:
++- One of (Limitation with multiple led attached only the last one follow this)
++	- always-off: Led always off
++	- always-blink-4hz: Led blink at 4hz
++	- always-on: Led always on
++	- rule-controlled: Led follow the declared rules
++- tx-blink: Led blink on tx traffic for the port
++- rx-blink: Led blink on rx traffic for the port
++- collision-blink: Led blink when a collision is detected for the port
++- link-10M: Led is turned on when a link of 10M is detected for the port
++- link-100M: Led is turned on when a link of 100M is detected for the port
++- link-1000M: Led is turned on when a link of 1000M is detected for the port
++- half-duplex: Led is turned on when a half-duplex link is detected for the port
++- full-duplex: Led is turned on when a full-duplex link is detected for the port
++- linkup-over: Led blinks only when the linkup led is on, ignore blink otherwise
++- power-on-reset: Reset led on switch reset
++- One of
++	- blink-2hz: Led blinks at 2hz frequency
++	- blink-4hz: Led blinks at 4hz frequency
++	- blink-8hz: Led blinks at 8hz frequency
++	- blink-auto: Led blinks at 2hz frequency with 10M, 4hz with 100M, 8hz with 1000M
++
+ The CPU port of this switch is always port 0.
+ 
+ A CPU port node has the following optional node:
+@@ -216,3 +250,36 @@ for the internal master mdio-bus configuration:
+ 			};
+ 		};
+ 	};
++
++for port leds example:
++
++	&mdio0 {
++		switch@10 {
++			compatible = "qca,qca8337";
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			ports {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				...
++			};
++
++			leds {
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				port_rule@0 {
++					reg = <0>;
++					label = "white:lan_leds";
++				};
++
++				port_rule@2 {
++					reg = <2>;
++					label = "amber:lan_leds";
++					qca8k,led_rules = "tx-blink", "rule-controlled", "link-1000M", "blink-8hz";
++				};
++			};
++		};
++	};
+-- 
+2.31.1
+
