@@ -1,0 +1,11 @@
+--- a/drivers/net/dsa/qca8k.c	2021-08-06 18:43:39.045392107 +0200
++++ b/drivers/net/dsa/qca8k.c	2021-08-06 18:46:01.784552028 +0200
+@@ -1454,6 +1454,8 @@ qca8k_setup(struct dsa_switch *ds)
+ 
+ 	/* We don't have interrupts for link changes, so we need to poll */
+ 	ds->pcs_poll = true;
++
++	ds->assisted_learning_on_cpu_port = true;
+ 
+ 	return 0;
+ }
