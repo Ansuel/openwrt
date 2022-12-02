@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 jobs:
-  setup_build:
+  setup_build: 
     name: Setup build
     runs-on: ubuntu-latest
     outputs:
