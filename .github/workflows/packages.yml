@@ -2,7 +2,7 @@ name: Build all core packages
 
 on:
   pull_request:
-    paths:
+    paths: 
       - '.github/workflows/packages.yml'
       - 'config/**'
       - 'include/**'
