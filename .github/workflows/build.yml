@@ -253,7 +253,7 @@ jobs:
           echo CONFIG_TARGET_ALL_PROFILES=y >> .config
 
       - name: Configure external toolchain
-        if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type == 'external_toolchain'
+        if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type == 'external_toolchain' 
         shell: su buildbot -c "sh -e {0}"
         working-directory: openwrt
         run: |
@@ -267,7 +267,7 @@ jobs:
             --config ${{ env.TARGET }}/${{ env.SUBTARGET }}
 
       - name: Adapt external sdk to external toolchain format
-        if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type == 'external_sdk'
+        if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type == 'external_sdk' && steps.cache-external-toolchain.outputs.cache-hit != 'true'
         shell: su buildbot -c "sh -e {0}"
         working-directory: openwrt
         run: |
@@ -280,9 +280,17 @@ jobs:
 
           cd $TOOLCHAIN_BIN
 
+          echo $TOOLCHAIN_BIN
+
+          ls -la
+
+          find . -name "*.bin"
+
           # Revert sdk wrapper scripts applied to all the bins
           for app in $(find . -name "*.bin"); do
+
             TARGET_APP=$(echo $app | sed 's/\.\/\.\(.*\)\.bin/\1/')
+            echo $TARGET_APP $app
             rm $TARGET_APP
             mv .$TARGET_APP.bin $TARGET_APP
           done

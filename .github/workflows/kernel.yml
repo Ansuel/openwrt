@@ -68,19 +68,18 @@ jobs:
     with:
       target: ${{ matrix.target }}
       build_all_kmods: true
-      include_feeds: true
 
-  check-kernel-patches:
-    name: Check Kernel patches
-    needs: determine_targets
-    permissions:
-      contents: read
-      packages: read
-    strategy:
-       fail-fast: False
-       matrix:
-         target: ${{fromJson(needs.determine_targets.outputs.target)}}
-    uses: ./.github/workflows/check-kernel-patches.yml
-    with:
-      target: ${{ matrix.target }}
+  # check-kernel-patches:
+  #   name: Check Kernel patches
+  #   needs: determine_targets
+  #   permissions:
+  #     contents: read
+  #     packages: read
+  #   strategy:
+  #      fail-fast: False
+  #      matrix:
+  #        target: ${{fromJson(needs.determine_targets.outputs.target)}}
+  #   uses: ./.github/workflows/check-kernel-patches.yml
+  #   with:
+  #     target: ${{ matrix.target }}
 
