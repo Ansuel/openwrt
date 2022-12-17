@@ -37,6 +37,7 @@ jobs:
           - target: x86/64
     uses: ./.github/workflows/build.yml
     with:
+      container_name: toolchain-${{ matrix.target }}
       target: ${{ matrix.target }}
       build_kernel: true
       build_all_kmods: true
