@@ -1,3 +1,6 @@
-FROM registry.gitlab.com/openwrt/buildbot/buildworker-3.4.1
+ARG OWNER_LC
+ARG CONTAINER_TAG
+
+FROM ghcr.io/$OWNER_LC/base-minideb:$CONTAINER_TAG
 
 COPY --chown=buildbot:buildbot tools.tar /tools.tar

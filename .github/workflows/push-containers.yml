@@ -7,6 +7,7 @@ on:
       - '.github/workflows/build-tools.yml'
       - '.github/workflows/push-containers.yml'
       - '.github/workflows/Dockerfile.tools'
+      - '.github/workflows/Dockerfile.base'
       - 'toolchain/**'
       - '.github/workflows/build.yml'
       - '.github/workflows/toolchain.yml'
@@ -57,10 +58,42 @@ jobs:
           echo "Container tag to push for tools and toolchain is $CONTAINER_TAG"
           echo "container-tag=$CONTAINER_TAG" >> "$GITHUB_OUTPUT"
 
+  build-push-base-container:
+    needs: determine-container-info
+    name: Build and push base minideb container
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          path: 'openwrt'
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          context: openwrt
+          push: true
+          tags: ghcr.io/${{ needs.determine-container-info.outputs.owner-lc }}/base-minideb:${{ needs.determine-container-info.outputs.container-tag }}
+          file: openwrt/.github/workflows/Dockerfile.base
+
   build-linux-buildbot:
+    needs: [ determine-container-info, build-push-base-container ]
     name: Build tools with buildbot container
     uses: ./.github/workflows/build-tools.yml
     with:
+      container: ghcr.io/${{ needs.determine-container-info.outputs.owner-lc }}/base-minideb:${{ needs.determine-container-info.outputs.container-tag }}
       generate_prebuilt_artifacts: true
 
   push-tools-container:
@@ -98,6 +131,9 @@ jobs:
           push: true
           tags: ghcr.io/${{ needs.determine-container-info.outputs.owner-lc }}/tools:${{ needs.determine-container-info.outputs.container-tag }}
           file: openwrt/.github/workflows/Dockerfile.tools
+          build-args: |
+            OWNER_LC=${{ needs.determine-container-info.outputs.owner-lc }}
+            CONTAINER_TAG=${{ needs.determine-container-info.outputs.container-tag }}
 
   determine-targets:
     name: Set targets
