@@ -73,9 +73,8 @@ jobs:
             echo "/usr/local/opt/make/libexec/gnubin" >> "$GITHUB_PATH"
             echo "/usr/sbin" >> "$GITHUB_PATH"
 
-
-
-      - name: Cache ccache
+      - name: Cache tools
+        id: cache-tools
         uses: actions/cache@v3
         with:
           path: |
@@ -102,6 +101,12 @@ jobs:
         run: |
           make tools/bison/compile V=s
           make tools/libressl/compile V=s
+
+      - name: Make mkimage
+        working-directory: ${{ env.WORKPATH }}/openwrt
+        if: steps.cache-tools.outputs.cache-hit == 'true'
+        run: |
+          make tools/mkimage/compile V=s -j1
 
       # - name: Build tools MacOS
       #   working-directory: ${{ env.WORKPATH }}/openwrt

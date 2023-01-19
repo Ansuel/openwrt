@@ -20,12 +20,17 @@ HOST_BUILD_DIR:=$(BUILD_DIR_HOST)/u-boot-$(PKG_VERSION)
 
 include $(INCLUDE_DIR)/host-build.mk
 
+# see include/u-boot.mk, changes here may need to applied there as well
+UBOOT_MAKE_FLAGS = \
+	HOSTCC="$(HOSTCC)" \
+	HOSTCFLAGS="$(HOST_CFLAGS) $(HOST_CPPFLAGS) -std=gnu11" \
+	HOSTLDFLAGS="$(HOST_LDFLAGS)" \
+	PKG_CONFIG_EXTRAARGS="--static" \
+	$(if $(findstring c,$(OPENWRT_VERBOSE)),V=1,V='')
+
 define Host/Compile
-	$(MAKE) -C $(HOST_BUILD_DIR) \
-		HOSTCFLAGS="$(HOST_CFLAGS)" \
-		HOSTLDFLAGS="$(HOST_LDFLAGS)" \
-		PKG_CONFIG_EXTRAARGS="--static" \
-		V=$(if $(findstring c,$(OPENWRT_VERBOSE)),1) \
+	$(MAKE) $(PKG_JOBS) -C $(HOST_BUILD_DIR) \
+		$(UBOOT_MAKE_FLAGS) \
 		tools-only_config \
 		tools-only
 endef
