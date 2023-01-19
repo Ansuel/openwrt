@@ -87,18 +87,21 @@ jobs:
       - name: Refresh
         working-directory: ${{ env.WORKPATH }}/openwrt
         run: |
-          find staging_dir/host -not -type l -print0 | xargs -0 touch
-          find build_dir/host -not -type l -print0 | xargs -0 touch
+          [ ! -d staging_dir/host ] || find staging_dir/host -not -type l -print0 | xargs -0 touch
+          [ ! -d build_dir/host ] || find build_dir/host -not -type l -print0 | xargs -0 touch
 
       - name: Make prereq
         working-directory: ${{ env.WORKPATH }}/openwrt
-        run: make defconfig
+        run: |
+          echo CONFIG_DEVEL=y >> .config
+          echo CONFIG_AUTOREMOVE=y >> .config
+          make defconfig
 
       - name: Make tools lol
         working-directory: ${{ env.WORKPATH }}/openwrt
         run: |
-          make tools/bison/install V=s
-          make tools/libressl/install V=s
+          make tools/bison/compile V=s
+          make tools/libressl/compile V=s
 
       # - name: Build tools MacOS
       #   working-directory: ${{ env.WORKPATH }}/openwrt
