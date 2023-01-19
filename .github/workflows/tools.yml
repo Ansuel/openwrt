@@ -59,7 +59,7 @@ jobs:
             quilt \
             readline \
             wget \
-            zstd
+            zstd sdl2 sdl2_image sdl2_mixer sdl2_net sdl2_ttf
 
             echo "/bin" >> "$GITHUB_PATH"
             echo "/sbin/Library/Apple/usr/bin" >> "$GITHUB_PATH"
@@ -75,7 +75,8 @@ jobs:
 
 
 
-      - name: Cache ccache
+      - name: Cache tools
+        id: cache-tools
         uses: actions/cache@v3
         with:
           path: |
@@ -90,6 +91,13 @@ jobs:
           [ ! -d staging_dir/host ] || find staging_dir/host -not -type l -print0 | xargs -0 touch
           [ ! -d build_dir/host ] || find build_dir/host -not -type l -print0 | xargs -0 touch
 
+          sw_vers -productVersion
+
+          sw_vers -productVersion | cut -f 1 -d '.'
+          sw_vers -productVersion | cut -f 2 -d '.'
+
+          sdl2-config --cflags
+
       - name: Make prereq
         working-directory: ${{ env.WORKPATH }}/openwrt
         run: |
@@ -102,6 +110,12 @@ jobs:
         run: |
           make tools/bison/compile V=s
           make tools/libressl/compile V=s
+
+      - name: Make mkimage
+        working-directory: ${{ env.WORKPATH }}/openwrt
+        if: steps.cache-tools.outputs.cache-hit == 'true'
+        run: |
+          make tools/mkimage/compile V=s -j1
 
       # - name: Build tools MacOS
       #   working-directory: ${{ env.WORKPATH }}/openwrt
