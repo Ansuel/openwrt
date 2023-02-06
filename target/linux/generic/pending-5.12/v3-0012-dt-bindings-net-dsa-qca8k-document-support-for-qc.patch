@@ -1,0 +1,36 @@
+From 8c4c3758d02fed47d6731050a04ec28f94492c1b Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Fri, 8 Oct 2021 01:52:42 +0200
+Subject: [net-next PATCH v3 12/13] dt-bindings: net: dsa: qca8k: document
+ support for qca8328
+
+QCA8328 is the bigger brother of qca8327. Document the new compatible
+binding and add some information to understand the various switch
+compatible.
+
+Signed-off-by: Ansuel Smith <ansuelsmth@gmail.com>
+---
+ Documentation/devicetree/bindings/net/dsa/qca8k.txt | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/Documentation/devicetree/bindings/net/dsa/qca8k.txt b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+index 71cd45818430..e6b580d815c2 100644
+--- a/Documentation/devicetree/bindings/net/dsa/qca8k.txt
++++ b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+@@ -3,9 +3,10 @@
+ Required properties:
+ 
+ - compatible: should be one of:
+-    "qca,qca8327"
+-    "qca,qca8334"
+-    "qca,qca8337"
++    "qca,qca8328": referenced as AR8328(N)-AK1(A/B) QFN 176 pin package
++    "qca,qca8327": referenced as AR8327(N)-AL1A DR-QFN 148 pin package
++    "qca,qca8334": referenced as QCA8334-AL3C QFN 88 pin package
++    "qca,qca8337": referenced as QCA8337N-AL3(B/C) DR-QFN 148 pin package
+ 
+ - #size-cells: must be 0
+ - #address-cells: must be 1
+-- 
+2.32.0
+

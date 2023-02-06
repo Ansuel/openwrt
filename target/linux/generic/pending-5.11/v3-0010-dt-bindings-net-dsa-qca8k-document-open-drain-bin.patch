@@ -1,0 +1,39 @@
+From 218976ff96d5f64499616f2062e89cb52e0ed62f Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Sun, 19 Sep 2021 14:18:05 +0200
+Subject: [net-next PATCH v3 10/13] dt-bindings: net: dsa: qca8k: document open
+ drain binding
+
+Document new binding qca,power_on_sel used to enable Power-on-strapping
+select reg and qca,led_open_drain to set led to open drain mode.
+
+Signed-off-by: Ansuel Smith <ansuelsmth@gmail.com>
+---
+ Documentation/devicetree/bindings/net/dsa/qca8k.txt | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/dsa/qca8k.txt b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+index 05a8ddfb5483..71cd45818430 100644
+--- a/Documentation/devicetree/bindings/net/dsa/qca8k.txt
++++ b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+@@ -13,6 +13,17 @@ Required properties:
+ Optional properties:
+ 
+ - reset-gpios: GPIO to be used to reset the whole device
++- qca,ignore-power-on-sel: Ignore power on pin strapping to configure led open
++                           drain or eeprom presence. This is needed for broken
++                           device that have wrong configuration or when the oem
++                           decided to not use pin strapping and fallback to sw
++                           regs.
++- qca,led-open-drain: Set leds to open-drain mode. This require the
++                      qca,ignore-power-on-sel to be set or the driver will fail
++                      to probe. This is needed if the oem doesn't use pin
++                      strapping to set this mode and prefer to set it using sw
++                      regs. The pin strapping related to led open drain mode is
++                      the pin B68 for QCA832x and B49 for QCA833x
+ 
+ Subnodes:
+ 
+-- 
+2.32.0
+

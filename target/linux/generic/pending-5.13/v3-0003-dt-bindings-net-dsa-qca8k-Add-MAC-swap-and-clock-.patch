@@ -1,0 +1,34 @@
+From 6be042ac44ce9373bf1efc8337d78a8272fd9e55 Mon Sep 17 00:00:00 2001
+From: Ansuel Smith <ansuelsmth@gmail.com>
+Date: Mon, 1 Mar 2021 12:19:56 +0100
+Subject: [net-next PATCH v3 03/13] dt-bindings: net: dsa: qca8k: Add MAC swap
+ and clock phase properties
+
+Add names and descriptions of additional PORT0_PAD_CTRL properties.
+qca,sgmii-(rx|tx)clk-falling-edge are for setting the respective clock
+phase to failling edge.
+
+Signed-off-by: Matthew Hagan <mnhagan88@gmail.com>
+Signed-off-by: Ansuel Smith <ansuelsmth@gmail.com>
+---
+ Documentation/devicetree/bindings/net/dsa/qca8k.txt | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/Documentation/devicetree/bindings/net/dsa/qca8k.txt b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+index 8c73f67c43ca..cc214e655442 100644
+--- a/Documentation/devicetree/bindings/net/dsa/qca8k.txt
++++ b/Documentation/devicetree/bindings/net/dsa/qca8k.txt
+@@ -37,6 +37,10 @@ A CPU port node has the following optional node:
+                           managed entity. See
+                           Documentation/devicetree/bindings/net/fixed-link.txt
+                           for details.
++- qca,sgmii-rxclk-falling-edge: Set the receive clock phase to falling edge.
++                                Mostly used in qca8327 with CPU port 0 set to
++                                sgmii.
++- qca,sgmii-txclk-falling-edge: Set the transmit clock phase to falling edge.
+ 
+ For QCA8K the 'fixed-link' sub-node supports only the following properties:
+ 
+-- 
+2.32.0
+
