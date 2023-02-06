@@ -10,7 +10,7 @@ CPU_TYPE:=cortex-a15
 CPU_SUBTYPE:=neon-vfpv4
 SUBTARGETS:=generic
 
-KERNEL_PATCHVER:=5.15
+KERNEL_PATCHVER:=5.11
 
 KERNELNAME:=zImage Image dtbs
 
