@@ -195,12 +195,13 @@ jobs:
           fi
 
           SUMS_FILE="https://downloads.cdn.openwrt.org/$TOOLCHAIN_PATH/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/sha256sums"
-          if curl $SUMS_FILE | grep -q ".*openwrt-toolchain.*tar.xz"; then
-            TOOLCHAIN_STRING="$( curl $SUMS_FILE | grep ".*openwrt-toolchain.*tar.xz")"
-            TOOLCHAIN_FILE=$(echo "$TOOLCHAIN_STRING" | sed -n -e 's/.*\(openwrt-toolchain.*\).tar.xz/\1/p')
+          # if curl $SUMS_FILE | grep -q ".*openwrt-toolchain.*tar.xz"; then
+          #   TOOLCHAIN_STRING="$( curl $SUMS_FILE | grep ".*openwrt-toolchain.*tar.xz")"
+          #   TOOLCHAIN_FILE=$(echo "$TOOLCHAIN_STRING" | sed -n -e 's/.*\(openwrt-toolchain.*\).tar.xz/\1/p')
             
-            echo "toolchain-type=external_toolchain" >> $GITHUB_OUTPUT
-          elif curl $SUMS_FILE | grep -q ".*openwrt-sdk.*tar.xz"; then
+          #   echo "toolchain-type=external_toolchain" >> $GITHUB_OUTPUT
+          # el
+          if curl $SUMS_FILE | grep -q ".*openwrt-sdk.*tar.xz"; then
             TOOLCHAIN_STRING="$( curl $SUMS_FILE | grep ".*openwrt-sdk.*tar.xz")"
             TOOLCHAIN_FILE=$(echo "$TOOLCHAIN_STRING" | sed -n -e 's/.*\(openwrt-sdk.*\).tar.xz/\1/p')
 
