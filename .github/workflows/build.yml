@@ -219,7 +219,7 @@ jobs:
           path: openwrt/.ccache
           key: ccache-kernel-${{ env.TARGET }}/${{ env.SUBTARGET }}-${{ needs.setup_build.outputs.ccache_hash }}
           restore-keys: |
-            ccache-kernel-${{ env.TARGET }}/${{ env.SUBTARGET }}-
+            ccache-kernel-${{ env.TARGET }}/${{ env.SUBTARGET }}
 
       - name: Download external toolchain/sdk
         if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type != 'internal'
