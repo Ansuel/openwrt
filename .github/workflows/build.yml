@@ -361,6 +361,11 @@ jobs:
         working-directory: openwrt
         run: make -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
 
+      - name: Print ccache stats
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: ./staging_dir/host/bin/ccache -s
+
       - name: Upload logs
         if: failure()
         uses: actions/upload-artifact@v3
