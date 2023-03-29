@@ -6,11 +6,11 @@ on:
       - '.github/workflows/build.yml'
       - '.github/workflows/toolchain.yml'
       - 'toolchain/**'
-  push:
-    paths:
-      - '.github/workflows/build.yml'
-      - '.github/workflows/toolchain.yml'
-      - 'toolchain/**'
+  # push:
+  #   paths:
+  #     - '.github/workflows/build.yml'
+  #     - '.github/workflows/toolchain.yml'
+  #     - 'toolchain/**'
 
 permissions:
   contents: read

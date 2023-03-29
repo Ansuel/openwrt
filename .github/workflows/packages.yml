@@ -10,15 +10,15 @@ on:
       - 'package/**'
       - 'target/linux/generic/**'
       - 'toolchain/**'
-  push:
-    paths:
-      - '.github/workflows/build.yml'
-      - '.github/workflows/packages.yml'
-      - 'config/**'
-      - 'include/**'
-      - 'package/**'
-      - 'target/linux/generic/**'
-      - 'toolchain/**'
+  # push:
+  #   paths:
+  #     - '.github/workflows/build.yml'
+  #     - '.github/workflows/packages.yml'
+  #     - 'config/**'
+  #     - 'include/**'
+  #     - 'package/**'
+  #     - 'target/linux/generic/**'
+  #     - 'toolchain/**'
 
 permissions:
   contents: read
