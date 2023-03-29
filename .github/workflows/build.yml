@@ -195,20 +195,20 @@ jobs:
           fi
 
           SUMS_FILE="https://downloads.cdn.openwrt.org/$TOOLCHAIN_PATH/targets/${{ env.TARGET }}/${{ env.SUBTARGET }}/sha256sums"
-          # if curl $SUMS_FILE | grep -q ".*openwrt-toolchain.*tar.xz"; then
-          #   TOOLCHAIN_STRING="$( curl $SUMS_FILE | grep ".*openwrt-toolchain.*tar.xz")"
-          #   TOOLCHAIN_FILE=$(echo "$TOOLCHAIN_STRING" | sed -n -e 's/.*\(openwrt-toolchain.*\).tar.xz/\1/p')
+          if curl $SUMS_FILE | grep -q ".*openwrt-toolchain.*tar.xz"; then
+            TOOLCHAIN_STRING="$( curl $SUMS_FILE | grep ".*openwrt-toolchain.*tar.xz")"
+            TOOLCHAIN_FILE=$(echo "$TOOLCHAIN_STRING" | sed -n -e 's/.*\(openwrt-toolchain.*\).tar.xz/\1/p')
             
-          #   echo "toolchain-type=external_toolchain" >> $GITHUB_OUTPUT
-          # el
+            echo "toolchain-type=external_toolchain" >> $GITHUB_OUTPUT
+          elif curl $SUMS_FILE | grep -q ".*openwrt-sdk.*tar.xz"; then
           # if curl $SUMS_FILE | grep -q ".*openwrt-sdk.*tar.xz"; then
-          #   TOOLCHAIN_STRING="$( curl $SUMS_FILE | grep ".*openwrt-sdk.*tar.xz")"
-          #   TOOLCHAIN_FILE=$(echo "$TOOLCHAIN_STRING" | sed -n -e 's/.*\(openwrt-sdk.*\).tar.xz/\1/p')
+            TOOLCHAIN_STRING="$( curl $SUMS_FILE | grep ".*openwrt-sdk.*tar.xz")"
+            TOOLCHAIN_FILE=$(echo "$TOOLCHAIN_STRING" | sed -n -e 's/.*\(openwrt-sdk.*\).tar.xz/\1/p')
 
-          #   echo "toolchain-type=external_sdk" >> $GITHUB_OUTPUT
-          # else
+            echo "toolchain-type=external_sdk" >> $GITHUB_OUTPUT
+          else
             echo "toolchain-type=internal" >> $GITHUB_OUTPUT
-          # fi
+          fi
 
           echo "TOOLCHAIN_FILE=$TOOLCHAIN_FILE" >> "$GITHUB_ENV"
           echo "TOOLCHAIN_PATH=$TOOLCHAIN_PATH" >> "$GITHUB_ENV"
@@ -365,7 +365,7 @@ jobs:
       - name: Print ccache stats
         shell: su buildbot -c "sh -e {0}"
         working-directory: openwrt
-        run: ./staging_dir/host/bin/ccache -s
+        run: CCACHE_BASEDIR=$(pwd) CCACHE_DIR=$(pwd)/.ccache ./staging_dir/host/bin/ccache -s -vv
 
       - name: Upload logs
         if: failure()
