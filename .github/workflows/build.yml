@@ -201,14 +201,14 @@ jobs:
             
           #   echo "toolchain-type=external_toolchain" >> $GITHUB_OUTPUT
           # el
-          if curl $SUMS_FILE | grep -q ".*openwrt-sdk.*tar.xz"; then
-            TOOLCHAIN_STRING="$( curl $SUMS_FILE | grep ".*openwrt-sdk.*tar.xz")"
-            TOOLCHAIN_FILE=$(echo "$TOOLCHAIN_STRING" | sed -n -e 's/.*\(openwrt-sdk.*\).tar.xz/\1/p')
+          # if curl $SUMS_FILE | grep -q ".*openwrt-sdk.*tar.xz"; then
+          #   TOOLCHAIN_STRING="$( curl $SUMS_FILE | grep ".*openwrt-sdk.*tar.xz")"
+          #   TOOLCHAIN_FILE=$(echo "$TOOLCHAIN_STRING" | sed -n -e 's/.*\(openwrt-sdk.*\).tar.xz/\1/p')
 
-            echo "toolchain-type=external_sdk" >> $GITHUB_OUTPUT
-          else
+          #   echo "toolchain-type=external_sdk" >> $GITHUB_OUTPUT
+          # else
             echo "toolchain-type=internal" >> $GITHUB_OUTPUT
-          fi
+          # fi
 
           echo "TOOLCHAIN_FILE=$TOOLCHAIN_FILE" >> "$GITHUB_ENV"
           echo "TOOLCHAIN_PATH=$TOOLCHAIN_PATH" >> "$GITHUB_ENV"
