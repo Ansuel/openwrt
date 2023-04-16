@@ -1,0 +1,249 @@
+From 0011f11e0be8030ed059404358bf0b395897fdfa Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sun, 16 Apr 2023 19:12:21 +0200
+Subject: [PATCH 1/3] clk: qcom: krait-cc: move mux clks to local static struct
+
+Move mux clks to local static struct.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/qcom/krait-cc.c | 82 ++++++++++++++++++-------------------
+ 1 file changed, 39 insertions(+), 43 deletions(-)
+
+diff --git a/drivers/clk/qcom/krait-cc.c b/drivers/clk/qcom/krait-cc.c
+index 410ae8390f1c..83c72364e89d 100644
+--- a/drivers/clk/qcom/krait-cc.c
++++ b/drivers/clk/qcom/krait-cc.c
+@@ -25,6 +25,13 @@ enum {
+ 	clks_max,
+ };
+ 
++struct krait_cc_clk {
++	struct clk *clk;
++	struct krait_mux_clk pri_mux;
++	struct krait_mux_clk sec_mux;
++	struct krait_div2_clk div;
++};
++
+ static unsigned int sec_mux_map[] = {
+ 	2,
+ 	0,
+@@ -36,6 +43,8 @@ static unsigned int pri_mux_map[] = {
+ 	0,
+ };
+ 
++static struct krait_cc_clk krait_cc_clks[clks_max];
++
+ /*
+  * Notifier function for switching the muxes to safe parent
+  * while the hfpll is getting reprogrammed.
+@@ -80,9 +89,10 @@ static int krait_notifier_register(struct device *dev, struct clk *clk,
+ }
+ 
+ static struct clk_hw *
+-krait_add_div(struct device *dev, int id, const char *s, unsigned int offset)
++krait_add_div(struct device *dev, struct krait_cc_clk *krait_cc,
++	      int id, const char *s, unsigned int offset)
+ {
+-	struct krait_div2_clk *div;
++	struct krait_div2_clk *div = &krait_cc->div;
+ 	static struct clk_parent_data p_data[1];
+ 	struct clk_init_data init = {
+ 		.num_parents = ARRAY_SIZE(p_data),
+@@ -93,10 +103,6 @@ krait_add_div(struct device *dev, int id, const char *s, unsigned int offset)
+ 	char *parent_name;
+ 	int cpu, ret;
+ 
+-	div = devm_kzalloc(dev, sizeof(*div), GFP_KERNEL);
+-	if (!div)
+-		return ERR_PTR(-ENOMEM);
+-
+ 	div->width = 2;
+ 	div->shift = 6;
+ 	div->lpl = id >= 0;
+@@ -141,11 +147,12 @@ krait_add_div(struct device *dev, int id, const char *s, unsigned int offset)
+ }
+ 
+ static struct clk_hw *
+-krait_add_sec_mux(struct device *dev, int id, const char *s,
++krait_add_sec_mux(struct device *dev, struct krait_cc_clk *krait_cc,
++		  int id, const char *s,
+ 		  unsigned int offset, bool unique_aux)
+ {
+ 	int cpu, ret;
+-	struct krait_mux_clk *mux;
++	struct krait_mux_clk *mux = &krait_cc->sec_mux;
+ 	static struct clk_parent_data sec_mux_list[2] = {
+ 		{ .name = "qsb", .fw_name = "qsb" },
+ 		{},
+@@ -159,10 +166,6 @@ krait_add_sec_mux(struct device *dev, int id, const char *s,
+ 	struct clk_hw *clk;
+ 	char *parent_name;
+ 
+-	mux = devm_kzalloc(dev, sizeof(*mux), GFP_KERNEL);
+-	if (!mux)
+-		return ERR_PTR(-ENOMEM);
+-
+ 	mux->offset = offset;
+ 	mux->lpl = id >= 0;
+ 	mux->mask = 0x3;
+@@ -225,11 +228,12 @@ krait_add_sec_mux(struct device *dev, int id, const char *s,
+ }
+ 
+ static struct clk_hw *
+-krait_add_pri_mux(struct device *dev, struct clk_hw *hfpll_div, struct clk_hw *sec_mux,
++krait_add_pri_mux(struct device *dev, struct krait_cc_clk *krait_cc,
++		  struct clk_hw *hfpll_div, struct clk_hw *sec_mux,
+ 		  int id, const char *s, unsigned int offset)
+ {
+ 	int ret;
+-	struct krait_mux_clk *mux;
++	struct krait_mux_clk *mux = &krait_cc->pri_mux;
+ 	static struct clk_parent_data p_data[3];
+ 	struct clk_init_data init = {
+ 		.parent_data = p_data,
+@@ -240,10 +244,6 @@ krait_add_pri_mux(struct device *dev, struct clk_hw *hfpll_div, struct clk_hw *s
+ 	struct clk_hw *clk;
+ 	char *hfpll_name;
+ 
+-	mux = devm_kzalloc(dev, sizeof(*mux), GFP_KERNEL);
+-	if (!mux)
+-		return ERR_PTR(-ENOMEM);
+-
+ 	mux->mask = 0x3;
+ 	mux->shift = 0;
+ 	mux->offset = offset;
+@@ -288,7 +288,8 @@ krait_add_pri_mux(struct device *dev, struct clk_hw *hfpll_div, struct clk_hw *s
+ }
+ 
+ /* id < 0 for L2, otherwise id == physical CPU number */
+-static struct clk_hw *krait_add_clks(struct device *dev, int id, bool unique_aux)
++static struct clk_hw *krait_add_clks(struct device *dev, struct krait_cc_clk *krait_cc,
++				     int id, bool unique_aux)
+ {
+ 	struct clk_hw *hfpll_div, *sec_mux, *pri_mux;
+ 	unsigned int offset;
+@@ -305,19 +306,19 @@ static struct clk_hw *krait_add_clks(struct device *dev, int id, bool unique_aux
+ 		s = "_l2";
+ 	}
+ 
+-	hfpll_div = krait_add_div(dev, id, s, offset);
++	hfpll_div = krait_add_div(dev, krait_cc, id, s, offset);
+ 	if (IS_ERR(hfpll_div)) {
+ 		pri_mux = hfpll_div;
+ 		goto err;
+ 	}
+ 
+-	sec_mux = krait_add_sec_mux(dev, id, s, offset, unique_aux);
++	sec_mux = krait_add_sec_mux(dev, krait_cc, id, s, offset, unique_aux);
+ 	if (IS_ERR(sec_mux)) {
+ 		pri_mux = sec_mux;
+ 		goto err;
+ 	}
+ 
+-	pri_mux = krait_add_pri_mux(dev, hfpll_div, sec_mux, id, s, offset);
++	pri_mux = krait_add_pri_mux(dev, krait_cc, hfpll_div, sec_mux, id, s, offset);
+ 
+ err:
+ 	kfree(p);
+@@ -327,14 +328,14 @@ static struct clk_hw *krait_add_clks(struct device *dev, int id, bool unique_aux
+ static struct clk *krait_of_get(struct of_phandle_args *clkspec, void *data)
+ {
+ 	unsigned int idx = clkspec->args[0];
+-	struct clk **clks = data;
++	struct krait_cc_clk *clks = data;
+ 
+ 	if (idx >= clks_max) {
+ 		pr_err("%s: invalid clock index %d\n", __func__, idx);
+ 		return ERR_PTR(-EINVAL);
+ 	}
+ 
+-	return clks[idx] ? : ERR_PTR(-ENODEV);
++	return clks[idx].clk ? : ERR_PTR(-ENODEV);
+ }
+ 
+ static const struct of_device_id krait_cc_match_table[] = {
+@@ -351,7 +352,7 @@ static int krait_cc_probe(struct platform_device *pdev)
+ 	unsigned long cur_rate, aux_rate;
+ 	int cpu;
+ 	struct clk_hw *mux, *l2_pri_mux;
+-	struct clk *clk, **clks;
++	struct clk *clk;
+ 
+ 	id = of_match_device(krait_cc_match_table, dev);
+ 	if (!id)
+@@ -369,22 +370,17 @@ static int krait_cc_probe(struct platform_device *pdev)
+ 			return PTR_ERR(clk);
+ 	}
+ 
+-	/* Krait configurations have at most 4 CPUs and one L2 */
+-	clks = devm_kcalloc(dev, clks_max, sizeof(*clks), GFP_KERNEL);
+-	if (!clks)
+-		return -ENOMEM;
+-
+ 	for_each_possible_cpu(cpu) {
+-		mux = krait_add_clks(dev, cpu, id->data);
++		mux = krait_add_clks(dev, &krait_cc_clks[cpu], cpu, id->data);
+ 		if (IS_ERR(mux))
+ 			return PTR_ERR(mux);
+-		clks[cpu] = mux->clk;
++		krait_cc_clks[cpu].clk = mux->clk;
+ 	}
+ 
+-	l2_pri_mux = krait_add_clks(dev, -1, id->data);
++	l2_pri_mux = krait_add_clks(dev, &krait_cc_clks[l2_mux], -1, id->data);
+ 	if (IS_ERR(l2_pri_mux))
+ 		return PTR_ERR(l2_pri_mux);
+-	clks[l2_mux] = l2_pri_mux->clk;
++	krait_cc_clks[l2_mux].clk = l2_pri_mux->clk;
+ 
+ 	/*
+ 	 * We don't want the CPU or L2 clocks to be turned off at late init
+@@ -394,8 +390,8 @@ static int krait_cc_probe(struct platform_device *pdev)
+ 	 * they take over.
+ 	 */
+ 	for_each_online_cpu(cpu) {
+-		clk_prepare_enable(clks[l2_mux]);
+-		WARN(clk_prepare_enable(clks[cpu]),
++		clk_prepare_enable(krait_cc_clks[l2_mux].clk);
++		WARN(clk_prepare_enable(krait_cc_clks[cpu].clk),
+ 		     "Unable to turn on CPU%d clock", cpu);
+ 	}
+ 
+@@ -410,18 +406,18 @@ static int krait_cc_probe(struct platform_device *pdev)
+ 	 * two different rates to force a HFPLL reinit under all
+ 	 * circumstances.
+ 	 */
+-	cur_rate = clk_get_rate(clks[l2_mux]);
++	cur_rate = clk_get_rate(krait_cc_clks[l2_mux].clk);
+ 	aux_rate = 384000000;
+ 	if (cur_rate < aux_rate) {
+ 		pr_info("L2 @ Undefined rate. Forcing new rate.\n");
+ 		cur_rate = aux_rate;
+ 	}
+-	clk_set_rate(clks[l2_mux], aux_rate);
+-	clk_set_rate(clks[l2_mux], 2);
+-	clk_set_rate(clks[l2_mux], cur_rate);
+-	pr_info("L2 @ %lu KHz\n", clk_get_rate(clks[l2_mux]) / 1000);
++	clk_set_rate(krait_cc_clks[l2_mux].clk, aux_rate);
++	clk_set_rate(krait_cc_clks[l2_mux].clk, 2);
++	clk_set_rate(krait_cc_clks[l2_mux].clk, cur_rate);
++	pr_info("L2 @ %lu KHz\n", clk_get_rate(krait_cc_clks[l2_mux].clk) / 1000);
+ 	for_each_possible_cpu(cpu) {
+-		clk = clks[cpu];
++		clk = krait_cc_clks[cpu].clk;
+ 		cur_rate = clk_get_rate(clk);
+ 		if (cur_rate < aux_rate) {
+ 			pr_info("CPU%d @ Undefined rate. Forcing new rate.\n", cpu);
+@@ -434,7 +430,7 @@ static int krait_cc_probe(struct platform_device *pdev)
+ 		pr_info("CPU%d @ %lu KHz\n", cpu, clk_get_rate(clk) / 1000);
+ 	}
+ 
+-	of_clk_add_provider(dev->of_node, krait_of_get, clks);
++	of_clk_add_provider(dev->of_node, krait_of_get, &krait_cc_clks);
+ 
+ 	return 0;
+ }
+-- 
+2.39.2
+

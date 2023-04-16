@@ -1,0 +1,78 @@
+From 3dc925bd14f50c5834b6b2896ef1a4460234c91c Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sun, 16 Apr 2023 19:33:39 +0200
+Subject: [PATCH 3/3] clk: qcom: krait-cc: protect L2 pri and sec mux safe
+ parent with locks
+
+Protect L2 pri and sec mux safe parent with spin locks.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/qcom/krait-cc.c | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/drivers/clk/qcom/krait-cc.c b/drivers/clk/qcom/krait-cc.c
+index 8fffe9bf88ba..58b45ded63d3 100644
+--- a/drivers/clk/qcom/krait-cc.c
++++ b/drivers/clk/qcom/krait-cc.c
+@@ -12,6 +12,7 @@
+ #include <linux/clk.h>
+ #include <linux/clk-provider.h>
+ #include <linux/slab.h>
++#include <linux/spinlock.h>
+ 
+ #include "clk-krait.h"
+ 
+@@ -47,6 +48,7 @@ static unsigned int pri_mux_map[] = {
+ #define PRI_MUX_SAFE_INDEX	2
+ 
+ static struct krait_cc_clk krait_cc_clks[clks_max];
++static DEFINE_SPINLOCK(krait_cc_l2_mux_lock);
+ 
+ /*
+  * Notifier function for switching the muxes to safe parent
+@@ -57,7 +59,11 @@ static int krait_l2_pri_mux_notifier_cb(struct notifier_block *nb,
+ 				void *data)
+ {
+ 	struct krait_mux_clk *mux = &krait_cc_clks[l2_mux].pri_mux;
++	unsigned long flags;
+ 	int ret = 0;
++
++	spin_lock_irqsave(&krait_cc_l2_mux_lock, flags);
++
+ 	/* Switch to safe parent */
+ 	if (event == PRE_RATE_CHANGE) {
+ 		mux->old_index = krait_mux_clk_ops.get_parent(&mux->hw);
+@@ -74,6 +80,8 @@ static int krait_l2_pri_mux_notifier_cb(struct notifier_block *nb,
+ 							   mux->old_index);
+ 	}
+ 
++	spin_unlock_irqrestore(&krait_cc_l2_mux_lock, flags);
++
+ 	return notifier_from_errno(ret);
+ }
+ 
+@@ -82,7 +90,11 @@ static int krait_l2_sec_mux_notifier_cb(struct notifier_block *nb,
+ 				void *data)
+ {
+ 	struct krait_mux_clk *mux = &krait_cc_clks[l2_mux].sec_mux;
++	unsigned long flags;
+ 	int ret = 0;
++
++	spin_lock_irqsave(&krait_cc_l2_mux_lock, flags);
++
+ 	/* Switch to safe parent */
+ 	if (event == PRE_RATE_CHANGE) {
+ 		mux->old_index = krait_mux_clk_ops.get_parent(&mux->hw);
+@@ -99,6 +111,8 @@ static int krait_l2_sec_mux_notifier_cb(struct notifier_block *nb,
+ 							   mux->old_index);
+ 	}
+ 
++	spin_unlock_irqrestore(&krait_cc_l2_mux_lock, flags);
++
+ 	return notifier_from_errno(ret);
+ }
+ 
+-- 
+2.39.2
+

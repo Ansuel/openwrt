@@ -1,0 +1,36 @@
+From 49691f86f5e3f6229681deafa2c8e197a4d54919 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sun, 16 Apr 2023 21:17:42 +0200
+Subject: [PATCH 4/4] clk: qcom: krait-cc: fix wrong parent order for sec mux
+
+Fix wrong parent order for sec mux. With the help of debug regs to
+measure clk, it was discovered that
+- sel 0 refer to the qsb clock (that is the parent clock)
+- sel 2 refer to the pll8_vote clock
+
+Set the parent order to follow:
+- index 0 --> qsb clock --> sel 0
+- index 1 --> pll8_vote clock --> sel 2
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/qcom/krait-cc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/clk/qcom/krait-cc.c b/drivers/clk/qcom/krait-cc.c
+index 58b45ded63d3..d61aaa7ea518 100644
+--- a/drivers/clk/qcom/krait-cc.c
++++ b/drivers/clk/qcom/krait-cc.c
+@@ -226,8 +226,8 @@ krait_add_sec_mux(struct device *dev, struct krait_cc_clk *krait_cc,
+ 	notifier_fn_t notifier_cb;
+ 	struct krait_mux_clk *mux = &krait_cc->sec_mux;
+ 	static struct clk_parent_data sec_mux_list[2] = {
+-		{ .name = "qsb", .fw_name = "qsb" },
+ 		{},
++		{ .name = "qsb", .fw_name = "qsb" },
+ 	};
+ 	struct clk_init_data init = {
+ 		.parent_data = sec_mux_list,
+-- 
+2.39.2
+

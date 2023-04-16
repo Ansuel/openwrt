@@ -1,0 +1,33 @@
+From 3b36713d69d99318592d261eaca9b7460313c8c2 Mon Sep 17 00:00:00 2001
+From: Yang Yingliang <yangyingliang@huawei.com>
+Date: Wed, 4 Jan 2023 16:02:35 +0800
+Subject: [PATCH] clk: qcom: krait-cc: fix wrong pointer passed to IS_ERR()
+
+It should be 'mux' passed to IS_ERR/PTR_ERR().
+
+Fixes: 56a655e1c41a ("clk: qcom: krait-cc: convert to parent_data API")
+Signed-off-by: Yang Yingliang <yangyingliang@huawei.com>
+Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+Link: https://lore.kernel.org/r/20230104080235.1748953-1-yangyingliang@huawei.com
+---
+ drivers/clk/qcom/krait-cc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/qcom/krait-cc.c b/drivers/clk/qcom/krait-cc.c
+index 2f9287c263ec..410ae8390f1c 100644
+--- a/drivers/clk/qcom/krait-cc.c
++++ b/drivers/clk/qcom/krait-cc.c
+@@ -376,8 +376,8 @@ static int krait_cc_probe(struct platform_device *pdev)
+ 
+ 	for_each_possible_cpu(cpu) {
+ 		mux = krait_add_clks(dev, cpu, id->data);
+-		if (IS_ERR(clk))
+-			return PTR_ERR(clk);
++		if (IS_ERR(mux))
++			return PTR_ERR(mux);
+ 		clks[cpu] = mux->clk;
+ 	}
+ 
+-- 
+2.39.2
+

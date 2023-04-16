@@ -1,0 +1,148 @@
+From 9a45bd6f1585bb24583a8534cd52569c9268e837 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sun, 16 Apr 2023 19:31:18 +0200
+Subject: [PATCH 2/3] clk: qcom: krait-cc: add specific notifier for L2 pri and
+ sec mux
+
+Add specific notifier for L2 pri and sec mux.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/qcom/krait-cc.c | 75 ++++++++++++++++++++++++++++++++++---
+ 1 file changed, 70 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/clk/qcom/krait-cc.c b/drivers/clk/qcom/krait-cc.c
+index 83c72364e89d..8fffe9bf88ba 100644
+--- a/drivers/clk/qcom/krait-cc.c
++++ b/drivers/clk/qcom/krait-cc.c
+@@ -37,14 +37,71 @@ static unsigned int sec_mux_map[] = {
+ 	0,
+ };
+ 
++#define SEC_MUX_SAFE_INDEX	1
++
+ static unsigned int pri_mux_map[] = {
+ 	1,
+ 	2,
+ 	0,
+ };
++#define PRI_MUX_SAFE_INDEX	2
+ 
+ static struct krait_cc_clk krait_cc_clks[clks_max];
+ 
++/*
++ * Notifier function for switching the muxes to safe parent
++ * while the hfpll is getting reprogrammed.
++ */
++static int krait_l2_pri_mux_notifier_cb(struct notifier_block *nb,
++				unsigned long event,
++				void *data)
++{
++	struct krait_mux_clk *mux = &krait_cc_clks[l2_mux].pri_mux;
++	int ret = 0;
++	/* Switch to safe parent */
++	if (event == PRE_RATE_CHANGE) {
++		mux->old_index = krait_mux_clk_ops.get_parent(&mux->hw);
++		ret = krait_mux_clk_ops.set_parent(&mux->hw, PRI_MUX_SAFE_INDEX);
++		mux->reparent = false;
++	/*
++	 * By the time POST_RATE_CHANGE notifier is called,
++	 * clk framework itself would have changed the parent for the new rate.
++	 * Only otherwise, put back to the old parent.
++	 */
++	} else if (event == POST_RATE_CHANGE) {
++		if (!mux->reparent)
++			ret = krait_mux_clk_ops.set_parent(&mux->hw,
++							   mux->old_index);
++	}
++
++	return notifier_from_errno(ret);
++}
++
++static int krait_l2_sec_mux_notifier_cb(struct notifier_block *nb,
++				unsigned long event,
++				void *data)
++{
++	struct krait_mux_clk *mux = &krait_cc_clks[l2_mux].sec_mux;
++	int ret = 0;
++	/* Switch to safe parent */
++	if (event == PRE_RATE_CHANGE) {
++		mux->old_index = krait_mux_clk_ops.get_parent(&mux->hw);
++		ret = krait_mux_clk_ops.set_parent(&mux->hw, SEC_MUX_SAFE_INDEX);
++		mux->reparent = false;
++	/*
++	 * By the time POST_RATE_CHANGE notifier is called,
++	 * clk framework itself would have changed the parent for the new rate.
++	 * Only otherwise, put back to the old parent.
++	 */
++	} else if (event == POST_RATE_CHANGE) {
++		if (!mux->reparent)
++			ret = krait_mux_clk_ops.set_parent(&mux->hw,
++							   mux->old_index);
++	}
++
++	return notifier_from_errno(ret);
++}
++
+ /*
+  * Notifier function for switching the muxes to safe parent
+  * while the hfpll is getting reprogrammed.
+@@ -75,12 +132,12 @@ static int krait_notifier_cb(struct notifier_block *nb,
+ 	return notifier_from_errno(ret);
+ }
+ 
+-static int krait_notifier_register(struct device *dev, struct clk *clk,
+-				   struct krait_mux_clk *mux)
++static int krait_notifier_register(struct device *dev, notifier_fn_t notifier_cb,
++				   struct clk *clk, struct krait_mux_clk *mux)
+ {
+ 	int ret = 0;
+ 
+-	mux->clk_nb.notifier_call = krait_notifier_cb;
++	mux->clk_nb.notifier_call = notifier_cb;
+ 	ret = devm_clk_notifier_register(dev, clk, &mux->clk_nb);
+ 	if (ret)
+ 		dev_err(dev, "failed to register clock notifier: %d\n", ret);
+@@ -152,6 +209,7 @@ krait_add_sec_mux(struct device *dev, struct krait_cc_clk *krait_cc,
+ 		  unsigned int offset, bool unique_aux)
+ {
+ 	int cpu, ret;
++	notifier_fn_t notifier_cb;
+ 	struct krait_mux_clk *mux = &krait_cc->sec_mux;
+ 	static struct clk_parent_data sec_mux_list[2] = {
+ 		{ .name = "qsb", .fw_name = "qsb" },
+@@ -206,7 +264,10 @@ krait_add_sec_mux(struct device *dev, struct krait_cc_clk *krait_cc,
+ 
+ 	clk = &mux->hw;
+ 
+-	ret = krait_notifier_register(dev, mux->hw.clk, mux);
++	notifier_cb = krait_notifier_cb;
++	if (id < 0)
++		notifier_cb = krait_l2_sec_mux_notifier_cb;
++	ret = krait_notifier_register(dev, notifier_cb, mux->hw.clk, mux);
+ 	if (ret) {
+ 		clk = ERR_PTR(ret);
+ 		goto err_clk;
+@@ -233,6 +294,7 @@ krait_add_pri_mux(struct device *dev, struct krait_cc_clk *krait_cc,
+ 		  int id, const char *s, unsigned int offset)
+ {
+ 	int ret;
++	notifier_fn_t notifier_cb;
+ 	struct krait_mux_clk *mux = &krait_cc->pri_mux;
+ 	static struct clk_parent_data p_data[3];
+ 	struct clk_init_data init = {
+@@ -276,7 +338,10 @@ krait_add_pri_mux(struct device *dev, struct krait_cc_clk *krait_cc,
+ 
+ 	clk = &mux->hw;
+ 
+-	ret = krait_notifier_register(dev, mux->hw.clk, mux);
++	notifier_cb = krait_notifier_cb;
++	if (id < 0)
++		notifier_cb = krait_l2_pri_mux_notifier_cb;
++	ret = krait_notifier_register(dev, notifier_cb, mux->hw.clk, mux);
+ 	if (ret)
+ 		clk = ERR_PTR(ret);
+ 
+-- 
+2.39.2
+
