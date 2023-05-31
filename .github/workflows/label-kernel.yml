@@ -16,14 +16,17 @@ jobs:
       targets: ${{ steps.set_target.outputs.targets }}
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
       - name: Parse label
         id: parse_label
         env:
           CI_EVENT_LABEL_NAME: ${{ github.event.label.name }}
         run: |
-          echo "$CI_EVENT_LABEL_NAME" | sed -n 's/ci:kernel:\([^:]*\):\([^:]*\):*\([^:]*\)$/target="\1"/p' | tee --append $GITHUB_OUTPUT
-          echo "$CI_EVENT_LABEL_NAME" | sed -n 's/ci:kernel:\([^:]*\):\([^:]*\):*\([^:]*\)$/subtarget="\2"/p' | tee --append $GITHUB_OUTPUT
-          echo "$CI_EVENT_LABEL_NAME" | sed -n 's/ci:kernel:\([^:]*\):\([^:]*\):*\([^:]*\)$/testing="\3"/p' | tee --append $GITHUB_OUTPUT
+          echo "$CI_EVENT_LABEL_NAME" | sed -n 's/ci:kernel:\([^:]*\):\([^:]*\):*\([^:]*\)$/target=\1/p' | tee --append $GITHUB_OUTPUT
+          echo "$CI_EVENT_LABEL_NAME" | sed -n 's/ci:kernel:\([^:]*\):\([^:]*\):*\([^:]*\)$/subtarget=\2/p' | tee --append $GITHUB_OUTPUT
+          echo "$CI_EVENT_LABEL_NAME" | sed -n 's/ci:kernel:\([^:]*\):\([^:]*\):*\([^:]*\)$/testing=\3/p' | tee --append $GITHUB_OUTPUT
 
       - name: Set targets
         id: set_target
@@ -33,7 +36,7 @@ jobs:
           TARGETS_SUBTARGETS="$(echo "$ALL_TARGETS" | sort -u -t '/' -k1)"
           TARGETS="$(echo "$ALL_TARGETS" | sort -u -t '/' -k1,1)"
 
-          [ ${{ steps.parse_label.outputs.subtarget }} = 'one' ] && TARGETS_SUBTARGETS=$TARGETS
+          [ "${{ steps.parse_label.outputs.subtarget }}" = "one" ] && TARGETS_SUBTARGETS=$TARGETS
 
           JSON_TARGETS_SUBTARGETS='['
           FIRST=1
@@ -42,12 +45,12 @@ jobs:
             TARGET=$(echo $TARGET_SUBTARGET | cut -d "/" -f 1)
             SUBTARGET=$(echo $TARGET_SUBTARGET | cut -d "/" -f 2)
 
-            [ ${{ steps.parse_label.outputs.target }} != 'all' ] && [ ${{ steps.parse_label.outputs.target }} != $TARGET ] && continue
-            [ ${{ steps.parse_label.outputs.subtarget }} != 'all' ] && [ ${{ steps.parse_label.outputs.subtarget }} != 'one' ] &&
-              [ ${{ steps.parse_label.outputs.subtarget }} != $SUBTARGET ] && continue
+            [ "${{ steps.parse_label.outputs.target }}" != "all" ] && [ "${{ steps.parse_label.outputs.target }}" != "$TARGET" ] && continue
+            [ "${{ steps.parse_label.outputs.subtarget }}" != "all" ] && [ "${{ steps.parse_label.outputs.subtarget }}" != "one" ] &&
+              [ "${{ steps.parse_label.outputs.subtarget }}" != $SUBTARGET ] && continue
             if [ "${{ steps.parse_label.outputs.testing }}" = "testing" ]; then
               TESTING_KERNEL_VER=$(echo $line | cut -d " " -f 3)
-              [ -z $TESTING_KERNEL_VER ] && continue
+              [ -z "$TESTING_KERNEL_VER" ] && continue
             fi
 
             TUPLE='{"target":"'"$TARGET"'","subtarget":"'"$SUBTARGET"'","testing":"'"$TESTING_KERNEL_VER"'"}'
@@ -64,10 +67,10 @@ jobs:
             TARGET=$(echo $TARGET_SUBTARGET | cut -d "/" -f 1)
             SUBTARGET=$(echo $TARGET_SUBTARGET | cut -d "/" -f 2)
 
-            [ ${{ steps.parse_label.outputs.target }} != 'all' ] && [ ${{ steps.parse_label.outputs.target }} != $TARGET ] && continue
+            [ "${{ steps.parse_label.outputs.target }}" != "all" ] && [ "${{ steps.parse_label.outputs.target }}" != $TARGET ] && continue
             if [ "${{ steps.parse_label.outputs.testing }}" = "testing" ]; then
               TESTING_KERNEL_VER=$(echo $line | cut -d " " -f 3)
-              [ -z $TESTING_KERNEL_VER ] && continue
+              [ -z "$TESTING_KERNEL_VER" ] && continue
             fi
 
             TUPLE='{"target":"'"$TARGET"'","subtarget":"'"$SUBTARGET"'","testing":"'"$TESTING_KERNEL_VER"'"}'
@@ -76,9 +79,6 @@ jobs:
             FIRST=0
           done <<< "$TARGETS"
           JSON_TARGETS="$JSON_TARGETS"']'
-
-          echo $JSON_TARGETS_SUBTARGETS
-          echo $JSON_TARGETS
 
           echo -e "\n---- targets to build ----\n"
           echo "$JSON_TARGETS_SUBTARGETS"
@@ -107,7 +107,7 @@ jobs:
       container_name: toolchain
       target: ${{ matrix.target }}
       subtarget: ${{ matrix.subtarget }}
-      testing: ${{ matrix.testing }}
+      testing: ${{ matrix.testing != '' && true }}
       build_kernel: true
       build_all_kmods: true
 
@@ -126,4 +126,4 @@ jobs:
     with:
       target: ${{ matrix.target }}
       subtarget: ${{ matrix.subtarget }}
-      testing: ${{ matrix.testing }}
+      testing: ${{ matrix.testing != '' && true }}
