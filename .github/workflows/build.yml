@@ -523,6 +523,12 @@ jobs:
           name: ${{ inputs.target }}-${{ inputs.subtarget }}-logs
           path: "openwrt/logs"
 
+      - name: Show ccache stats
+        if: inputs.use_ccache_cache == true
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: CCACHE_BASEDIR=$(pwd) ./staging_dir/host/bin/ccache -s -v
+
       - name: Delete already present ccache cache
         if: steps.restore-ccache-cache.outputs.cache-hit == 'true' && inputs.use_ccache_cache == true  &&
           github.event_name == 'push' && steps.restore-ccache-cache-s3.outputs.cache-hit != 'true'
