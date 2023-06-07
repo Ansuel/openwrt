@@ -345,6 +345,10 @@ jobs:
           echo compiler_type=gcc >> $SYSTEM_CCACHE_CONF
           echo max_size=2G >> $SYSTEM_CCACHE_CONF
 
+          if [ ${{inputs.ccache_type}} = "kernel" ]; then
+            echo sloppiness=locale,time_macros >> $SYSTEM_CCACHE_CONF
+          fi
+
           echo CONFIG_CCACHE=y >> .config
 
       - name: Configure external toolchain in container
