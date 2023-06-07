@@ -343,6 +343,7 @@ jobs:
           touch $SYSTEM_CCACHE_CONF
 
           echo compiler_type=gcc >> $SYSTEM_CCACHE_CONF
+          echo max_size=2G >> $SYSTEM_CCACHE_CONF
 
           echo CONFIG_CCACHE=y >> .config
 
