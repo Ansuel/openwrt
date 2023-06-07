@@ -139,7 +139,9 @@ jobs:
     needs: setup_build
     runs-on: ubuntu-latest
 
-    container: ghcr.io/${{ needs.setup_build.outputs.owner_lc }}/${{ needs.setup_build.outputs.container_name }}:${{ needs.setup_build.outputs.container_tag }}
+    container: 
+      image: ghcr.io/${{ needs.setup_build.outputs.owner_lc }}/${{ needs.setup_build.outputs.container_name }}:${{ needs.setup_build.outputs.container_tag }}
+      options: --tmpfs /.ccache
 
     permissions:
       contents: read
@@ -237,16 +239,16 @@ jobs:
       - name: Download and extract ccache cache from s3
         id: restore-ccache-cache-s3
         if: inputs.use_ccache_cache == true
-        working-directory: openwrt
+        working-directory: /
         run: |
           ENDPOINT=https://storage.googleapis.com
           BUCKET=openwrt-ci-cache
           CCACHE_TAR=ccache-${{ inputs.ccache_type }}-${{ inputs.target }}-${{ inputs.subtarget }}.tar
 
-          if curl -o /dev/null -s --head --fail $ENDPOINT/$BUCKET/$CCACHE_TAR; then
-            wget -O - $ENDPOINT/$BUCKET/$CCACHE_TAR | tar -xf -
-            echo "cache-hit=true" >> $GITHUB_OUTPUT
-          fi
+          # if curl -o /dev/null -s --head --fail $ENDPOINT/$BUCKET/$CCACHE_TAR; then
+          #   wget -O - $ENDPOINT/$BUCKET/$CCACHE_TAR | tar -xf -
+          #   echo "cache-hit=true" >> $GITHUB_OUTPUT
+          # fi
 
       - name: Fix permission
         run: |
@@ -275,7 +277,7 @@ jobs:
         if: inputs.use_ccache_cache == true && steps.restore-ccache-cache-s3.outputs.cache-hit != 'true'
         uses: actions/cache/restore@v3
         with:
-          path: openwrt/.ccache
+          path: /.ccache
           key: ccache-${{ inputs.ccache_type }}-${{ inputs.target }}/${{ inputs.subtarget }}-${{ hashFiles('openwrt/include/kernel-**') }}
           restore-keys: |
             ccache-${{ inputs.ccache_type }}-${{ inputs.target }}/${{ inputs.subtarget }}-
@@ -350,6 +352,13 @@ jobs:
           fi
 
           echo CONFIG_CCACHE=y >> .config
+          echo CONFIG_CCACHE_DIR=\"/.ccache\" >> .config
+
+      - name: Show ccache stats
+        if: inputs.use_ccache_cache == true
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: CCACHE_BASEDIR=$(pwd) CCACHE_DIR=/.ccache ./staging_dir/host/bin/ccache -s -v
 
       - name: Configure external toolchain in container
         if: inputs.build_toolchain == false && steps.parse-toolchain.outputs.toolchain-type == 'external_container'
@@ -532,13 +541,13 @@ jobs:
         if: inputs.use_ccache_cache == true
         shell: su buildbot -c "sh -e {0}"
         working-directory: openwrt
-        run: CCACHE_BASEDIR=$(pwd) ./staging_dir/host/bin/ccache -s -v
+        run: CCACHE_BASEDIR=$(pwd) CCACHE_DIR=/.ccache ./staging_dir/host/bin/ccache -s -v
 
       - name: Trigger cleanup of ccache
         if: inputs.use_ccache_cache == true
         shell: su buildbot -c "sh -e {0}"
         working-directory: openwrt
-        run: CCACHE_BASEDIR=$(pwd) ./staging_dir/host/bin/ccache -c
+        run: CCACHE_BASEDIR=$(pwd) CCACHE_DIR=/.ccache ./staging_dir/host/bin/ccache -c
 
       - name: Delete already present ccache cache
         if: steps.restore-ccache-cache.outputs.cache-hit == 'true' && inputs.use_ccache_cache == true  &&
@@ -556,7 +565,7 @@ jobs:
           steps.restore-ccache-cache-s3.outputs.cache-hit != 'true'
         uses: actions/cache/save@v3
         with:
-          path: openwrt/.ccache
+          path: /.ccache
           key: ${{ steps.restore-ccache-cache.outputs.cache-primary-key }}
 
       - name: Archive ccache
@@ -564,7 +573,7 @@ jobs:
           inputs.upload_ccache_cache == true
         shell: su buildbot -c "sh -e {0}"
         working-directory: openwrt
-        run: tar -cf ccache-${{ inputs.ccache_type }}-${{ inputs.target }}-${{ inputs.subtarget }}.tar .ccache
+        run: tar -cf ccache-${{ inputs.ccache_type }}-${{ inputs.target }}-${{ inputs.subtarget }}.tar /.ccache
 
       - name: Upload ccache cache
         if: inputs.use_ccache_cache == true && github.event_name == 'push' &&

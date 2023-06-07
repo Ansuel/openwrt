@@ -23,9 +23,9 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+# concurrency:
+#   group: ${{ github.workflow }}-${{ github.ref }}
+#   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   determine_targets:
@@ -45,61 +45,61 @@ jobs:
         id: changed-files
         uses: tj-actions/changed-files@v35
 
-      - name: Set targets
-        id: find_targets
-        run: |
-          ALL_TARGETS="$(perl ./scripts/dump-target-info.pl targets 2>/dev/null)"
-          CHANGED_FILES="$(echo ${{ steps.changed-files.outputs.all_changed_files }} | tr ' ' '\n')"
+      # - name: Set targets
+      #   id: find_targets
+      #   run: |
+      #     ALL_TARGETS="$(perl ./scripts/dump-target-info.pl targets 2>/dev/null)"
+      #     CHANGED_FILES="$(echo ${{ steps.changed-files.outputs.all_changed_files }} | tr ' ' '\n')"
 
-          TARGETS_SUBTARGETS="$(echo "$ALL_TARGETS" | sort -u -t '/' -k1 | awk '{ print $1 }')"
-          TARGETS="$(echo "$ALL_TARGETS" | sort -u -t '/' -k1,1 | awk '{ print $1 }')"
+      #     TARGETS_SUBTARGETS="$(echo "$ALL_TARGETS" | sort -u -t '/' -k1 | awk '{ print $1 }')"
+      #     TARGETS="$(echo "$ALL_TARGETS" | sort -u -t '/' -k1,1 | awk '{ print $1 }')"
 
-          # On testing non-specific target, skip testing each subtarget if we are testing pr
-          if [ ${{ github.event_name }} != 'push' ]; then
-            if echo "$CHANGED_FILES" | grep -v -q target/linux ||
-              echo "$CHANGED_FILES" | grep -q target/linux/generic; then
-              TARGETS_SUBTARGETS=$TARGETS
-            fi
-          fi
+      #     # On testing non-specific target, skip testing each subtarget if we are testing pr
+      #     if [ ${{ github.event_name }} != 'push' ]; then
+      #       if echo "$CHANGED_FILES" | grep -v -q target/linux ||
+      #         echo "$CHANGED_FILES" | grep -q target/linux/generic; then
+      #         TARGETS_SUBTARGETS=$TARGETS
+      #       fi
+      #     fi
 
-          JSON_TARGETS_SUBTARGETS='['
-          FIRST=1
-          for TARGET in $TARGETS_SUBTARGETS; do
-            if echo "$CHANGED_FILES" | grep -v -q target/linux ||
-              echo "$CHANGED_FILES" | grep -q target/linux/generic ||
-              echo "$CHANGED_FILES" | grep -q $(echo $TARGET | cut -d "/" -f 1); then
-              TUPLE='{"target":"'"$(echo $TARGET | cut -d "/" -f 1)"'","subtarget":"'"$(echo $TARGET | cut -d "/" -f 2)"'"}'
-              [[ $FIRST -ne 1 ]] && JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS"','
-              JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS""$TUPLE"
-              FIRST=0
-            fi
-          done
-          JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS"']'
+      #     JSON_TARGETS_SUBTARGETS='['
+      #     FIRST=1
+      #     for TARGET in $TARGETS_SUBTARGETS; do
+      #       if echo "$CHANGED_FILES" | grep -v -q target/linux ||
+      #         echo "$CHANGED_FILES" | grep -q target/linux/generic ||
+      #         echo "$CHANGED_FILES" | grep -q $(echo $TARGET | cut -d "/" -f 1); then
+      #         TUPLE='{"target":"'"$(echo $TARGET | cut -d "/" -f 1)"'","subtarget":"'"$(echo $TARGET | cut -d "/" -f 2)"'"}'
+      #         [[ $FIRST -ne 1 ]] && JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS"','
+      #         JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS""$TUPLE"
+      #         FIRST=0
+      #       fi
+      #     done
+      #     JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS"']'
 
-          JSON_TARGETS='['
-          FIRST=1
-          for TARGET in $TARGETS; do
-            if echo "$CHANGED_FILES" | grep -v -q target/linux ||
-              echo "$CHANGED_FILES" | grep -q target/linux/generic ||
-              echo "$CHANGED_FILES" | grep -q $(echo $TARGET | cut -d "/" -f 1); then
-              TUPLE='{"target":"'"$(echo $TARGET | cut -d "/" -f 1)"'","subtarget":"'"$(echo $TARGET | cut -d "/" -f 2)"'"}'
-              [[ $FIRST -ne 1 ]] && JSON_TARGETS="$JSON_TARGETS"','
-              JSON_TARGETS="$JSON_TARGETS""$TUPLE"
-              FIRST=0
-            fi
-          done
-          JSON_TARGETS="$JSON_TARGETS"']'
+      #     JSON_TARGETS='['
+      #     FIRST=1
+      #     for TARGET in $TARGETS; do
+      #       if echo "$CHANGED_FILES" | grep -v -q target/linux ||
+      #         echo "$CHANGED_FILES" | grep -q target/linux/generic ||
+      #         echo "$CHANGED_FILES" | grep -q $(echo $TARGET | cut -d "/" -f 1); then
+      #         TUPLE='{"target":"'"$(echo $TARGET | cut -d "/" -f 1)"'","subtarget":"'"$(echo $TARGET | cut -d "/" -f 2)"'"}'
+      #         [[ $FIRST -ne 1 ]] && JSON_TARGETS="$JSON_TARGETS"','
+      #         JSON_TARGETS="$JSON_TARGETS""$TUPLE"
+      #         FIRST=0
+      #       fi
+      #     done
+      #     JSON_TARGETS="$JSON_TARGETS"']'
 
-          echo -e "\n---- targets to build ----\n"
-          echo "$JSON_TARGETS_SUBTARGETS"
-          echo -e "\n---- targets to build ----\n"
+      #     echo -e "\n---- targets to build ----\n"
+      #     echo "$JSON_TARGETS_SUBTARGETS"
+      #     echo -e "\n---- targets to build ----\n"
 
-          echo -e "\n---- targets to check patch ----\n"
-          echo "$JSON_TARGETS"
-          echo -e "\n---- targets to check patch ----\n"
+      #     echo -e "\n---- targets to check patch ----\n"
+      #     echo "$JSON_TARGETS"
+      #     echo -e "\n---- targets to check patch ----\n"
 
-          echo "targets_subtargets=$JSON_TARGETS_SUBTARGETS" >> $GITHUB_OUTPUT
-          echo "targets=$JSON_TARGETS" >> $GITHUB_OUTPUT
+      #     echo "targets_subtargets=$JSON_TARGETS_SUBTARGETS" >> $GITHUB_OUTPUT
+      #     echo "targets=$JSON_TARGETS" >> $GITHUB_OUTPUT
 
   build:
     name: Build Kernel with external toolchain
@@ -111,7 +111,10 @@ jobs:
     strategy:
        fail-fast: False
        matrix:
-         include: ${{fromJson(needs.determine_targets.outputs.targets_subtargets)}}
+        #  include: ${{fromJson(needs.determine_targets.outputs.targets_subtargets)}}
+        include:
+          - target: ipq806x
+            subtarget: generic
     uses: ./.github/workflows/build.yml
     with:
       container_name: toolchain
@@ -121,20 +124,20 @@ jobs:
       build_all_kmods: true
       upload_ccache_cache: ${{ github.repository_owner == 'openwrt' }}
 
-  check-kernel-patches:
-    name: Check Kernel patches
-    needs: determine_targets
-    permissions:
-      contents: read
-      packages: read
-    strategy:
-       fail-fast: False
-       matrix:
-         include: ${{fromJson(needs.determine_targets.outputs.targets)}}
-    uses: ./.github/workflows/check-kernel-patches.yml
-    with:
-      target: ${{ matrix.target }}
-      subtarget: ${{ matrix.subtarget }}
+  # check-kernel-patches:
+  #   name: Check Kernel patches
+  #   needs: determine_targets
+  #   permissions:
+  #     contents: read
+  #     packages: read
+  #   strategy:
+  #      fail-fast: False
+  #      matrix:
+  #        include: ${{fromJson(needs.determine_targets.outputs.targets)}}
+  #   uses: ./.github/workflows/check-kernel-patches.yml
+  #   with:
+  #     target: ${{ matrix.target }}
+  #     subtarget: ${{ matrix.subtarget }}
 
   upload-ccache-cache-in-s3:
     if: github.event_name == 'push' && github.repository_owner == 'openwrt'
