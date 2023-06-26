@@ -13,9 +13,9 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: true
+# concurrency:
+#   group: ${{ github.workflow }}
+#   cancel-in-progress: true
 
 jobs:
   build-push-containers:
@@ -24,4 +24,4 @@ jobs:
       contents: read
       packages: write
       actions: write
-    uses: openwrt/actions-shared-workflows/.github/workflows/push-containers.yml@main
+    uses: openwrt/actions-shared-workflows/.github/workflows/push-containers.yml@test
