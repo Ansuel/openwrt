@@ -1,0 +1,104 @@
+From 17314a5c28eb7dac56141db2c0ed140138cff907 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Mon, 3 Jul 2023 17:29:00 +0200
+Subject: [PATCH 16/20] net: dsa: tag_qca: add support for early drop of
+ unknown packet
+
+To follow DSA design, every unknown packet is flooded to the CPU.
+This cause handling packet even if the port should not receive them as
+it's not in PROMISC or ALLMULTI mode.
+
+The qca8k switch tagger provide packet type that comunicates if an
+unknown packet is flooded to CPU.
+
+Add 2 bitmap port_flood_uc and port_flood_mc that the switch driver can
+set and setup flood per port.
+
+Use this info to drop these packet early if port doesn't have flood
+enabled for unicast or multicast packet.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ include/linux/dsa/tag_qca.h |  6 ++++++
+ net/dsa/tag_qca.c           | 35 +++++++++++++++++++++++++++++++++--
+ 2 files changed, 39 insertions(+), 2 deletions(-)
+
+--- a/include/linux/dsa/tag_qca.h
++++ b/include/linux/dsa/tag_qca.h
+@@ -21,6 +21,7 @@ struct sk_buff;
+ #define QCA_HDR_RECV_TYPE_NORMAL	0x0
+ #define QCA_HDR_RECV_TYPE_MIB		0x1
+ #define QCA_HDR_RECV_TYPE_RW_REG_ACK	0x2
++#define QCA_HDR_RECV_TYPE_FLOOD_TO_CPU	0x19
+ 
+ #define QCA_HDR_XMIT_VERSION		GENMASK(15, 14)
+ #define QCA_HDR_XMIT_PRIORITY		GENMASK(13, 11)
+@@ -78,6 +79,11 @@ struct mib_ethhdr {
+ } __packed;
+ 
+ struct qca_tagger_data {
++	/* Each bit correspond to a port. This switch can support a max of 7 port.
++	 * Bit 1: port enabled. Bit 0: port disabled.
++	 */
++	u8 port_flood_uc;
++	u8 port_flood_mc;
+ 	void (*rw_reg_ack_handler)(struct dsa_switch *ds,
+ 				   struct sk_buff *skb);
+ 	void (*mib_autocast_handler)(struct dsa_switch *ds,
+--- a/net/dsa/tag_qca.c
++++ b/net/dsa/tag_qca.c
+@@ -36,6 +36,7 @@ static struct sk_buff *qca_tag_rcv(struc
+ 	struct qca_tagger_data *tagger_data;
+ 	struct dsa_port *dp = dev->dsa_ptr;
+ 	struct dsa_switch *ds = dp->ds;
++	struct net_device *slave;
+ 	u8 ver, pk_type;
+ 	__be16 *phdr;
+ 	int port;
+@@ -76,14 +77,44 @@ static struct sk_buff *qca_tag_rcv(struc
+ 	/* Get source port information */
+ 	port = FIELD_GET(QCA_HDR_RECV_SOURCE_PORT, hdr);
+ 
+-	skb->dev = dsa_master_find_slave(dev, 0, port);
+-	if (!skb->dev)
++	slave = dsa_master_find_slave(dev, 0, port);
++	if (!slave)
+ 		return NULL;
+ 
++	/* Special handling for packet tagged as FLOOD TO CPU.
++	 * To implement a DSA design on qca8k we need to set every unknown
++	 * unicast/multicast packet to flood to CPU.
++	 * Switch tag have a packet type that declare when a packet is
++	 * flooded to CPU if it's an unknown unicast/multicast packet.
++	 *
++	 * We can use this info to understand when a packet is flooded and drop
++	 * the packet early if the port should not flood unicast or multicast
++	 * packet.
++	 */
++	if (pk_type == QCA_HDR_RECV_TYPE_FLOOD_TO_CPU) {
++		struct ethhdr *eth = (struct ethhdr *)skb_mac_header(skb);
++		bool flood_uc, flood_mc;
++
++		if (is_broadcast_ether_addr(eth->h_dest))
++			goto exit;
++
++		flood_uc = tagger_data->port_flood_uc & BIT(port);
++		flood_mc = tagger_data->port_flood_mc & BIT(port);
++
++		if (is_unicast_ether_addr(eth->h_dest) && !flood_uc)
++			return NULL;
++
++		if (ether_addr_is_ip_mcast(eth->h_dest) && !flood_uc && !flood_mc)
++			return NULL;
++	}
++
++exit:
+ 	/* Remove QCA tag and recalculate checksum */
+ 	skb_pull_rcsum(skb, QCA_HDR_LEN);
+ 	dsa_strip_etype_header(skb, QCA_HDR_LEN);
+ 
++	skb->dev = slave;
++
+ 	return skb;
+ }
+ 

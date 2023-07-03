@@ -1,0 +1,55 @@
+From 15557fba4604a66cf610f9df6b77ec3088bcadf6 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Mon, 3 Jul 2023 13:32:36 +0200
+Subject: [PATCH 10/20] net: dsa: qca8k: reject adding and using switch
+ reserved VID
+
+Qca8k reserve some VID for internal usage. Add some check to reject
+adding and using these VID if requested by the user.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/dsa/qca/qca8k-common.c | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+--- a/drivers/net/dsa/qca/qca8k-common.c
++++ b/drivers/net/dsa/qca/qca8k-common.c
+@@ -361,6 +361,12 @@ static int qca8k_vlan_add(struct qca8k_p
+ 	u32 reg;
+ 	int ret;
+ 
++	if (vid == QCA8K_PORT_VID_DEF) {
++		dev_err(priv->dev, "VID %d is reserved for internal usage and can't be used.\n",
++			vid);
++		return -EINVAL;
++	}
++
+ 	/* We do the right thing with VLAN 0 and treat it as untagged while
+ 	 * preserving the tag on egress.
+ 	 */
+@@ -798,6 +804,12 @@ int qca8k_port_max_mtu(struct dsa_switch
+ int qca8k_port_fdb_insert(struct qca8k_priv *priv, const u8 *addr,
+ 			  u16 port_mask, u16 vid)
+ {
++	if (vid == QCA8K_PORT_VID_DEF) {
++		dev_err(priv->dev, "VID %d is reserved for internal usage and can't be used.\n",
++			vid);
++		return -EINVAL;
++	}
++
+ 	/* Set the vid to the port vlan id if no vid is set */
+ 	if (!vid)
+ 		vid = QCA8K_PORT_VID_DEF;
+@@ -864,6 +876,12 @@ int qca8k_port_mdb_add(struct dsa_switch
+ 	const u8 *addr = mdb->addr;
+ 	u16 vid = mdb->vid;
+ 
++	if (vid == QCA8K_PORT_VID_DEF) {
++		dev_err(priv->dev, "VID %d is reserved for internal usage and can't be used.\n",
++			vid);
++		return -EINVAL;
++	}
++
+ 	if (!vid)
+ 		vid = QCA8K_PORT_VID_DEF;
+ 

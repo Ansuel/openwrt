@@ -1,0 +1,101 @@
+From 93af60f270fca49c49d5eda631e0eccfa69c0058 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Tue, 4 Jul 2023 00:46:02 +0200
+Subject: [PATCH 17/20] net: dsa: qca8k: add support for host flood filtering
+
+Add support to filter flood unicast or multicast packet from tagger.
+
+Add support for port_set_host_flood and additional flags for
+port_pre_bridge_flags BR_FLOOD and BR_MCAST_FLOOD.
+
+We enable the related bit for the port to disable/enable flood for
+unicast or multicast in the tagger data and then the qca tagger will act
+based on these bits.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/dsa/qca/qca8k-8xxx.c   |  1 +
+ drivers/net/dsa/qca/qca8k-common.c | 37 +++++++++++++++++++++++++++++-
+ drivers/net/dsa/qca/qca8k.h        |  2 ++
+ 3 files changed, 39 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/dsa/qca/qca8k-8xxx.c
++++ b/drivers/net/dsa/qca/qca8k-8xxx.c
+@@ -2088,6 +2088,7 @@ static const struct dsa_switch_ops qca8k
+ 	.port_disable		= qca8k_port_disable,
+ 	.port_change_mtu	= qca8k_port_change_mtu,
+ 	.port_max_mtu		= qca8k_port_max_mtu,
++	.port_set_host_flood	= qca8k_port_set_host_flood,
+ 	.port_stp_state_set	= qca8k_port_stp_state_set,
+ 	.port_pre_bridge_flags	= qca8k_port_pre_bridge_flags,
+ 	.port_bridge_flags	= qca8k_port_bridge_flags,
+--- a/drivers/net/dsa/qca/qca8k-common.c
++++ b/drivers/net/dsa/qca/qca8k-common.c
+@@ -621,11 +621,35 @@ void qca8k_port_stp_state_set(struct dsa
+ 	qca8k_port_configure_learning(ds, port, learning);
+ }
+ 
++void qca8k_port_set_host_flood(struct dsa_switch *ds, int port,
++			       bool uc, bool mc)
++{
++	struct qca_tagger_data *tagger_data = ds->tagger_data;
++	struct qca8k_priv *priv = ds->priv;
++
++	if (!tagger_data) {
++		dev_err(priv->dev, "Tagger data not allocated. Can't change flood for port %d\n",
++			port);
++		return;
++	}
++
++	/* Flooding filtering is done at tagger */
++	if (uc)
++		tagger_data->port_flood_uc |= BIT(port);
++	else
++		tagger_data->port_flood_uc &= ~BIT(port);
++
++	if (mc)
++		tagger_data->port_flood_mc |= BIT(port);
++	else
++		tagger_data->port_flood_mc &= ~BIT(port);
++}
++
+ int qca8k_port_pre_bridge_flags(struct dsa_switch *ds, int port,
+ 				struct switchdev_brport_flags flags,
+ 				struct netlink_ext_ack *extack)
+ {
+-	if (flags.mask & ~BR_LEARNING)
++	if (flags.mask & ~(BR_LEARNING | BR_FLOOD | BR_MCAST_FLOOD))
+ 		return -EINVAL;
+ 
+ 	return 0;
+@@ -635,8 +659,19 @@ int qca8k_port_bridge_flags(struct dsa_s
+ 			    struct switchdev_brport_flags flags,
+ 			    struct netlink_ext_ack *extack)
+ {
++	struct qca_tagger_data *tagger_data = ds->tagger_data;
++	struct qca8k_priv *priv = ds->priv;
+ 	int ret;
+ 
++	if (!tagger_data) {
++		dev_err(priv->dev, "Tagger data not allocated. Can't change flood for port %d\n",
++			port);
++		return -EINVAL;
++	}
++
++	qca8k_port_set_host_flood(ds, port, flags.val & BR_FLOOD,
++				  flags.val & BR_MCAST_FLOOD);
++
+ 	ret = qca8k_port_configure_learning(ds, port,
+ 					    flags.val & BR_LEARNING);
+ 
+--- a/drivers/net/dsa/qca/qca8k.h
++++ b/drivers/net/dsa/qca/qca8k.h
+@@ -530,6 +530,8 @@ int qca8k_set_mac_eee(struct dsa_switch
+ int qca8k_get_mac_eee(struct dsa_switch *ds, int port, struct ethtool_eee *e);
+ 
+ /* Common bridge function */
++void qca8k_port_set_host_flood(struct dsa_switch *ds, int port,
++			       bool uc, bool mc);
+ void qca8k_port_stp_state_set(struct dsa_switch *ds, int port, u8 state);
+ int qca8k_port_pre_bridge_flags(struct dsa_switch *ds, int port,
+ 				struct switchdev_brport_flags flags,

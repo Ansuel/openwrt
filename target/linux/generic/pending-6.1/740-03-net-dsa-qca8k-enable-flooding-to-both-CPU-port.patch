@@ -1,7 +1,7 @@
-From b954d61d9ecfa64450fc178586719dc2a95b92a7 Mon Sep 17 00:00:00 2001
+From b3ab4e517dddc2dfcd1f3bc56cdf8c72f298d9ef Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Tue, 20 Jun 2023 21:48:24 +0200
-Subject: [PATCH 3/4] net: dsa: qca8k: enable flooding to both CPU port
+Subject: [PATCH 03/20] net: dsa: qca8k: enable flooding to both CPU port
 
 To permit a multi-CPU setup, flood all unknown frames to all CPU ports.
 Each CPU port should have correct LOOKUP MEMBER configuration to
@@ -14,7 +14,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 
 --- a/drivers/net/dsa/qca/qca8k-8xxx.c
 +++ b/drivers/net/dsa/qca/qca8k-8xxx.c
-@@ -1779,15 +1779,12 @@ qca8k_setup(struct dsa_switch *ds)
+@@ -1835,15 +1835,12 @@ qca8k_setup(struct dsa_switch *ds)
  			qca8k_port_set_status(priv, i, 0);
  	}
  

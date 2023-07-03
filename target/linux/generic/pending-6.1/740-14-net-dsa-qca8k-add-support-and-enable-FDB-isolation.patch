@@ -1,0 +1,184 @@
+From 67c67584caf4c887836b17c7e556652e8f85fba4 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Mon, 3 Jul 2023 17:11:25 +0200
+Subject: [PATCH 14/20] net: dsa: qca8k: add support and enable FDB isolation
+
+Enable support for FDB isolation. To isolate FDB for bridge, we reserve
+some additional VID by decrementing the default VID based on the bridge
+number. FDB/MBD/VLAN function are updated to assign the correct reserved
+VID if a bridge is used.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/dsa/qca/qca8k-8xxx.c   |  3 ++
+ drivers/net/dsa/qca/qca8k-common.c | 75 ++++++++++++++++++++++--------
+ drivers/net/dsa/qca/qca8k.h        |  8 ++++
+ 3 files changed, 67 insertions(+), 19 deletions(-)
+
+--- a/drivers/net/dsa/qca/qca8k-8xxx.c
++++ b/drivers/net/dsa/qca/qca8k-8xxx.c
+@@ -2066,6 +2066,9 @@ qca8k_setup(struct dsa_switch *ds)
+ 	/* Each user port can offload one bridge */
+ 	ds->max_num_bridges = QCA8K_NUM_PORTS - QCA8K_NUM_CPU_PORTS;
+ 
++	/* Enable fdb_isolation by reserving some VID */
++	ds->fdb_isolation = true;
++
+ 	/* Set max number of LAGs supported */
+ 	ds->num_lag_ids = QCA8K_NUM_LAGS;
+ 
+--- a/drivers/net/dsa/qca/qca8k-common.c
++++ b/drivers/net/dsa/qca/qca8k-common.c
+@@ -361,7 +361,7 @@ static int qca8k_vlan_add(struct qca8k_p
+ 	u32 reg;
+ 	int ret;
+ 
+-	if (vid == QCA8K_PORT_VID_DEF) {
++	if (qca8k_is_reserved_pvid(vid)) {
+ 		dev_err(priv->dev, "VID %d is reserved for internal usage and can't be used.\n",
+ 			vid);
+ 		return -EINVAL;
+@@ -801,19 +801,28 @@ int qca8k_port_max_mtu(struct dsa_switch
+ 	return QCA8K_MAX_MTU;
+ }
+ 
+-int qca8k_port_fdb_insert(struct qca8k_priv *priv, const u8 *addr,
+-			  u16 port_mask, u16 vid)
++static u16 qca8k_get_reserved_bridge_pvid(struct dsa_bridge bridge)
+ {
+-	if (vid == QCA8K_PORT_VID_DEF) {
+-		dev_err(priv->dev, "VID %d is reserved for internal usage and can't be used.\n",
+-			vid);
+-		return -EINVAL;
+-	}
++	return QCA8K_PORT_VID_DEF - bridge.num;
++}
+ 
+-	/* Set the vid to the port vlan id if no vid is set */
+-	if (!vid)
+-		vid = QCA8K_PORT_VID_DEF;
++static u16 qca8k_get_reserved_pvid(struct dsa_db db)
++{
++	switch (db.type) {
++	case DSA_DB_PORT:
++	case DSA_DB_LAG:
++		return QCA8K_PORT_VID_DEF;
++	case DSA_DB_BRIDGE:
++		/* For FDB isolation we reserve some VID */
++		return qca8k_get_reserved_bridge_pvid(db.bridge);
++	default:
++		return -EOPNOTSUPP;
++	}
++}
+ 
++int qca8k_port_fdb_insert(struct qca8k_priv *priv, const u8 *addr,
++			  u16 port_mask, u16 vid)
++{
+ 	return qca8k_fdb_add(priv, addr, port_mask, vid,
+ 			     QCA8K_ATU_STATUS_STATIC);
+ }
+@@ -825,6 +834,19 @@ int qca8k_port_fdb_add(struct dsa_switch
+ 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
+ 	u16 port_mask = BIT(port);
+ 
++	if (qca8k_is_reserved_pvid(vid)) {
++		dev_err(priv->dev, "VID %d is reserved for internal usage and can't be used.\n",
++			vid);
++		return -EINVAL;
++	}
++
++	/* Set the vid to the port vlan id if no vid is set */
++	if (!vid) {
++		vid = qca8k_get_reserved_pvid(db);
++		if (vid < 0)
++			return vid;
++	}
++
+ 	return qca8k_port_fdb_insert(priv, addr, port_mask, vid);
+ }
+ 
+@@ -835,8 +857,11 @@ int qca8k_port_fdb_del(struct dsa_switch
+ 	struct qca8k_priv *priv = (struct qca8k_priv *)ds->priv;
+ 	u16 port_mask = BIT(port);
+ 
+-	if (!vid)
+-		vid = QCA8K_PORT_VID_DEF;
++	if (!vid) {
++		vid = qca8k_get_reserved_pvid(db);
++		if (vid < 0)
++			return vid;
++	}
+ 
+ 	return qca8k_fdb_del(priv, addr, port_mask, vid);
+ }
+@@ -857,7 +882,7 @@ int qca8k_port_fdb_dump(struct dsa_switc
+ 		if (!_fdb.aging)
+ 			break;
+ 		is_static = (_fdb.aging == QCA8K_ATU_STATUS_STATIC);
+-		if (_fdb.vid == QCA8K_PORT_VID_DEF)
++		if (qca8k_is_reserved_pvid(_fdb.vid))
+ 			vid = 0;
+ 		ret = cb(_fdb.mac, vid, is_static, data);
+ 		if (ret)
+@@ -882,8 +907,11 @@ int qca8k_port_mdb_add(struct dsa_switch
+ 		return -EINVAL;
+ 	}
+ 
+-	if (!vid)
+-		vid = QCA8K_PORT_VID_DEF;
++	if (!vid) {
++		vid = qca8k_get_reserved_pvid(db);
++		if (vid < 0)
++			return vid;
++	}
+ 
+ 	return qca8k_fdb_search_and_insert(priv, BIT(port), addr, vid,
+ 					   QCA8K_ATU_STATUS_STATIC);
+@@ -897,8 +925,11 @@ int qca8k_port_mdb_del(struct dsa_switch
+ 	const u8 *addr = mdb->addr;
+ 	u16 vid = mdb->vid;
+ 
+-	if (!vid)
+-		vid = QCA8K_PORT_VID_DEF;
++	if (!vid) {
++		vid = qca8k_get_reserved_pvid(db);
++		if (vid < 0)
++			return vid;
++	}
+ 
+ 	return qca8k_fdb_search_and_del(priv, BIT(port), addr, vid);
+ }
+@@ -1030,9 +1061,15 @@ int qca8k_port_vlan_add(struct dsa_switc
+ 		return ret;
+ 	}
+ 
+-	if (!pvid)
++	if (!pvid) {
++		struct dsa_port *dp = dsa_to_port(ds, port);
++
+ 		vid = QCA8K_PORT_VID_DEF;
+ 
++		if (dp->bridge)
++			vid = qca8k_get_reserved_bridge_pvid(*dp->bridge);
++	}
++
+ 	ret = qca8k_rmw(priv, QCA8K_EGRESS_VLAN(port),
+ 			QCA8K_EGREES_VLAN_PORT_MASK(port),
+ 			QCA8K_EGREES_VLAN_PORT(port, vid));
+--- a/drivers/net/dsa/qca/qca8k.h
++++ b/drivers/net/dsa/qca/qca8k.h
+@@ -496,6 +496,14 @@ static inline u32 qca8k_port_to_phy(int
+ 	return port - 1;
+ }
+ 
++static inline bool qca8k_is_reserved_pvid(u16 vid)
++{
++	/* We can offload one bridge per port at max.
++	 * We reserve the default VID + a reserved VID for each user port;
++	 */
++	return vid >= QCA8K_PORT_VID_DEF - (QCA8K_NUM_PORTS - QCA8K_NUM_CPU_PORTS);
++}
++
+ /* Common setup function */
+ extern const struct qca8k_mib_desc ar8327_mib[];
+ extern const struct regmap_access_table qca8k_readable_table;

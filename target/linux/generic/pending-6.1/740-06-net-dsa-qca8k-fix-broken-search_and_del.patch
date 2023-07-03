@@ -1,0 +1,38 @@
+From bbda79a8b5572124c7479038cb1751396cdddd97 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Tue, 27 Jun 2023 14:34:18 +0200
+Subject: [PATCH 06/20] net: dsa: qca8k: fix broken search_and_del
+
+On deleting an MDB entry for a port, fdb_search_and_del is used.
+An FDB entry can't be modified so it needs to be deleted and readded
+again with the new portmap (and the port deleted as requested)
+
+We use the SEARCH operator to search the entry to edit by vid and mac
+address and then we check the aging if we actually found an entry.
+
+Currently the code suffer from a bug where the searched fdb entry is
+never read again with the found values (if found) resulting in the code
+always returning -EINVAL as aging was always 0.
+
+Fix this by correctly read the fdb entry after it was searched.
+
+Fixes: ba8f870dfa63 ("net: dsa: qca8k: add support for mdb_add/del")
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+Cc: stable@vger.kernel.org
+---
+ drivers/net/dsa/qca/qca8k-common.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+--- a/drivers/net/dsa/qca/qca8k-common.c
++++ b/drivers/net/dsa/qca/qca8k-common.c
+@@ -293,6 +293,10 @@ static int qca8k_fdb_search_and_del(stru
+ 	if (ret < 0)
+ 		goto exit;
+ 
++	ret = qca8k_fdb_read(priv, &fdb);
++	if (ret < 0)
++		goto exit;
++
+ 	/* Rule doesn't exist. Why delete? */
+ 	if (!fdb.aging) {
+ 		ret = -EINVAL;

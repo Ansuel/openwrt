@@ -1,8 +1,8 @@
-From 888855cd0e5bda73844790ecdbe62a08d5393d44 Mon Sep 17 00:00:00 2001
+From 5e78310fd28d7dceca775580fa6cf8f756aca83d Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Sat, 24 Jun 2023 17:02:18 +0200
-Subject: [PATCH 2/4] net: dsa: qca8k: limit user ports access to the first CPU
- port on setup
+Subject: [PATCH 02/20] net: dsa: qca8k: limit user ports access to the first
+ CPU port on setup
 
 In preparation for multi-CPU support, set CPU port LOOKUP MEMBER outside
 the port loop and setup the LOOKUP MEMBER mask for user ports only to
@@ -21,7 +21,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 
 --- a/drivers/net/dsa/qca/qca8k-8xxx.c
 +++ b/drivers/net/dsa/qca/qca8k-8xxx.c
-@@ -1791,18 +1791,16 @@ qca8k_setup(struct dsa_switch *ds)
+@@ -1847,18 +1847,16 @@ qca8k_setup(struct dsa_switch *ds)
  	if (ret)
  		return ret;
  

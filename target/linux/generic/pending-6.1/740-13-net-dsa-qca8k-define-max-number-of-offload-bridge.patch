@@ -1,0 +1,27 @@
+From 22032e7730a6037c5e9110c7a562fb18a8b90b32 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 7 Jul 2023 22:45:45 +0200
+Subject: [PATCH 13/20] net: dsa: qca8k: define max number of offload bridge
+
+Qca8k can offload up to 5 bridge, one for each user port.
+
+Define max_num_bridges based on the num of ports - the num of CPU
+ports.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/dsa/qca/qca8k-8xxx.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+--- a/drivers/net/dsa/qca/qca8k-8xxx.c
++++ b/drivers/net/dsa/qca/qca8k-8xxx.c
+@@ -2063,6 +2063,9 @@ qca8k_setup(struct dsa_switch *ds)
+ 	ds->ageing_time_min = 7000;
+ 	ds->ageing_time_max = 458745000;
+ 
++	/* Each user port can offload one bridge */
++	ds->max_num_bridges = QCA8K_NUM_PORTS - QCA8K_NUM_CPU_PORTS;
++
+ 	/* Set max number of LAGs supported */
+ 	ds->num_lag_ids = QCA8K_NUM_LAGS;
+ 

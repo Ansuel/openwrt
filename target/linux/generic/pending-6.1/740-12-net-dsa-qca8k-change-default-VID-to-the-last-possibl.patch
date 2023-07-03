@@ -1,0 +1,36 @@
+From 573b5601742d13f525350079ae02d4b3bc0c5419 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Mon, 3 Jul 2023 16:42:15 +0200
+Subject: [PATCH 12/20] net: dsa: qca8k: change default VID to the last
+ possible VID
+
+VID 1 is commonly used and can conflicts with normal operation due to
+rejecting it.
+
+To permit the use of VID 1 change the default VID to 4094 to make VLAN
+usage more user friendly.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/dsa/qca/qca8k.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/dsa/qca/qca8k.h
++++ b/drivers/net/dsa/qca/qca8k.h
+@@ -9,6 +9,7 @@
+ #define __QCA8K_H
+ 
+ #include <linux/delay.h>
++#include <linux/if_vlan.h>
+ #include <linux/regmap.h>
+ #include <linux/gpio.h>
+ #include <linux/leds.h>
+@@ -36,7 +37,7 @@
+ 
+ #define QCA8K_NUM_FDB_RECORDS				2048
+ 
+-#define QCA8K_PORT_VID_DEF				1
++#define QCA8K_PORT_VID_DEF				(VLAN_VID_MASK - 1)
+ 
+ /* Global control registers */
+ #define QCA8K_REG_MASK_CTRL				0x000

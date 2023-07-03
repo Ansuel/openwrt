@@ -1,8 +1,8 @@
-From 01bd75b2124544f4a7aa2589f0b6f15213c9198f Mon Sep 17 00:00:00 2001
+From f5487d546fec7439f968754281748a450f67fec4 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 23 Jun 2023 13:22:47 +0200
-Subject: [PATCH 1/4] net: dsa: qca8k: make learning configurable and keep off
- if standalone
+Subject: [PATCH 01/20] net: dsa: qca8k: make learning configurable and keep
+ off if standalone
 
 Address learning should initially be turned off by the driver for port
 operation in standalone mode, then the DSA core handles changes to it
@@ -21,27 +21,26 @@ configured in standalone mode.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/net/dsa/qca/qca8k-8xxx.c   |  8 ++----
- drivers/net/dsa/qca/qca8k-common.c | 40 ++++++++++++++++++++++++++++++
- drivers/net/dsa/qca/qca8k.h        |  6 +++++
- 3 files changed, 48 insertions(+), 6 deletions(-)
+ drivers/net/dsa/qca/qca8k-8xxx.c   |  7 +++--
+ drivers/net/dsa/qca/qca8k-common.c | 44 ++++++++++++++++++++++++++++++
+ drivers/net/dsa/qca/qca8k.h        |  6 ++++
+ 3 files changed, 54 insertions(+), 3 deletions(-)
 
 --- a/drivers/net/dsa/qca/qca8k-8xxx.c
 +++ b/drivers/net/dsa/qca/qca8k-8xxx.c
-@@ -1811,12 +1811,6 @@ qca8k_setup(struct dsa_switch *ds)
+@@ -1867,9 +1867,8 @@ qca8k_setup(struct dsa_switch *ds)
  			if (ret)
  				return ret;
  
 -			/* Enable ARP Auto-learning by default */
 -			ret = regmap_set_bits(priv->regmap, QCA8K_PORT_LOOKUP_CTRL(i),
 -					      QCA8K_PORT_LOOKUP_LEARN);
--			if (ret)
--				return ret;
--
- 			/* For port based vlans to work we need to set the
- 			 * default egress vid
- 			 */
-@@ -1919,6 +1913,8 @@ static const struct dsa_switch_ops qca8k
++			ret = regmap_clear_bits(priv->regmap, QCA8K_PORT_LOOKUP_CTRL(i),
++						QCA8K_PORT_LOOKUP_LEARN);
+ 			if (ret)
+ 				return ret;
+ 
+@@ -1975,6 +1974,8 @@ static const struct dsa_switch_ops qca8k
  	.port_change_mtu	= qca8k_port_change_mtu,
  	.port_max_mtu		= qca8k_port_max_mtu,
  	.port_stp_state_set	= qca8k_port_stp_state_set,
@@ -52,7 +51,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	.port_fast_age		= qca8k_port_fast_age,
 --- a/drivers/net/dsa/qca/qca8k-common.c
 +++ b/drivers/net/dsa/qca/qca8k-common.c
-@@ -596,8 +596,24 @@ int qca8k_get_mac_eee(struct dsa_switch
+@@ -559,9 +559,26 @@ int qca8k_get_mac_eee(struct dsa_switch
  	return 0;
  }
  
@@ -75,14 +74,28 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  {
 +	struct dsa_port *dp = dsa_to_port(ds, port);
  	struct qca8k_priv *priv = ds->priv;
++	bool learning = false;
  	u32 stp_state;
  
-@@ -622,6 +638,30 @@ void qca8k_port_stp_state_set(struct dsa
+ 	switch (state) {
+@@ -576,8 +593,11 @@ void qca8k_port_stp_state_set(struct dsa
+ 		break;
+ 	case BR_STATE_LEARNING:
+ 		stp_state = QCA8K_PORT_LOOKUP_STATE_LEARNING;
++		learning = dp->learning;
+ 		break;
+ 	case BR_STATE_FORWARDING:
++		learning = dp->learning;
++		fallthrough;
+ 	default:
+ 		stp_state = QCA8K_PORT_LOOKUP_STATE_FORWARD;
+ 		break;
+@@ -585,6 +605,30 @@ void qca8k_port_stp_state_set(struct dsa
  
  	qca8k_rmw(priv, QCA8K_PORT_LOOKUP_CTRL(port),
  		  QCA8K_PORT_LOOKUP_STATE_MASK, stp_state);
 +
-+	qca8k_port_configure_learning(ds, port, dp->learning);
++	qca8k_port_configure_learning(ds, port, learning);
 +}
 +
 +int qca8k_port_pre_bridge_flags(struct dsa_switch *ds, int port,
@@ -102,7 +115,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	int ret;
 +
 +	ret = qca8k_port_configure_learning(ds, port,
-+					    flags.mask & ~BR_LEARNING);
++					    flags.val & BR_LEARNING);
 +
 +	return ret;
  }
@@ -110,7 +123,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  int qca8k_port_bridge_join(struct dsa_switch *ds, int port,
 --- a/drivers/net/dsa/qca/qca8k.h
 +++ b/drivers/net/dsa/qca/qca8k.h
-@@ -523,6 +523,12 @@ int qca8k_get_mac_eee(struct dsa_switch
+@@ -522,6 +522,12 @@ int qca8k_get_mac_eee(struct dsa_switch
  
  /* Common bridge function */
  void qca8k_port_stp_state_set(struct dsa_switch *ds, int port, u8 state);
