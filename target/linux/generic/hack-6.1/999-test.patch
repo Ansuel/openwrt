@@ -1,0 +1,15 @@
+diff --git a/arch/arm64/kvm/hyp/nvhe/gen-hyprel.c b/arch/arm64/kvm/hyp/nvhe/gen-hyprel.c
+index 6bc88a756cb7..39e8bef4e42b 100644
+--- a/arch/arm64/kvm/hyp/nvhe/gen-hyprel.c
++++ b/arch/arm64/kvm/hyp/nvhe/gen-hyprel.c
+@@ -24,6 +24,10 @@
+  * However, those are only generated if CONFIG_RELOCATABLE=y.
+  */
+ 
++#define _BSD_SOURCE 1
++/* glibc 2.20 deprecates _BSD_SOURCE in favour of _DEFAULT_SOURCE */
++#define _DEFAULT_SOURCE 1
++
+ #include <elf.h>
+ #include <endian.h>
+ #include <errno.h>

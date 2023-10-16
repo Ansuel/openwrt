@@ -1,0 +1,154 @@
+name: Build Kernel on macos
+
+on:
+  push:
+    branches-ignore:
+      - master
+
+jobs:
+  build:
+    name: Build armsr/armv8
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout master directory
+        uses: actions/checkout@v3
+        with:
+          path: openwrt
+
+      - name: Upload bho
+        uses: actions/upload-artifact@v4-beta
+        with:
+          name: armsr-armv8-logs
+          path: openwrt
+
+      # - name: Checkout packages feed
+      #   uses: actions/checkout@v3
+      #   with:
+      #     repository: openwrt/packages
+      #     path: ${{ env.WORKPATH }}/openwrt/feeds/packages
+
+      # - name: Checkout luci feed
+      #   uses: actions/checkout@v3
+      #   with:
+      #     repository: openwrt/luci
+      #     path: ${{ env.WORKPATH }}/openwrt/feeds/luci
+
+      # - name: Checkout routing feed
+      #   uses: actions/checkout@v3
+      #   with:
+      #     repository: openwrt/routing
+      #     path: ${{ env.WORKPATH }}/openwrt/feeds/routing
+
+      # - name: Checkout telephony feed
+      #   uses: actions/checkout@v3
+      #   with:
+      #     repository: openwrt/telephony
+      #     path: ${{ env.WORKPATH }}/openwrt/feeds/telephony
+
+      # - name: Setup MacOS
+      #   run: |
+      #     echo "WORKPATH=/Volumes/OpenWrt" >> "$GITHUB_ENV"
+      #     hdiutil create -size 20g -type SPARSE -fs "Case-sensitive HFS+" -volname OpenWrt OpenWrt.sparseimage
+      #     hdiutil attach OpenWrt.sparseimage
+      #     mv "$GITHUB_WORKSPACE/openwrt" /Volumes/OpenWrt/
+
+      # - name: Install required prereq on MacOS
+      #   working-directory: ${{ env.WORKPATH }}/openwrt
+      #   run: |
+      #     brew install \
+      #       automake \
+      #       coreutils \
+      #       diffutils \
+      #       findutils \
+      #       gawk \
+      #       git-extras \
+      #       gnu-getopt \
+      #       gnu-sed \
+      #       grep \
+      #       make
+
+      #       echo "/bin" >> "$GITHUB_PATH"
+      #       echo "/sbin/Library/Apple/usr/bin" >> "$GITHUB_PATH"
+      #       echo "/usr/bin" >> "$GITHUB_PATH"
+      #       echo "/usr/local/bin" >> "$GITHUB_PATH"
+      #       echo "/usr/local/opt/coreutils/bin" >> "$GITHUB_PATH"
+      #       echo "/usr/local/opt/findutils/libexec/gnubin" >> "$GITHUB_PATH"
+      #       echo "/usr/local/opt/gettext/bin" >> "$GITHUB_PATH"
+      #       echo "/usr/local/opt/gnu-getopt/bin" >> "$GITHUB_PATH"
+      #       echo "/usr/local/opt/make/libexec/gnubin" >> "$GITHUB_PATH"
+      #       echo "/usr/local/opt/make/libexec/gnubin" >> "$GITHUB_PATH"
+      #       echo "/usr/sbin" >> "$GITHUB_PATH"
+
+      # # - name: Update & Install feeds
+      # #   working-directory: ${{ env.WORKPATH }}/openwrt
+      # #   run: |
+      # #     ./scripts/feeds update -a
+      # #     ./scripts/feeds install -a
+
+      # # - name: Clean configuration
+      # #   working-directory: ${{ env.WORKPATH }}/openwrt
+      # #   run: |
+      # #     rm -rf .config
+
+      # # - name: Configure KERNEL_WERROR
+      # #   working-directory: ${{ env.WORKPATH }}/openwrt
+      # #   run: |
+      # #     echo CONFIG_KERNEL_WERROR=y >> .config
+
+      # # - name: Configure all kernel modules
+      # #   working-directory: ${{ env.WORKPATH }}/openwrt
+      # #   run: |
+      # #     echo CONFIG_ALL_KMODS=y >> .config
+
+      # # - name: Configure all modules
+      # #   working-directory: ${{ env.WORKPATH }}/openwrt
+      # #   run: |
+      # #     echo CONFIG_ALL=y >> .config
+
+      # # - name: Configure all boards
+      # #   working-directory: ${{ env.WORKPATH }}/openwrt
+      # #   run: |
+      # #     echo CONFIG_TARGET_MULTI_PROFILE=y >> .config
+      # #     echo CONFIG_TARGET_PER_DEVICE_ROOTFS=y >> .config
+      # #     echo CONFIG_TARGET_ALL_PROFILES=y >> .config
+
+      # - name: Configure internal toolchain
+      #   working-directory: ${{ env.WORKPATH }}/openwrt
+      #   run: |
+
+      #     echo "CONFIG_TARGET_armsr=y" >> .config
+      #     echo "CONFIG_TARGET_armsr_armv8=y" >> .config
+
+      #     make defconfig
+
+      # - name: Show configuration
+      #   working-directory: ${{ env.WORKPATH }}/openwrt
+      #   run: ./scripts/diffconfig.sh
+
+      # - name: Build tools
+      #   working-directory: ${{ env.WORKPATH }}/openwrt
+      #   run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
+
+      # - name: Build toolchain
+      #   working-directory: ${{ env.WORKPATH }}/openwrt
+      #   run: make toolchain/install -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
+
+      # - name: Build Kernel
+      #   working-directory: ${{ env.WORKPATH }}/openwrt
+      #   run: make target/compile -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
+
+      # - name: Build Kernel Kmods
+      #   working-directory: ${{ env.WORKPATH }}/openwrt
+      #   run: make package/linux/compile -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
+
+      # - name: Build everything
+      #   working-directory: ${{ env.WORKPATH }}/openwrt
+      #   run: make -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
+
+      # - name: Upload logs
+      #   if: failure()
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: armsr-armv8-logs
+      #     path: ${{ env.WORKPATH }}/openwrt/logs
