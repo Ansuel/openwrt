@@ -39,7 +39,7 @@ jobs:
           TEST: ${{ steps.determine_base_branch.output.base_branch == 'main' && '' || '-'steps.determine_base_branch.output.base_branch }}
         run: |
 
-        echo $TEST
+          echo $TEST
       # - name: Checkout master directory
       #   uses: actions/checkout@v3
       #   with:
