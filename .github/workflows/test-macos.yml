@@ -14,7 +14,7 @@ jobs:
       - name: Determine base branch tag
         id: determine_base_branch
         run: |
-          BASE_BRANCH=openwrt-23.05
+          BASE_BRANCH=main
           # if [ -n "${{ github.base_ref }}" ]; then
           #   if echo "${{ github.base_ref }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]$'; then
           #     BASE_BRANCH="${{ github.base_ref }}"
