@@ -6,41 +6,135 @@ on:
       - master
 
 jobs:
-  build:
-    name: Build armsr/armv8
-    runs-on: macos-latest
+  determine_targets:
+    name: Set targets
+    runs-on: ubuntu-latest
+    outputs:
+      targets_subtargets: ${{ steps.find_targets.outputs.targets_subtargets }}
+      targets: ${{ steps.find_targets.outputs.targets }}
 
     steps:
-      - name: Determine base branch tag
-        id: determine_base_branch
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Get changed files
+        id: changed-files
+        uses: tj-actions/changed-files@v35
+
+      - name: Set targets
+        id: find_targets
         run: |
-          BASE_BRANCH=openwrt-23.05
-          # if [ -n "${{ github.base_ref }}" ]; then
-          #   if echo "${{ github.base_ref }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]$'; then
-          #     BASE_BRANCH="${{ github.base_ref }}"
-          #   fi
-          # elif [ ${{ github.ref_type }} == "branch" ]; then
-          #   if echo "${{ github.ref_name }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]$'; then
-          #     CONTAINER_TAG=${{ github.ref_name }}
-          #   elif echo "${{ github.ref_name }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]-'; then
-          #     BASE_BRANCH="$(echo ${{ github.ref_name }} | sed 's/^\(openwrt-[0-9][0-9]\.[0-9][0-9]\)-.*/\1/')"
-          #   fi
-          # elif [ ${{ github.ref_type }} == "tag" ]; then
-          #   if echo "${{ github.ref_name }}" | grep -q -E '^v[0-9][0-9]\.[0-9][0-9]\..+'; then
-          #     BASE_BRANCH=openwrt-"$(echo ${{ github.ref_name }} | sed 's/^v\([0-9][0-9]\.[0-9][0-9]\)\..\+/\1/')"
-          #   fi
-          # fi
+          ALL_TARGETS="$(perl ./scripts/dump-target-info.pl targets 2>/dev/null)"
+          CHANGED_FILES="$(echo ${{ steps.changed-files.outputs.all_changed_files }} | tr ' ' '\n')"
 
-          echo "Detected base branch as $BASE_BRANCH"
-          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+          TARGETS_SUBTARGETS="$(echo "$ALL_TARGETS" | sort -u -t '/' -k1 | awk '{ print $1 }')"
+          TARGETS="$(echo "$ALL_TARGETS" | sort -u -t '/' -k1,1 | awk '{ print $1 }')"
 
-      - name:
-        env:
-          TEST: ${{ steps.determine_base_branch.outputs.base_branch != 'main' && \
-            steps.determine_base_branch.outputs.base_branch || '' }}
+          # On testing non-specific target, skip testing each subtarget if we are testing pr
+          if [ ${{ github.event_name }} != 'push' ]; then
+            if echo "$CHANGED_FILES" | grep -v -q target/linux ||
+              echo "$CHANGED_FILES" | grep -q target/linux/generic; then
+              TARGETS_SUBTARGETS=$TARGETS
+            fi
+          fi
+
+          JSON_TARGETS_SUBTARGETS='['
+          FIRST=1
+          for TARGET in $TARGETS_SUBTARGETS; do
+            if echo "$CHANGED_FILES" | grep -v -q target/linux ||
+              echo "$CHANGED_FILES" | grep -q target/linux/generic ||
+              echo "$CHANGED_FILES" | grep -q $(echo $TARGET | cut -d "/" -f 1); then
+              TUPLE='{"target":"'"$(echo $TARGET | cut -d "/" -f 1)"'","subtarget":"'"$(echo $TARGET | cut -d "/" -f 2)"'"}'
+              [[ $FIRST -ne 1 ]] && JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS"','
+              JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS""$TUPLE"
+              FIRST=0
+            fi
+          done
+          JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS"']'
+
+          JSON_TARGETS='['
+          FIRST=1
+          for TARGET in $TARGETS; do
+            if echo "$CHANGED_FILES" | grep -v -q target/linux ||
+              echo "$CHANGED_FILES" | grep -q target/linux/generic ||
+              echo "$CHANGED_FILES" | grep -q $(echo $TARGET | cut -d "/" -f 1); then
+              TUPLE='{"target":"'"$(echo $TARGET | cut -d "/" -f 1)"'","subtarget":"'"$(echo $TARGET | cut -d "/" -f 2)"'"}'
+              [[ $FIRST -ne 1 ]] && JSON_TARGETS="$JSON_TARGETS"','
+              JSON_TARGETS="$JSON_TARGETS""$TUPLE"
+              FIRST=0
+            fi
+          done
+          JSON_TARGETS="$JSON_TARGETS"']'
+
+          echo -e "\n---- targets to build ----\n"
+          echo "$JSON_TARGETS_SUBTARGETS"
+          echo -e "\n---- targets to build ----\n"
+
+          echo -e "\n---- targets to check patch ----\n"
+          echo "$JSON_TARGETS"
+          echo -e "\n---- targets to check patch ----\n"
+
+          echo "targets_subtargets=$JSON_TARGETS_SUBTARGETS" >> $GITHUB_OUTPUT
+          echo "targets=$JSON_TARGETS" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build Kernel with external toolchain
+    needs: determine_targets
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+    strategy:
+       fail-fast: False
+       matrix:
+         include: "${{fromJson(needs.determine_targets.outputs.targets_subtargets)}}"
+    uses: ./.github/workflows/test-macos2.yml
+    with:
+      container_name: toolchain
+      target: ${{ matrix.target }}
+      subtarget: ${{ matrix.subtarget }}
+      build_kernel: true
+      build_all_kmods: true
+      upload_ccache_cache: ${{ github.repository_owner == 'openwrt' }}
+
+  build2:
+    name: Build armsr/armv8
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      # - name: Determine base branch tag
+      #   id: determine_base_branch
+      #   run: |
+      #     BASE_BRANCH=openwrt-23.05
+      #     # if [ -n "${{ github.base_ref }}" ]; then
+      #     #   if echo "${{ github.base_ref }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]$'; then
+      #     #     BASE_BRANCH="${{ github.base_ref }}"
+      #     #   fi
+      #     # elif [ ${{ github.ref_type }} == "branch" ]; then
+      #     #   if echo "${{ github.ref_name }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]$'; then
+      #     #     CONTAINER_TAG=${{ github.ref_name }}
+      #     #   elif echo "${{ github.ref_name }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]-'; then
+      #     #     BASE_BRANCH="$(echo ${{ github.ref_name }} | sed 's/^\(openwrt-[0-9][0-9]\.[0-9][0-9]\)-.*/\1/')"
+      #     #   fi
+      #     # elif [ ${{ github.ref_type }} == "tag" ]; then
+      #     #   if echo "${{ github.ref_name }}" | grep -q -E '^v[0-9][0-9]\.[0-9][0-9]\..+'; then
+      #     #     BASE_BRANCH=openwrt-"$(echo ${{ github.ref_name }} | sed 's/^v\([0-9][0-9]\.[0-9][0-9]\)\..\+/\1/')"
+      #     #   fi
+      #     # fi
+
+      #     echo "Detected base branch as $BASE_BRANCH"
+      #     echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPU
+
+      - name: aaa
+        # env:
+        #   TEST: ${{ steps.determine_base_branch.outputs.base_branch != 'main' &&
+        #     steps.determine_base_branch.outputs.base_branch || '' }}
+        shell: sh
         run: |
-
-          echo ${{env.TEST}}
+          echo ${{ needs.build.outputs.ccache_tag }}
       # - name: Checkout master directory
       #   uses: actions/checkout@v3
       #   with:

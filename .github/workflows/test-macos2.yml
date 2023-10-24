@@ -1,0 +1,162 @@
+name: Build sub target
+
+on:
+  workflow_call:
+    secrets:
+      coverity_api_token:
+    inputs:
+      container_name:
+        type: string
+        default: tools
+      target:
+        required: true
+        type: string
+      subtarget:
+        required: true
+        type: string
+      testing:
+        type: boolean
+      build_toolchain:
+        type: boolean
+      include_feeds:
+        type: boolean
+      build_full:
+        type: boolean
+      build_kernel:
+        type: boolean
+      build_all_modules:
+        type: boolean
+      build_all_kmods:
+        type: boolean
+      build_all_boards:
+        type: boolean
+      use_openwrt_container:
+        type: boolean
+        default: true
+      coverity_project_name:
+        type: string
+        default: OpenWrt
+      coverity_check_packages:
+        type: string
+      coverity_compiler_template_list:
+        type: string
+        default: >-
+          arm-openwrt-linux-gcc
+      coverity_force_compile_packages:
+        type: string
+        default: >-
+          curl
+          libnl
+          mbedtls
+          wolfssl
+          openssl
+      build_external_toolchain:
+        type: boolean
+      upload_external_toolchain:
+        type: boolean
+      use_ccache_cache:
+        type: boolean
+        default: true
+      ccache_type:
+        type: string
+        default: kernel
+      upload_ccache_cache:
+        type: boolean
+      check:
+        type: boolean
+        default: true
+    outputs:
+      ccache_tag:
+        value: ${{ jobs.setup_build.outputs.ccache_tag }}
+
+permissions:
+  contents: read
+
+jobs:
+  setup_build:
+    name: Setup build ${{ inputs.target }}/${{ inputs.subtarget }}
+    runs-on: ubuntu-latest
+    outputs:
+      container: ${{ steps.determine_container.outputs.container }}
+      ccache_tag: ${{ steps.determine_ccache_tag.outputs.ccache_tag }}
+      ccache_name: ${{ steps.determine_ccache_name.outputs.ccache_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set lower case owner name
+        id: lower_owner
+        run: |
+          OWNER_LC=$(echo "${{ github.repository_owner }}" \
+            | tr '[:upper:]' '[:lower:]')
+
+          if [ ${{ inputs.use_openwrt_container }} == "true" ]; then
+            OWNER_LC=openwrt
+          fi
+
+          echo "owner_lc=$OWNER_LC" >> $GITHUB_OUTPUT
+
+      - name: Determine base branch tag
+        id: determine_base_branch
+        run: |
+          BASE_BRANCH=main
+          if [ -n "${{ github.base_ref }}" ]; then
+            if echo "${{ github.base_ref }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]$'; then
+              BASE_BRANCH="${{ github.base_ref }}"
+            fi
+          elif [ ${{ github.ref_type }} == "branch" ]; then
+            if echo "${{ github.ref_name }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]$'; then
+              BASE_BRANCH=${{ github.ref_name }}
+            elif echo "${{ github.ref_name }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]-'; then
+              BASE_BRANCH="$(echo ${{ github.ref_name }} | sed 's/^\(openwrt-[0-9][0-9]\.[0-9][0-9]\)-.*/\1/')"
+            fi
+          elif [ ${{ github.ref_type }} == "tag" ]; then
+            if echo "${{ github.ref_name }}" | grep -q -E '^v[0-9][0-9]\.[0-9][0-9]\..+'; then
+              BASE_BRANCH=openwrt-"$(echo ${{ github.ref_name }} | sed 's/^v\([0-9][0-9]\.[0-9][0-9]\)\..\+/\1/')"
+            fi
+          fi
+
+          echo "Detected base branch as $BASE_BRANCH"
+          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+
+      # Per branch tools container tag
+      # By default stick to latest
+      # For official test targetting openwrt stable branch
+      # Get the branch or parse the tag and push dedicated tools containers
+      # For local test to use the correct container for stable release testing
+      # you need to use for the branch name a prefix of openwrt-[0-9][0-9].[0-9][0-9]-
+      - name: Determine container name
+        id: determine_container_name
+        env:
+          CONTAINER_TAG: ${{ steps.determine_base_branch.outputs.base_branch != 'main' && steps.determine_base_branch.outputs.base_branch || 'latest' }}
+        run: |
+          CONTAINER_NAME=${{ inputs.container_name }}
+          CONTAINER_TAG=${{ env.CONTAINER_TAG }}
+
+          if [ "$CONTAINER_NAME" = "toolchain" ]; then
+            GHCR_TOKEN=$(echo ${{ secrets.GITHUB_TOKEN }} | base64)
+            GHCR_HEADER="Authorization: Bearer ${GHCR_TOKEN}"
+            GHCR_MANIFEST_LINK=https://ghcr.io/v2/${{ steps.lower_owner.outputs.owner_lc }}/${{ inputs.container_name }}/manifests/${{ inputs.target }}-${{ inputs.subtarget }}-"$CONTAINER_TAG"
+            # Check if container exist
+            if [ $(curl -s -o /dev/null -w "%{http_code}" -H "$GHCR_HEADER" -I "$GHCR_MANIFEST_LINK") = 200 ]; then
+              CONTAINER_TAG=${{ inputs.target }}-${{ inputs.subtarget }}-"$CONTAINER_TAG"
+            else
+              CONTAINER_NAME=tools
+            fi
+          fi
+
+          echo "Tools container to use $CONTAINER_NAME:$CONTAINER_TAG"
+          echo "container_name=$CONTAINER_NAME:$CONTAINER_TAG" >> $GITHUB_OUTPUT
+
+      - name: Determine container
+        id: determine_container
+        run: echo "container=${{ steps.lower_owner.outputs.owner_lc }}/${{ steps.determine_container_name.outputs.container_name }}" >> $GITHUB_OUTPUT
+
+      - name: Determine ccache tag
+        id: determine_ccache_tag
+        run: echo "ccache_tag=${{ format('-{0}', steps.determine_base_branch.outputs.base_branch) }}" >> $GITHUB_OUTPUT
+
+      - name: Determine ccache name
+        id: determine_ccache_name
+        run: echo "ccache_name=ccache-${{ inputs.ccache_type }}-${{ inputs.target }}-${{ inputs.subtarget }}${{ steps.determine_ccache_tag.outputs.ccache_tag }}" >> $GITHUB_OUTPUT
