@@ -36,7 +36,7 @@ jobs:
 
       - name:
         env:
-          TEST: ${{ (steps.determine_base_branch.outputs.base_branch == 'main') && '' || format('-{0}', steps.determine_base_branch.outputs.base_branch) }}
+          TEST: ${{ (steps.determine_base_branch.outputs.base_branch == 'main') }}
         run: |
 
           echo ${{ENV.TEST}}
