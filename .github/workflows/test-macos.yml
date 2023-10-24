@@ -11,16 +11,45 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      - name: Checkout master directory
-        uses: actions/checkout@v3
-        with:
-          path: openwrt
+      - name: Determine base branch tag
+        id: determine_base_branch
+        run: |
+          BASE_BRANCH=main
+          # if [ -n "${{ github.base_ref }}" ]; then
+          #   if echo "${{ github.base_ref }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]$'; then
+          #     BASE_BRANCH="${{ github.base_ref }}"
+          #   fi
+          # elif [ ${{ github.ref_type }} == "branch" ]; then
+          #   if echo "${{ github.ref_name }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]$'; then
+          #     CONTAINER_TAG=${{ github.ref_name }}
+          #   elif echo "${{ github.ref_name }}" | grep -q -E '^openwrt-[0-9][0-9]\.[0-9][0-9]-'; then
+          #     BASE_BRANCH="$(echo ${{ github.ref_name }} | sed 's/^\(openwrt-[0-9][0-9]\.[0-9][0-9]\)-.*/\1/')"
+          #   fi
+          # elif [ ${{ github.ref_type }} == "tag" ]; then
+          #   if echo "${{ github.ref_name }}" | grep -q -E '^v[0-9][0-9]\.[0-9][0-9]\..+'; then
+          #     BASE_BRANCH=openwrt-"$(echo ${{ github.ref_name }} | sed 's/^v\([0-9][0-9]\.[0-9][0-9]\)\..\+/\1/')"
+          #   fi
+          # fi
 
-      - name: Upload bho
-        uses: actions/upload-artifact@v4-beta
-        with:
-          name: armsr-armv8-logs
-          path: openwrt
+          echo "Detected base branch as $BASE_BRANCH"
+          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+
+      - name:
+        env:
+          TEST: ${{ steps.determine_base_branch.output.base_branch == 'main' && '' || '-'steps.determine_base_branch.output.base_branch }}
+        run: |
+
+        echo $TEST
+      # - name: Checkout master directory
+      #   uses: actions/checkout@v3
+      #   with:
+      #     path: openwrt
+
+      # - name: Upload bho
+      #   uses: actions/upload-artifact@v4-beta
+      #   with:
+      #     name: armsr-armv8-logs
+      #     path: openwrt
 
       # - name: Checkout packages feed
       #   uses: actions/checkout@v3
