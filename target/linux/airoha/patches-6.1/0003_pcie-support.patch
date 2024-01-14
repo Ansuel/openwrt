@@ -1,0 +1,48 @@
+diff -Naur a/Makefile b/Makefile
+--- a/Makefile	2024-01-04 15:46:21.472757000 +0800
++++ b/Makefile	2024-01-04 16:11:50.550610000 +0800
+@@ -569,7 +569,7 @@
+ KBUILD_CFLAGS   := -Wall -Wundef -Werror=strict-prototypes -Wno-trigraphs \
+ 		   -fno-strict-aliasing -fno-common -fshort-wchar -fno-PIE \
+ 		   -Werror=implicit-function-declaration -Werror=implicit-int \
+-		   -Werror=return-type -Wno-format-security \
++		   -Wno-format-security \
+ 		   -std=gnu11
+ KBUILD_CPPFLAGS := -D__KERNEL__
+ KBUILD_RUSTFLAGS := $(rust_common_flags) \
+diff -Naur a/drivers/net/ethernet/intel/e1000e/Makefile b/drivers/net/ethernet/intel/e1000e/Makefile
+--- a/drivers/net/ethernet/intel/e1000e/Makefile	2023-12-15 16:31:15.731964000 +0800
++++ b/drivers/net/ethernet/intel/e1000e/Makefile	2023-03-23 10:12:39.404271000 +0800
+@@ -5,7 +5,7 @@
+ # Makefile for the Intel(R) PRO/1000 ethernet driver
+ #
+ 
+-obj-$(CONFIG_E1000E) += e1000e.o
++obj-m += e1000e.o
+ 
+ e1000e-objs := 82571.o ich8lan.o 80003es2lan.o \
+ 	       mac.o manage.o nvm.o phy.o \
+diff -Naur a/drivers/net/ethernet/intel/Makefile b/drivers/net/ethernet/intel/Makefile
+--- a/drivers/net/ethernet/intel/Makefile	2023-12-15 16:31:19.071898000 +0800
++++ b/drivers/net/ethernet/intel/Makefile	2023-03-23 09:32:00.079504000 +0800
+@@ -5,7 +5,7 @@
+ 
+ obj-$(CONFIG_E100) += e100.o
+ obj-$(CONFIG_E1000) += e1000/
+-obj-$(CONFIG_E1000E) += e1000e/
++obj-m += e1000e/
+ obj-$(CONFIG_IGB) += igb/
+ obj-$(CONFIG_IGC) += igc/
+ obj-$(CONFIG_IGBVF) += igbvf/
+diff -Naur a/drivers/net/ethernet/Makefile b/drivers/net/ethernet/Makefile
+--- a/drivers/net/ethernet/Makefile	2023-12-15 16:31:22.553898000 +0800
++++ b/drivers/net/ethernet/Makefile	2023-03-23 09:31:52.443470000 +0800
+@@ -43,7 +43,7 @@
+ obj-$(CONFIG_NET_VENDOR_HISILICON) += hisilicon/
+ obj-$(CONFIG_NET_VENDOR_HUAWEI) += huawei/
+ obj-$(CONFIG_NET_VENDOR_IBM) += ibm/
+-obj-$(CONFIG_NET_VENDOR_INTEL) += intel/
++obj-m += intel/
+ obj-$(CONFIG_NET_VENDOR_I825XX) += i825xx/
+ obj-$(CONFIG_NET_VENDOR_XSCALE) += xscale/
+ obj-$(CONFIG_JME) += jme.o

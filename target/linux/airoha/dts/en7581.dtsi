@@ -1,0 +1,253 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+
+
+/ {
+	interrupt-parent = <&gic>;
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		npu_binary@84000000 {
+			no-map;
+			reg = <0x0 0x84000000 0x0 0xA00000>;
+		};
+
+		npu_flag@84B0000 {
+			no-map;
+			reg = <0x0 0x84B00000 0x0 0x100000>;
+		};
+
+		npu_pkt@85000000 {
+			no-map;
+			reg = <0x0 0x85000000 0x0 0x1A00000>;
+		};
+
+		npu_phyaddr@86B00000 {
+			no-map;
+			reg = <0x0 0x86B00000 0x0 0x100000>;
+		};
+
+		npu_rxdesc@86D00000 {
+			no-map;
+			reg = <0x0 0x86D00000 0x0 0x100000>;
+		};
+	};
+
+	psci {
+		compatible = "arm,psci-0.2";
+		method = "smc";
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&cpu0>;
+				};
+				core1 {
+					cpu = <&cpu1>;
+				};
+	
+			};
+		};
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x0>;			
+			enable-method = "psci";
+			clock-frequency = <80000000>;
+			next-level-cache = <&L2_0>;
+		};
+
+		cpu1: cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x1>;				
+			enable-method = "psci";
+			clock-frequency = <80000000>;
+			next-level-cache = <&L2_0>;
+		};
+
+		cpu2: cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x2>;			
+			enable-method = "psci";
+			clock-frequency = <80000000>;
+			next-level-cache = <&L2_0>;
+		};
+
+		cpu3: cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a53";
+			reg = <0x3>;			
+			enable-method = "psci";
+			clock-frequency = <80000000>;
+			next-level-cache = <&L2_0>;
+		};
+
+		L2_0: l2-cache0 {
+			compatible = "cache";
+		};
+	};
+	
+	gic: interrupt-controller@9000000 {
+		compatible = "arm,gic-v3";
+		interrupt-controller;
+		#interrupt-cells = <3>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x0 0x09000000 0x0 0x20000>,
+		      <0x0 0x09080000 0x0 0x80000>,
+		      <0x0 0x09400000 0x0 0x2000>,
+		      <0x0 0x09500000 0x0 0x2000>,
+		      <0x0 0x09600000 0x0 0x20000>;
+		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupt-parent = <&gic>;
+		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 11 IRQ_TYPE_LEVEL_LOW>,
+			     <GIC_PPI 10 IRQ_TYPE_LEVEL_LOW>;
+	};
+
+	scu: system-controller@1fa20000 {
+		compatible = "airoha,en7523-scu";
+		reg = <0x0 0x1fa20000 0x0 0x400>,
+		      <0x0 0x1fb00000 0x0 0x1000>,
+                      <0x0 0x1fbe3400 0x0 0xfc>;
+		#clock-cells = <1>;
+	};
+
+	pcie0: pcie0@1fc00000 {
+	  device_type = "pci";
+	  compatible = "ecnt,pcie-ecnt";
+		reg = <0x0 0x1fc00000 0x0 0x20000>;
+		reg-names = "pcie-mac";
+	  #address-cells = <3>;
+	  #size-cells = <2>;
+		interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;  //23+16
+		bus-range = <0x00 0xff>;
+		ranges = <0x02000000 0 0x20000000 0x0 0x20000000  0 0x4000000>;
+
+	    #interrupt-cells = <1>;
+	    interrupt-map-mask = <0 0 0 7>;
+	    interrupt-map = <0 0 0 1 &pcie_intc0 1>,
+			    		        <0 0 0 2 &pcie_intc0 2>,
+					            <0 0 0 3 &pcie_intc0 3>,
+					            <0 0 0 4 &pcie_intc0 4>;
+	    pcie_intc0: interrupt-controller {
+	          	      interrupt-controller;
+				            #address-cells = <0>;
+				            #interrupt-cells = <1>;
+			            };
+	  };
+
+	pcie1: pcie1@1fc20000 {
+			device_type = "pci";
+		compatible = "ecnt,pcie-ecnt";
+		reg = <0x0 0x1fc20000 0x0 0x20000>;
+		reg-names = "pcie-mac";
+			#address-cells = <3>;
+			#size-cells = <2>;
+		interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;  //24+16
+		bus-range = <0x00 0xff>;
+		ranges = <0x02000000 0 0x24000000 0x0 0x24000000  0 0x4000000>;
+
+			#interrupt-cells = <1>;
+			interrupt-map-mask = <0 0 0 7>;
+			interrupt-map = <0 0 0 1 &pcie_intc1 1>,
+			            		<0 0 0 2 &pcie_intc1 2>,
+					            <0 0 0 3 &pcie_intc1 3>,
+					            <0 0 0 4 &pcie_intc1 4>;
+			pcie_intc1: interrupt-controller {
+				            interrupt-controller;
+				            #address-cells = <0>;
+				            #interrupt-cells = <1>;
+			            };
+		};
+
+	pcie2: pcie2@1fc40000 {
+		device_type = "pci";
+		compatible = "ecnt,pcie-ecnt";
+		reg = <0x0 0x1fc40000 0x0 0x20000>;
+		reg-names = "pcie-mac";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;  //25+16
+		bus-range = <0x00 0xff>;
+		ranges = <0x02000000 0 0x28000000 0x0 0x28000000  0 0x4000000>;
+
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &pcie_intc2 1>,
+				<0 0 0 2 &pcie_intc2 2>,
+				<0 0 0 3 &pcie_intc2 3>,
+				<0 0 0 4 &pcie_intc2 4>;
+		pcie_intc2: interrupt-controller {
+			interrupt-controller;
+			#address-cells = <0>;
+			#interrupt-cells = <1>;
+		};
+	};
+
+	uart1: serial@1fbf0000 {
+		compatible = "ns16550";
+		reg = <0x0 0x1fbf0000 0x0 0x30>;
+		reg-io-width = <4>;
+		reg-shift = <2>;
+		interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
+		clock-frequency = <1843200>;
+		status = "okay";
+	};
+
+	pcie_phy: pcie_phy {
+		compatible = "econet,ecnt-pcie_phy";		
+	};
+
+	common_phy: serdes_common_phy@1fa5a000 {
+		compatible = "airoha,serdes_common_phy";
+		reg = <0x0 0x1fa5a000 0x0 0xfff>,		//PCIEG3_PHY_PMA_PHYA		
+			  <0x0 0x1fa5b000 0x0 0xfff>,		//PCIEG3_PHY_PMA_PHYD_0		
+			  <0x0 0x1fa5c000 0x0 0xfff>,		//PCIEG3_PHY_PMA_PHYD_1	
+			  <0x0 0x1fa7A000 0x0 0xfff>,     	//xfi_ana_pxp
+			  <0x0 0x1fa7B000 0x0 0xfff>,     	//xfi_pma
+			  <0x0 0x1fa8A000 0x0 0xfff>,     	//pon_ana_pxp
+			  <0x0 0x1fa8B000 0x0 0xfff>,   	//pon_pma
+			  <0x0 0x1fa84000 0x0 0x685>;     //multi_sgmii, PON_PHY_ASIC_RG range4,only for xilinx_fpga, PON_PHY_ASIC_RG range5,only for xilinx_fpga
+		interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>; // XPON_PHY_INTR 27+16
+		int_name = "common_int";
+			  
+	};
+	spi: spi_nand@1fa10000 {
+		compatible = "airoha,airoha-snand";
+		reg = <0x0 0x1fa10000 0x0 0x140>,	//SPI Controller Base
+			  <0x0 0x1fa11000 0x0 0x160>;	//NFI2SPI
+		interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>;
+		flash_nand: nand@0 {
+			compatible = "spi-nand";
+			reg = <0>;
+			spi-max-frequency = <50000000>;
+			spi-tx-bus-width = <1>;
+			spi-rx-bus-width = <2>;
+			airoha,bmt;
+			partitions {
+				compatible = "airoha,airoha-partitions";
+			};
+		};
+	};
+};

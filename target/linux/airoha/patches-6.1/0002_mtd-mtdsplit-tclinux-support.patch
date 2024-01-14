@@ -1,0 +1,27 @@
+diff -Naur a/drivers/mtd/mtdsplit/mtdsplit.c b/drivers/mtd/mtdsplit/mtdsplit.c
+--- a/drivers/mtd/mtdsplit/mtdsplit.c	2023-08-30 05:41:05.000000000 +0800
++++ b/drivers/mtd/mtdsplit/mtdsplit.c	2023-09-05 09:27:11.820356000 +0800
+@@ -114,8 +114,8 @@
+ 	size_t offset;
+ 	int err;
+ 
+-	for (offset = from; offset < limit;
+-	     offset = mtd_next_eb(mtd, offset)) {
++	for (offset = from; offset < limit; offset += 4) {
++    /*      offset = mtd_next_eb(mtd, offset)) {*/
+ 		err = mtd_check_rootfs_magic(mtd, offset, type);
+ 		if (err)
+ 			continue;
+diff -Naur a/drivers/mtd/mtdsplit/mtdsplit_fit.c b/drivers/mtd/mtdsplit/mtdsplit_fit.c
+--- a/drivers/mtd/mtdsplit/mtdsplit_fit.c	2023-12-08 07:08:11.000000000 +0800
++++ b/drivers/mtd/mtdsplit/mtdsplit_fit.c	2024-01-03 20:01:44.630642000 +0800
+@@ -262,7 +262,8 @@
+ 		enum mtdsplit_part_type type;
+ 
+ 		/* Search for the rootfs partition after the FIT image */
+-		ret = mtd_find_rootfs_from(mtd, fit_offset + fit_size + offset_start, mtd->size,
++		// ret = mtd_find_rootfs_from(mtd, fit_offset + fit_size + offset_start, mtd->size,
++		ret = mtd_find_rootfs_from(mtd, fit_offset , mtd->size,
+ 					   &rootfs_offset, &type);
+ 		if (ret) {
+ 			pr_info("no rootfs found after FIT image in \"%s\"\n",

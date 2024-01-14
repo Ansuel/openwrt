@@ -1,0 +1,807 @@
+diff -Naur a/arch/arm64/boot/dts/Makefile b/arch/arm64/boot/dts/Makefile
+--- a/arch/arm64/boot/dts/Makefile	2023-08-23 23:52:42.000000000 +0800
++++ b/arch/arm64/boot/dts/Makefile	2023-12-18 10:57:03.197396000 +0800
+@@ -32,3 +32,4 @@
+ subdir-y += ti
+ subdir-y += toshiba
+ subdir-y += xilinx
++subdir-y += airoha
+diff -Naur a/arch/arm64/configs/defconfig b/arch/arm64/configs/defconfig
+--- a/arch/arm64/configs/defconfig	2023-08-23 23:52:42.000000000 +0800
++++ b/arch/arm64/configs/defconfig	2023-12-18 10:57:07.941420000 +0800
+@@ -32,6 +32,7 @@
+ CONFIG_PROFILING=y
+ CONFIG_ARCH_ACTIONS=y
+ CONFIG_ARCH_SUNXI=y
++CONFIG_ARCH_AIROHA=y
+ CONFIG_ARCH_ALPINE=y
+ CONFIG_ARCH_APPLE=y
+ CONFIG_ARCH_BCM=y
+diff -Naur a/arch/arm64/Kconfig.platforms b/arch/arm64/Kconfig.platforms
+--- a/arch/arm64/Kconfig.platforms	2023-08-23 23:52:42.000000000 +0800
++++ b/arch/arm64/Kconfig.platforms	2023-12-18 10:57:19.098428000 +0800
+@@ -162,6 +162,17 @@
+ 	  This enables support for MediaTek MT27xx, MT65xx, MT76xx
+ 	  & MT81xx ARMv8 SoCs
+ 
++config ARCH_AIROHA
++	bool "Airoha SoC Support"
++	select ARM_AMBA
++	select ARM_GIC
++	select ARM_GIC_V3
++	select ARM_PSCI
++	select HAVE_ARM_ARCH_TIMER
++	select COMMON_CLK
++	help
++	  Support for Airoha AN7581 SoCs
++
+ config ARCH_MESON
+ 	bool "Amlogic Platforms"
+ 	help
+
+diff -Naur a/drivers/mtd/Kconfig b/drivers/mtd/Kconfig
+--- a/drivers/mtd/Kconfig	2023-08-23 23:52:42.000000000 +0800
++++ b/drivers/mtd/Kconfig	2023-12-18 10:59:20.401438000 +0800
+@@ -12,6 +12,25 @@
+ 
+ if MTD
+ 
++menu "OpenWrt specific MTD options"
++
++config MTD_ROOTFS_ROOT_DEV
++	bool "Automatically set 'rootfs' partition to be root filesystem"
++	default y
++
++config MTD_SPLIT_FIRMWARE
++	bool "Automatically split firmware partition for kernel+rootfs"
++	default y
++
++config MTD_SPLIT_FIRMWARE_NAME
++	string "Firmware partition name"
++	depends on MTD_SPLIT_FIRMWARE
++	default "firmware"
++
++source "drivers/mtd/mtdsplit/Kconfig"
++
++endmenu
++
+ config MTD_TESTS
+ 	tristate "MTD tests support (DANGEROUS)"
+ 	depends on m
+diff -Naur a/drivers/mtd/nand/airoha_bmt.c b/drivers/mtd/nand/airoha_bmt.c
+--- a/drivers/mtd/nand/airoha_bmt.c	1970-01-01 08:00:00.000000000 +0800
++++ b/drivers/mtd/nand/airoha_bmt.c	2023-09-04 16:52:07.866407000 +0800
+@@ -0,0 +1,552 @@
++
++/*
++ * Airoha BMT algorithm
++ */
++
++#include <linux/kernel.h>
++#include <linux/slab.h>
++#include <linux/types.h> 
++#include <linux/module.h> 
++#include <linux/moduleparam.h>  
++#include <linux/mtd/mtk_bmt.h>
++
++#define MAX_BMT_SIZE        	(250) 
++#define MAX_RAW_BAD_BLOCK_SIZE  (250)
++#define POOL_GOOD_BLOCK_PERCENT 8/100
++
++typedef struct {
++    char signature[3];
++    u8 version;
++    u8 bad_count;  // this field is useless 
++    u8 size; 
++    u8 checksum;
++    u8 reseverd[13];
++} bmt_table_header;
++
++typedef struct {
++    u16 from;      
++    u16 to; 
++} bmt_entry;
++
++typedef struct {
++    bmt_table_header header;
++    bmt_entry table[MAX_BMT_SIZE];
++} bmt_table;
++
++typedef struct {
++    char signature[4];
++    u32 checksum;
++    u8 version;
++    u8 size;
++    u8 reserved[2]; 
++} bbt_table_header;
++
++typedef struct {
++    bbt_table_header header;
++    u16 	     table[MAX_RAW_BAD_BLOCK_SIZE];
++} bbt_table;
++
++bbt_table bbt; 
++bmt_table bmt;
++ 
++int bmt_index=0xffff; 
++int bbt_index=0xffff; 
++unsigned int total_blks  , system_blks , bmt_blks, _to, _to2, val;
++
++module_param(bmt_index,    int,  S_IRUSR  |  S_IWUSR);
++module_param(bbt_index,    int,  S_IRUSR  |  S_IWUSR);
++module_param(total_blks,   int,  S_IRUSR  |  S_IWUSR);
++module_param(system_blks,  int,  S_IRUSR  |  S_IWUSR);
++module_param(bmt_blks,     int,  S_IRUSR  |  S_IWUSR);
++module_param(_to,          int,  S_IRUSR  |  S_IWUSR);
++module_param(_to2,         int,  S_IRUSR  |  S_IWUSR);
++module_param(val,          int,  S_IRUSR  |  S_IWUSR);
++
++
++static bool is_bad_raw(int block) { 
++	u8 fdm[4];
++	int ret;
++	ret = bbt_nand_read(blk_pg(block), bmtd.data_buf, bmtd.pg_size,
++			    fdm, sizeof(fdm));
++	if (ret || fdm[0] != 0xff ){
++		return true; 
++	}
++	return false;
++}
++
++static bool is_bad( int block) { 
++	u8 fdm[4];
++	int ret;
++	ret = bbt_nand_read(blk_pg(block), bmtd.data_buf, bmtd.pg_size,
++			    fdm, sizeof(fdm));
++	//printk("%x %x %x %x\n", fdm[0],  fdm[1],  fdm[2],  fdm[3]);
++	if (ret || fdm[0] != 0xff || fdm[1] != 0xff ){
++		return true; 
++	}
++	return false;
++}
++
++
++static bool is_mapped( int block) { 
++	u8 fdm[4];
++	int ret;
++	ret = bbt_nand_read(blk_pg(block), bmtd.data_buf, bmtd.pg_size,
++			    fdm, sizeof(fdm));
++	u16 mapped_block = (fdm[2] << 8) |  fdm[3];
++	printk("%d is mapped to %d\n", mapped_block);
++	if (mapped_block == 0xffff) 
++		return false;
++	else return true;
++}
++
++static void mark_bad(int block) { 
++	printk("marking bad :%d\n", block);
++	u8 fdm[4] = {0xff, 0xff, 0xff, 0xff};
++
++	struct mtd_oob_ops ops = { 
++		.mode = MTD_OPS_PLACE_OOB,
++		.ooboffs = 0,
++		.ooblen = 4, 
++		.oobbuf = fdm,
++		.datbuf = NULL,
++		.len = 0,
++	};
++	if (block < system_blks) 
++		fdm[0] = 0x00;
++	else fdm[1] = 0x00;
++
++	int retlen; 
++	retlen = bmtd._write_oob(bmtd.mtd, block << bmtd.blk_shift , &ops) ;
++	if (retlen < 0) { 
++		printk("marking bad block failed \n");
++	}
++}
++
++
++static void mark_good(int block) { 
++	u8 fdm[4] = {0xff, 0xff, 0xff, 0xff};
++	struct mtd_oob_ops ops = { 
++		.mode = MTD_OPS_PLACE_OOB,
++		.ooboffs = 0,
++		.ooblen = 4, 
++		.oobbuf = fdm,
++		.datbuf = NULL,
++		.len = 0,
++	};
++	int retlen; 
++	retlen = bmtd._write_oob(bmtd.mtd, block << bmtd.blk_shift , &ops) ;
++	if (retlen < 0) { 
++		printk("marking bad block failed \n");
++	}
++}
++
++static void make_mapping(u16 from , u16 to) { 
++	u8 fdm[4] = {0xff, 0xff, 0xff , 0xff};
++	memcpy(fdm + 2, &to, sizeof(to)); // this has to be exactly like this . 
++	struct mtd_oob_ops ops = { 
++		.mode = MTD_OPS_PLACE_OOB,
++		.ooboffs = 0,
++		.ooblen = 4, 
++		.oobbuf = fdm,
++		.datbuf = NULL,
++		.len = 0,
++	};
++
++	int retlen; 
++	retlen = bmtd._write_oob(bmtd.mtd, from << bmtd.blk_shift , &ops) ;
++	if (retlen < 0) { 
++		printk("marking bad block failed \n");
++	}
++}
++
++static u16 bbt_checksum(void) { 
++	int i=0;
++	u16 checksum =0;
++	u8 *data = (u8*) &bbt; 
++	checksum += bbt.header.version; 
++	checksum += bbt.header.size;
++	data += sizeof(bbt_table_header);
++	for (; i < sizeof(bbt.table); i++)
++		checksum += data[i];
++	return checksum; 
++}
++
++static bool parse_bbt(void) { 
++	int i = system_blks;
++	u8 fdm[4];
++	for (; i < total_blks; i++)  { 
++		if( !is_bad(i)
++		   && !bbt_nand_read(blk_pg(i),&bbt, sizeof(bbt), fdm, sizeof(fdm))
++		   && (strncmp(bbt.header.signature , "RAWB", 4)==0)
++		   && (bbt.header.checksum == bbt_checksum())
++		  ) { 
++			  bbt_index = i; 
++			  return true; 
++		  } 
++	}
++	return false; 
++}
++
++static u8  bmt_checksum(void) { 
++	int i; 
++	u8 checksum = 0;
++	u8* data = (u8*)&bmt;
++	checksum += bmt.header.version; 
++	checksum += bmt.header.size;
++	data += sizeof(bmt_table_header);
++	for (i=0;i<bmt_blks*sizeof(bmt_entry);i++)
++		checksum += data[i];
++	return checksum;
++}
++
++static bool parse_bmt(void) { 
++	int i = total_blks-1 ; 
++	u8 fdm[4];
++	for (; i> system_blks;i--) { 
++		if ( !is_bad(i)
++			 && !bbt_nand_read(blk_pg(i),&bmt, sizeof(bmt), fdm, sizeof(fdm)) 
++			 && (strncmp(bmt.header.signature , "BMT", 3)==0)
++			 && (bmt.header.checksum == bmt_checksum())
++		) { 
++			bmt_index = i ; 
++			return true;
++		}
++	}
++	return false; 
++}
++
++static void variable_setup(void) { 
++	total_blks = bmtd.total_blks; 
++	unsigned int need_valid_block_num = total_blks * POOL_GOOD_BLOCK_PERCENT; 
++	int last_blk = total_blks - 1; 
++	int valid_blks = 0;
++	for (; last_blk > 0 ;last_blk--) { 
++		if (is_bad_raw(last_blk)) { 
++			continue; 
++		} 
++		valid_blks++; 
++		if (valid_blks == need_valid_block_num) { 
++			break;
++		}
++	}
++	bmt_blks = total_blks - last_blk; 
++	system_blks = total_blks - bmt_blks;
++	bmtd.mtd->size = system_blks * bmtd.mtd->erasesize;
++}
++
++
++static int find_available_block(bool start_from_end) { 
++	int i=system_blks,d=1;
++	int count = 0;
++	if (start_from_end)
++		i=total_blks-1,d=-1;
++	if (bbt_index == 0xffff) bbt_index = system_blks;
++	for (; count < (total_blks - system_blks); count++, i+=d) { 
++		if(bmt_index == i || i <= bbt_index || is_bad(i) || is_mapped(i)) 
++			continue;
++		return i ;
++	}
++	//TODO: handle OOM
++	return -1;
++}
++
++static void update_bmt_bbt( void ) {
++	int retlen  = 0;
++	struct mtd_oob_ops  ops , ops1;
++
++	bbt.header.checksum = bbt_checksum();
++	bmt.header.checksum = bmt_checksum();
++	
++	if(bbt_index ==0xffff) bbt_index = find_available_block(false);
++	if(bmt_index ==0xffff) bmt_index = find_available_block(true);
++
++	bbt_nand_erase(bmt_index);
++	bbt_nand_erase(bbt_index);
++	printk("putting back in bbt_index: %d, bmt_index: %d\n" , bbt_index, bmt_index);
++
++	ops = (struct mtd_oob_ops) { 
++		.mode = MTD_OPS_PLACE_OOB,
++		.ooboffs = 0,
++		.ooblen = 0,
++		.oobbuf = NULL,
++		.len = sizeof(bmt),
++		.datbuf = &bmt,
++	};
++
++retry_bmt:
++	retlen  = bmtd._write_oob(bmtd.mtd, bmt_index << bmtd.blk_shift, &ops);
++	if (retlen) { 
++		printk("error while write");
++		mark_bad(bmt_index);
++		if (bmt_index > system_blks) { 
++			bmt_index--; 
++			goto retry_bmt;
++		}
++		return;
++	}
++	ops1 = (struct mtd_oob_ops) { 
++		.mode = MTD_OPS_PLACE_OOB,
++		.ooboffs = 0,
++		.ooblen = 0,
++		.oobbuf = NULL,
++		.len = sizeof(bbt),
++		.datbuf = &bbt,
++	};
++
++retry_bbt:
++	retlen  = bmtd._write_oob(bmtd.mtd, bbt_index << bmtd.blk_shift, &ops1);
++	if (retlen) { 
++		printk("error while write");
++		mark_bad(bbt_index);
++		if (bbt_index < total_blks) { 
++			bbt_index++;
++			goto retry_bbt;
++		}
++		return;
++	}
++}
++
++static void reconstruct_from_oob(void) { 
++	memset(&bmt,0x00,sizeof(bmt));
++	memcpy(&bmt.header.signature, "BMT",3);
++	bmt.header.version = 1; 
++	bmt.header.size = 0;
++	int i;
++	for ( i = total_blks -1 ; i >= system_blks ;i--) { 
++		if (is_bad(i)) continue; 
++		u8 fdm[4];
++		int ret;
++		ret = bbt_nand_read(blk_pg(i), bmtd.data_buf, bmtd.pg_size,
++				    fdm, sizeof(fdm));
++		if (ret < 0)
++			mark_bad(i);
++
++		unsigned short mapped_block; 
++		memcpy(&mapped_block,fdm+2,2); // need to be this way
++		if (mapped_block >= system_blks) continue; 
++		printk("block %X was mapped to :%X\n", mapped_block, i);
++		bmt.table[bmt.header.size++] = (bmt_entry){.from = mapped_block , .to = i};
++	}
++	memset(&bbt,0x00,sizeof(bbt));
++	memcpy(&bbt.header.signature , "RAWB", 4);
++	bbt.header.version  = 1;
++	bbt.header.size = 0;
++	for ( i = 0 ; i < system_blks; i++) { 
++		if (is_bad(i))
++			bbt.table[bbt.header.size++] = (u16)i;
++	}
++	bmt.header.checksum = bmt_checksum();
++	bbt.header.checksum = bbt_checksum();
++	update_bmt_bbt();
++	printk("bbt and bmt reconstructed successfully\n");
++}
++
++
++static bool remap_block(u16 block , u16 mapped_block, int copy_len) { 
++	int i; 
++	u16 new_block =  find_available_block(false); 
++	// TODO check for -1
++
++	bbt_nand_erase(new_block);
++	if (copy_len)
++		bbt_nand_copy(new_block , mapped_block , copy_len);
++
++	bool mapped_already_in_bmt = false;
++	for (i=0; i < bmt.header.size; i++)
++		if (bmt.table[i].from == block) { 
++			bmt.table[i].to = new_block;
++			mapped_already_in_bmt = true;
++			break;
++		}
++
++	if (!mapped_already_in_bmt);
++		bmt.table[bmt.header.size++] = (bmt_entry){ .from = block, .to = new_block};
++	
++
++	bool mapped_already_in_bbt = false;
++	bool block_already_in_bbt = false;
++	for (i=0;i<bbt.header.size;i++) 
++		if (bbt.table[i] == mapped_block) { 
++			mapped_already_in_bbt = true; 
++			break;
++		} else if (bbt.table[i] == block) { 
++			block_already_in_bbt = true;
++			break;
++		}
++	
++	if (!mapped_already_in_bbt) 
++		bbt.table[bbt.header.size++] = mapped_block;
++	if (mapped_block != block && !block_already_in_bbt) 
++		bbt.table[bbt.header.size++] = block;
++
++	if (mapped_block != block) mark_bad(mapped_block);
++	mark_bad(block);
++	make_mapping(new_block, block);
++
++	update_bmt_bbt();
++	return false; 
++}
++
++static int init(struct device_node *np) {
++	variable_setup();
++	if (!(parse_bbt() && parse_bmt()))  { 
++		reconstruct_from_oob();
++	} else { 
++		printk("bmt/bbt found\n");
++	}
++	return 0;
++}
++
++static  int get_mapping_block( int block) { 
++	if (block > system_blks) 
++		return block;
++	int i = 0;
++	for (; i < bmt.header.size; i++)
++		if (bmt.table[i].from == block) 
++			return bmt.table[i].to;
++	return block;
++}
++
++static void unmap_block( u16 block) {  // not required 
++	printk("unmapping is called on block : %d\n", block);	
++}
++
++
++static int  debug( void* data , u64 cmd) { 
++	int i;
++	printk("val: %d\n", val);
++	printk("_to: %d\n", _to);
++	if (val == 0 ) { 
++		printk("fixing all\n");
++		for (i=0;i<total_blks;i++) { 
++			mark_good(i);
++		}
++	} else if(val ==1 ) { 
++		printk("remapping: %d\n", _to);
++		int mapped_block = get_mapping_block(_to);
++		printk("before mapped to: %d\n", mapped_block);
++		remap_block(_to , mapped_block, bmtd.mtd->erasesize);
++		mapped_block = get_mapping_block(_to);
++		printk("after mapped to: %d\n", mapped_block);
++	} else if(val ==2 ) { 
++		printk("bmt table: \n");
++		for (i = 0 ; i < bmt.header.size;i++) { 
++			printk("%d->%d\n", bmt.table[i].from , bmt.table[i].to);
++		}
++		printk("bbt table\n");
++		for (i =0;i< bbt.header.size;i++) { 
++			printk("%d ", bbt.table[i]);
++		}
++		printk("\n");
++	} else if(val == 3) { 
++		printk("reconstruct from oob\n");
++		reconstruct_from_oob();
++	} else if (val == 4) { 
++		printk("showing the oobreconstruct_from_oob of %d\n", _to);
++		printk("%d\n",is_bad(_to));
++	} else if (val == 5 ) {
++		printk("trying to parse_bmt again %d\n", parse_bmt());
++	} else if (val == 6 ) {
++		printk("marking bad : %d", _to);
++		mark_bad(_to);
++	} else if ( val == 7) { 
++		printk("parse bmt from the %d block \n", _to);
++		u8 fdm[4];
++		struct mtd_oob_ops opsk = { 
++			.mode = MTD_OPS_PLACE_OOB, 
++			.ooboffs = 0, 
++			.ooblen = 0, 
++			.oobbuf = NULL,
++			.len = sizeof(bmt),
++			.datbuf = &bmt,
++		};
++		int retlen = bmtd._read_oob(bmtd.mtd, _to << bmtd.blk_shift , &opsk);
++
++		printk("status : %d\n", retlen);
++	} else if (val == 8) { 
++		printk("dump bmt hex\n");
++		int j;
++		u8* data = &bmt;
++		for (j =0;j < 50;j++) { 
++			if(j%20==0) printk("\n");
++			printk("%X ", data[j]);
++		}
++		printk("bbt table\n");
++		data = &bbt; 
++		for (j =0;j < 50;j++) { 
++			if(j%20==0) printk("\n");
++			printk("%X ", data[j]);
++		}
++	} else if (val == 9) { 
++		printk("put bmt at index\n");
++		struct mtd_oob_ops ops = { 
++			.mode = MTD_OPS_PLACE_OOB,
++			.ooboffs = 0,
++			.ooblen = 0,
++			.oobbuf = NULL,
++			.len = sizeof(bmt),
++			.datbuf = &bmt,
++		};
++		bmt.header.checksum = bmt_checksum();
++		int retlen  = bmtd._write_oob(bmtd.mtd, _to << bmtd.blk_shift, &ops);
++		if (retlen < 0) { 
++			printk("error while write");
++		}
++	} else if (val == 10) { 
++		printk("erase block %d\n", _to);
++		bbt_nand_erase(_to);
++	} else if (val == 11) {
++		printk("tranfering content from block :%d to %d\n", _to , _to2);
++		bbt_nand_copy(_to2, _to, bmtd.mtd->erasesize);
++		printk("now we check size\n");
++		char* buf1 = (char*) kzalloc(sizeof(char) * bmtd.mtd->erasesize , GFP_KERNEL);
++		char* buf2 = (char*) kzalloc(sizeof(char) * bmtd.mtd->erasesize , GFP_KERNEL);
++
++		struct mtd_oob_ops ops = { 
++			.mode = MTD_OPS_PLACE_OOB,
++			.ooboffs = 0,
++			.ooblen = 0,
++			.oobbuf = NULL,
++			.len = sizeof(char) * bmtd.mtd->erasesize,
++			.datbuf = buf1,
++		};
++		int retlen  = bmtd._read_oob(bmtd.mtd, _to << bmtd.blk_shift, &ops);
++		if (retlen < 0) { 
++			printk("error while write\n");
++		}
++
++		struct mtd_oob_ops ops1 = { 
++			.mode = MTD_OPS_PLACE_OOB,
++			.ooboffs = 0,
++			.ooblen = 0,
++			.oobbuf = NULL,
++			.len = sizeof(char) * bmtd.mtd->erasesize,
++			.datbuf = buf2,
++		};
++		retlen  = bmtd._read_oob(bmtd.mtd, _to << bmtd.blk_shift, &ops1);
++		if (retlen < 0) { 
++			printk("error while write");
++		}
++		int j = 0 ; 
++		for (j = 0 ; j < bmtd.mtd->erasesize ;j++) { 
++			if (j%20==0) { 
++				printk("\n");
++			}
++			printk("%X %X ", buf1[j], buf2[j]);
++		}
++		printk("\n");
++
++	}
++	return 0;
++}
++
++
++const struct mtk_bmt_ops airoha_bmt_ops = {
++	.sig = "bmt",
++	.sig_len = 3,
++	.init = init,
++	.remap_block = remap_block,
++	.unmap_block = unmap_block,
++	.get_mapping_block = get_mapping_block,
++	.debug = debug,
++};
+diff -Naur a/drivers/mtd/parsers/airohapart.c b/drivers/mtd/parsers/airohapart.c
+--- a/drivers/mtd/parsers/airohapart.c	1970-01-01 08:00:00.000000000 +0800
++++ b/drivers/mtd/parsers/airohapart.c	2023-09-05 17:06:54.641437000 +0800
+@@ -0,0 +1,130 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2023 AIROHA Inc.
++ * Author: Ray Liu <ray.liu@airoha.com>
++ */
++
++#include <linux/kernel.h>
++#include <linux/slab.h>
++#include <linux/mtd/map.h>
++#include <linux/mtd/mtd.h>
++#include <linux/mtd/partitions.h>
++#include <linux/memblock.h>
++#include <linux/module.h>
++#include <uapi/linux/magic.h>
++
++#include <linux/mtd/mtk_bmt.h>
++
++#define _SPI_CONTROLLER_REGS_BASE                   0x1FA10000
++#define _SPI_CONTROLLER_REGS_SFC_STRAP              0x0114
++
++static int airoha_map_init(void)
++{
++    void __iomem *SCU_SMB0ALS;
++    unsigned int tmpVal;
++    struct map_info airoha_map;
++
++    SCU_SMB0ALS = ioremap(0x1fb00038, 4);
++    tmpVal = readl(SCU_SMB0ALS);
++    tmpVal &= 0xffe0e0e0;
++    tmpVal |= 0x80070f00;
++    writel(tmpVal, SCU_SMB0ALS);
++
++    airoha_map.name = "airoha_map";
++    airoha_map.bankwidth = 2;
++    airoha_map.phys = 0x00000000;
++    airoha_map.size = 0x02000000;
++    printk("airoha_map: flash device 0x%08x at 0x%08x\n", airoha_map.size, airoha_map.phys);
++    airoha_map.virt = ioremap(airoha_map.phys, airoha_map.size);
++
++    ioremap(0x1fc00000, 0x400000);
++
++    simple_map_init(&airoha_map);
++    return 0;
++}
++
++static bool is_nor(void) { 	
++	void __iomem *reg = ioremap((_SPI_CONTROLLER_REGS_BASE + _SPI_CONTROLLER_REGS_SFC_STRAP),4);
++	u32 val = readl(reg); 
++	iounmap(reg);
++	if (val & 0x2) { 
++		return false; 
++	}
++	return true; 
++}
++
++static int airoha_create_mtd_partitions(struct mtd_info *master, const struct mtd_partition **pparts, struct mtd_part_parser_data *data)
++{
++    struct mtd_partition *airoha_parts;
++    struct device_node *node;
++    struct device_node *part_node;
++    unsigned int offset, size;
++    const char *mtd_name;
++    int i = 0;
++    int nparts;
++
++    airoha_map_init();
++
++	if (is_nor())
++		node = of_find_node_by_path("/partition-nor@1fa10000");
++	else  { 
++		mtk_bmt_attach(master);
++		node = of_find_node_by_path("/partition@1fa10000");
++	}
++
++    if(!node)
++    {
++        printk("\nERROR(%s) node==NULL\n", __func__);
++        return -1;
++    }
++    nparts = of_get_child_count(node);
++    if(!nparts)
++    {
++        printk("\nERROR(%s) nparts==0\n", __func__);
++        return -1;
++    }
++    printk("Found %d partitions in dtsi\n", nparts);
++    airoha_parts = kcalloc(nparts, sizeof(*airoha_parts), GFP_KERNEL);
++    if(!airoha_parts)
++    {
++        printk("\nERROR(%s) Allocate parts memory failed\n", __func__);
++        return -ENOMEM;
++    }
++    for_each_child_of_node(node, part_node)
++    {
++        if(of_property_read_u32_index(part_node, "reg", 0, &offset))
++            return -1;
++        if(of_property_read_u32_index(part_node, "reg", 1, &size))
++            return -1;
++        mtd_name = of_get_property(part_node, "label", NULL);
++        if(!mtd_name)
++            return -1;
++        airoha_parts[i].name = mtd_name;
++        airoha_parts[i].offset = offset;
++        airoha_parts[i].size = size;
++	if (!strcmp(mtd_name,"rootfs_data")) { 
++		airoha_parts[i].mask_flags  |= (MTD_BIT_WRITEABLE);
++	}
++        i++;
++    }
++
++    *pparts = airoha_parts;
++    return nparts;
++}
++
++static const struct of_device_id parse_airoha_match_table[] = {
++    { .compatible = "airoha,airoha-partitions" },
++    {},
++};
++MODULE_DEVICE_TABLE(of, parse_airoha_match_table);
++
++static struct mtd_part_parser airoha_parser = {
++    .parse_fn = airoha_create_mtd_partitions,
++    .name = "airohapart",
++    .of_match_table = parse_airoha_match_table,
++};
++module_mtd_part_parser(airoha_parser);
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Ray Liu <ray.liu@airoha.com>");
++MODULE_DESCRIPTION("MTD partitioning for AIROHA SoC");
+diff -Naur a/drivers/mtd/parsers/Kconfig b/drivers/mtd/parsers/Kconfig
+--- a/drivers/mtd/parsers/Kconfig	2023-08-23 23:52:42.000000000 +0800
++++ b/drivers/mtd/parsers/Kconfig	2023-12-18 10:59:11.327424000 +0800
+@@ -20,6 +20,11 @@
+ 	  This provides partition parsing for BCM63xx devices with CFE
+ 	  bootloaders.
+ 
++config MTD_AIROHA_PARTS
++	tristate "AIROHA partitioning parser"
++	help
++	  This provides partition parsing for AIROHA SoC.
++
+ config MTD_BRCM_U_BOOT
+ 	tristate "Broadcom's U-Boot partition parser"
+ 	depends on ARCH_BCMBCA || COMPILE_TEST
+diff -Naur a/drivers/spi/Makefile b/drivers/spi/Makefile
+--- a/drivers/spi/Makefile	2024-01-03 15:58:55.563617000 +0800
++++ b/drivers/spi/Makefile	2024-01-03 15:58:56.897654000 +0800
+@@ -14,6 +14,7 @@
+ obj-$(CONFIG_SPI_LOOPBACK_TEST)		+= spi-loopback-test.o
+ 
+ # SPI master controller drivers (bus)
++obj-y					+= spi-airoha.o
+ obj-$(CONFIG_SPI_ALTERA)		+= spi-altera-platform.o
+ obj-$(CONFIG_SPI_ALTERA_CORE)		+= spi-altera-core.o
+ obj-$(CONFIG_SPI_ALTERA_DFL)		+= spi-altera-dfl.o
+diff -Naur a/Makefile b/Makefile
+--- a/Makefile	2024-01-03 16:39:48.195556000 +0800
++++ b/Makefile	2024-01-03 16:50:16.092412000 +0800
+@@ -1075,7 +1075,7 @@
+ KBUILD_CFLAGS   += -Werror=date-time
+ 
+ # enforce correct pointer usage
+-KBUILD_CFLAGS   += $(call cc-option,-Werror=incompatible-pointer-types)
++# KBUILD_CFLAGS   += $(call cc-option,-Werror=incompatible-pointer-types)
+ 
+ # Require designated initializers for all marked structures
+ KBUILD_CFLAGS   += $(call cc-option,-Werror=designated-init)
+diff -Naur a/drivers/mtd/parsers/Makefile b/drivers/mtd/parsers/Makefile
+--- a/drivers/mtd/parsers/Makefile	2023-08-23 23:52:42.000000000 +0800
++++ b/drivers/mtd/parsers/Makefile	2023-12-18 10:59:15.613434000 +0800
+@@ -1,4 +1,5 @@
+ # SPDX-License-Identifier: GPL-2.0-only
++obj-$(CONFIG_MTD_AIROHA_PARTS)		+= airohapart.o
+ obj-$(CONFIG_MTD_AR7_PARTS)		+= ar7part.o
+ obj-$(CONFIG_MTD_BCM47XX_PARTS)		+= bcm47xxpart.o
+ obj-$(CONFIG_MTD_BCM63XX_PARTS)		+= bcm63xxpart.o

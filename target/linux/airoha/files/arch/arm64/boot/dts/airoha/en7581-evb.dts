@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/dts-v1/;
+
+/* Bootloader installs ATF here */
+/memreserve/ 0x80000000 0x200000;
+
+#include "en7581.dtsi"
+
+/ {
+	model = "Airoha EN7581 Evaluation Board";
+	compatible = "airoha,en7581-evb", "airoha,en7581", "airoha,en7581_evb";
+
+	aliases {
+		serial0 = &uart1;
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,115200 earlycon";
+		stdout-path = "serial0:115200n8";
+		linux,usable-memory-range = <0x0 0x80200000 0x0 0x1fe00000>;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x2 0x00000000>;
+	};
+
+	partition@1fa10000 {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		bootloader@0 {
+			label = "bootloader";
+			reg = <0x00000000 0x00080000>;
+		};
+		romfile@80000 {
+			label = "romfile";
+			reg = <0x00080000 0x00040000>;
+		};
+		tclinux@c0000 {
+			label = "tclinux";
+			reg = <0x000c0000 0x02500000>;
+		};
+		tclinux_slave@25c0000 {
+			label = "tclinux_slave";
+			reg = <0x025c0000 0x02500000>;
+		};		
+	};
+
+	partition-nor@1fa10000 {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		bootloader@0 {
+			label = "bootloader";
+			reg = <0x00000000 0x00080000>;
+		};
+		tclinux@80000 {
+			label = "tclinux";
+			reg = <0x00080000 0x1980000>;
+		};
+		rootfs_data@5080000 {
+			label = "rootfs_data";
+			reg = <0x1980000 0x400000>;
+		};
+	};
+};
