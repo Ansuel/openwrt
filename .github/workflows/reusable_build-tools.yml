@@ -1,0 +1,138 @@
+name: Build host tools
+
+on:
+  workflow_call:
+    inputs:
+      generate_prebuilt_artifacts:
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check tools
+    runs-on: ubuntu-latest
+    container: ghcr.io/openwrt/buildbot/buildworker-v3.8.0:v9
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: openwrt
+
+      - name: Fix permission
+        run: chown -R buildbot:buildbot openwrt
+
+      - name: Set configs for tools container
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: |
+          touch .config
+          echo CONFIG_DEVEL=y >> .config
+          echo CONFIG_AUTOREMOVE=y >> .config
+          echo CONFIG_CCACHE=y >> .config
+          echo CONFIG_BUILD_ALL_HOST_TOOLS=y >> .config
+
+      - name: Make prereq
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: make defconfig
+
+      - name: Compile needed host tools
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: make tools/tar/compile -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
+
+      - name: Download and check tools
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: make tools/download tools/check FIXUP=1 -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
+
+      - name: Validate checked packages
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: |
+          . .github/workflows/scripts/ci_helpers.sh
+
+          if git diff --name-only --exit-code; then
+            success "All packages seems ok"
+          else
+            err "Some package Makefiles requires fix. (run 'make package/check FIXUP=1' and force push this pr)"
+            err "You can also check the provided artifacts with the refreshed patch from this CI run."
+            mkdir packages-fixed
+            for f in $(git diff --name-only); do
+              cp --parents $f packages-fixed/
+            done
+            exit 1
+          fi
+
+      - name: Upload fixed Packages
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages-fixed
+          path: openwrt/packages-fixed
+
+  build:
+    name: Build tools
+    needs: check
+    runs-on: ubuntu-latest
+    container: ghcr.io/openwrt/buildbot/buildworker-v3.8.0:v9
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: openwrt
+
+      - name: Fix permission
+        run: chown -R buildbot:buildbot openwrt
+
+      - name: Set configs for tools container
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: |
+          touch .config
+          echo CONFIG_DEVEL=y >> .config
+          echo CONFIG_AUTOREMOVE=y >> .config
+          echo CONFIG_CCACHE=y >> .config
+          echo CONFIG_BUILD_ALL_HOST_TOOLS=y >> .config
+
+      - name: Make prereq
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: make defconfig
+
+      - name: Build tools
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-buildbot-logs
+          path: openwrt/logs
+
+      - name: Upload config
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-buildbot-config
+          path: openwrt/.config
+
+      - name: Archive prebuilt tools
+        if: inputs.generate_prebuilt_artifacts == true
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: tar -cf tools.tar staging_dir/host build_dir/host
+
+      - name: Upload prebuilt tools
+        if: inputs.generate_prebuilt_artifacts == true
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-buildbot-prebuilt-tools
+          path: openwrt/tools.tar
+          retention-days: 1

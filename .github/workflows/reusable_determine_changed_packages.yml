@@ -1,0 +1,39 @@
+name: Determine Changed Files
+
+on:
+  workflow_call:
+    outputs:
+      changed_packages:
+        value: ${{ jobs.determine_changed_packages.outputs.changed_packages }}
+    inputs:
+      all_changed_files:
+        required: true
+        type: string
+
+jobs:
+  determine_changed_packages:
+    name: Determine Changed Packages
+    runs-on: ubuntu-latest
+    outputs:
+      changed_packages: ${{ steps.get_packages.outputs.changed_packages }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            package
+
+      - name: Checkout shared workflows tools
+        uses: actions/checkout@v4
+        with:
+          repository: openwrt/actions-shared-workflows
+          path: shared-workflows
+          sparse-checkout: .github/scripts/get_changed_packages.pl
+
+      - name: Determine changed packages
+        id: get_packages
+        run: |
+          CHANGED_PACKAGES="$(./shared-workflows/.github/scripts/get_changed_packages.pl "${{ inputs.all_changed_files }}")"
+
+          echo "changed_packages="$CHANGED_PACKAGES"" >> $GITHUB_OUTPUT

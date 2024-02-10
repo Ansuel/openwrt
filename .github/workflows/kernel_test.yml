@@ -1,0 +1,205 @@
+name: Build Kernel
+
+on:
+  workflow_call:
+    secrets:
+      ccache_s3_endpoint:
+      ccache_s3_bucket:
+      ccache_s3_access_key:
+      ccache_s3_secret_key:
+
+jobs:
+  # determine_changed_files:
+  #   name: Determine Changed Files
+  #   uses: ./.github/workflows/reusable_determine_changed_files.yml
+
+  # determine_targets:
+  #   name: Set targets
+  #   needs: determine_changed_files
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     targets_subtargets: ${{ steps.find_targets.outputs.targets_subtargets }}
+  #     targets: ${{ steps.find_targets.outputs.targets }}
+
+  #   steps:
+  #     - name: Checkout
+  #       uses: actions/checkout@v4
+  #       with:
+  #         sparse-checkout: |
+  #           include
+  #           scripts/dump-target-info.pl
+  #           target/linux
+
+  #     - name: Determine Affected Kernel Versions
+  #       id: determine_affected_kernel_versions
+  #       run: |
+  #         CHANGED_FILES="$(echo ${{ needs.determine_changed_files.outputs.all_changed_files }} | tr ' ' '\n')"
+
+  #         # Extract from changed files list pattern of (patches|backport|hack|pending|files|kernel|config)-[0-9]+.[0-9]+ and compose list of [0-9]+.[0-9]+
+  #         AFFECTED_KERNEL_VERSIONS_LIST="$(echo $CHANGED_FILES | grep -oP "(patches|backport|hack|pending|files|kernel|config)-[0-9]+\.[0-9]+" | uniq | \
+  #                                          sed -E 's/(patches|backport|hack|pending|files|kernel|config)-//' | uniq)"
+
+  #         echo "affected_kernel_versions="$AFFECTED_KERNEL_VERSIONS_LIST"" >> $GITHUB_OUTPUT
+
+  #     - name: Set targets
+  #       id: find_targets
+  #       env:
+  #         AFFECTED_KERNEL_VERSIONS: ${{ steps.determine_affected_kernel_versions.outputs.affected_kernel_versions }}
+  #       run: |
+  #         ALL_TARGETS="$(perl ./scripts/dump-target-info.pl targets 2>/dev/null)"
+  #         TARGET_KERNELS="$(perl ./scripts/dump-target-info.pl kernels 2>/dev/null)"
+  #         CHANGED_FILES="$(echo ${{ needs.determine_changed_files.outputs.all_changed_files }} | tr ' ' '\n')"
+
+  #         TARGETS_SUBTARGETS="$(echo "$ALL_TARGETS" | sort -u -t '/' -k1 | cut -d " " -f 1)"
+  #         TARGETS="$(echo "$ALL_TARGETS" | sort -u -t '/' -k1,1 | cut -d " " -f 1)"
+
+  #         # On testing non-specific target, skip testing each subtarget if we are testing pr
+  #         if [ ${{ github.event_name }} != 'push' ]; then
+  #           if echo "$CHANGED_FILES" | grep -v -q -P ^target/linux/.*/ ||
+  #             echo "$CHANGED_FILES" | grep -q target/linux/generic; then
+  #             TARGETS_SUBTARGETS=$TARGETS
+  #           fi
+  #         fi
+
+  #         JSON_TARGETS_SUBTARGETS='['
+  #         FIRST=1
+  #         for TARGET_SUBTARGET in $TARGETS_SUBTARGETS; do
+  #           TARGET_KERNEL_VER="$(echo "$TARGET_KERNELS" | grep $TARGET_SUBTARGET | cut -d " " -f 2)"
+  #           TARGET_TESTING_KERNEL_VER="$(echo "$TARGET_KERNELS" | grep $TARGET_SUBTARGET | cut -d " " -f 3)"
+
+  #           TARGET=$(echo $TARGET_SUBTARGET | cut -d "/" -f 1)
+  #           SUBTARGET=$(echo $TARGET_SUBTARGET | cut -d "/" -f 2)
+
+  #           if echo "$CHANGED_FILES" | grep -v -q -P ^target/linux/.*/ ||
+  #             echo "$CHANGED_FILES" | grep -q target/linux/generic ||
+  #             echo "$CHANGED_FILES" | grep -q $TARGET; then
+
+  #             # test target if kernel version is affected
+  #             # If AFFECTED_KERNEL_VERSIONS is empty fallback to simple testing (case of changed files)
+  #             if [ -z "${{ env.AFFECTED_KERNEL_VERSIONS }}" ] || echo "${{ env.AFFECTED_KERNEL_VERSIONS }}" | grep -q "$TARGET_KERNEL_VER"; then
+  #               TUPLE='{"target":"'"$TARGET"'","subtarget":"'"$SUBTARGET"'"}'
+  #               [[ $FIRST -ne 1 ]] && JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS"','
+  #               JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS""$TUPLE"
+  #               FIRST=0
+  #             fi
+
+  #             # Also test testing kernel version if kernel version is affected
+  #             if [ -n "$TARGET_TESTING_KERNEL_VER" ] && echo "${{ env.AFFECTED_KERNEL_VERSIONS }}" | grep -q "$TARGET_TESTING_KERNEL_VER"; then
+  #               TUPLE='{"target":"'"$TARGET"'","subtarget":"'"$SUBTARGET"'","testing":"'"$TARGET_TESTING_KERNEL_VER"'"}'
+  #               [[ $FIRST -ne 1 ]] && JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS"','
+  #               JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS""$TUPLE"
+  #               FIRST=0
+  #             fi
+  #           fi
+  #         done
+  #         JSON_TARGETS_SUBTARGETS="$JSON_TARGETS_SUBTARGETS"']'
+
+  #         JSON_TARGETS='['
+  #         FIRST=1
+  #         for TARGET_SUBTARGET in $TARGETS; do
+  #           TARGET_KERNEL_VER="$(echo "$TARGET_KERNELS" | grep $TARGET_SUBTARGET | cut -d " " -f 2)"
+  #           TARGET_TESTING_KERNEL_VER="$(echo "$TARGET_KERNELS" | grep $TARGET_SUBTARGET | cut -d " " -f 3)"
+
+  #           TARGET=$(echo $TARGET_SUBTARGET | cut -d "/" -f 1)
+  #           SUBTARGET=$(echo $TARGET_SUBTARGET | cut -d "/" -f 2)
+
+  #           if echo "$CHANGED_FILES" | grep -v -q -P ^target/linux/.*/ ||
+  #             echo "$CHANGED_FILES" | grep -q target/linux/generic ||
+  #             echo "$CHANGED_FILES" | grep -q $TARGET; then
+
+  #             # test target if kernel version is affected
+  #             # If AFFECTED_KERNEL_VERSIONS is empty fallback to simple testing (case of changed files)
+  #             if [ -z "${{ env.AFFECTED_KERNEL_VERSIONS }}" ] || echo "${{ env.AFFECTED_KERNEL_VERSIONS }}" | grep -q "$TARGET_KERNEL_VER"; then
+  #               TUPLE='{"target":"'"$TARGET"'","subtarget":"'"$SUBTARGET"'"}'
+  #               [[ $FIRST -ne 1 ]] && JSON_TARGETS="$JSON_TARGETS"','
+  #               JSON_TARGETS="$JSON_TARGETS""$TUPLE"
+  #               FIRST=0
+  #             fi
+
+  #             # Also test testing kernel version if kernel version is affected
+  #             if [ -n "$TARGET_TESTING_KERNEL_VER" ] && echo "${{ env.AFFECTED_KERNEL_VERSIONS }}" | grep -q "$TARGET_TESTING_KERNEL_VER"; then
+  #               TUPLE='{"target":"'"$TARGET"'","subtarget":"'"$SUBTARGET"'","testing":"'"$TARGET_TESTING_KERNEL_VER"'"}'
+  #               [[ $FIRST -ne 1 ]] && JSON_TARGETS="$JSON_TARGETS"','
+  #               JSON_TARGETS="$JSON_TARGETS""$TUPLE"
+  #               FIRST=0
+  #             fi
+  #           fi
+  #         done
+  #         JSON_TARGETS="$JSON_TARGETS"']'
+
+  #         echo -e "\n---- targets to build ----\n"
+  #         echo "$JSON_TARGETS_SUBTARGETS"
+  #         echo -e "\n---- targets to build ----\n"
+
+  #         echo -e "\n---- targets to check patch ----\n"
+  #         echo "$JSON_TARGETS"
+  #         echo -e "\n---- targets to check patch ----\n"
+
+  #         echo "targets_subtargets=$JSON_TARGETS_SUBTARGETS" >> $GITHUB_OUTPUT
+  #         echo "targets=$JSON_TARGETS" >> $GITHUB_OUTPUT
+
+  # determine_changed_packages:
+  #   name: Determine Changed Packages
+  #   needs: determine_changed_files
+  #   uses: ./.github/workflows/reusable_determine_changed_packages.yml
+  #   with:
+  #     all_changed_files: ${{ needs.determine_changed_files.outputs.all_changed_files }}
+
+  build:
+    name: Build Kernel with external toolchain
+    permissions:
+      contents: read
+      packages: read
+      actions: write
+    strategy:
+       fail-fast: False
+       matrix:
+         include:
+           - target: ipq806x
+             subtarget: generic
+             testing: ''
+    uses: ./.github/workflows/reusable_build.yml
+    with:
+      container_name: toolchain
+      target: ${{ matrix.target }}
+      subtarget: ${{ matrix.subtarget }}
+      testing: ${{ matrix.testing != '' }}
+      build_kernel: true
+      build_all_kmods: true
+      build_dtb: true
+      upload_ccache_cache: ${{ github.repository_owner == 'openwrt' }}
+      check_packages_list: ${{ needs.determine_changed_packages.outputs.changed_packages }}
+
+  # check-kernel-patches:
+  #   name: Check Kernel patches
+  #   needs: determine_targets
+  #   permissions:
+  #     contents: read
+  #     packages: read
+  #   strategy:
+  #      fail-fast: False
+  #      matrix:
+  #        include: ${{fromJson(needs.determine_targets.outputs.targets)}}
+  #   uses: ./.github/workflows/reusable_check-kernel-patches.yml
+  #   with:
+  #     target: ${{ matrix.target }}
+  #     subtarget: ${{ matrix.subtarget }}
+  #     testing: ${{ matrix.testing != '' }}
+
+  # upload-ccache-cache-in-s3:
+  #   if: github.event_name == 'push' && github.repository_owner == 'openwrt'
+  #   name: Upload ccache cache to s3
+  #   needs: [determine_targets, build]
+  #   strategy:
+  #      fail-fast: False
+  #      matrix:
+  #        include: ${{fromJson(needs.determine_targets.outputs.targets_subtargets)}}
+  #   secrets:
+  #     s3_endpoint: ${{ secrets.ccache_s3_endpoint }}
+  #     s3_bucket: ${{ secrets.ccache_s3_bucket }}
+  #     s3_access_key: ${{ secrets.ccache_s3_access_key }}
+  #     s3_secret_key: ${{ secrets.ccache_s3_secret_key }}
+  #   uses: ./.github/workflows/reusable_upload-file-s3.yml
+  #   with:
+  #     download_id: ${{ matrix.target }}-${{ matrix.subtarget }}${{ matrix.testing != '' && '-testing' || '' }}-ccache-cache
+  #     filename: ccache-kernel-${{ matrix.target }}-${{ matrix.subtarget }}${{ matrix.testing != '' && '-testing' || '' }}${{ needs.build.outputs.ccache_tag }}.tar
