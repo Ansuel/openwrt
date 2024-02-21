@@ -171,7 +171,7 @@ int en7581_serdes_common_phy_probe(void)
 
 	printk("\nen7581_serdes_common_phy_probe\n");
 	
-	node = of_find_node_by_path("/serdes_common_phy@1fa5a000");
+	node = of_find_node_by_path("/soc/serdes_common_phy@1fa5a000");
 	if (node==NULL) {
 	    printk("\nERROR(%s) node==NULL\n", __func__);
 	    return -1;
