@@ -23,25 +23,17 @@
 #define   REG_RESET_CONTROL_PCIEHB	BIT(29)
 #define   REG_RESET_CONTROL_PCIE1	BIT(27)
 #define   REG_RESET_CONTROL_PCIE2	BIT(26)
-
-#define CR_NP_SCU_BASE                  (0x00000000)
-#define CR_NP_SCU_PCIC	       	(CR_NP_SCU_BASE + 0x88)
-#define CR_NP_SCU_SSTR			(CR_NP_SCU_BASE + 0x9C)
-
-#define PBUS_MONITOR_BASE					(0x000000)  /*phys:0x1fbe3400*/
-
-#define CR_CHIP_SCU_BASE				(0x00000000)
-#define CR_CHIP_SCU_RGS_OPEN_DRAIN	(CR_CHIP_SCU_BASE + 0x018C)
-#define OPEN_DRAIN_MASK     0x7 //bit[2:0] mapping PCIe port2/1/0
-
-/*===========for PCIe begin============================================ */
-#define PBUS_PCIE0_MEM_BASE				(PBUS_MONITOR_BASE+0x00)
-#define PBUS_PCIE0_MEM_MASK				(PBUS_MONITOR_BASE+0x04)
-#define PBUS_PCIE1_MEM_BASE				(PBUS_MONITOR_BASE+0x08)
-#define PBUS_PCIE1_MEM_MASK				(PBUS_MONITOR_BASE+0x0C)
-#define PBUS_PCIE2_MEM_BASE				(PBUS_MONITOR_BASE+0x10)
-#define PBUS_PCIE2_MEM_MASK				(PBUS_MONITOR_BASE+0x14)
-/*===========for PCIe end============================================ */
+/* EN7581 */
+#define REG_PCIE0_MEM			0x00
+#define REG_PCIE0_MEM_MASK		0x04
+#define REG_PCIE1_MEM			0x08
+#define REG_PCIE1_MEM_MASK		0x0c
+#define REG_PCIE2_MEM			0x10
+#define REG_PCIE2_MEM_MASK		0x14
+#define REG_OPEN_DRAIN			0x018c
+#define REG_OPEN_DRAIN_MASK		GENMASK(2, 0)
+#define REG_NP_SCU_PCIC			0x88
+#define REG_NP_SCU_SSTR			0x9c
 
 struct en_clk_desc {
 	int id;
@@ -62,8 +54,10 @@ struct en_clk_desc {
 	u8 div_step;
 };
 
-struct en_clk_gate {
+struct en_pci_clk_gate {
 	void __iomem *base;
+	void __iomem *np_base;
+	void __iomem *pb_base;
 	struct clk_hw hw;
 };
 
@@ -167,6 +161,7 @@ static const struct en_clk_desc en7523_base_clks[] = {
 
 static const struct of_device_id of_match_clk_en7523[] = {
 	{ .compatible = "airoha,en7523-scu", },
+	{ .compatible = "airoha,en7581-scu", },
 	{ /* sentinel */ }
 };
 
@@ -209,199 +204,16 @@ static u32 en7523_get_div(void __iomem *base, int i)
 
 static int en7523_pci_is_enabled(struct clk_hw *hw)
 {
-	struct en_clk_gate *cg = container_of(hw, struct en_clk_gate, hw);
+	struct en_pci_clk_gate *cg = container_of(hw, struct en_pci_clk_gate, hw);
 
-	return !!(readl(cg->base + REG_PCI_CONTROL) & REG_PCI_CONTROL_REFCLK_EN1);
+	return !!(readl(cg->np_base + REG_PCI_CONTROL) & REG_PCI_CONTROL_REFCLK_EN1);
 }
-
-void __iomem *chipScu_base=NULL;
-void __iomem *npScu_base=NULL;
-void __iomem *pbScu_base=NULL;
-
-
-u32 get_np_scu_data(u32 reg)
-{
-	return readl(npScu_base + reg);
-}
-EXPORT_SYMBOL(get_np_scu_data);
-
-void set_np_scu_data(u32 reg, u32 val)
-{
-	writel(val, npScu_base + reg); 
-}
-EXPORT_SYMBOL(set_np_scu_data);
-
-/*=====================for PCIe reset begin=========================*/
-//#define CR_NP_SCU_PCIC	       	(CR_NP_SCU_BASE + 0x88)
-u32 GET_PCIC(void)
-{    
-	return get_np_scu_data(CR_NP_SCU_PCIC);
-}
-EXPORT_SYMBOL(GET_PCIC);
-
-void SET_PCIC(u32 val)
-{    
-	set_np_scu_data(CR_NP_SCU_PCIC, val);    
-	return;
-}
-EXPORT_SYMBOL(SET_PCIC);
-
-u32 GET_NP_SCU_SSTR(void)
-{	
-	return get_np_scu_data(CR_NP_SCU_SSTR);
-}
-EXPORT_SYMBOL(GET_NP_SCU_SSTR);
-
-void SET_NP_SCU_SSTR(u32 val)
-{    
-	set_np_scu_data(CR_NP_SCU_SSTR, val);    
-	return;
-}
-EXPORT_SYMBOL(SET_NP_SCU_SSTR);
-
-/*=====================for PCIe reset end============================*/
-
-
-/*===========for PCIe begin============================================ */
-static u32 get_pbus_monitor_data(u32 reg)
-{
-    return readl(pbScu_base + reg);
-}
-static void set_pbus_monitor_data(u32 reg, u32 val)
-{
-    writel(val, pbScu_base + reg); 
-}
-
-/*======================PCIe0========================================== */
-u32 GET_PBUS_PCIE0_BASE(void)
-{
-	return get_pbus_monitor_data(PBUS_PCIE0_MEM_BASE);
-}
-
-void SET_PBUS_PCIE0_BASE(u32 val)
-{
-	set_pbus_monitor_data(PBUS_PCIE0_MEM_BASE, val);
-}
-
-u32 GET_PBUS_PCIE0_MASK(void)
-{
-	return get_pbus_monitor_data(PBUS_PCIE0_MEM_MASK);
-}
-
-void SET_PBUS_PCIE0_MASK(u32 val)
-{
-	set_pbus_monitor_data(PBUS_PCIE0_MEM_MASK, val);
-}
-
-/*======================PCIe1========================================== */
-u32 GET_PBUS_PCIE1_BASE(void)
-{
-	return get_pbus_monitor_data(PBUS_PCIE1_MEM_BASE);
-}
-
-void SET_PBUS_PCIE1_BASE(u32 val)
-{
-	set_pbus_monitor_data(PBUS_PCIE1_MEM_BASE, val);
-}
-
-u32 GET_PBUS_PCIE1_MASK(void)
-{
-	return get_pbus_monitor_data(PBUS_PCIE1_MEM_MASK);
-}
-
-void SET_PBUS_PCIE1_MASK(u32 val)
-{
-	set_pbus_monitor_data(PBUS_PCIE1_MEM_MASK, val);
-}
-
-/*======================PCIe2========================================== */
-u32 GET_PBUS_PCIE2_BASE(void)
-{
-	return get_pbus_monitor_data(PBUS_PCIE2_MEM_BASE);
-}
-
-void SET_PBUS_PCIE2_BASE(u32 val)
-{
-	set_pbus_monitor_data(PBUS_PCIE2_MEM_BASE, val);
-}
-
-u32 GET_PBUS_PCIE2_MASK(void)
-{
-	return get_pbus_monitor_data(PBUS_PCIE2_MEM_MASK);
-}
-
-void SET_PBUS_PCIE2_MASK(u32 val)
-{
-	set_pbus_monitor_data(PBUS_PCIE2_MEM_MASK, val);
-}
-EXPORT_SYMBOL(GET_PBUS_PCIE0_BASE);
-EXPORT_SYMBOL(SET_PBUS_PCIE0_BASE);
-EXPORT_SYMBOL(GET_PBUS_PCIE0_MASK);
-EXPORT_SYMBOL(SET_PBUS_PCIE0_MASK);
-EXPORT_SYMBOL(GET_PBUS_PCIE1_BASE);
-EXPORT_SYMBOL(SET_PBUS_PCIE1_BASE);
-EXPORT_SYMBOL(GET_PBUS_PCIE1_MASK);
-EXPORT_SYMBOL(SET_PBUS_PCIE1_MASK);
-EXPORT_SYMBOL(GET_PBUS_PCIE2_BASE);
-EXPORT_SYMBOL(SET_PBUS_PCIE2_BASE);
-EXPORT_SYMBOL(GET_PBUS_PCIE2_MASK);
-EXPORT_SYMBOL(SET_PBUS_PCIE2_MASK);
-
-
-/* don't EXPORT this function. Create API for your purpose instead. */
-u32 get_chip_scu_data(u32 reg)
-{	
-	return readl(chipScu_base + reg);
-}
-/* don't EXPORT this function. Create API for your purpose instead. */
-void set_chip_scu_data(u32 reg, u32 val)
-{	
-	writel(val, chipScu_base + reg); 
-}
-
-void set_chipScuReg_bits(u32 reg, u32 mask, u32 bits)
-{    
-	u32 val = get_chip_scu_data(reg);    
-	val &= (~mask);    
-	val |= bits;    
-	set_chip_scu_data(reg, val);
-}
-
-u32 GET_SCU_RGS_OPEN_DRAIN(void)
-{	
-	return ((get_chip_scu_data(CR_CHIP_SCU_RGS_OPEN_DRAIN)) & OPEN_DRAIN_MASK);
-}
-EXPORT_SYMBOL(GET_SCU_RGS_OPEN_DRAIN);
-
-void SET_SCU_RGS_OPEN_DRAIN(u32 val)
-{    
-	set_chipScuReg_bits(CR_CHIP_SCU_RGS_OPEN_DRAIN, OPEN_DRAIN_MASK, val & OPEN_DRAIN_MASK);
-}
-EXPORT_SYMBOL(SET_SCU_RGS_OPEN_DRAIN);
-
-/*===========for PCIe end============================================ */
-
-
-
-
-
 
 static int en7523_pci_prepare(struct clk_hw *hw)
 {
-	struct en_clk_gate *cg = container_of(hw, struct en_clk_gate, hw);
-	void __iomem *np_base = cg->base;
+	struct en_pci_clk_gate *cg = container_of(hw, struct en_pci_clk_gate, hw);
+	void __iomem *np_base = cg->np_base;
 	u32 val, mask;
-
-	/* Need to pull device low before reset */
-	val = readl(np_base + REG_PCI_CONTROL);
-	val &= ~(REG_PCI_CONTROL_PERSTOUT1 | REG_PCI_CONTROL_PERSTOUT);
-	writel(val, np_base + REG_PCI_CONTROL);
-	usleep_range(1000, 2000);
-
-	/* Enable PCIe port 1 */
-	val |= REG_PCI_CONTROL_REFCLK_EN1;
-	writel(val, np_base + REG_PCI_CONTROL);
-	usleep_range(1000, 2000);
 
 	/* Reset to default */
 	val = readl(np_base + REG_RESET_CONTROL);
@@ -409,54 +221,88 @@ static int en7523_pci_prepare(struct clk_hw *hw)
 	       REG_RESET_CONTROL_PCIEHB;
 	writel(val & ~mask, np_base + REG_RESET_CONTROL);
 	usleep_range(1000, 2000);
-	writel(val | mask, np_base + REG_RESET_CONTROL);
-	msleep(100);
-	writel(val & ~mask, np_base + REG_RESET_CONTROL);
-	usleep_range(5000, 10000);
-
-	/* Release device */
-	mask = REG_PCI_CONTROL_PERSTOUT1 | REG_PCI_CONTROL_PERSTOUT;
-	val = readl(np_base + REG_PCI_CONTROL);
-	writel(val & ~mask, np_base + REG_PCI_CONTROL);
-	usleep_range(1000, 2000);
-	writel(val | mask, np_base + REG_PCI_CONTROL);
-	msleep(250);
 
 	return 0;
 }
 
 static void en7523_pci_unprepare(struct clk_hw *hw)
 {
-	struct en_clk_gate *cg = container_of(hw, struct en_clk_gate, hw);
-	void __iomem *np_base = cg->base;
+	struct en_pci_clk_gate *cg = container_of(hw, struct en_pci_clk_gate, hw);
+	void __iomem *np_base = cg->np_base;
+	u32 val, mask;
+
+	val = readl(np_base + REG_RESET_CONTROL);
+	mask = REG_RESET_CONTROL_PCIE1 | REG_RESET_CONTROL_PCIE2 |
+	       REG_RESET_CONTROL_PCIEHB;
+	writel(val | mask, np_base + REG_RESET_CONTROL);
+	msleep(100);
+}
+
+static int en7523_pci_enable(struct clk_hw *hw)
+{
+	struct en_pci_clk_gate *cg = container_of(hw, struct en_pci_clk_gate, hw);
+	void __iomem *np_base = cg->np_base;
+	u32 val, mask;
+
+	/* Need to pull device low before reset */
+	val = readl(np_base + REG_PCI_CONTROL);
+	val |= REG_PCI_CONTROL_PERSTOUT1 | REG_PCI_CONTROL_PERSTOUT;
+	writel(val, np_base + REG_PCI_CONTROL);
+	usleep_range(1000, 2000);
+
+	val = readl(np_base + REG_PCI_CONTROL);
+	val |= REG_PCI_CONTROL_REFCLK_EN1;
+	writel(val, np_base + REG_PCI_CONTROL);
+
+	return 0;
+}
+
+static void en7523_pci_disable(struct clk_hw *hw)
+{
+	struct en_pci_clk_gate *cg = container_of(hw, struct en_pci_clk_gate, hw);
+	void __iomem *np_base = cg->np_base;
 	u32 val;
 
 	val = readl(np_base + REG_PCI_CONTROL);
 	val &= ~REG_PCI_CONTROL_REFCLK_EN1;
 	writel(val, np_base + REG_PCI_CONTROL);
+	usleep_range(1000, 2000);
+
+	/* Need to pull device low before reset */
+	val = readl(np_base + REG_PCI_CONTROL);
+	val &= ~(REG_PCI_CONTROL_PERSTOUT1 | REG_PCI_CONTROL_PERSTOUT);
+	writel(val, np_base + REG_PCI_CONTROL);
+	usleep_range(1000, 2000);
 }
 
 static struct clk_hw *en7523_register_pcie_clk(struct device *dev,
-					       void __iomem *np_base)
+					       void __iomem *base,
+					       void __iomem *np_base,
+					       void __iomem *pb_base)
 {
 	static const struct clk_ops pcie_gate_ops = {
 		.is_enabled = en7523_pci_is_enabled,
 		.prepare = en7523_pci_prepare,
+		.enable = en7523_pci_enable,
 		.unprepare = en7523_pci_unprepare,
+		.disable = en7523_pci_disable,
 	};
 	struct clk_init_data init = {
 		.name = "pcie",
 		.ops = &pcie_gate_ops,
 	};
-	struct en_clk_gate *cg;
+	struct en_pci_clk_gate *cg;
 
 	cg = devm_kzalloc(dev, sizeof(*cg), GFP_KERNEL);
 	if (!cg)
 		return NULL;
 
-	cg->base = np_base;
+	cg->base = base;
+	cg->np_base = np_base;
+	cg->pb_base = pb_base;
 	cg->hw.init = &init;
-	en7523_pci_unprepare(&cg->hw);
+	en7523_pci_disable(&cg->hw);
+	//en7523_pci_unprepare(&cg->hw);
 
 	if (clk_hw_register(dev, &cg->hw))
 		return NULL;
@@ -465,7 +311,8 @@ static struct clk_hw *en7523_register_pcie_clk(struct device *dev,
 }
 
 static void en7523_register_clocks(struct device *dev, struct clk_hw_onecell_data *clk_data,
-				   void __iomem *base, void __iomem *np_base)
+				   void __iomem *base, void __iomem *np_base,
+				   void __iomem *pb_base)
 {
 	struct clk_hw *hw;
 	u32 rate;
@@ -487,7 +334,7 @@ static void en7523_register_clocks(struct device *dev, struct clk_hw_onecell_dat
 		clk_data->hws[desc->id] = hw;
 	}
 
-	hw = en7523_register_pcie_clk(dev, np_base);
+	hw = en7523_register_pcie_clk(dev, base, np_base, pb_base);
 	clk_data->hws[EN7523_CLK_PCIE] = hw;
 
 	clk_data->num = EN7523_NUM_CLOCKS;
@@ -495,29 +342,41 @@ static void en7523_register_clocks(struct device *dev, struct clk_hw_onecell_dat
 
 static int en7523_clk_probe(struct platform_device *pdev)
 {
+	void __iomem *base, *np_base, *pb_base = NULL;
 	struct device_node *node = pdev->dev.of_node;
 	struct clk_hw_onecell_data *clk_data;
-	void __iomem *base, *np_base, *pb_base;
 	int r;
 
-	printk("\n=========en7523_clk_probe====11==========\n");
 	base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
-	chipScu_base = base;
-	printk("\n=========en7523_clk_probe====21=chipScu_base=%x========\n",chipScu_base);
 
 	np_base = devm_platform_ioremap_resource(pdev, 1);
 	if (IS_ERR(np_base))
 		return PTR_ERR(np_base);
-	npScu_base = np_base;
-	printk("\n=========en7523_clk_probe====22=npScu_base=%x========\n",npScu_base);
 
-	pb_base = devm_platform_ioremap_resource(pdev, 2);
-	if (IS_ERR(pb_base))
-		return PTR_ERR(pb_base);
-	pbScu_base = pb_base;
-	printk("\n=========en7523_clk_probe====23=pbScu_base=%x========\n",pbScu_base);
+	if (of_device_is_compatible(node, "airoha,en7581-scu")) {
+		u32 val;
+
+		pb_base = devm_platform_ioremap_resource(pdev, 2);
+		if (IS_ERR(pb_base))
+			return PTR_ERR(pb_base);
+
+		val = readl(np_base + REG_NP_SCU_SSTR);
+		val &= ~((3<<13) | (3<<11));
+		writel(val, np_base + REG_NP_SCU_SSTR);
+		val = readl(np_base + REG_NP_SCU_PCIC);
+		writel(val | 3, np_base + REG_NP_SCU_PCIC);
+
+		writel(0x20000000, pb_base + REG_PCIE0_MEM);
+		writel(0xfc000000, pb_base + REG_PCIE0_MEM_MASK);
+		writel(0x24000000, pb_base + REG_PCIE1_MEM);
+		writel(0xfc000000, pb_base + REG_PCIE1_MEM_MASK);
+		writel(0x28000000, pb_base + REG_PCIE2_MEM);
+		writel(0xfc000000, pb_base + REG_PCIE2_MEM_MASK);
+		val = readl(base + REG_OPEN_DRAIN);
+		writel(val | REG_OPEN_DRAIN_MASK, base + REG_OPEN_DRAIN);
+	}
 
 	clk_data = devm_kzalloc(&pdev->dev,
 				struct_size(clk_data, hws, EN7523_NUM_CLOCKS),
@@ -525,8 +384,7 @@ static int en7523_clk_probe(struct platform_device *pdev)
 	if (!clk_data)
 		return -ENOMEM;
 
-	en7523_register_clocks(&pdev->dev, clk_data, base, np_base);
-	printk("\n=========en7523_clk_probe====33==========\n");
+	en7523_register_clocks(&pdev->dev, clk_data, base, np_base, pb_base);
 
 	r = of_clk_add_hw_provider(node, of_clk_hw_onecell_get, clk_data);
 	if (r)

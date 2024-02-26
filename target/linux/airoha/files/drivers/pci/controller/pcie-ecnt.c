@@ -7,6 +7,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/iopoll.h>
 #include <linux/irq.h>
@@ -103,36 +104,6 @@
 #define PCIE_ATR_TLP_TYPE_MEM		PCIE_ATR_TLP_TYPE(0)
 #define PCIE_ATR_TLP_TYPE_IO		PCIE_ATR_TLP_TYPE(2)
 
-//extern int pcie_api_init(void);
-
-
-//extern int pcie_api_init(void);
-extern void set_np_scu_data(u32 reg, u32 val);
-extern u32 get_np_scu_data(u32 reg);
-
-
-/*===========for PCIe pbus setting begin============================================ */
-extern u32 GET_PBUS_PCIE0_BASE(void);
-extern void SET_PBUS_PCIE0_BASE(u32 val);
-extern u32 GET_PBUS_PCIE0_MASK(void);
-extern void SET_PBUS_PCIE0_MASK(u32 val);
-extern u32 GET_PBUS_PCIE1_BASE(void);
-extern void SET_PBUS_PCIE1_BASE(u32 val);
-extern u32 GET_PBUS_PCIE1_MASK(void);
-extern void SET_PBUS_PCIE1_MASK(u32 val);
-extern u32 GET_PBUS_PCIE2_BASE(void);
-extern void SET_PBUS_PCIE2_BASE(u32 val);
-extern u32 GET_PBUS_PCIE2_MASK(void);
-extern void SET_PBUS_PCIE2_MASK(u32 val);
-/*===========for PCIe pbus setting end============================================ */
-
-/*===========for PCIe pad open drain setting begin============================================ */
-extern u32 GET_SCU_RGS_OPEN_DRAIN(void);
-extern void SET_SCU_RGS_OPEN_DRAIN(u32 val);
-/*===========for PCIe pad open drain setting end============================================ */
-
-
-
 /**********************************************************/
 struct ecnt_pcie{
 	struct device *dev;
@@ -208,9 +179,9 @@ u32 regRead_PCIe(u32 reg)
 
 	switch(reg&0xffff0000)
 		{
-		case 0x1fb00000:
-			val=get_np_scu_data(reg&0xfff);
-			break;
+		//case 0x1fb00000:
+		//	val=get_np_scu_data(reg&0xfff);
+		//	break;
 		case 0x1fc00000:
 			val=get_pcie_mac0_data(reg&0xffff);
 			break;
@@ -233,9 +204,9 @@ void regWrite_PCIe(u32 reg, u32 val)
     
 	switch(reg&0xffff0000)
 		{
-		case 0x1fb00000:
-			set_np_scu_data(reg&0xfff,val);
-			break;
+		//case 0x1fb00000:
+		//	set_np_scu_data(reg&0xfff,val);
+		//	break;
 		case 0x1fc00000:
 			set_pcie_mac0_data(reg&0xffff,val);
 			break;
@@ -472,6 +443,7 @@ struct mtk_pcie_port {
 	void __iomem *base;
 	phys_addr_t reg_base;
 	unsigned int busnr;
+	struct clk *sys_ck;
 
 	int irq;
 	u32 saved_irq_state;
@@ -611,97 +583,6 @@ static void mtk_pcie_enable_msi(struct mtk_pcie_port *port)
 #define RETRY_LIMIT 3                //for relink
 
 extern void pcie_phy_init(unsigned int port_num);
-
-void mt7512_pcie_reset(void)
-{
-	unsigned int tmp;
-	void *virtAddr1;
-    //for relink
-	unsigned int tmp1, tmp2;
-	void * virtAddr;
-	u32 retry_cnt = 0;
-	uint8_t serdes_ret=0;	
-
-    tmp = regRead_PCIe(0x1fb00834);
-    regWrite_PCIe(0x1fb00834, (tmp | ( (1<<26) | (1<<27) | (1<<29))));
-    regWrite_PCIe(0x1fb00834, (tmp | ( (1<<26) | (1<<27)  )));//0c00_0000///////098add
-    tmp = regRead_PCIe(0x1fb00830);
-    regWrite_PCIe(0x1fb00830, (tmp | (1<<27)));
-    mdelay(100);
-
-
-
-	/*before reset host,need to pull device low*/
-	//port0 port1 0x1fb00088 bit29 bit 26
-	tmp = regRead_PCIe(0x1fb00088);
-	regWrite_PCIe(0x1fb00088, (tmp & (~((1<<29) | (1<<26)))));
-	//port2 0x1fb00088 bit16
-	tmp = regRead_PCIe(0x1fb00088);
-	regWrite_PCIe(0x1fb00088, (tmp & (~(1<<16))));
-	mdelay(1);
-	
-	regWrite_PCIe(0x1fc10044, 0x23020133);
-	virtAddr = ioremap ((phys_addr_t)0x1fc30044,4);
-	writel(0x23020133 ,virtAddr);
-	regWrite_PCIe(0x1fc15030, 0x50500032);
-	regWrite_PCIe(0x1fc15130, 0x50500032);
-
-
-	pcie_phy_init(3);
-	
-	mdelay(30);//fix 7916 pbus timeout
-	/*first reset to default*///0xbfb00834-pulse-0000_11111_0000
-    
-    //hostcontroller port0 port1 0x1fb00834 bit29 bit26 bit27
-    tmp = regRead_PCIe(0x1fb00834);
-    regWrite_PCIe(0x1fb00834, (tmp & (~( (1<<26) | (1<<27) | (1<<29)))));
-	//port2 0x1fb00830 bit27
-    tmp = regRead_PCIe(0x1fb00830);
-    regWrite_PCIe(0x1fb00830, (tmp & (~(1<<27))));
-
-
-
-    /*==========some phy setting after mac reset begin======================*/
-	/* mac setting, after mac reset, before release device reset */
-	regWrite_PCIe(0x1fc00100, 0x41474147);//Preset 1 (initial), add by Carl 10/11
-	virtAddr = ioremap ((phys_addr_t)0x1fc20100,4);
-	writel(0x41474147 ,virtAddr);
-	
-	regWrite_PCIe(0x1fc00338, 0x1018020F);//preset to use (final)
-	virtAddr = ioremap ((phys_addr_t)0x1fc20338,4);
-	writel(0x1018020F ,virtAddr);
-	/*==========some phy setting after mac reset end=========================*/
-	
-	mdelay(10);
-
-    /*release device*///0xbfb00088-0000_11111
-    tmp = regRead_PCIe(0x1fb00088);
-    regWrite_PCIe(0x1fb00088, (tmp | ((1<<29) | (1<<26))));
-	//port2 0x1fb00088 bit16
-	tmp = regRead_PCIe(0x1fb00088);
-	regWrite_PCIe(0x1fb00088, (tmp | (1<<16)));
-
-
-
-	/*wait link up*/
-	mdelay(1000); 
-
-	//port0
-	printk("debug check 1fc00154 = 0x%x , 1fc00150 = %x, 1fc00018 = %x \n", regRead_PCIe(0x1fc00154), regRead_PCIe(0x1fc00150), regRead_PCIe(0x1fc00018) );
-	        
-	//port1
-	virtAddr = ioremap ((phys_addr_t)0x1fc20154,4);
-	tmp = readl(virtAddr);
-	virtAddr = ioremap ((phys_addr_t)0x1fc20150,4);
-	tmp1 = readl(virtAddr);
-	virtAddr = ioremap ((phys_addr_t)0x1fc20018,4);
-	tmp2 = readl(virtAddr);	
-	printk("debug check 1fc20154 = 0x%x , 1fc20150 = %x, 1fc20018 = %x \n", tmp , tmp1, tmp2 );
-
-
-	return ;
-}
-
 
 static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 {
@@ -1253,72 +1134,65 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 static int mtk_pcie_setup(struct mtk_pcie_port *port)
 {
 	struct device *dev = port->dev;
-
+	char name[10];
 	int err;
-	u32 tmp_reg;
-
+	int slot;
 
 	err = mtk_pcie_parse_port(port);
 	if (err)
 		return err;
 
 	/* Try link up */
+	slot = of_get_pci_domain_nr(dev->of_node);
+	if (slot < 0)
+		return slot;
 
-	if(0==base_num)
-	{
+	snprintf(name, sizeof(name), "sys_ck%d", slot);
+	port->sys_ck = devm_clk_get(dev, name);
+	if (IS_ERR(port->sys_ck)) {
+		dev_err(dev, "failed to get sys_ck%d clock\n", slot);
+		return PTR_ERR(port->sys_ck);
+	}
 
-		/*===========for PCIe pbus setting begin============================================ */	
-		printk("===EN7581 Pbus for PCIe init===");
-		tmp_reg = GET_PBUS_PCIE0_BASE();
-		printk("\n========pcie_probe====0x1fbe3400=%x===========",tmp_reg);
-		SET_PBUS_PCIE0_BASE(0x20000000);
+	if (__clk_is_enabled(port->sys_ck))
+		clk_disable(port->sys_ck);
+
+	if (!base_num) {
+		void *virtAddr;
+
+		regWrite_PCIe(0x1fc10044, 0x23020133);
+		virtAddr = ioremap ((phys_addr_t)0x1fc30044,4);
+		writel(0x23020133 ,virtAddr);
+		regWrite_PCIe(0x1fc15030, 0x50500032);
+		regWrite_PCIe(0x1fc15130, 0x50500032);
+
+		pcie_phy_init(3);
+		mdelay(30);//fix 7916 pbus timeout
+	}
+
+	err = clk_prepare(port->sys_ck);
+	if (err) {
+		dev_err(dev, "failed to enable sys_ck%d clock\n", slot);
+		return -EINVAL;
+	}
+
+	if (!base_num) {
+		void *virtAddr;
+
+		regWrite_PCIe(0x1fc00100, 0x41474147);//Preset 1 (initial), add by Carl 10/11
+		virtAddr = ioremap ((phys_addr_t)0x1fc20100,4);
+		writel(0x41474147 ,virtAddr);
+		regWrite_PCIe(0x1fc00338, 0x1018020F);//preset to use (final)
+		virtAddr = ioremap ((phys_addr_t)0x1fc20338,4);
+		writel(0x1018020F ,virtAddr);
 		
-		tmp_reg = GET_PBUS_PCIE1_BASE();
-		printk("\n========pcie_probe====0x1fbe3408=%x===========",tmp_reg);
-		SET_PBUS_PCIE1_BASE(0x24000000);
-		
-		tmp_reg = GET_PBUS_PCIE2_BASE();
-		printk("\n========pcie_probe====0x1fbe3410=%x===========",tmp_reg);
-		SET_PBUS_PCIE2_BASE(0x28000000);
-		
-		tmp_reg = GET_PBUS_PCIE0_MASK();
-		printk("\n========pcie_probe====0x1fbe3404=%x===========",tmp_reg);
-		SET_PBUS_PCIE0_MASK(0xfc000000);
+		mdelay(10);
+	}
 
-		tmp_reg = GET_PBUS_PCIE1_MASK();
-		printk("\n========pcie_probe====0x1fbe340c=%x===========",tmp_reg);
-		SET_PBUS_PCIE1_MASK(0xfc000000);
-
-		tmp_reg = GET_PBUS_PCIE2_MASK();
-		printk("\n========pcie_probe====0x1fbe3414=%x===========",tmp_reg);
-		SET_PBUS_PCIE2_MASK(0xfc000000);
-
-
-		printk("\n========pcie_probe====after pbus setting=======");
-		tmp_reg = GET_PBUS_PCIE0_BASE();
-		printk("\n========pcie_probe====0x1fbe3400=%x===========",tmp_reg);
-		tmp_reg = GET_PBUS_PCIE1_BASE();
-		printk("\n========pcie_probe====0x1fbe3408=%x===========",tmp_reg);
-		tmp_reg = GET_PBUS_PCIE2_BASE();
-		printk("\n========pcie_probe====0x1fbe3410=%x===========",tmp_reg);
-		tmp_reg = GET_PBUS_PCIE0_MASK();
-		printk("\n========pcie_probe====0x1fbe3404=%x===========",tmp_reg);
-		tmp_reg = GET_PBUS_PCIE1_MASK();
-		printk("\n========pcie_probe====0x1fbe340c=%x===========",tmp_reg);
-		tmp_reg = GET_PBUS_PCIE2_MASK();
-		printk("\n========pcie_probe====0x1fbe3414=%x===========",tmp_reg);
-		/*===========for PCIe pbus setting end============================================ */
-			
-		/*===========for PCIe pad open drain setting begin============================================ */
-		tmp_reg = GET_SCU_RGS_OPEN_DRAIN();
-		printk("\n========pcie_probe==before==0x1fa2018c=%x===========",tmp_reg);
-		SET_SCU_RGS_OPEN_DRAIN(0x7);//bit[2:0] map port2/1/0,1:open drain
-		tmp_reg = GET_SCU_RGS_OPEN_DRAIN();
-		printk("\n========pcie_probe==after==0x1fa2018c=%x===========\n",tmp_reg);
-		/*===========for PCIe pad open drain setting end============================================ */
-			
-		mt7512_pcie_reset();
-		
+	err = clk_enable(port->sys_ck);
+	if (err) {
+		dev_err(dev, "failed to enable sys_ck%d clock\n", slot);
+		return -EINVAL;
 	}
 
 
@@ -1332,127 +1206,6 @@ static int mtk_pcie_setup(struct mtk_pcie_port *port)
 
 	return 0;
 }
-/*=================7581 PCIe serdes description==============================*/
-/*
-	ECNT_EVENT_SERDES_SEL_WIFI1	//7581 serdes IF 2 //PCIe0
-	ECNT_EVENT_SERDES_SEL_WIFI2	//7581 serdes IF 3 //PCIe1
-	ECNT_EVENT_SERDES_SEL_USB2	//7581 serdes IF 5 //PCIe2
-*/
-/* SerDes-WiFi1 //ECNT_EVENT_SYSTEM_SERDES_WIFI1_SEL_t
-	ECNT_EVENT_SERDES_WIFI1_PCIE0_2LANE = 0,	
-	ECNT_EVENT_SERDES_WIFI1_PCIE0_1LANE,
-	ECNT_EVENT_SERDES_WIFI1_HSGMII,
-	ECNT_EVENT_SERDES_WIFI1_USXGMII,
-	ECNT_EVENT_SERDES_WIFI1_XFI,
-	ECNT_EVENT_SERDES_WIFI1_NONE,
-	ECNT_EVENT_SERDES_WIFI1_MAX,
-*/	
-/* SerDes-WiFi2 //ECNT_EVENT_SYSTEM_SERDES_WIFI2_SEL_t
-	ECNT_EVENT_SERDES_WIFI2_PCIE0_2LANE = 0,	
-	ECNT_EVENT_SERDES_WIFI2_PCIE1_1LANE,
-	ECNT_EVENT_SERDES_WIFI2_HSGMII,
-	ECNT_EVENT_SERDES_WIFI2_USXGMII,
-	ECNT_EVENT_SERDES_WIFI2_XFI,
-	ECNT_EVENT_SERDES_WIFI2_NONE,
-	ECNT_EVENT_SERDES_WIFI2_MAX,;
-*/
-/* SerDes-USB2 //ECNT_EVENT_SYSTEM_SERDES_USB2_SEL_t
-	ECNT_EVENT_SERDES_USB2_USB30 = 0,
-	ECNT_EVENT_SERDES_USB2_PCIE2_1LANE,
-	ECNT_EVENT_SERDES_USB2_NONE,
-	ECNT_EVENT_SERDES_USB2_MAX,
-*/
-/*=================7581 PCIe serdes description==============================*/
-static int PCIe_port_num=0;
-//ret==1,not PCIe,don't continue init. 
-
-extern u32 GET_PCIC(void);
-extern void SET_PCIC(u32 val);
-extern u32 GET_NP_SCU_SSTR(void);
-extern void SET_NP_SCU_SSTR(u32 val);
-
-#if 1
-static int wifi_serdes_select(void)
-{	
-	int ret=0;
-	uint8_t serdes_ret=0;	
-	unsigned int tmp;
-
-	printk("7581 wifi_serdes_select: enter PCIe_port_num=%d !\n",PCIe_port_num);
-
-
-	switch(PCIe_port_num)
-	{
-		case 0:
-			//serdes_ret = get_serdes_interface_sel(ECNT_EVENT_SERDES_SEL_WIFI1);
-			serdes_ret = 1; //port0:1lane
-			if(0==serdes_ret)
-				{
-					tmp = GET_NP_SCU_SSTR();
-					SET_NP_SCU_SSTR(tmp & (~(3<<13)));			
-					tmp = GET_PCIC();
-					SET_PCIC((tmp & 0xfffffffc)| (2));
-				}
-			else if(1==serdes_ret)
-				{
-					tmp = GET_NP_SCU_SSTR();
-					SET_NP_SCU_SSTR(tmp & (~(3<<13)));
-					tmp = GET_PCIC();
-					SET_PCIC ((tmp | (3)));
-				}
-			else
-				ret = 1;
-			break;
-		case 1:
-			//serdes_ret = get_serdes_interface_sel(ECNT_EVENT_SERDES_SEL_WIFI2);
-			serdes_ret = 1; //port1:1lane
-			if(0==serdes_ret)
-				{
-					tmp = GET_NP_SCU_SSTR();
-					SET_NP_SCU_SSTR(tmp & (~(3<<11)));
-					tmp = GET_PCIC();				
-					if(2!=(tmp & 0x3))
-						{
-							ret = 1;
-							printk("Error: serdes_wifi2 not match serdes_wifi1 !!\n");
-						}
-				}
-			else if(1==serdes_ret)
-				{
-					tmp = GET_NP_SCU_SSTR();
-					SET_NP_SCU_SSTR(tmp & (~(3<<11)));
-					tmp = GET_PCIC();				
-					if(3!=(tmp & 0x3))
-						{
-							ret = 1;
-							printk("Error: serdes_wifi2 not match serdes_wifi1 !!\n");
-						}
-
-				}
-			else
-				ret = 1;
-			break;
-		case 2:
-			//serdes_ret = get_serdes_interface_sel(ECNT_EVENT_SERDES_SEL_USB2);
-			serdes_ret = 0;
-			if(1==serdes_ret)
-				{
-					tmp = GET_NP_SCU_SSTR();
-					SET_NP_SCU_SSTR(tmp &(~(1<<3)));
-				}
-			else
-				ret = 1;
-			break;
-	}
-
-	printk("7581 wifi_serdes_select: exit serdes_ret=%d ret=%d !\n",serdes_ret,ret);
-
-	PCIe_port_num++;
-
-	return ret;
-}
-
-#endif
 
 u8 pci_common_swizzle_airoha(struct pci_dev *dev, u8 *pinp)
 {
@@ -1500,17 +1253,6 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 	u32 check_reg;
 	uint8_t serdes_ret=0;	
 	
-    //pcie_api_init();
-
-
-	//if(!isFPGA)
-	//	{
-			err = wifi_serdes_select();
-			if (err)
-				return err;
-	//	}
-
-
 	host = devm_pci_alloc_host_bridge(dev, sizeof(*port));
 	if (!host)
 		return -ENOMEM;
@@ -1521,10 +1263,6 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, port);
 
 	err = mtk_pcie_setup(port);
-
-        //work around for accidental calltrace when NPU access port1 mac register but only port0 linkup
-	//if (err)
-	//	goto release_resource;
 
 #ifdef TCSUPPORT_PCIE_MSI
 	host->msi = &ecnt_pcie_msi_controller;
@@ -1539,35 +1277,8 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 	host->sysdata = port;
 
 	err = pci_host_probe(host);
-
-	if(0==base_num)
-		{
-			value=pcie_read_config_word_extend(0,0,0,0x3c);
-			value|= port->irq;
-			pcie_write_config_word_extend(0,0,0, 0x3c,value);
-			pcie_write_config_word_extend(1,0,0, 0x3c,value);
-
-		}
-	else if(1==base_num)
-		{
-			value=pcie_read_config_word_extend(0,1,0,0x3c);
-			value|= port->irq;
-			pcie_write_config_word_extend(0,1,0, 0x3c,value);
-			pcie_write_config_word_extend(2,0,0, 0x3c,value);
-
-		}
-	else if(2==base_num)
-		{
-			value=pcie_read_config_word_extend(0,2,0,0x3c);
-			value|= port->irq;
-			pcie_write_config_word_extend(0,2,0, 0x3c,value);
-			pcie_write_config_word_extend(3,0,0, 0x3c,value);
-
-		}
-
 	if (err)
 		goto power_down;
-
 
 	return 0;
 
