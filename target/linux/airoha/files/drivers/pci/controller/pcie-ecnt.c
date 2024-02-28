@@ -26,11 +26,6 @@
 
 #include "../pci.h"
 
-//#include <ecnt_event_global/ecnt_event_system.h>
-//#include "asm/tc3162/tc3162.h"
-
-//#include <dt-bindings/clock/en7523-clk.h>
-
 #define PCIE_SETTING_REG		0x80
 #define PCIE_PCI_IDS_1			0x9c
 #define PCI_CLASS(class)		(class << 8)
@@ -111,17 +106,6 @@ struct ecnt_pcie{
 	struct device *dev;
 	int irq_pcie0;
 	int irq_pcie1;
-	int irq_pcie2;
-
-	void __iomem *mac0_base; /* PCIe Mac0 base virtual address */
-	void __iomem *mac1_base; /* PCIe Mac1 base virtual address */
-	void __iomem *mac2_base; /* PCIe Mac2 base virtual address */
-#ifdef TCSUPPORT_PCIE_MSI
-	phys_addr_t mac0_addr; /* PCIe Mac0 base physical address */
-	phys_addr_t mac1_addr; /* PCIe Mac1 base physical address */
-	phys_addr_t mac2_addr; /* PCIe Mac2 base physical address */
-#endif
-
 };
 static struct ecnt_pcie ECNT_pcie;
 /**********************************************************/
@@ -133,7 +117,6 @@ static struct ecnt_pcie ECNT_pcie;
 */
 void ecnt_msi_teardown_irq(struct msi_controller *chip, unsigned int irq)
 {	
-printk("=========== ecnt_msi_teardown_irq \n");
 }
 /** 
 * ecnt_pcie_msi_setup_irq - Setup MSI request 
@@ -148,18 +131,9 @@ int ecnt_pcie_msi_setup_irqs(struct msi_controller *chip,struct pci_dev *pdev, i
 	unsigned int irq;// = pdev->irq + 1;	
 	struct msi_msg msg;		
 	struct msi_desc *desc;	
-	phys_addr_t msg_addr;	
 	int i, ret;
 
 	printk("=========== ecnt_pcie_msi_setup_irqs enter \n");	
-
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	ecnt_pcie=&ECNT_pcie;
-	if (!ecnt_pcie)
-		return -ENOMEM;
-
-	printk("=========== ecnt_pcie_msi_setup_irqs 1111 \n");	
-
         //7581MSI all port
 	irq = pdev->irq;
 
@@ -177,20 +151,11 @@ int ecnt_pcie_msi_setup_irqs(struct msi_controller *chip,struct pci_dev *pdev, i
 	desc->nvec_used = nvec;	
 	desc->msi_attrib.multiple = order_base_2(nvec);	
 
-
         //7581MSI all port
-	if(irq == ecnt_pcie->irq_pcie0)
-		msg_addr = ecnt_pcie->mac0_addr + PCIE_MSI_SET_BASE_REG;
-	else if(irq == ecnt_pcie->irq_pcie1)
-		msg_addr = ecnt_pcie->mac1_addr + PCIE_MSI_SET_BASE_REG;
-	else if(irq == ecnt_pcie->irq_pcie2)
-		msg_addr = ecnt_pcie->mac2_addr + PCIE_MSI_SET_BASE_REG;
-
 	msg.address_hi = 0;	
-	msg.address_lo = msg_addr;	
+	msg.address_lo = port->reg_base + PCIE_MSI_SET_BASE_REG;
 	msg.data = 0;		
 	pci_write_msi_msg(irq, &msg);	
-	printk("\n===========RC0 msg_addr:%x===\n",msg_addr);
 	printk("=========== ecnt_pcie_msi_setup_irqs end \n");	
 	return 0;
 }
@@ -806,17 +771,6 @@ static int mtk_pcie_setup_irq(struct mtk_pcie_port *port, int slot)
 #ifdef TCSUPPORT_PCIE_MSI	
 	int i =0, irq_msi;
 #endif
-
-	//err = mtk_pcie_init_irq_domains(port);
-	//if (err)
-	//	return err;
-
-	//port->irq = platform_get_irq(pdev, 0);
-	//if (port->irq < 0)
-	//	return port->irq;
-
-	//irq_set_chained_handler_and_data(port->irq, mtk_pcie_irq_handler, port);
-
 	struct ecnt_pcie *ecnt_pcie=NULL;
 	ecnt_pcie=&ECNT_pcie;
 
@@ -856,9 +810,6 @@ static int mtk_pcie_setup_irq(struct mtk_pcie_port *port, int slot)
 		case 2:
 #ifdef TCSUPPORT_PCIE_MSI
 			port->irq = platform_get_irq(pdev, 0);
-#endif
-			ecnt_pcie->irq_pcie2 = port->irq;
-#ifdef TCSUPPORT_PCIE_MSI	
 			for(i = 1; i < 8; i++)				
 			{					
 				irq_msi = platform_get_irq(pdev, i);		
@@ -872,14 +823,11 @@ static int mtk_pcie_setup_irq(struct mtk_pcie_port *port, int slot)
 	return 0;
 }
 
-static int mtk_pcie_parse_port(struct mtk_pcie_port *port, int slot)
+static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 {
 	struct device *dev = port->dev;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct resource *regs;
-
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	ecnt_pcie=&ECNT_pcie;
 
 	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pcie-mac");
 	port->base = devm_ioremap_resource(dev, regs);
@@ -889,29 +837,6 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port, int slot)
 	}
 
 	port->reg_base = regs->start;
-	switch(slot)
-	{
-		case 0:
-			ecnt_pcie->mac0_base = port->base;
-#ifdef TCSUPPORT_PCIE_MSI
-			ecnt_pcie->mac0_addr = port->reg_base;
-#endif
-			break;
-		case 1:
-			ecnt_pcie->mac1_base = port->base;
-#ifdef TCSUPPORT_PCIE_MSI
-			ecnt_pcie->mac1_addr = port->reg_base;
-#endif
-			break;
-		case 2:
-			ecnt_pcie->mac2_base = port->base;
-#ifdef TCSUPPORT_PCIE_MSI
-			ecnt_pcie->mac2_addr = port->reg_base;
-#endif
-			break;
-	}
-
-
 	return 0;
 }
 
@@ -928,7 +853,7 @@ static int mtk_pcie_setup(struct mtk_pcie_port *port)
 	if (slot < 0)
 		return slot;
 
-	err = mtk_pcie_parse_port(port, slot);
+	err = mtk_pcie_parse_port(port);
 	if (err)
 		return err;
 
@@ -968,7 +893,6 @@ static int mtk_pcie_setup(struct mtk_pcie_port *port)
 		return -EINVAL;
 	}
 
-
 	err = mtk_pcie_startup_port(port);
 	if (err)
 		return err;
@@ -989,7 +913,6 @@ u8 pci_common_swizzle_airoha(struct pci_dev *dev, u8 *pinp)
 		dev = dev->bus->self;
 	}
 	*pinp = pin;
-	//return PCI_SLOT(dev->devfn);
 	return pci_domain_nr(dev->bus);
 }
 
@@ -1076,6 +999,3 @@ static struct platform_driver mtk_pcie_driver = {
 };
 
 builtin_platform_driver(mtk_pcie_driver);
-
-//module_platform_driver(mtk_pcie_driver);
-//MODULE_LICENSE("GPL v2");
