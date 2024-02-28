@@ -36,6 +36,7 @@
 #define PCI_CLASS(class)		(class << 8)
 #define PCIE_RC_MODE			BIT(0)
 
+#define PCIE_EQ_PRESET_01_REF		0x100
 #define PCIE_CFGNUM_REG			0x140
 #define PCIE_CFG_DEVFN(devfn)		((devfn) & GENMASK(7, 0))
 #define PCIE_CFG_BUS(bus)		(((bus) << 8) & GENMASK(15, 8))
@@ -75,6 +76,7 @@
 #define PCIE_MSI_SET_ENABLE_REG		0x190
 #define PCIE_MSI_SET_ENABLE		GENMASK(PCIE_MSI_SET_NUM - 1, 0)
 
+#define PCIE_PIPE4_PIE8_REG		0x338
 #define PCIE_MSI_SET_BASE_REG		0xc00
 #define PCIE_MSI_SET_OFFSET		0x10
 #define PCIE_MSI_SET_STATUS_OFFSET	0x04
@@ -123,215 +125,6 @@ struct ecnt_pcie{
 };
 static struct ecnt_pcie ECNT_pcie;
 /**********************************************************/
-int base_num=0;
-
-/*====================regs==================*/
-u32 get_pcie_mac0_data(u32 reg)
-{
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	ecnt_pcie=&ECNT_pcie;
-
-	return readl(ecnt_pcie->mac0_base+ reg);
-}
-
-void set_pcie_mac0_data(u32 reg, u32 val)
-{
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	ecnt_pcie=&ECNT_pcie;
-
-	writel(val, ecnt_pcie->mac0_base + reg); 
-}
-u32 get_pcie_mac1_data(u32 reg)
-{
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	ecnt_pcie=&ECNT_pcie;
-
-	return readl(ecnt_pcie->mac1_base+ reg);
-}
-
-void set_pcie_mac1_data(u32 reg, u32 val)
-{
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	ecnt_pcie=&ECNT_pcie;
-
-	writel(val, ecnt_pcie->mac1_base + reg); 
-}
-
-u32 get_pcie_mac2_data(u32 reg)
-{
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	ecnt_pcie=&ECNT_pcie;
-
-	return readl(ecnt_pcie->mac2_base+ reg);
-}
-
-void set_pcie_mac2_data(u32 reg, u32 val)
-{
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	ecnt_pcie=&ECNT_pcie;
-
-	writel(val, ecnt_pcie->mac2_base + reg); 
-}
-
-u32 regRead_PCIe(u32 reg)		
-{	
-	u32 val=0xffffffff;
-
-	switch(reg&0xffff0000)
-		{
-		//case 0x1fb00000:
-		//	val=get_np_scu_data(reg&0xfff);
-		//	break;
-		case 0x1fc00000:
-			val=get_pcie_mac0_data(reg&0xffff);
-			break;
-
-		case 0x1fc10000:
-			val=get_pcie_mac0_data(reg&0xfffff);
-			break;
-
-		case 0x1fc20000:
-			val=get_pcie_mac1_data(reg&0xffff);
-			break;
-		case 0x1fc40000:
-			val=get_pcie_mac2_data(reg&0xffff);
-			break;
-		}
-	return val;		  
-}		
-void regWrite_PCIe(u32 reg, u32 val)	
-{                                                	
-    
-	switch(reg&0xffff0000)
-		{
-		//case 0x1fb00000:
-		//	set_np_scu_data(reg&0xfff,val);
-		//	break;
-		case 0x1fc00000:
-			set_pcie_mac0_data(reg&0xffff,val);
-			break;
-
-		case 0x1fc10000:
-			set_pcie_mac0_data(reg&0xfffff,val);
-			break;
-
-		case 0x1fc20000:
-			set_pcie_mac1_data(reg&0xffff,val);
-			break;
-		case 0x1fc40000:
-			set_pcie_mac2_data(reg&0xffff,val);
-			break;
-
-		}
-}
-
-EXPORT_SYMBOL(regRead_PCIe);
-EXPORT_SYMBOL(regWrite_PCIe);
-
-
-/*====================regs==================*/
-/*====================conf access ecnt==================*/
-#if 1//defined(TCSUPPORT_CPU_EN7581)
-
-int get_rc_port(unsigned char bus,unsigned char dev)
-{
-	//RC       0   1   2
-	//bus/dev 0/0- 0/1 0/2
-	//EP       0   1   2
-	//bus/dev 1/0 2/0 3/0
-
-	int rc = 4;
-
-	if ((bus == 0) && (dev < 3))
-    {
-    	rc = dev;
-    }
-    else if ((bus == 1) && (dev == 0))
-    {           
-        rc = 0;
-    }
-    else if ((bus == 2) && (dev == 0) )
-    {
-        rc = 1;
-    }
-    else if ((bus == 3) && (dev == 0) )
-    {
-        rc = 2;
-    }
-    
-	return rc;
-}
-
-int pcie_write_config_word_extend(unsigned char bus, unsigned char dev,unsigned char func, unsigned int reg, unsigned long int value)
-{
-	unsigned int rc;
-	void __iomem *offset=NULL;	
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	ecnt_pcie=&ECNT_pcie;
-
-	rc = get_rc_port(bus,dev);
-
-	if (rc == 0){
-		offset = ecnt_pcie->mac0_base;
-	}else if(rc == 1){
-		offset = ecnt_pcie->mac1_base;
-	}else if(rc == 2){
-		offset = ecnt_pcie->mac2_base;
-	}else{
-		return 0xffffffff;
-	}
-
-
-	if(0==bus)  //RC
-		writel_relaxed(0x1f0000, offset + PCIE_CFGNUM_REG);
-	else        //EP
-		writel_relaxed(0x1f0100, offset + PCIE_CFGNUM_REG);
-
-
-	writel(value, offset + PCIE_CFG_OFFSET_ADDR + reg);
-
-
- 	return 0;
-
-}
-EXPORT_SYMBOL(pcie_write_config_word_extend);
-
-unsigned int pcie_read_config_word_extend(unsigned char bus,unsigned char dev,unsigned char func ,unsigned int reg)
-{
-	unsigned int val,rc;
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	void __iomem *offset=NULL; 
-	ecnt_pcie=&ECNT_pcie;
-	
-	rc = get_rc_port(bus,dev);
-
-
-	if (rc == 0){
-		offset = ecnt_pcie->mac0_base;
-	}else if(rc == 1){
-		offset = ecnt_pcie->mac1_base;
-	}else if(rc == 2){
-		offset = ecnt_pcie->mac2_base;
-	}else{
-		return 0xffffffff;
-	}
-
-
-	if(0==bus)  //RC
-		writel_relaxed(0x1f0000, offset + PCIE_CFGNUM_REG);
-	else        //EP
-		writel_relaxed(0x1f0100, offset + PCIE_CFGNUM_REG);
-
-
-	val = readl(offset + PCIE_CFG_OFFSET_ADDR + reg);
-	
-	return val;
-}
-EXPORT_SYMBOL(pcie_read_config_word_extend);
-#endif
-/*====================conf access ecnt==================*/
-
-/********************PCIe MSI API begin**************************************/
 #ifdef TCSUPPORT_PCIE_MSI
 /** 
 * ecnt_msi_teardown_irq - Destroy the MSI 
@@ -632,7 +425,6 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 		dev_err(port->dev, "PCIe link down, ltssm reg val: %#x\n", val);
 		return err;
 	}
-	dev_info(port->dev, "pcie rc %d linkup success\n", base_num);
 
 	//mtk_pcie_enable_msi(port);
 
@@ -1006,7 +798,7 @@ static void mtk_pcie_irq_handler(struct irq_desc *desc)
 
 
 
-static int mtk_pcie_setup_irq(struct mtk_pcie_port *port)
+static int mtk_pcie_setup_irq(struct mtk_pcie_port *port, int slot)
 {
 	struct device *dev = port->dev;
 	struct platform_device *pdev = to_platform_device(dev);
@@ -1031,9 +823,9 @@ static int mtk_pcie_setup_irq(struct mtk_pcie_port *port)
 #ifndef TCSUPPORT_PCIE_MSI
 	port->irq = platform_get_irq(pdev, 0);
 #endif
-	printk("=======pcie_setup_irq11:base_num=%d=== port->irq = %d ", base_num,port->irq);				
+	printk("=======pcie_setup_irq11:base_num=%d=== port->irq = %d ", slot, port->irq);				
 
-	switch(base_num)
+	switch(slot)
 	{
 		case 0:
 #ifdef TCSUPPORT_PCIE_MSI	
@@ -1075,12 +867,12 @@ static int mtk_pcie_setup_irq(struct mtk_pcie_port *port)
 #endif
 			break;
 	}
-	printk("=======pcie_setup_irq22:base_num=%d=== port->irq = %d ", base_num,port->irq);				
+	printk("=======pcie_setup_irq22:base_num=%d=== port->irq = %d ", slot,port->irq);				
 
 	return 0;
 }
 
-static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
+static int mtk_pcie_parse_port(struct mtk_pcie_port *port, int slot)
 {
 	struct device *dev = port->dev;
 	struct platform_device *pdev = to_platform_device(dev);
@@ -1097,15 +889,7 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 	}
 
 	port->reg_base = regs->start;
-	if((port->reg_base&0xffff0000)==0x1fc00000)
-		base_num= 0;
-	else if((port->reg_base&0xffff0000)==0x1fc20000)
-		base_num= 1;
-	else if((port->reg_base&0xffff0000)==0x1fc40000)
-		base_num= 2;
-	
-
-	switch(base_num)
+	switch(slot)
 	{
 		case 0:
 			ecnt_pcie->mac0_base = port->base;
@@ -1134,18 +918,19 @@ static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
 static int mtk_pcie_setup(struct mtk_pcie_port *port)
 {
 	struct device *dev = port->dev;
+	bool phy_init = false;
 	char name[10];
 	int err;
 	int slot;
-
-	err = mtk_pcie_parse_port(port);
-	if (err)
-		return err;
 
 	/* Try link up */
 	slot = of_get_pci_domain_nr(dev->of_node);
 	if (slot < 0)
 		return slot;
+
+	err = mtk_pcie_parse_port(port, slot);
+	if (err)
+		return err;
 
 	snprintf(name, sizeof(name), "sys_ck%d", slot);
 	port->sys_ck = devm_clk_get(dev, name);
@@ -1154,21 +939,18 @@ static int mtk_pcie_setup(struct mtk_pcie_port *port)
 		return PTR_ERR(port->sys_ck);
 	}
 
-	if (__clk_is_enabled(port->sys_ck))
+	if (__clk_is_enabled(port->sys_ck)) {
 		clk_disable(port->sys_ck);
-
-	if (!base_num) {
-		void *virtAddr;
-
-		regWrite_PCIe(0x1fc10044, 0x23020133);
-		virtAddr = ioremap ((phys_addr_t)0x1fc30044,4);
-		writel(0x23020133 ,virtAddr);
-		regWrite_PCIe(0x1fc15030, 0x50500032);
-		regWrite_PCIe(0x1fc15130, 0x50500032);
-
-		pcie_phy_init(3);
-		mdelay(30);//fix 7916 pbus timeout
+		phy_init = true;
 	}
+
+	writel(0x23020133, port->base + 0x10044);
+	writel(0x50500032, port->base + 0x15030);
+	writel(0x50500032, port->base + 0x15130);
+	if (phy_init)
+		pcie_phy_init(3);
+
+	mdelay(30);//fix 7916 pbus timeout
 
 	err = clk_prepare(port->sys_ck);
 	if (err) {
@@ -1176,18 +958,9 @@ static int mtk_pcie_setup(struct mtk_pcie_port *port)
 		return -EINVAL;
 	}
 
-	if (!base_num) {
-		void *virtAddr;
-
-		regWrite_PCIe(0x1fc00100, 0x41474147);//Preset 1 (initial), add by Carl 10/11
-		virtAddr = ioremap ((phys_addr_t)0x1fc20100,4);
-		writel(0x41474147 ,virtAddr);
-		regWrite_PCIe(0x1fc00338, 0x1018020F);//preset to use (final)
-		virtAddr = ioremap ((phys_addr_t)0x1fc20338,4);
-		writel(0x1018020F ,virtAddr);
-		
-		mdelay(10);
-	}
+	writel(0x41474147, port->base + PCIE_EQ_PRESET_01_REF);
+	writel(0x1018020F, port->base + PCIE_PIPE4_PIE8_REG);
+	mdelay(10);
 
 	err = clk_enable(port->sys_ck);
 	if (err) {
@@ -1200,7 +973,7 @@ static int mtk_pcie_setup(struct mtk_pcie_port *port)
 	if (err)
 		return err;
 
-	err = mtk_pcie_setup_irq(port);
+	err = mtk_pcie_setup_irq(port, slot);
 	if (err)
 		return err;
 
@@ -1268,7 +1041,6 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 	host->msi = &ecnt_pcie_msi_controller;
 	printk("\n===============pcie_probe=====for msi kernel API===========");
 #endif
-
 
 	host->ops = &mtk_pcie_ops;
 	host->map_irq = pcibios_map_irq;
