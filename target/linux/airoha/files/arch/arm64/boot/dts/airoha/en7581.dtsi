@@ -149,7 +149,7 @@
 		};
 
 		pcie0: pcie0@1fc00000 {
-			compatible = "ecnt,pcie-ecnt";
+			compatible = "airoha,en7581-pcie";
 			device_type = "pci";
 			linux,pci-domain = <0>;
 			reg = <0x0 0x1fc00000 0x0 0x20000>;
@@ -175,7 +175,7 @@
 		};
 
 		pcie1: pcie1@1fc20000 {
-			compatible = "ecnt,pcie-ecnt";
+			compatible = "airoha,en7581-pcie";
 			device_type = "pci";
 			linux,pci-domain = <1>;
 			reg = <0x0 0x1fc20000 0x0 0x20000>;

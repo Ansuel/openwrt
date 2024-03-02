@@ -102,70 +102,12 @@
 #define PCIE_ATR_TLP_TYPE_IO		PCIE_ATR_TLP_TYPE(2)
 
 /**********************************************************/
-struct ecnt_pcie{
+struct ecnt_pcie {
 	struct device *dev;
 	int irq_pcie0;
 	int irq_pcie1;
 };
 static struct ecnt_pcie ECNT_pcie;
-/**********************************************************/
-#ifdef TCSUPPORT_PCIE_MSI
-/** 
-* ecnt_msi_teardown_irq - Destroy the MSI 
-* @chip: MSI Chip descriptor 
-* @irq: MSI IRQ to destroy 
-*/
-void ecnt_msi_teardown_irq(struct msi_controller *chip, unsigned int irq)
-{	
-}
-/** 
-* ecnt_pcie_msi_setup_irq - Setup MSI request 
-* @chip: MSI chip pointer 
-* @pdev: PCIe device pointer 
-* @desc: MSI descriptor pointer 
-* 
-* Return: '0' on success and error value on failure 
-*/
-int ecnt_pcie_msi_setup_irqs(struct msi_controller *chip,struct pci_dev *pdev, int nvec, int type)
-{	
-	unsigned int irq;// = pdev->irq + 1;	
-	struct msi_msg msg;		
-	struct msi_desc *desc;	
-	int i, ret;
-
-	printk("=========== ecnt_pcie_msi_setup_irqs enter \n");	
-        //7581MSI all port
-	irq = pdev->irq;
-
-	printk("\n===========ecnt_pcie_msi_setup_irqs irq:%d===\n",irq);
-
-	desc = list_entry(pdev->dev.msi_list.next, struct msi_desc, list);	
-	for (i = 0; i < nvec; i++) 
-		{		
-			if (irq_set_msi_desc_off(irq, i, desc)) 
-				{			
-				/* TODO: clear */			
-				return -EINVAL;		
-				}	
-		}	
-	desc->nvec_used = nvec;	
-	desc->msi_attrib.multiple = order_base_2(nvec);	
-
-        //7581MSI all port
-	msg.address_hi = 0;	
-	msg.address_lo = port->reg_base + PCIE_MSI_SET_BASE_REG;
-	msg.data = 0;		
-	pci_write_msi_msg(irq, &msg);	
-	printk("=========== ecnt_pcie_msi_setup_irqs end \n");	
-	return 0;
-}
-
-/* MSI Chip Descriptor */
-struct msi_controller ecnt_pcie_msi_controller = {	
-		.setup_irqs = ecnt_pcie_msi_setup_irqs,	
-		.teardown_irq = ecnt_msi_teardown_irq,
-	};
-#endif
 /********************PCIe MSI API end**************************************/
 
 
@@ -182,7 +124,7 @@ struct mtk_msi_set {
 };
 
 /**
- * struct mtk_pcie_port - PCIe port information
+ * struct mtk_gen3_pcie - PCIe pcie information
  * @dev: pointer to PCIe device
  * @base: IO mapped register base
  * @reg_base: physical register base
@@ -196,7 +138,7 @@ struct mtk_msi_set {
  * @lock: lock protecting IRQ bit map
  * @msi_irq_in_use: bit map for assigned MSI IRQ
  */
-struct mtk_pcie_port {
+struct mtk_gen3_pcie {
 	struct device *dev;
 	void __iomem *base;
 	phys_addr_t reg_base;
@@ -226,7 +168,7 @@ struct mtk_pcie_port {
 static void mtk_pcie_config_tlp_header(struct pci_bus *bus, unsigned int devfn,
 					int where, int size)
 {
-	struct mtk_pcie_port *port = bus->sysdata;
+	struct mtk_gen3_pcie *pcie = bus->sysdata;
 	int bytes;
 	u32 val;
 
@@ -235,15 +177,15 @@ static void mtk_pcie_config_tlp_header(struct pci_bus *bus, unsigned int devfn,
 	val = PCIE_CFG_FORCE_BYTE_EN | PCIE_CFG_BYTE_EN(bytes) |
 	      PCIE_CFG_HEADER(bus->number, devfn);
 
-	writel_relaxed(val, port->base + PCIE_CFGNUM_REG);
+	writel_relaxed(val, pcie->base + PCIE_CFGNUM_REG);
 }
 
 static void __iomem *mtk_pcie_map_bus(struct pci_bus *bus, unsigned int devfn,
 				      int where)
 {
-	struct mtk_pcie_port *port = bus->sysdata;
+	struct mtk_gen3_pcie *pcie = bus->sysdata;
 
-	return port->base + PCIE_CFG_OFFSET_ADDR + where;
+	return pcie->base + PCIE_CFG_OFFSET_ADDR + where;
 }
 
 static int mtk_pcie_config_read(struct pci_bus *bus, unsigned int devfn,
@@ -271,7 +213,7 @@ static struct pci_ops mtk_pcie_ops = {
 	.write = mtk_pcie_config_write,
 };
 
-static int mtk_pcie_set_trans_table(struct mtk_pcie_port *port,
+static int mtk_pcie_set_trans_table(struct mtk_gen3_pcie *pcie,
 				    resource_size_t cpu_addr,
 				    resource_size_t pci_addr,
 				    resource_size_t size,
@@ -281,12 +223,12 @@ static int mtk_pcie_set_trans_table(struct mtk_pcie_port *port,
 	u32 val;
 
 	if (num >= PCIE_MAX_TRANS_TABLES) {
-		dev_err(port->dev, "not enough translate table for addr: %#llx, limited to [%d]\n",
+		dev_err(pcie->dev, "not enough translate table for addr: %#llx, limited to [%d]\n",
 			(unsigned long long)cpu_addr, PCIE_MAX_TRANS_TABLES);
 		return -ENODEV;
 	}
 
-	table = port->base + PCIE_TRANS_TABLE_BASE_REG +
+	table = pcie->base + PCIE_TRANS_TABLE_BASE_REG +
 		num * PCIE_ATR_TLB_SET_OFFSET;
 
 	writel_relaxed(lower_32_bits(cpu_addr) | PCIE_ATR_SIZE(fls(size) - 1),
@@ -308,33 +250,33 @@ static int mtk_pcie_set_trans_table(struct mtk_pcie_port *port,
 	return 0;
 }
 
-static void mtk_pcie_enable_msi(struct mtk_pcie_port *port)
+static void mtk_pcie_enable_msi(struct mtk_gen3_pcie *pcie)
 {
 	int i;
 	u32 val;
 
 	for (i = 0; i < PCIE_MSI_SET_NUM; i++) {
-		struct mtk_msi_set *msi_set = &port->msi_sets[i];
+		struct mtk_msi_set *msi_set = &pcie->msi_sets[i];
 
-		msi_set->base = port->base + PCIE_MSI_SET_BASE_REG +
+		msi_set->base = pcie->base + PCIE_MSI_SET_BASE_REG +
 				i * PCIE_MSI_SET_OFFSET;
-		msi_set->msg_addr = port->reg_base + PCIE_MSI_SET_BASE_REG +
+		msi_set->msg_addr = pcie->reg_base + PCIE_MSI_SET_BASE_REG +
 				    i * PCIE_MSI_SET_OFFSET;
 
 		/* Configure the MSI capture address */
 		writel_relaxed(lower_32_bits(msi_set->msg_addr), msi_set->base);
 		writel_relaxed(upper_32_bits(msi_set->msg_addr),
-			       port->base + PCIE_MSI_SET_ADDR_HI_BASE +
+			       pcie->base + PCIE_MSI_SET_ADDR_HI_BASE +
 			       i * PCIE_MSI_SET_ADDR_HI_OFFSET);
 	}
 
-	val = readl_relaxed(port->base + PCIE_MSI_SET_ENABLE_REG);
+	val = readl_relaxed(pcie->base + PCIE_MSI_SET_ENABLE_REG);
 	val |= PCIE_MSI_SET_ENABLE;
-	writel_relaxed(val, port->base + PCIE_MSI_SET_ENABLE_REG);
+	writel_relaxed(val, pcie->base + PCIE_MSI_SET_ENABLE_REG);
 
-	val = readl_relaxed(port->base + PCIE_INT_ENABLE_REG);
+	val = readl_relaxed(pcie->base + PCIE_INT_ENABLE_REG);
 	val |= PCIE_MSI_ENABLE;
-	writel_relaxed(val, port->base + PCIE_INT_ENABLE_REG);
+	writel_relaxed(val, pcie->base + PCIE_INT_ENABLE_REG);
 }
 
 
@@ -342,56 +284,45 @@ static void mtk_pcie_enable_msi(struct mtk_pcie_port *port)
 
 extern void pcie_phy_init(unsigned int port_num);
 
-static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
+static int mtk_pcie_startup_port(struct mtk_gen3_pcie *pcie)
 {
 	struct resource_entry *entry;
-	struct pci_host_bridge *host = pci_host_bridge_from_priv(port);
+	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
 	unsigned int table_index = 0;
 	int err;
 	u32 val;
 
-		/* Set as RC mode */
-		val = readl_relaxed(port->base + PCIE_SETTING_REG);
-		val |= PCIE_RC_MODE;
-		writel_relaxed(val, port->base + PCIE_SETTING_REG);
-	
-		/* Set class code */
-		val = readl_relaxed(port->base + PCIE_PCI_IDS_1);
-		val &= ~GENMASK(31, 8);
-		val |= PCI_CLASS(PCI_CLASS_BRIDGE_PCI << 8);
-		writel_relaxed(val, port->base + PCIE_PCI_IDS_1);
-	
-		/* enable all INTx interrupts */
-#ifdef TCSUPPORT_PCIE_MSI
-                //MSI
-		mtk_pcie_enable_msi(port);
+	/* Set as RC mode */
+	val = readl_relaxed(pcie->base + PCIE_SETTING_REG);
+	val |= PCIE_RC_MODE;
+	writel_relaxed(val, pcie->base + PCIE_SETTING_REG);
 
-		val = readl_relaxed(port->base + PCIE_MSI_SET_BASE_REG + PCIE_MSI_SET_ENABLE_OFFSET);
-		val |= 1;
-		writel_relaxed(val, port->base + PCIE_MSI_SET_BASE_REG + PCIE_MSI_SET_ENABLE_OFFSET);
-#else        
-                //INTX
-		val = readl_relaxed(port->base + PCIE_INT_ENABLE_REG);
-		val |= PCIE_INTX_ENABLE;
-		writel_relaxed(val, port->base + PCIE_INT_ENABLE_REG);
-		//0x1ac bit3=1 INTx deassert TLP enable
-		val = readl_relaxed(port->base + 0x1ac);
-		val |= (1<<3);
-		writel_relaxed(val, port->base + 0x1ac);
-#endif	
+	/* Set class code */
+	val = readl_relaxed(pcie->base + PCIE_PCI_IDS_1);
+	val &= ~GENMASK(31, 8);
+	val |= PCI_CLASS(PCI_CLASS_BRIDGE_PCI << 8);
+	writel_relaxed(val, pcie->base + PCIE_PCI_IDS_1);
 
+	/* enable all INTx interrupts */
+	val = readl_relaxed(pcie->base + PCIE_INT_ENABLE_REG);
+	val |= PCIE_INTX_ENABLE;
+	writel_relaxed(val, pcie->base + PCIE_INT_ENABLE_REG);
+	//0x1ac bit3=1 INTx deassert TLP enable
+	val = readl_relaxed(pcie->base + 0x1ac);
+	val |= (1<<3);
+	writel_relaxed(val, pcie->base + 0x1ac);
 
 	/* Check if the link is up or not */
-	err = readl_poll_timeout(port->base + PCIE_LINK_STATUS_REG, val,
+	err = readl_poll_timeout(pcie->base + PCIE_LINK_STATUS_REG, val,
 				 !!(val & PCIE_PORT_LINKUP), 20,
 				 PCI_PM_D3COLD_WAIT * USEC_PER_MSEC);
 	if (err) {
-		val = readl_relaxed(port->base + PCIE_LTSSM_STATUS_REG);
-		dev_err(port->dev, "PCIe link down, ltssm reg val: %#x\n", val);
+		val = readl_relaxed(pcie->base + PCIE_LTSSM_STATUS_REG);
+		dev_err(pcie->dev, "PCIe link down, ltssm reg val: %#x\n", val);
 		return err;
 	}
 
-	//mtk_pcie_enable_msi(port);
+	//mtk_pcie_enable_msi(pcie);
 
 	/* Set PCIe translation windows */
 	resource_list_for_each_entry(entry, &host->windows) {
@@ -414,12 +345,12 @@ static int mtk_pcie_startup_port(struct mtk_pcie_port *port)
 
 		pci_addr = res->start - entry->offset;
 		size = resource_size(res);
-		err = mtk_pcie_set_trans_table(port, cpu_addr, pci_addr, size,
+		err = mtk_pcie_set_trans_table(pcie, cpu_addr, pci_addr, size,
 					       type, table_index);
 		if (err)
 			return err;
 
-		dev_info(port->dev, "set %s trans window[%d]: cpu_addr = %#llx, pci_addr = %#llx, size = %#llx\n",
+		dev_info(pcie->dev, "set %s trans window[%d]: cpu_addr = %#llx, pci_addr = %#llx, size = %#llx\n",
 			range_type, table_index, (unsigned long long)cpu_addr,
 			(unsigned long long)pci_addr, (unsigned long long)size);
 
@@ -463,7 +394,7 @@ static struct msi_domain_info mtk_msi_domain_info = {
 static void mtk_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
 {
 	struct mtk_msi_set *msi_set = irq_data_get_irq_chip_data(data);
-	struct mtk_pcie_port *port = data->domain->host_data;
+	struct mtk_gen3_pcie *pcie = data->domain->host_data;
 	unsigned long hwirq;
 
 	hwirq =	data->hwirq % PCIE_MSI_IRQS_PER_SET;
@@ -471,7 +402,7 @@ static void mtk_compose_msi_msg(struct irq_data *data, struct msi_msg *msg)
 	msg->address_hi = upper_32_bits(msi_set->msg_addr);
 	msg->address_lo = lower_32_bits(msi_set->msg_addr);
 	msg->data = hwirq;
-	dev_dbg(port->dev, "msi#%#lx address_hi %#x address_lo %#x data %d\n",
+	dev_dbg(pcie->dev, "msi#%#lx address_hi %#x address_lo %#x data %d\n",
 		hwirq, msg->address_hi, msg->address_lo, msg->data);
 }
 
@@ -488,33 +419,33 @@ static void mtk_msi_bottom_irq_ack(struct irq_data *data)
 static void mtk_msi_bottom_irq_mask(struct irq_data *data)
 {
 	struct mtk_msi_set *msi_set = irq_data_get_irq_chip_data(data);
-	struct mtk_pcie_port *port = data->domain->host_data;
+	struct mtk_gen3_pcie *pcie = data->domain->host_data;
 	unsigned long hwirq, flags;
 	u32 val;
 
 	hwirq =	data->hwirq % PCIE_MSI_IRQS_PER_SET;
 
-	raw_spin_lock_irqsave(&port->irq_lock, flags);
+	raw_spin_lock_irqsave(&pcie->irq_lock, flags);
 	val = readl_relaxed(msi_set->base + PCIE_MSI_SET_ENABLE_OFFSET);
 	val &= ~BIT(hwirq);
 	writel_relaxed(val, msi_set->base + PCIE_MSI_SET_ENABLE_OFFSET);
-	raw_spin_unlock_irqrestore(&port->irq_lock, flags);
+	raw_spin_unlock_irqrestore(&pcie->irq_lock, flags);
 }
 
 static void mtk_msi_bottom_irq_unmask(struct irq_data *data)
 {
 	struct mtk_msi_set *msi_set = irq_data_get_irq_chip_data(data);
-	struct mtk_pcie_port *port = data->domain->host_data;
+	struct mtk_gen3_pcie *pcie = data->domain->host_data;
 	unsigned long hwirq, flags;
 	u32 val;
 
 	hwirq =	data->hwirq % PCIE_MSI_IRQS_PER_SET;
 
-	raw_spin_lock_irqsave(&port->irq_lock, flags);
+	raw_spin_lock_irqsave(&pcie->irq_lock, flags);
 	val = readl_relaxed(msi_set->base + PCIE_MSI_SET_ENABLE_OFFSET);
 	val |= BIT(hwirq);
 	writel_relaxed(val, msi_set->base + PCIE_MSI_SET_ENABLE_OFFSET);
-	raw_spin_unlock_irqrestore(&port->irq_lock, flags);
+	raw_spin_unlock_irqrestore(&pcie->irq_lock, flags);
 }
 
 static struct irq_chip mtk_msi_bottom_irq_chip = {
@@ -530,22 +461,22 @@ static int mtk_msi_bottom_domain_alloc(struct irq_domain *domain,
 				       unsigned int virq, unsigned int nr_irqs,
 				       void *arg)
 {
-	struct mtk_pcie_port *port = domain->host_data;
+	struct mtk_gen3_pcie *pcie = domain->host_data;
 	struct mtk_msi_set *msi_set;
 	int i, hwirq, set_idx;
 
-	mutex_lock(&port->lock);
+	mutex_lock(&pcie->lock);
 
-	hwirq = bitmap_find_free_region(port->msi_irq_in_use, PCIE_MSI_IRQS_NUM,
+	hwirq = bitmap_find_free_region(pcie->msi_irq_in_use, PCIE_MSI_IRQS_NUM,
 					order_base_2(nr_irqs));
 
-	mutex_unlock(&port->lock);
+	mutex_unlock(&pcie->lock);
 
 	if (hwirq < 0)
 		return -ENOSPC;
 
 	set_idx = hwirq / PCIE_MSI_IRQS_PER_SET;
-	msi_set = &port->msi_sets[set_idx];
+	msi_set = &pcie->msi_sets[set_idx];
 
 	for (i = 0; i < nr_irqs; i++)
 		irq_domain_set_info(domain, virq + i, hwirq + i,
@@ -558,15 +489,15 @@ static int mtk_msi_bottom_domain_alloc(struct irq_domain *domain,
 static void mtk_msi_bottom_domain_free(struct irq_domain *domain,
 				       unsigned int virq, unsigned int nr_irqs)
 {
-	struct mtk_pcie_port *port = domain->host_data;
+	struct mtk_gen3_pcie *pcie = domain->host_data;
 	struct irq_data *data = irq_domain_get_irq_data(domain, virq);
 
-	mutex_lock(&port->lock);
+	mutex_lock(&pcie->lock);
 
-	bitmap_release_region(port->msi_irq_in_use, data->hwirq,
+	bitmap_release_region(pcie->msi_irq_in_use, data->hwirq,
 			      order_base_2(nr_irqs));
 
-	mutex_unlock(&port->lock);
+	mutex_unlock(&pcie->lock);
 
 	irq_domain_free_irqs_common(domain, virq, nr_irqs);
 }
@@ -578,28 +509,28 @@ static const struct irq_domain_ops mtk_msi_bottom_domain_ops = {
 
 static void mtk_intx_mask(struct irq_data *data)
 {
-	struct mtk_pcie_port *port = irq_data_get_irq_chip_data(data);
+	struct mtk_gen3_pcie *pcie = irq_data_get_irq_chip_data(data);
 	unsigned long flags;
 	u32 val;
 
-	raw_spin_lock_irqsave(&port->irq_lock, flags);
-	val = readl_relaxed(port->base + PCIE_INT_ENABLE_REG);
+	raw_spin_lock_irqsave(&pcie->irq_lock, flags);
+	val = readl_relaxed(pcie->base + PCIE_INT_ENABLE_REG);
 	val &= ~BIT(data->hwirq + PCIE_INTX_SHIFT);
-	writel_relaxed(val, port->base + PCIE_INT_ENABLE_REG);
-	raw_spin_unlock_irqrestore(&port->irq_lock, flags);
+	writel_relaxed(val, pcie->base + PCIE_INT_ENABLE_REG);
+	raw_spin_unlock_irqrestore(&pcie->irq_lock, flags);
 }
 
 static void mtk_intx_unmask(struct irq_data *data)
 {
-	struct mtk_pcie_port *port = irq_data_get_irq_chip_data(data);
+	struct mtk_gen3_pcie *pcie = irq_data_get_irq_chip_data(data);
 	unsigned long flags;
 	u32 val;
 
-	raw_spin_lock_irqsave(&port->irq_lock, flags);
-	val = readl_relaxed(port->base + PCIE_INT_ENABLE_REG);
+	raw_spin_lock_irqsave(&pcie->irq_lock, flags);
+	val = readl_relaxed(pcie->base + PCIE_INT_ENABLE_REG);
 	val |= BIT(data->hwirq + PCIE_INTX_SHIFT);
-	writel_relaxed(val, port->base + PCIE_INT_ENABLE_REG);
-	raw_spin_unlock_irqrestore(&port->irq_lock, flags);
+	writel_relaxed(val, pcie->base + PCIE_INT_ENABLE_REG);
+	raw_spin_unlock_irqrestore(&pcie->irq_lock, flags);
 }
 
 /**
@@ -612,11 +543,11 @@ static void mtk_intx_unmask(struct irq_data *data)
  */
 static void mtk_intx_eoi(struct irq_data *data)
 {
-	struct mtk_pcie_port *port = irq_data_get_irq_chip_data(data);
+	struct mtk_gen3_pcie *pcie = irq_data_get_irq_chip_data(data);
 	unsigned long hwirq;
 
 	hwirq = data->hwirq + PCIE_INTX_SHIFT;
-	writel_relaxed(BIT(hwirq), port->base + PCIE_INT_STATUS_REG);
+	writel_relaxed(BIT(hwirq), pcie->base + PCIE_INT_STATUS_REG);
 }
 
 static struct irq_chip mtk_intx_irq_chip = {
@@ -640,13 +571,13 @@ static const struct irq_domain_ops intx_domain_ops = {
 	.map = mtk_pcie_intx_map,
 };
 
-static int mtk_pcie_init_irq_domains(struct mtk_pcie_port *port)
+static int mtk_pcie_init_irq_domains(struct mtk_gen3_pcie *pcie)
 {
-	struct device *dev = port->dev;
+	struct device *dev = pcie->dev;
 	struct device_node *intc_node, *node = dev->of_node;
 	int ret;
 
-	raw_spin_lock_init(&port->irq_lock);
+	raw_spin_lock_init(&pcie->irq_lock);
 
 	/* Setup INTx */
 	intc_node = of_get_child_by_name(node, "interrupt-controller");
@@ -655,28 +586,28 @@ static int mtk_pcie_init_irq_domains(struct mtk_pcie_port *port)
 		return -ENODEV;
 	}
 
-	port->intx_domain = irq_domain_add_linear(intc_node, PCI_NUM_INTX,
-						  &intx_domain_ops, port);
-	if (!port->intx_domain) {
+	pcie->intx_domain = irq_domain_add_linear(intc_node, PCI_NUM_INTX,
+						  &intx_domain_ops, pcie);
+	if (!pcie->intx_domain) {
 		dev_err(dev, "failed to create INTx IRQ domain\n");
 		return -ENODEV;
 	}
 
 	/* Setup MSI */
-	mutex_init(&port->lock);
+	mutex_init(&pcie->lock);
 
-	port->msi_bottom_domain = irq_domain_add_linear(node, PCIE_MSI_IRQS_NUM,
-				  &mtk_msi_bottom_domain_ops, port);
-	if (!port->msi_bottom_domain) {
+	pcie->msi_bottom_domain = irq_domain_add_linear(node, PCIE_MSI_IRQS_NUM,
+				  &mtk_msi_bottom_domain_ops, pcie);
+	if (!pcie->msi_bottom_domain) {
 		dev_err(dev, "failed to create MSI bottom domain\n");
 		ret = -ENODEV;
 		goto err_msi_bottom_domain;
 	}
 
-	port->msi_domain = pci_msi_create_irq_domain(dev->fwnode,
+	pcie->msi_domain = pci_msi_create_irq_domain(dev->fwnode,
 						     &mtk_msi_domain_info,
-						     port->msi_bottom_domain);
-	if (!port->msi_domain) {
+						     pcie->msi_bottom_domain);
+	if (!pcie->msi_domain) {
 		dev_err(dev, "failed to create MSI domain\n");
 		ret = -ENODEV;
 		goto err_msi_domain;
@@ -685,32 +616,32 @@ static int mtk_pcie_init_irq_domains(struct mtk_pcie_port *port)
 	return 0;
 
 err_msi_domain:
-	irq_domain_remove(port->msi_bottom_domain);
+	irq_domain_remove(pcie->msi_bottom_domain);
 err_msi_bottom_domain:
-	irq_domain_remove(port->intx_domain);
+	irq_domain_remove(pcie->intx_domain);
 
 	return ret;
 }
 
-static void mtk_pcie_irq_teardown(struct mtk_pcie_port *port)
+static void mtk_pcie_irq_teardown(struct mtk_gen3_pcie *pcie)
 {
-	irq_set_chained_handler_and_data(port->irq, NULL, NULL);
+	irq_set_chained_handler_and_data(pcie->irq, NULL, NULL);
 
-	if (port->intx_domain)
-		irq_domain_remove(port->intx_domain);
+	if (pcie->intx_domain)
+		irq_domain_remove(pcie->intx_domain);
 
-	if (port->msi_domain)
-		irq_domain_remove(port->msi_domain);
+	if (pcie->msi_domain)
+		irq_domain_remove(pcie->msi_domain);
 
-	if (port->msi_bottom_domain)
-		irq_domain_remove(port->msi_bottom_domain);
+	if (pcie->msi_bottom_domain)
+		irq_domain_remove(pcie->msi_bottom_domain);
 
-	irq_dispose_mapping(port->irq);
+	irq_dispose_mapping(pcie->irq);
 }
 
-static void mtk_pcie_msi_handler(struct mtk_pcie_port *port, int set_idx)
+static void mtk_pcie_msi_handler(struct mtk_gen3_pcie *pcie, int set_idx)
 {
-	struct mtk_msi_set *msi_set = &port->msi_sets[set_idx];
+	struct mtk_msi_set *msi_set = &pcie->msi_sets[set_idx];
 	unsigned long msi_enable, msi_status;
 	unsigned int virq;
 	irq_hw_number_t bit, hwirq;
@@ -726,7 +657,7 @@ static void mtk_pcie_msi_handler(struct mtk_pcie_port *port, int set_idx)
 
 		for_each_set_bit(bit, &msi_status, PCIE_MSI_IRQS_PER_SET) {
 			hwirq = bit + set_idx * PCIE_MSI_IRQS_PER_SET;
-			virq = irq_find_mapping(port->msi_bottom_domain, hwirq);
+			virq = irq_find_mapping(pcie->msi_bottom_domain, hwirq);
 			generic_handle_irq(virq);
 		}
 	} while (true);
@@ -734,7 +665,7 @@ static void mtk_pcie_msi_handler(struct mtk_pcie_port *port, int set_idx)
 
 static void mtk_pcie_irq_handler(struct irq_desc *desc)
 {
-	struct mtk_pcie_port *port = irq_desc_get_handler_data(desc);
+	struct mtk_gen3_pcie *pcie = irq_desc_get_handler_data(desc);
 	struct irq_chip *irqchip = irq_desc_get_chip(desc);
 	unsigned long status;
 	unsigned int virq;
@@ -742,10 +673,10 @@ static void mtk_pcie_irq_handler(struct irq_desc *desc)
 
 	chained_irq_enter(irqchip, desc);
 
-	status = readl_relaxed(port->base + PCIE_INT_STATUS_REG);
+	status = readl_relaxed(pcie->base + PCIE_INT_STATUS_REG);
 	for_each_set_bit_from(irq_bit, &status, PCI_NUM_INTX +
 			      PCIE_INTX_SHIFT) {
-		virq = irq_find_mapping(port->intx_domain,
+		virq = irq_find_mapping(pcie->intx_domain,
 					irq_bit - PCIE_INTX_SHIFT);
 		generic_handle_irq(virq);
 	}
@@ -753,96 +684,54 @@ static void mtk_pcie_irq_handler(struct irq_desc *desc)
 	irq_bit = PCIE_MSI_SHIFT;
 	for_each_set_bit_from(irq_bit, &status, PCIE_MSI_SET_NUM +
 			      PCIE_MSI_SHIFT) {
-		mtk_pcie_msi_handler(port, irq_bit - PCIE_MSI_SHIFT);
+		mtk_pcie_msi_handler(pcie, irq_bit - PCIE_MSI_SHIFT);
 
-		writel_relaxed(BIT(irq_bit), port->base + PCIE_INT_STATUS_REG);
+		writel_relaxed(BIT(irq_bit), pcie->base + PCIE_INT_STATUS_REG);
 	}
 
 	chained_irq_exit(irqchip, desc);
 }
 
-
-
-static int mtk_pcie_setup_irq(struct mtk_pcie_port *port, int slot)
+static int mtk_pcie_setup_irq(struct mtk_gen3_pcie *pcie, int slot)
 {
-	struct device *dev = port->dev;
+	struct device *dev = pcie->dev;
 	struct platform_device *pdev = to_platform_device(dev);
 	int err;
-#ifdef TCSUPPORT_PCIE_MSI	
-	int i =0, irq_msi;
-#endif
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	ecnt_pcie=&ECNT_pcie;
+	struct ecnt_pcie *ecnt_pcie = &ECNT_pcie;
 
-#ifndef TCSUPPORT_PCIE_MSI
-	port->irq = platform_get_irq(pdev, 0);
-#endif
-	printk("=======pcie_setup_irq11:base_num=%d=== port->irq = %d ", slot, port->irq);				
-
-	switch(slot)
-	{
-		case 0:
-#ifdef TCSUPPORT_PCIE_MSI	
-			port->irq = platform_get_irq(pdev, 0);
-#endif
-			ecnt_pcie->irq_pcie0 = port->irq;
-#ifdef TCSUPPORT_PCIE_MSI	
-			for(i = 1; i < 8; i++)				
-			{						
-				irq_msi = platform_get_irq(pdev, i);		
-				printk("=======pcie_setup_irq0: i = %d, irq_msi = %d ", i, irq_msi);				
-			}
-#endif
-			break;
-		case 1:
-#ifdef TCSUPPORT_PCIE_MSI
-			port->irq = platform_get_irq(pdev, 0);
-#endif
-			ecnt_pcie->irq_pcie1 = port->irq;
-#ifdef TCSUPPORT_PCIE_MSI	
-			for(i = 1; i < 8; i++)				
-			{					
-				irq_msi = platform_get_irq(pdev, i);		
-				printk("=======pcie_setup_irq1: i = %d, irq_msi = %d ", i, irq_msi);				
-			}
-#endif
-			break;
-		case 2:
-#ifdef TCSUPPORT_PCIE_MSI
-			port->irq = platform_get_irq(pdev, 0);
-			for(i = 1; i < 8; i++)				
-			{					
-				irq_msi = platform_get_irq(pdev, i);		
-				printk("=======pcie_setup_irq2: i = %d, irq_msi = %d ", i, irq_msi);				
-			}
-#endif
-			break;
+	pcie->irq = platform_get_irq(pdev, 0);
+	switch(slot) {
+	case 0:
+		ecnt_pcie->irq_pcie0 = pcie->irq;
+		break;
+	case 1:
+		ecnt_pcie->irq_pcie1 = pcie->irq;
+		break;
 	}
-	printk("=======pcie_setup_irq22:base_num=%d=== port->irq = %d ", slot,port->irq);				
 
 	return 0;
 }
 
-static int mtk_pcie_parse_port(struct mtk_pcie_port *port)
+static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
 {
-	struct device *dev = port->dev;
+	struct device *dev = pcie->dev;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct resource *regs;
 
 	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pcie-mac");
-	port->base = devm_ioremap_resource(dev, regs);
-	if (IS_ERR(port->base)) {
+	pcie->base = devm_ioremap_resource(dev, regs);
+	if (IS_ERR(pcie->base)) {
 		dev_err(dev, "failed to map register base\n");
-		return PTR_ERR(port->base);
+		return PTR_ERR(pcie->base);
 	}
 
-	port->reg_base = regs->start;
+	pcie->reg_base = regs->start;
 	return 0;
 }
 
-static int mtk_pcie_setup(struct mtk_pcie_port *port)
+static int mtk_pcie_setup(struct mtk_gen3_pcie *pcie)
 {
-	struct device *dev = port->dev;
+	struct device *dev = pcie->dev;
 	bool phy_init = false;
 	char name[10];
 	int err;
@@ -853,51 +742,51 @@ static int mtk_pcie_setup(struct mtk_pcie_port *port)
 	if (slot < 0)
 		return slot;
 
-	err = mtk_pcie_parse_port(port);
+	err = mtk_pcie_parse_port(pcie);
 	if (err)
 		return err;
 
 	snprintf(name, sizeof(name), "sys_ck%d", slot);
-	port->sys_ck = devm_clk_get(dev, name);
-	if (IS_ERR(port->sys_ck)) {
+	pcie->sys_ck = devm_clk_get(dev, name);
+	if (IS_ERR(pcie->sys_ck)) {
 		dev_err(dev, "failed to get sys_ck%d clock\n", slot);
-		return PTR_ERR(port->sys_ck);
+		return PTR_ERR(pcie->sys_ck);
 	}
 
-	if (__clk_is_enabled(port->sys_ck)) {
-		clk_disable(port->sys_ck);
+	if (__clk_is_enabled(pcie->sys_ck)) {
+		clk_disable(pcie->sys_ck);
 		phy_init = true;
 	}
 
-	writel(0x23020133, port->base + 0x10044);
-	writel(0x50500032, port->base + 0x15030);
-	writel(0x50500032, port->base + 0x15130);
+	writel(0x23020133, pcie->base + 0x10044);
+	writel(0x50500032, pcie->base + 0x15030);
+	writel(0x50500032, pcie->base + 0x15130);
 	if (phy_init)
 		pcie_phy_init(3);
 
 	mdelay(30);//fix 7916 pbus timeout
 
-	err = clk_prepare(port->sys_ck);
+	err = clk_prepare(pcie->sys_ck);
 	if (err) {
 		dev_err(dev, "failed to enable sys_ck%d clock\n", slot);
 		return -EINVAL;
 	}
 
-	writel(0x41474147, port->base + PCIE_EQ_PRESET_01_REF);
-	writel(0x1018020F, port->base + PCIE_PIPE4_PIE8_REG);
+	writel(0x41474147, pcie->base + PCIE_EQ_PRESET_01_REF);
+	writel(0x1018020F, pcie->base + PCIE_PIPE4_PIE8_REG);
 	mdelay(10);
 
-	err = clk_enable(port->sys_ck);
+	err = clk_enable(pcie->sys_ck);
 	if (err) {
 		dev_err(dev, "failed to enable sys_ck%d clock\n", slot);
 		return -EINVAL;
 	}
 
-	err = mtk_pcie_startup_port(port);
+	err = mtk_pcie_startup_port(pcie);
 	if (err)
 		return err;
 
-	err = mtk_pcie_setup_irq(port, slot);
+	err = mtk_pcie_setup_irq(pcie, slot);
 	if (err)
 		return err;
 
@@ -923,15 +812,8 @@ int pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 	struct ecnt_pcie *ecnt_pcie=NULL;
 	ecnt_pcie=&ECNT_pcie;
 	
-	printk("\n====pcibios_map_irq===slot=%d====\n",slot);
-
-
 	irq0=ecnt_pcie->irq_pcie0;
-	printk("\n====pcibios_map_irq===irq0=%d===\n",irq0);
-
-	irq1=ecnt_pcie->irq_pcie1;	
-	printk("\n====pcibios_map_irq===irq1=%d===\n",irq1);		
-
+	irq1=ecnt_pcie->irq_pcie1;
 	if (slot == 0)
 		return irq0;
 	else if(slot == 1)
@@ -942,34 +824,30 @@ int pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
 static int mtk_pcie_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct mtk_pcie_port *port;
+	struct mtk_gen3_pcie *pcie;
 	struct pci_host_bridge *host;
 	int err;
 	int value=0;
 	u32 check_reg;
 	uint8_t serdes_ret=0;	
 	
-	host = devm_pci_alloc_host_bridge(dev, sizeof(*port));
+	host = devm_pci_alloc_host_bridge(dev, sizeof(*pcie));
 	if (!host)
 		return -ENOMEM;
 
-	port = pci_host_bridge_priv(host);
+	pcie = pci_host_bridge_priv(host);
 
-	port->dev = dev;
-	platform_set_drvdata(pdev, port);
+	pcie->dev = dev;
+	platform_set_drvdata(pdev, pcie);
 
-	err = mtk_pcie_setup(port);
+	err = mtk_pcie_setup(pcie);
 
-#ifdef TCSUPPORT_PCIE_MSI
-	host->msi = &ecnt_pcie_msi_controller;
-	printk("\n===============pcie_probe=====for msi kernel API===========");
-#endif
-
+	//host->msi = &ecnt_pcie_msi_controller;
 	host->ops = &mtk_pcie_ops;
 	host->map_irq = pcibios_map_irq;
 	host->swizzle_irq = pci_common_swizzle_airoha;
 
-	host->sysdata = port;
+	host->sysdata = pcie;
 
 	err = pci_host_probe(host);
 	if (err)
@@ -978,7 +856,7 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 	return 0;
 
 power_down:
-	mtk_pcie_irq_teardown(port);
+	mtk_pcie_irq_teardown(pcie);
 release_resource:
 	pci_free_resource_list(&host->windows);
 
@@ -986,7 +864,7 @@ release_resource:
 }
 
 static const struct of_device_id mtk_pcie_of_match[] = {
-	{ .compatible = "ecnt,pcie-ecnt" },
+	{ .compatible = "airoha,en7581-pcie" },
 	{},
 };
 
