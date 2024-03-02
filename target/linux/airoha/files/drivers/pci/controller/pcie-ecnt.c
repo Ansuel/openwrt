@@ -83,6 +83,9 @@
 #define PCIE_ICMD_PM_REG		0x198
 #define PCIE_TURN_OFF_LINK		BIT(4)
 
+#define PCIE_MISC_CTRL_REG		0x348
+#define PCIE_DISABLE_DVFSRC_VLT_REQ	BIT(1)
+
 #define PCIE_TRANS_TABLE_BASE_REG	0x800
 #define PCIE_ATR_SRC_ADDR_MSB_OFFSET	0x4
 #define PCIE_ATR_TRSL_ADDR_LSB_OFFSET	0x8
@@ -101,16 +104,6 @@
 #define PCIE_ATR_TLP_TYPE_MEM		PCIE_ATR_TLP_TYPE(0)
 #define PCIE_ATR_TLP_TYPE_IO		PCIE_ATR_TLP_TYPE(2)
 
-/**********************************************************/
-struct ecnt_pcie {
-	struct device *dev;
-	int irq_pcie0;
-	int irq_pcie1;
-};
-static struct ecnt_pcie ECNT_pcie;
-/********************PCIe MSI API end**************************************/
-
-
 /**
  * struct mtk_msi_set - MSI information for each set
  * @base: IO mapped register base
@@ -124,10 +117,15 @@ struct mtk_msi_set {
 };
 
 /**
- * struct mtk_gen3_pcie - PCIe pcie information
+ * struct mtk_gen3_pcie - PCIe port information
  * @dev: pointer to PCIe device
  * @base: IO mapped register base
  * @reg_base: physical register base
+ * @mac_reset: MAC reset control
+ * @phy_reset: PHY reset control
+ * @phy: PHY controller block
+ * @clks: PCIe clocks
+ * @num_clks: PCIe clocks count for this port
  * @irq: PCIe controller interrupt number
  * @saved_irq_state: IRQ enable state saved at suspend time
  * @irq_lock: lock protecting IRQ register access
@@ -142,8 +140,12 @@ struct mtk_gen3_pcie {
 	struct device *dev;
 	void __iomem *base;
 	phys_addr_t reg_base;
-	unsigned int busnr;
 	struct clk *sys_ck;
+	struct reset_control *mac_reset;
+	struct reset_control *phy_reset;
+	struct phy *phy;
+	struct clk_bulk_data *clks;
+	int num_clks;
 
 	int irq;
 	u32 saved_irq_state;
@@ -154,6 +156,37 @@ struct mtk_gen3_pcie {
 	struct mtk_msi_set msi_sets[PCIE_MSI_SET_NUM];
 	struct mutex lock;
 	DECLARE_BITMAP(msi_irq_in_use, PCIE_MSI_IRQS_NUM);
+};
+
+/* LTSSM state in PCIE_LTSSM_STATUS_REG bit[28:24] */
+static const char *const ltssm_str[] = {
+	"detect.quiet",			/* 0x00 */
+	"detect.active",		/* 0x01 */
+	"polling.active",		/* 0x02 */
+	"polling.compliance",		/* 0x03 */
+	"polling.configuration",	/* 0x04 */
+	"config.linkwidthstart",	/* 0x05 */
+	"config.linkwidthaccept",	/* 0x06 */
+	"config.lanenumwait",		/* 0x07 */
+	"config.lanenumaccept",		/* 0x08 */
+	"config.complete",		/* 0x09 */
+	"config.idle",			/* 0x0A */
+	"recovery.receiverlock",	/* 0x0B */
+	"recovery.equalization",	/* 0x0C */
+	"recovery.speed",		/* 0x0D */
+	"recovery.receiverconfig",	/* 0x0E */
+	"recovery.idle",		/* 0x0F */
+	"L0",				/* 0x10 */
+	"L0s",				/* 0x11 */
+	"L1.entry",			/* 0x12 */
+	"L1.idle",			/* 0x13 */
+	"L2.idle",			/* 0x14 */
+	"L2.transmitwake",		/* 0x15 */
+	"disable",			/* 0x16 */
+	"loopback.entry",		/* 0x17 */
+	"loopback.active",		/* 0x18 */
+	"loopback.exit",		/* 0x19 */
+	"hotreset",			/* 0x1A */
 };
 
 /**
@@ -217,35 +250,60 @@ static int mtk_pcie_set_trans_table(struct mtk_gen3_pcie *pcie,
 				    resource_size_t cpu_addr,
 				    resource_size_t pci_addr,
 				    resource_size_t size,
-				    unsigned long type, int num)
+				    unsigned long type, int *num)
 {
+	resource_size_t remaining = size;
+	resource_size_t table_size;
+	resource_size_t addr_align;
+	const char *range_type;
 	void __iomem *table;
 	u32 val;
 
-	if (num >= PCIE_MAX_TRANS_TABLES) {
-		dev_err(pcie->dev, "not enough translate table for addr: %#llx, limited to [%d]\n",
-			(unsigned long long)cpu_addr, PCIE_MAX_TRANS_TABLES);
-		return -ENODEV;
+	while (remaining && (*num < PCIE_MAX_TRANS_TABLES)) {
+		/* Table size needs to be a power of 2 */
+		table_size = BIT(fls(remaining) - 1);
+
+		if (cpu_addr > 0) {
+			addr_align = BIT(ffs(cpu_addr) - 1);
+			table_size = min(table_size, addr_align);
+		}
+
+		/* Minimum size of translate table is 4KiB */
+		if (table_size < 0x1000) {
+			dev_err(pcie->dev, "illegal table size %#llx\n",
+				(unsigned long long)table_size);
+			return -EINVAL;
+		}
+
+		table = pcie->base + PCIE_TRANS_TABLE_BASE_REG + *num * PCIE_ATR_TLB_SET_OFFSET;
+		writel_relaxed(lower_32_bits(cpu_addr) | PCIE_ATR_SIZE(fls(table_size) - 1), table);
+		writel_relaxed(upper_32_bits(cpu_addr), table + PCIE_ATR_SRC_ADDR_MSB_OFFSET);
+		writel_relaxed(lower_32_bits(pci_addr), table + PCIE_ATR_TRSL_ADDR_LSB_OFFSET);
+		writel_relaxed(upper_32_bits(pci_addr), table + PCIE_ATR_TRSL_ADDR_MSB_OFFSET);
+
+		if (type == IORESOURCE_IO) {
+			val = PCIE_ATR_TYPE_IO | PCIE_ATR_TLP_TYPE_IO;
+			range_type = "IO";
+		} else {
+			val = PCIE_ATR_TYPE_MEM | PCIE_ATR_TLP_TYPE_MEM;
+			range_type = "MEM";
+		}
+
+		writel_relaxed(val, table + PCIE_ATR_TRSL_PARAM_OFFSET);
+
+		dev_dbg(pcie->dev, "set %s trans window[%d]: cpu_addr = %#llx, pci_addr = %#llx, size = %#llx\n",
+			range_type, *num, (unsigned long long)cpu_addr,
+			(unsigned long long)pci_addr, (unsigned long long)table_size);
+
+		cpu_addr += table_size;
+		pci_addr += table_size;
+		remaining -= table_size;
+		(*num)++;
 	}
 
-	table = pcie->base + PCIE_TRANS_TABLE_BASE_REG +
-		num * PCIE_ATR_TLB_SET_OFFSET;
-
-	writel_relaxed(lower_32_bits(cpu_addr) | PCIE_ATR_SIZE(fls(size) - 1),
-		       table);
-	writel_relaxed(upper_32_bits(cpu_addr),
-		       table + PCIE_ATR_SRC_ADDR_MSB_OFFSET);
-	writel_relaxed(lower_32_bits(pci_addr),
-		       table + PCIE_ATR_TRSL_ADDR_LSB_OFFSET);
-	writel_relaxed(upper_32_bits(pci_addr),
-		       table + PCIE_ATR_TRSL_ADDR_MSB_OFFSET);
-
-	if (type == IORESOURCE_IO)
-		val = PCIE_ATR_TYPE_IO | PCIE_ATR_TLP_TYPE_IO;
-	else
-		val = PCIE_ATR_TYPE_MEM | PCIE_ATR_TLP_TYPE_MEM;
-
-	writel_relaxed(val, table + PCIE_ATR_TRSL_PARAM_OFFSET);
+	if (remaining)
+		dev_warn(pcie->dev, "not enough translate table for addr: %#llx, limited to [%d]\n",
+			 (unsigned long long)cpu_addr, PCIE_MAX_TRANS_TABLES);
 
 	return 0;
 }
@@ -279,9 +337,6 @@ static void mtk_pcie_enable_msi(struct mtk_gen3_pcie *pcie)
 	writel_relaxed(val, pcie->base + PCIE_INT_ENABLE_REG);
 }
 
-
-#define RETRY_LIMIT 3                //for relink
-
 extern void pcie_phy_init(unsigned int port_num);
 
 static int mtk_pcie_startup_port(struct mtk_gen3_pcie *pcie)
@@ -300,10 +355,10 @@ static int mtk_pcie_startup_port(struct mtk_gen3_pcie *pcie)
 	/* Set class code */
 	val = readl_relaxed(pcie->base + PCIE_PCI_IDS_1);
 	val &= ~GENMASK(31, 8);
-	val |= PCI_CLASS(PCI_CLASS_BRIDGE_PCI << 8);
+	val |= PCI_CLASS(PCI_CLASS_BRIDGE_PCI_NORMAL);
 	writel_relaxed(val, pcie->base + PCIE_PCI_IDS_1);
 
-	/* enable all INTx interrupts */
+	/* Mask all INTx interrupts */
 	val = readl_relaxed(pcie->base + PCIE_INT_ENABLE_REG);
 	val |= PCIE_INTX_ENABLE;
 	writel_relaxed(val, pcie->base + PCIE_INT_ENABLE_REG);
@@ -317,12 +372,20 @@ static int mtk_pcie_startup_port(struct mtk_gen3_pcie *pcie)
 				 !!(val & PCIE_PORT_LINKUP), 20,
 				 PCI_PM_D3COLD_WAIT * USEC_PER_MSEC);
 	if (err) {
+		const char *ltssm_state;
+		int ltssm_index;
+
 		val = readl_relaxed(pcie->base + PCIE_LTSSM_STATUS_REG);
-		dev_err(pcie->dev, "PCIe link down, ltssm reg val: %#x\n", val);
+		ltssm_index = PCIE_LTSSM_STATE(val);
+		ltssm_state = ltssm_index >= ARRAY_SIZE(ltssm_str) ?
+			      "Unknown state" : ltssm_str[ltssm_index];
+		dev_err(pcie->dev,
+			"PCIe link down, current LTSSM state: %s (%#x)\n",
+			ltssm_state, val);
 		return err;
 	}
 
-	//mtk_pcie_enable_msi(pcie);
+	mtk_pcie_enable_msi(pcie);
 
 	/* Set PCIe translation windows */
 	resource_list_for_each_entry(entry, &host->windows) {
@@ -331,30 +394,20 @@ static int mtk_pcie_startup_port(struct mtk_gen3_pcie *pcie)
 		resource_size_t cpu_addr;
 		resource_size_t pci_addr;
 		resource_size_t size;
-		const char *range_type;
 
-		if (type == IORESOURCE_IO) {
+		if (type == IORESOURCE_IO)
 			cpu_addr = pci_pio_to_address(res->start);
-			range_type = "IO";
-		} else if (type == IORESOURCE_MEM) {
+		else if (type == IORESOURCE_MEM)
 			cpu_addr = res->start;
-			range_type = "MEM";
-		} else {
+		else
 			continue;
-		}
 
 		pci_addr = res->start - entry->offset;
 		size = resource_size(res);
 		err = mtk_pcie_set_trans_table(pcie, cpu_addr, pci_addr, size,
-					       type, table_index);
+					       type, &table_index);
 		if (err)
 			return err;
-
-		dev_info(pcie->dev, "set %s trans window[%d]: cpu_addr = %#llx, pci_addr = %#llx, size = %#llx\n",
-			range_type, table_index, (unsigned long long)cpu_addr,
-			(unsigned long long)pci_addr, (unsigned long long)size);
-
-		table_index++;
 	}
 
 	return 0;
@@ -590,7 +643,8 @@ static int mtk_pcie_init_irq_domains(struct mtk_gen3_pcie *pcie)
 						  &intx_domain_ops, pcie);
 	if (!pcie->intx_domain) {
 		dev_err(dev, "failed to create INTx IRQ domain\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto out_put_node;
 	}
 
 	/* Setup MSI */
@@ -613,13 +667,15 @@ static int mtk_pcie_init_irq_domains(struct mtk_gen3_pcie *pcie)
 		goto err_msi_domain;
 	}
 
+	of_node_put(intc_node);
 	return 0;
 
 err_msi_domain:
 	irq_domain_remove(pcie->msi_bottom_domain);
 err_msi_bottom_domain:
 	irq_domain_remove(pcie->intx_domain);
-
+out_put_node:
+	of_node_put(intc_node);
 	return ret;
 }
 
@@ -643,7 +699,6 @@ static void mtk_pcie_msi_handler(struct mtk_gen3_pcie *pcie, int set_idx)
 {
 	struct mtk_msi_set *msi_set = &pcie->msi_sets[set_idx];
 	unsigned long msi_enable, msi_status;
-	unsigned int virq;
 	irq_hw_number_t bit, hwirq;
 
 	msi_enable = readl_relaxed(msi_set->base + PCIE_MSI_SET_ENABLE_OFFSET);
@@ -657,8 +712,7 @@ static void mtk_pcie_msi_handler(struct mtk_gen3_pcie *pcie, int set_idx)
 
 		for_each_set_bit(bit, &msi_status, PCIE_MSI_IRQS_PER_SET) {
 			hwirq = bit + set_idx * PCIE_MSI_IRQS_PER_SET;
-			virq = irq_find_mapping(pcie->msi_bottom_domain, hwirq);
-			generic_handle_irq(virq);
+			generic_handle_domain_irq(pcie->msi_bottom_domain, hwirq);
 		}
 	} while (true);
 }
@@ -668,18 +722,15 @@ static void mtk_pcie_irq_handler(struct irq_desc *desc)
 	struct mtk_gen3_pcie *pcie = irq_desc_get_handler_data(desc);
 	struct irq_chip *irqchip = irq_desc_get_chip(desc);
 	unsigned long status;
-	unsigned int virq;
 	irq_hw_number_t irq_bit = PCIE_INTX_SHIFT;
 
 	chained_irq_enter(irqchip, desc);
 
 	status = readl_relaxed(pcie->base + PCIE_INT_STATUS_REG);
 	for_each_set_bit_from(irq_bit, &status, PCI_NUM_INTX +
-			      PCIE_INTX_SHIFT) {
-		virq = irq_find_mapping(pcie->intx_domain,
-					irq_bit - PCIE_INTX_SHIFT);
-		generic_handle_irq(virq);
-	}
+			      PCIE_INTX_SHIFT)
+		generic_handle_domain_irq(pcie->intx_domain,
+					  irq_bit - PCIE_INTX_SHIFT);
 
 	irq_bit = PCIE_MSI_SHIFT;
 	for_each_set_bit_from(irq_bit, &status, PCIE_MSI_SET_NUM +
@@ -692,22 +743,21 @@ static void mtk_pcie_irq_handler(struct irq_desc *desc)
 	chained_irq_exit(irqchip, desc);
 }
 
-static int mtk_pcie_setup_irq(struct mtk_gen3_pcie *pcie, int slot)
+static int mtk_pcie_setup_irq(struct mtk_gen3_pcie *pcie)
 {
 	struct device *dev = pcie->dev;
 	struct platform_device *pdev = to_platform_device(dev);
 	int err;
-	struct ecnt_pcie *ecnt_pcie = &ECNT_pcie;
+
+	err = mtk_pcie_init_irq_domains(pcie);
+	if (err)
+		return err;
 
 	pcie->irq = platform_get_irq(pdev, 0);
-	switch(slot) {
-	case 0:
-		ecnt_pcie->irq_pcie0 = pcie->irq;
-		break;
-	case 1:
-		ecnt_pcie->irq_pcie1 = pcie->irq;
-		break;
-	}
+	if (pcie->irq < 0)
+		return pcie->irq;
+
+	irq_set_chained_handler_and_data(pcie->irq, mtk_pcie_irq_handler, pcie);
 
 	return 0;
 }
@@ -717,8 +767,11 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
 	struct device *dev = pcie->dev;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct resource *regs;
+	int ret;
 
 	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pcie-mac");
+	if (!regs)
+		return -EINVAL;
 	pcie->base = devm_ioremap_resource(dev, regs);
 	if (IS_ERR(pcie->base)) {
 		dev_err(dev, "failed to map register base\n");
@@ -726,6 +779,33 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
 	}
 
 	pcie->reg_base = regs->start;
+
+	pcie->phy_reset = devm_reset_control_get_optional_exclusive(dev, "phy");
+	if (IS_ERR(pcie->phy_reset)) {
+		ret = PTR_ERR(pcie->phy_reset);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "failed to get PHY reset\n");
+
+		return ret;
+	}
+
+	pcie->mac_reset = devm_reset_control_get_optional_exclusive(dev, "mac");
+	if (IS_ERR(pcie->mac_reset)) {
+		ret = PTR_ERR(pcie->mac_reset);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "failed to get MAC reset\n");
+
+		return ret;
+	}
+
+	pcie->phy = devm_phy_optional_get(dev, "pcie-phy");
+	if (IS_ERR(pcie->phy)) {
+		ret = PTR_ERR(pcie->phy);
+		if (ret != -EPROBE_DEFER)
+			dev_err(dev, "failed to get PHY\n");
+
+		return ret;
+	}
 	return 0;
 }
 
@@ -765,6 +845,9 @@ static int mtk_pcie_setup(struct mtk_gen3_pcie *pcie)
 		pcie_phy_init(3);
 
 	mdelay(30);//fix 7916 pbus timeout
+		   //
+	pm_runtime_enable(dev);
+	pm_runtime_get_sync(dev);
 
 	err = clk_prepare(pcie->sys_ck);
 	if (err) {
@@ -786,39 +869,11 @@ static int mtk_pcie_setup(struct mtk_gen3_pcie *pcie)
 	if (err)
 		return err;
 
-	err = mtk_pcie_setup_irq(pcie, slot);
+	err = mtk_pcie_setup_irq(pcie);
 	if (err)
 		return err;
 
 	return 0;
-}
-
-u8 pci_common_swizzle_airoha(struct pci_dev *dev, u8 *pinp)
-{
-	u8 pin = *pinp;
-
-	while (!pci_is_root_bus(dev->bus)) {
-		pin = pci_swizzle_interrupt_pin(dev, pin);
-		dev = dev->bus->self;
-	}
-	*pinp = pin;
-	return pci_domain_nr(dev->bus);
-}
-
-int pcibios_map_irq(const struct pci_dev *dev, u8 slot, u8 pin)
-{
-
-	int irq0=0,irq1=0;
-	struct ecnt_pcie *ecnt_pcie=NULL;
-	ecnt_pcie=&ECNT_pcie;
-	
-	irq0=ecnt_pcie->irq_pcie0;
-	irq1=ecnt_pcie->irq_pcie1;
-	if (slot == 0)
-		return irq0;
-	else if(slot == 1)
-		return irq1;
-
 }
 
 static int mtk_pcie_probe(struct platform_device *pdev)
@@ -827,10 +882,7 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 	struct mtk_gen3_pcie *pcie;
 	struct pci_host_bridge *host;
 	int err;
-	int value=0;
-	u32 check_reg;
-	uint8_t serdes_ret=0;	
-	
+
 	host = devm_pci_alloc_host_bridge(dev, sizeof(*pcie));
 	if (!host)
 		return -ENOMEM;
@@ -841,12 +893,10 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pcie);
 
 	err = mtk_pcie_setup(pcie);
+	if (err)
+		return err;
 
-	//host->msi = &ecnt_pcie_msi_controller;
 	host->ops = &mtk_pcie_ops;
-	host->map_irq = pcibios_map_irq;
-	host->swizzle_irq = pci_common_swizzle_airoha;
-
 	host->sysdata = pcie;
 
 	err = pci_host_probe(host);
@@ -857,7 +907,6 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 
 power_down:
 	mtk_pcie_irq_teardown(pcie);
-release_resource:
 	pci_free_resource_list(&host->windows);
 
 	return err;
