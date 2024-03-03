@@ -7,6 +7,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/iopoll.h>
 #include <linux/irq.h>
@@ -883,10 +884,20 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
 	int err;
 
 	writel_relaxed(0x23020133, pcie->base + 0x10044);
-	writel_relaxed(0x50500032, pcie->base + 0x15030);
-	writel_relaxed(0x50500032, pcie->base + 0x15130);
-	pcie_phy_init(3);
+	if (!__clk_is_enabled(pcie->clks[0].clk)) {
+		writel_relaxed(0x50500032, pcie->base + 0x15030);
+		writel_relaxed(0x50500032, pcie->base + 0x15130);
+	}
+
+	/* PHY power on and enable pipe clock */
+	reset_control_deassert(pcie->phy_reset);
+
+	if (!__clk_is_enabled(pcie->clks[0].clk))
+		pcie_phy_init(3);
 	mdelay(30);
+
+	/* MAC power on and enable transaction layer clocks */
+	reset_control_deassert(pcie->mac_reset);
 
 	pm_runtime_enable(dev);
 	pm_runtime_get_sync(dev);
@@ -894,14 +905,30 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
 	err = clk_bulk_prepare(pcie->num_clks, pcie->clks);
 	if (err) {
 		dev_err(dev, "failed to prepare clock\n");
-		return -EINVAL;
+		goto err_clk_prepare;
 	}
 
 	writel_relaxed(0x41474147, pcie->base + PCIE_EQ_PRESET_01_REF);
 	writel_relaxed(0x1018020F, pcie->base + PCIE_PIPE4_PIE8_REG);
 	mdelay(10);
 
-	return clk_bulk_enable(pcie->num_clks, pcie->clks);
+	err = clk_bulk_enable(pcie->num_clks, pcie->clks);
+	if (err) {
+		dev_err(dev, "failed to prepare clock\n");
+		goto err_clk_enable;
+	}
+
+	return 0;
+
+err_clk_enable:
+	clk_bulk_unprepare(pcie->num_clks, pcie->clks);
+err_clk_prepare:
+	pm_runtime_put_sync(dev);
+	pm_runtime_disable(dev);
+	reset_control_assert(pcie->mac_reset);
+	reset_control_assert(pcie->phy_reset);
+
+	return err;
 }
 
 static void mtk_pcie_power_down(struct mtk_gen3_pcie *pcie)
