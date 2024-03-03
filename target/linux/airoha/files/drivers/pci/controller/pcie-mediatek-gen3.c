@@ -261,60 +261,35 @@ static int mtk_pcie_set_trans_table(struct mtk_gen3_pcie *pcie,
 				    resource_size_t cpu_addr,
 				    resource_size_t pci_addr,
 				    resource_size_t size,
-				    unsigned long type, int *num)
+				    unsigned long type, int num)
 {
-	resource_size_t remaining = size;
-	resource_size_t table_size;
-	resource_size_t addr_align;
-	const char *range_type;
 	void __iomem *table;
 	u32 val;
 
-	while (remaining && (*num < PCIE_MAX_TRANS_TABLES)) {
-		/* Table size needs to be a power of 2 */
-		table_size = BIT(fls(remaining) - 1);
-
-		if (cpu_addr > 0) {
-			addr_align = BIT(ffs(cpu_addr) - 1);
-			table_size = min(table_size, addr_align);
-		}
-
-		/* Minimum size of translate table is 4KiB */
-		if (table_size < 0x1000) {
-			dev_err(pcie->dev, "illegal table size %#llx\n",
-				(unsigned long long)table_size);
-			return -EINVAL;
-		}
-
-		table = pcie->base + PCIE_TRANS_TABLE_BASE_REG + *num * PCIE_ATR_TLB_SET_OFFSET;
-		writel_relaxed(lower_32_bits(cpu_addr) | PCIE_ATR_SIZE(fls(table_size) - 1), table);
-		writel_relaxed(upper_32_bits(cpu_addr), table + PCIE_ATR_SRC_ADDR_MSB_OFFSET);
-		writel_relaxed(lower_32_bits(pci_addr), table + PCIE_ATR_TRSL_ADDR_LSB_OFFSET);
-		writel_relaxed(upper_32_bits(pci_addr), table + PCIE_ATR_TRSL_ADDR_MSB_OFFSET);
-
-		if (type == IORESOURCE_IO) {
-			val = PCIE_ATR_TYPE_IO | PCIE_ATR_TLP_TYPE_IO;
-			range_type = "IO";
-		} else {
-			val = PCIE_ATR_TYPE_MEM | PCIE_ATR_TLP_TYPE_MEM;
-			range_type = "MEM";
-		}
-
-		writel_relaxed(val, table + PCIE_ATR_TRSL_PARAM_OFFSET);
-
-		dev_dbg(pcie->dev, "set %s trans window[%d]: cpu_addr = %#llx, pci_addr = %#llx, size = %#llx\n",
-			range_type, *num, (unsigned long long)cpu_addr,
-			(unsigned long long)pci_addr, (unsigned long long)table_size);
-
-		cpu_addr += table_size;
-		pci_addr += table_size;
-		remaining -= table_size;
-		(*num)++;
+	if (num >= PCIE_MAX_TRANS_TABLES) {
+		dev_err(pcie->dev, "not enough translate table for addr: %#llx, limited to [%d]\n",
+			(unsigned long long)cpu_addr, PCIE_MAX_TRANS_TABLES);
+		return -ENODEV;
 	}
 
-	if (remaining)
-		dev_warn(pcie->dev, "not enough translate table for addr: %#llx, limited to [%d]\n",
-			 (unsigned long long)cpu_addr, PCIE_MAX_TRANS_TABLES);
+	table = pcie->base + PCIE_TRANS_TABLE_BASE_REG +
+		num * PCIE_ATR_TLB_SET_OFFSET;
+
+	writel_relaxed(lower_32_bits(cpu_addr) | PCIE_ATR_SIZE(fls(size) - 1),
+		       table);
+	writel_relaxed(upper_32_bits(cpu_addr),
+		       table + PCIE_ATR_SRC_ADDR_MSB_OFFSET);
+	writel_relaxed(lower_32_bits(pci_addr),
+		       table + PCIE_ATR_TRSL_ADDR_LSB_OFFSET);
+	writel_relaxed(upper_32_bits(pci_addr),
+		       table + PCIE_ATR_TRSL_ADDR_MSB_OFFSET);
+
+	if (type == IORESOURCE_IO)
+		val = PCIE_ATR_TYPE_IO | PCIE_ATR_TLP_TYPE_IO;
+	else
+		val = PCIE_ATR_TYPE_MEM | PCIE_ATR_TLP_TYPE_MEM;
+
+	writel_relaxed(val, table + PCIE_ATR_TRSL_PARAM_OFFSET);
 
 	return 0;
 }
@@ -423,20 +398,30 @@ static int mtk_pcie_startup_port(struct mtk_gen3_pcie *pcie)
 		resource_size_t cpu_addr;
 		resource_size_t pci_addr;
 		resource_size_t size;
+		const char *range_type;
 
-		if (type == IORESOURCE_IO)
+		if (type == IORESOURCE_IO) {
 			cpu_addr = pci_pio_to_address(res->start);
-		else if (type == IORESOURCE_MEM)
+			range_type = "IO";
+		} else if (type == IORESOURCE_MEM) {
 			cpu_addr = res->start;
-		else
+			range_type = "MEM";
+		} else {
 			continue;
+		}
 
 		pci_addr = res->start - entry->offset;
 		size = resource_size(res);
 		err = mtk_pcie_set_trans_table(pcie, cpu_addr, pci_addr, size,
-					       type, &table_index);
+					       type, table_index);
 		if (err)
 			return err;
+
+		dev_dbg(pcie->dev, "set %s trans window[%d]: cpu_addr = %#llx, pci_addr = %#llx, size = %#llx\n",
+			range_type, table_index, (unsigned long long)cpu_addr,
+			(unsigned long long)pci_addr, (unsigned long long)size);
+
+		table_index++;
 	}
 
 	return 0;
@@ -897,9 +882,9 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
 	struct device *dev = pcie->dev;
 	int err;
 
-	writel(0x23020133, pcie->base + 0x10044);
-	writel(0x50500032, pcie->base + 0x15030);
-	writel(0x50500032, pcie->base + 0x15130);
+	writel_relaxed(0x23020133, pcie->base + 0x10044);
+	writel_relaxed(0x50500032, pcie->base + 0x15030);
+	writel_relaxed(0x50500032, pcie->base + 0x15130);
 	pcie_phy_init(3);
 	mdelay(30);
 
@@ -912,8 +897,8 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
 		return -EINVAL;
 	}
 
-	writel(0x41474147, pcie->base + PCIE_EQ_PRESET_01_REF);
-	writel(0x1018020F, pcie->base + PCIE_PIPE4_PIE8_REG);
+	writel_relaxed(0x41474147, pcie->base + PCIE_EQ_PRESET_01_REF);
+	writel_relaxed(0x1018020F, pcie->base + PCIE_PIPE4_PIE8_REG);
 	mdelay(10);
 
 	return clk_bulk_enable(pcie->num_clks, pcie->clks);
@@ -1132,7 +1117,7 @@ static const struct mtk_pcie_soc_ops airoha_7581_pcie_soc_ops = {
 
 static const struct of_device_id mtk_pcie_of_match[] = {
 	{ .compatible = "mediatek,mt8192-pcie", .data = &mtk_8192_pcie_soc_ops },
-	{ .compatible = "ecnt,pcie-ecnt", .data = &airoha_7581_pcie_soc_ops },
+	{ .compatible = "airoha,en7581-pcie", .data = &airoha_7581_pcie_soc_ops },
 	{},
 };
 MODULE_DEVICE_TABLE(of, mtk_pcie_of_match);
@@ -1141,7 +1126,7 @@ static struct platform_driver mtk_pcie_driver = {
 	.probe = mtk_pcie_probe,
 	.remove = mtk_pcie_remove,
 	.driver = {
-		.name = "mtk-pcie",
+		.name = "mtk-pcie-gen3",
 		.of_match_table = mtk_pcie_of_match,
 		.pm = &mtk_pcie_pm_ops,
 	},

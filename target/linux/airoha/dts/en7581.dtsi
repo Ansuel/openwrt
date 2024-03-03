@@ -148,17 +148,16 @@
 			#clock-cells = <1>;
 		};
 
-		pcie0: pcie0@1fc00000 {
+		pcie0: pcie@1fc00000 {
 			compatible = "airoha,en7581-pcie";
 			device_type = "pci";
-			linux,pci-domain = <0>;
 			reg = <0x0 0x1fc00000 0x0 0x20000>;
 			reg-names = "pcie-mac";
 			#address-cells = <3>;
 			#size-cells = <2>;
 			clocks = <&scu EN7523_CLK_PCIE>;
 			clock-names = "sys_ck0";
-			ranges = <0x02000000 0 0x20000000 0x0 0x20000000  0 0x4000000>;
+			ranges = <0x02000000 0 0x20000000 0x0 0x20000000 0 0x4000000>;
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			bus-range = <0x00 0xff>;
 			#interrupt-cells = <1>;
@@ -174,17 +173,16 @@
 			};
 		};
 
-		pcie1: pcie1@1fc20000 {
+		pcie1: pcie@1fc20000 {
 			compatible = "airoha,en7581-pcie";
 			device_type = "pci";
-			linux,pci-domain = <1>;
 			reg = <0x0 0x1fc20000 0x0 0x20000>;
 			reg-names = "pcie-mac";
 			#address-cells = <3>;
 			#size-cells = <2>;
 			clocks = <&scu EN7523_CLK_PCIE>;
 			clock-names = "sys_ck1";
-			ranges = <0x02000000 0 0x24000000 0x0 0x24000000  0 0x4000000>;
+			ranges = <0x02000000 0 0x24000000 0x0 0x24000000 0 0x4000000>;
 			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 			bus-range = <0x00 0xff>;
 			#interrupt-cells = <1>;
