@@ -312,8 +312,6 @@ static void mtk_pcie_enable_msi(struct mtk_gen3_pcie *pcie)
 	writel_relaxed(val, pcie->base + PCIE_INT_ENABLE_REG);
 }
 
-extern void pcie_phy_init(unsigned int port_num);
-
 static int mtk_pcie_startup_port(struct mtk_gen3_pcie *pcie)
 {
 	struct resource_entry *entry;
@@ -833,9 +831,18 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
 	/* PHY power on and enable pipe clock */
 	reset_control_deassert(pcie->phy_reset);
 
-	if (!__clk_is_enabled(pcie->clks[0].clk))
-		pcie_phy_init(3);
+	err = phy_init(pcie->phy);
+	if (err) {
+		dev_err(dev, "failed to initialize PHY\n");
+		goto err_phy_init;
+	}
 	mdelay(30);
+
+	err = phy_power_on(pcie->phy);
+	if (err) {
+		dev_err(dev, "failed to power on PHY\n");
+		goto err_phy_on;
+	}
 
 	/* MAC power on and enable transaction layer clocks */
 	reset_control_deassert(pcie->mac_reset);
@@ -867,6 +874,10 @@ err_clk_prepare:
 	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
 	reset_control_assert(pcie->mac_reset);
+	phy_power_off(pcie->phy);
+err_phy_on:
+	phy_exit(pcie->phy);
+err_phy_init:
 	reset_control_assert(pcie->phy_reset);
 
 	return err;
