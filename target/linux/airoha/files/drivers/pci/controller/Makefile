@@ -54,10 +54,10 @@ obj-$(CONFIG_ARM64) += pci-thunder-pem.o
 obj-$(CONFIG_ARM64) += pci-xgene.o
 endif
 
-obj-y += en7581/ecnt_ssusb2_phy.o en7581/ecnt_serdes_common_phy.o
+#obj-y += en7581/ecnt_ssusb2_phy.o en7581/ecnt_serdes_common_phy.o
 
-obj-$(CONFIG_PCI) += pcie-ecnt-phy_hook.o
-obj-$(CONFIG_PCI) += pcie-ecnt-phy_7581.o
+#obj-$(CONFIG_PCI) += pcie-ecnt-phy_hook.o
+#obj-$(CONFIG_PCI) += pcie-ecnt-phy_7581.o
 
 # obj-$(CONFIG_PCI) += pcie-ecnt.o
 obj-$(CONFIG_PCI) += pcie-mediatek-gen3.o
