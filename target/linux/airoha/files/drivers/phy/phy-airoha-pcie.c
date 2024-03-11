@@ -18,96 +18,110 @@
 #include "en7581/en7581_pcie_ana_pxp_reg.h"
 
 /* ANA2L */
-#define REG_PCIE_CSR_ANA2L_PXP_CMN			0x0000
+#define REG_CSR_ANA2L_CMN				0x0000
 #define CSR_ANA2L_PXP_CMN_LANE_EN			BIT(0)
 #define CSR_ANA2L_PXP_CMN_TRIM_MASK			GENMASK(28, 24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_JCPLL_RST_DLY		0x001c
+#define REG_CSR_ANA2L_JCPLL_RST_DLY			0x001c
 #define CSR_ANA2L_PXP_JCPLL_RST				BIT(8)
+#define CSR_ANA2L_PXP_JCPLL_SDM_DI_EN			BIT(16)
 
-#define REG_PCIE_CSR_ANA2L_JCPLL_SSC_DELTA1		0x003c
+#define REG_CSR_ANA2L_JCPLL_SDM_IFM			0x0020
+#define CSR_ANA2L_PXP_JCPLL_SDM_IFM			BIT(0)
 
-#define REG_PCIE_CSR_ANA2L_JCPLL_SSC_PERIOD		0x0040
+#define REG_CSR_ANA2L_JCPLL_SDM_HREN			0x0024
+#define CSR_ANA2L_PXP_JCPLL_SDM_HREN			BIT(0)
+
+#define REG_CSR_ANA2L_JCPLL_SSC				0x0038
+#define CSR_ANA2L_PXP_JCPLL_SSC_EN			BIT(0)
+#define CSR_ANA2L_PXP_JCPLL_SSC_PHASE_INI		BIT(8)
+#define CSR_ANA2L_PXP_JCPLL_SSC_TRI_EN			BIT(16)
+
+#define REG_CSR_ANA2L_JCPLL_SSC_DELTA1			0x003c
+#define CSR_ANA2L_PXP_JCPLL_SSC_DELTA1			GENMASK(15, 0)
+#define CSR_ANA2L_PXP_JCPLL_SSC_DELTA			GENMASK(31, 16)
+
+#define REG_CSR_ANA2L_JCPLL_SSC_PERIOD			0x0040
 #define CSR_ANA2L_PXP_JCPLL_SSC_PERIOD			GENMASK(15, 0)
 
-#define REG_PCIE_CSR_ANA2L_PXP_JCPLL_TCL_VTP_EN		0x004c
+#define REG_CSR_ANA2L_JCPLL_TCL_VTP_EN			0x004c
 #define CSR_ANA2L_PXP_JCPLL_SPARE_LOW			GENMASK(31, 24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_TXPLL_POSTDIV_D256	0x00a0
+#define REG_CSR_ANA2L_TXPLL_POSTDIV_D256		0x00a0
 #define CSR_ANA2L_PXP_CLKTX0_AMP			GENMASK(10, 8)
 #define CSR_ANA2L_PXP_CLKTX0_OFFSET			GENMASK(17, 16)
 #define CSR_ANA2L_PXP_CLKTX0_SR				GENMASK(25, 24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CLKTX0_FORCE_OUT1	0x00a4
+#define REG_CSR_ANA2L_CLKTX0_FORCE_OUT1			0x00a4
 #define CSR_ANA2L_PXP_CLKTX0_HZ				BIT(8)
 #define CSR_ANA2L_PXP_CLKTX0_IMP_SEL			GENMASK(20, 16)
 #define CSR_ANA2L_PXP_CLKTX1_AMP			GENMASK(26, 24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CLKTX1_OFFSET		0x00a8
+#define REG_CSR_ANA2L_CLKTX1_OFFSET			0x00a8
 #define CSR_ANA2L_PXP_CLKTX1_OFFSET			GENMASK(1, 0)
 #define CSR_ANA2L_PXP_CLKTX1_SR				GENMASK(9, 8)
 #define CSR_ANA2L_PXP_CLKTX1_HZ				BIT(24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CLKTX1_IMP_SEL		0x00ac
+#define REG_CSR_ANA2L_CLKTX1_IMP_SEL			0x00ac
 #define CSR_ANA2L_PXP_CLKTX1_IMP_SEL			GENMASK(4, 0)
 
-#define REG_PCIE_CSR_ANA2L_PXP_PLL_CMN_RESERVE0		0x00b0
+#define REG_CSR_ANA2L_PLL_CMN_RESERVE0			0x00b0
 #define CSR_ANA2L_PXP_PLL_RESERVE_MASK			GENMASK(15, 0)
 
-#define REG_PCIE_CSR_ANA2L_PXP_TX0_CKLDO		0x00cc
+#define REG_CSR_ANA2L_TX0_CKLDO				0x00cc
 #define CSR_ANA2L_PXP_TX0_CKLDO_EN			BIT(0)
 #define CSR_ANA2L_PXP_TX0_DMEDGEGEN_EN			BIT(24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_TX1_CKLDO		0x00e8
+#define REG_CSR_ANA2L_TX1_CKLDO				0x00e8
 #define CSR_ANA2L_PXP_TX1_CKLDO_EN			BIT(0)
 #define CSR_ANA2L_PXP_TX1_DMEDGEGEN_EN			BIT(24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_TX1_MULTLANE		0x00ec
+#define REG_CSR_ANA2L_TX1_MULTLANE			0x00ec
 #define CSR_ANA2L_PXP_TX1_MULTLANE_EN			BIT(0)
 
-#define REG_PCIE_CSR_ANA2L_PXP_RX0_REV0			0x00fc
+#define REG_CSR_ANA2L_RX0_REV0				0x00fc
 #define CSR_ANA2L_PXP_VOS_PNINV				GENMASK(3, 2)
 #define CSR_ANA2L_PXP_FE_GAIN_NORMAL_MODE		GENMASK(6, 4)
 #define CSR_ANA2L_PXP_FE_GAIN_TRAIN_MODE		GENMASK(10, 8)
 
-#define REG_PCIE_CSR_ANA2L_PXP_RX0_PHYCK_DIV		0x0100
+#define REG_CSR_ANA2L_RX0_PHYCK_DIV			0x0100
 #define CSR_ANA2L_PXP_RX0_PHYCK_SEL			GENMASK(9, 8)
 #define CSR_ANA2L_PXP_RX0_PHYCK_RSTB			BIT(16)
 #define CSR_ANA2L_PXP_RX0_TDC_CK_SEL			BIT(24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR0_PD_PICAL_CKD8_INV	0x0104
+#define REG_CSR_ANA2L_CDR0_PD_PICAL_CKD8_INV		0x0104
 #define CSR_ANA2L_PXP_CDR0_PD_EDGE_DISABLE		BIT(8)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR0_LPF_RATIO		0x0110
+#define REG_CSR_ANA2L_CDR0_LPF_RATIO			0x0110
 #define CSR_ANA2L_PXP_CDR0_LPF_TOP_LIM			GENMASK(26, 8)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_BETA_DAC		0x0120
+#define REG_CSR_ANA2L_CDR0_PR_BETA_DAC			0x0120
 #define CSR_ANA2L_PXP_CDR0_PR_BETA_SEL			GENMASK(19, 16)
 #define CSR_ANA2L_PXP_CDR0_PR_KBAND_DIV			GENMASK(26, 24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_VREG_IBAND	0x0124
+#define REG_CSR_ANA2L_CDR0_PR_VREG_IBAND		0x0124
 #define CSR_ANA2L_PXP_CDR0_PR_VREG_IBAND		GENMASK(2, 0)
 #define CSR_ANA2L_PXP_CDR0_PR_VREG_CKBUF		GENMASK(10, 8)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_CKREF_DIV	0x0128
+#define REG_CSR_ANA2L_CDR0_PR_CKREF_DIV			0x0128
 #define CSR_ANA2L_PXP_CDR0_PR_CKREF_DIV 		GENMASK(1, 0)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_MONCK		0x012c
+#define REG_CSR_ANA2L_CDR0_PR_MONCK			0x012c
 #define CSR_ANA2L_PXP_CDR0_PR_MONCK_ENABLE		BIT(0)
 #define CSR_ANA2L_PXP_CDR0_PR_RESERVE0			GENMASK(19, 16)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_COR_HBW		0x0130
+#define REG_CSR_ANA2L_CDR0_PR_COR_HBW			0x0130
 #define CSR_ANA2L_PXP_CDR0_PR_LDO_FORCE_ON		BIT(8)
 #define CSR_ANA2L_PXP_CDR0_PR_CKREF_DIV1		GENMASK(17, 16)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_MONPI		0x0134
+#define REG_CSR_ANA2L_CDR0_PR_MONPI			0x0134
 #define CSR_ANA2L_PXP_CDR0_PR_XFICK_EN			BIT(8)
 
-#define REG_PCIE_CSR_ANA2L_PXP_RX0_SIGDET_DCTEST	0x0140
+#define REG_CSR_ANA2L_RX0_SIGDET_DCTEST			0x0140
 #define CSR_ANA2L_PXP_RX0_SIGDET_LPF_CTRL		GENMASK(9, 8)
 #define CSR_ANA2L_PXP_RX0_SIGDET_PEAK			GENMASK(25, 24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_RX0_SIGDET_VTH_SEL	0x0144
+#define REG_CSR_ANA2L_RX0_SIGDET_VTH_SEL		0x0144
 #define CSR_ANA2L_PXP_RX0_SIGDET_VTH_SEL		GENMASK(4, 0)
 #define CSR_ANA2L_PXP_RX0_FE_VB_EQ1_EN			BIT(24)
 
@@ -123,68 +137,68 @@
 #define CSR_ANA2L_PXP_RX0_PR_OSCAL_VGA1VOS		GENMASK(5, 0)
 #define CSR_ANA2L_PXP_RX0_PR_OSCAL_VGA2IOS		GENMASK(13, 8)
 
-#define REG_PCIE_CSR_ANA2L_PXP_RX1_REV0 		0x01b4
+#define REG_CSR_ANA2L_RX1_REV0 				0x01b4
 
-#define REG_PCIE_CSR_ANA2L_PXP_RX1_PHYCK_DIV		0x01b8
+#define REG_CSR_ANA2L_RX1_PHYCK_DIV			0x01b8
 #define CSR_ANA2L_PXP_RX1_PHYCK_SEL			GENMASK(9, 8)
 #define CSR_ANA2L_PXP_RX1_PHYCK_RSTB			BIT(16)
 #define CSR_ANA2L_PXP_RX1_TDC_CK_SEL			BIT(24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR1_PD_PICAL_CKD8_INV	0x01bc
+#define REG_CSR_ANA2L_CDR1_PD_PICAL_CKD8_INV		0x01bc
 #define CSR_ANA2L_PXP_CDR1_PD_EDGE_DISABLE		BIT(8)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_BETA_DAC		0x01d8
+#define REG_CSR_ANA2L_CDR1_PR_BETA_DAC			0x01d8
 #define CSR_ANA2L_PXP_CDR1_PR_BETA_SEL			GENMASK(19, 16)
 #define CSR_ANA2L_PXP_CDR1_PR_KBAND_DIV			GENMASK(26, 24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_MONCK		0x01e4
+#define REG_CSR_ANA2L_CDR1_PR_MONCK			0x01e4
 #define CSR_ANA2L_PXP_CDR1_PR_MONCK_ENABLE		BIT(0)
 #define CSR_ANA2L_PXP_CDR1_PR_RESERVE0			GENMASK(19, 16)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR1_LPF_RATIO		0x01c8
+#define REG_CSR_ANA2L_CDR1_LPF_RATIO			0x01c8
 #define CSR_ANA2L_PXP_CDR1_LPF_TOP_LIM			GENMASK(26, 8)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_VREG_IBAND_VAL	0x01dc
+#define REG_CSR_ANA2L_CDR1_PR_VREG_IBAND_VAL		0x01dc
 #define CSR_ANA2L_PXP_CDR1_PR_VREG_IBAND		GENMASK(2, 0)
 #define CSR_ANA2L_PXP_CDR1_PR_VREG_CKBUF		GENMASK(10, 8)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_CKREF_DIV	0x01e0
+#define REG_CSR_ANA2L_CDR1_PR_CKREF_DIV			0x01e0
 #define CSR_ANA2L_PXP_CDR1_PR_CKREF_DIV			GENMASK(1, 0)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_COR_HBW		0x01e8
+#define REG_CSR_ANA2L_CDR1_PR_COR_HBW			0x01e8
 #define CSR_ANA2L_PXP_CDR1_PR_LDO_FORCE_ON		BIT(8)
 #define CSR_ANA2L_PXP_CDR1_PR_CKREF_DIV1		GENMASK(17, 16)
 
-#define REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_MONPI		0x01ec
+#define REG_CSR_ANA2L_CDR1_PR_MONPI			0x01ec
 #define CSR_ANA2L_PXP_CDR1_PR_XFICK_EN			BIT(8)
 
-#define REG_PCIE_CSR_ANA2L_PXP_RX1_DAC_RANGE_EYE	0x01f4
+#define REG_CSR_ANA2L_RX1_DAC_RANGE_EYE			0x01f4
 #define CSR_ANA2L_PXP_RX1_SIGDET_LPF_CTRL		GENMASK(25, 24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_RX1_SIGDET_NOVTH		0x01f8
+#define REG_CSR_ANA2L_RX1_SIGDET_NOVTH			0x01f8
 #define CSR_ANA2L_PXP_RX1_SIGDET_PEAK			GENMASK(9, 8)
 #define CSR_ANA2L_PXP_RX1_SIGDET_VTH_SEL		GENMASK(20, 16)
 
-#define REG_PCIE_CSR_ANA2L_PXP_RX1_FE_VB_EQ1		0x0200
+#define REG_CSR_ANA2L_RX1_FE_VB_EQ1			0x0200
 #define CSR_ANA2L_PXP_RX1_FE_VB_EQ1_EN			BIT(0)
 #define CSR_ANA2L_PXP_RX1_FE_VB_EQ2_EN			BIT(8)
 #define CSR_ANA2L_PXP_RX1_FE_VB_EQ3_EN			BIT(16)
 #define CSR_ANA2L_PXP_RX1_FE_VCM_GEN_PWDB		BIT(24)
 
-#define REG_PCIE_CSR_ANA2L_PXP_RX1_OSCAL_VGA1IOS	0x0214
+#define REG_CSR_ANA2L_RX1_OSCAL_VGA1IOS			0x0214
 #define CSR_ANA2L_PXP_RX1_PR_OSCAL_VGA1IOS		GENMASK(5, 0)
 #define CSR_ANA2L_PXP_RX1_PR_OSCAL_VGA1VOS		GENMASK(13, 8)
 #define CSR_ANA2L_PXP_RX1_PR_OSCAL_VGA2IOS		GENMASK(21, 16)
 
 /* PMA */
-#define REG_PCIE_SEQUENCE_DISB_CTRL1			0x010c
+#define REG_PCIE_PMA_SEQUENCE_DISB_CTRL1		0x010c
 #define PCIE_DISB_RX_SDCAL_EN				BIT(0)
 
-#define REG_PCIE_CTRL_SEQUENCE_FORCE_CTRL1		0x0114
+#define REG_PCIE_PMA_CTRL_SEQUENCE_FORCE_CTRL1		0x0114
 #define PCIE_FORCE_RX_SDCAL_EN				BIT(0)
 
-#define REG_PCIE_SS_RX_CAL1				0x0160
-#define REG_PCIE_SS_RX_CAL2				0x0164
+#define REG_PCIE_PMA_SS_RX_CAL1				0x0160
+#define REG_PCIE_PMA_SS_RX_CAL2				0x0164
 #define PCIE_CAL_OUT_OS					GENMASK(11, 8)
 
 #define REG_PCIE_PMA_SS_RX_SIGDET0			0x0168
@@ -698,122 +712,135 @@ static void airoha_phy_update_bits(void __iomem *reg, u32 mask, u32 val)
 
 #define airoha_phy_update_field(reg, mask, val)					\
 ({										\
-	BUILD_BUG_ON_MSG(!__builtin_constant_p(mask), "mask is not constant");	\
-	airoha_phy_update_bits(reg, mask, FIELD_PREP(mask, val)); 		\
+	BUILD_BUG_ON_MSG(!__builtin_constant_p((mask)), "mask is not constant");\
+	airoha_phy_update_bits((reg), (mask), FIELD_PREP((mask), (val))); 	\
 })
+
+#define airoha_phy_csr_ana2l_clear_bits(pcie_phy, reg, mask)			\
+	airoha_phy_clear_bits((pcie_phy)->csr_ana2l + (reg), (mask))
+#define airoha_phy_csr_ana2l_set_bits(pcie_phy, reg, mask)			\
+	airoha_phy_set_bits((pcie_phy)->csr_ana2l + (reg), (mask))
+#define airoha_phy_csr_ana2l_update_field(pcie_phy, reg, mask, val)		\
+	airoha_phy_update_field((pcie_phy)->csr_ana2l + (reg), (mask), (val))
+#define airoha_phy_pma0_clear_bits(pcie_phy, reg, mask)				\
+	airoha_phy_clear_bits((pcie_phy)->pma0 + (reg), (mask))
+#define airoha_phy_pma1_clear_bits(pcie_phy, reg, mask)				\
+	airoha_phy_clear_bits((pcie_phy)->pma1 + (reg), (mask))
+#define airoha_phy_pma0_set_bits(pcie_phy, reg, mask)				\
+	airoha_phy_set_bits((pcie_phy)->pma0 + (reg), (mask))
+#define airoha_phy_pma1_set_bits(pcie_phy, reg, mask)				\
+	airoha_phy_set_bits((pcie_phy)->pma1 + (reg), (mask))
+#define airoha_phy_pma0_update_field(pcie_phy, reg, mask, val)			\
+	airoha_phy_update_field((pcie_phy)->pma0 + (reg), (mask), (val))
+#define airoha_phy_pma1_update_field(pcie_phy, reg, mask, val)			\
+	airoha_phy_update_field((pcie_phy)->pma1 + (reg), (mask), (val))
 
 static void airoha_pcie_phy_init_set_default(struct airoha_pcie_phy *pcie_phy)
 {
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CMN,
-				CSR_ANA2L_PXP_CMN_TRIM_MASK, 0x10);
+	airoha_phy_csr_ana2l_update_field(pcie_phy, REG_CSR_ANA2L_CMN,
+					  CSR_ANA2L_PXP_CMN_TRIM_MASK, 0x10);
 	writel(0xcccbcccb, pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_21);
 	writel(0xcccb, pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_22);
 	writel(0xcccbcccb, pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_21);
 	writel(0xcccb, pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_22);
-	airoha_phy_set_bits(pcie_phy->csr_ana2l + REG_PCIE_CSR_ANA2L_PXP_CMN,
-			    CSR_ANA2L_PXP_CMN_LANE_EN);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_CMN,
+				      CSR_ANA2L_PXP_CMN_LANE_EN);
 }
 
 static void airoha_pcie_phy_init_clk_out(struct airoha_pcie_phy *pcie_phy)
 {
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_TXPLL_POSTDIV_D256,
-				CSR_ANA2L_PXP_CLKTX0_AMP, 0x5);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CLKTX0_FORCE_OUT1,
-				CSR_ANA2L_PXP_CLKTX1_AMP, 0x5);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_TXPLL_POSTDIV_D256,
-				CSR_ANA2L_PXP_CLKTX0_OFFSET, 0x2);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CLKTX1_OFFSET,
-				CSR_ANA2L_PXP_CLKTX1_OFFSET, 0x2);
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_CLKTX0_FORCE_OUT1,
-			      CSR_ANA2L_PXP_CLKTX0_HZ);
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_CLKTX1_OFFSET,
-			      CSR_ANA2L_PXP_CLKTX1_HZ);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CLKTX0_FORCE_OUT1,
-				CSR_ANA2L_PXP_CLKTX0_IMP_SEL, 0x12);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CLKTX1_IMP_SEL,
-				CSR_ANA2L_PXP_CLKTX1_IMP_SEL, 0x12);
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_TXPLL_POSTDIV_D256,
-			      CSR_ANA2L_PXP_CLKTX0_SR);
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_CLKTX1_OFFSET,
-			      CSR_ANA2L_PXP_CLKTX1_SR);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_PLL_CMN_RESERVE0,
-				CSR_ANA2L_PXP_PLL_RESERVE_MASK, 0xdd);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_TXPLL_POSTDIV_D256,
+					  CSR_ANA2L_PXP_CLKTX0_AMP, 0x5);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CLKTX0_FORCE_OUT1,
+					  CSR_ANA2L_PXP_CLKTX1_AMP, 0x5);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_TXPLL_POSTDIV_D256,
+					  CSR_ANA2L_PXP_CLKTX0_OFFSET, 0x2);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CLKTX1_OFFSET,
+					  CSR_ANA2L_PXP_CLKTX1_OFFSET, 0x2);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy,
+					REG_CSR_ANA2L_CLKTX0_FORCE_OUT1,
+					CSR_ANA2L_PXP_CLKTX0_HZ);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy, REG_CSR_ANA2L_CLKTX1_OFFSET,
+					CSR_ANA2L_PXP_CLKTX1_HZ);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CLKTX0_FORCE_OUT1,
+					  CSR_ANA2L_PXP_CLKTX0_IMP_SEL, 0x12);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CLKTX1_IMP_SEL,
+					  CSR_ANA2L_PXP_CLKTX1_IMP_SEL, 0x12);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy,
+					REG_CSR_ANA2L_TXPLL_POSTDIV_D256,
+					CSR_ANA2L_PXP_CLKTX0_SR);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy, REG_CSR_ANA2L_CLKTX1_OFFSET,
+					CSR_ANA2L_PXP_CLKTX1_SR);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_PLL_CMN_RESERVE0,
+					  CSR_ANA2L_PXP_PLL_RESERVE_MASK,
+					  0xdd);
 }
 
 static void airoha_pcie_phy_init_csr_ana2l(struct airoha_pcie_phy *pcie_phy)
 {
-	airoha_phy_set_bits(pcie_phy->pma0 + REG_PCIE_PMA_SW_RESET,
-			    PCIE_SW_XFI_RXPCS_RST | PCIE_SW_REF_RST |
-			    PCIE_SW_RX_RST);
-	airoha_phy_set_bits(pcie_phy->pma1 + REG_PCIE_PMA_SW_RESET,
-			    PCIE_SW_XFI_RXPCS_RST | PCIE_SW_REF_RST |
-			    PCIE_SW_RX_RST);
-	airoha_phy_set_bits(pcie_phy->pma0 + REG_PCIE_PMA_TX_RESET,
-			    PCIE_TX_TOP_RST | REG_PCIE_PMA_TX_RESET);
-	airoha_phy_set_bits(pcie_phy->pma1 + REG_PCIE_PMA_TX_RESET,
-			    PCIE_TX_TOP_RST | REG_PCIE_PMA_TX_RESET);
+	airoha_phy_pma0_set_bits(pcie_phy, REG_PCIE_PMA_SW_RESET,
+				 PCIE_SW_XFI_RXPCS_RST | PCIE_SW_REF_RST |
+				 PCIE_SW_RX_RST);
+	airoha_phy_pma1_set_bits(pcie_phy, REG_PCIE_PMA_SW_RESET,
+				 PCIE_SW_XFI_RXPCS_RST | PCIE_SW_REF_RST |
+				 PCIE_SW_RX_RST);
+	airoha_phy_pma0_set_bits(pcie_phy, REG_PCIE_PMA_TX_RESET,
+				 PCIE_TX_TOP_RST | REG_PCIE_PMA_TX_RESET);
+	airoha_phy_pma1_set_bits(pcie_phy, REG_PCIE_PMA_TX_RESET,
+				 PCIE_TX_TOP_RST | REG_PCIE_PMA_TX_RESET);
 }
 
 static void airoha_pcie_phy_init_rx(struct airoha_pcie_phy *pcie_phy)
 {
 	writel(0x2a00090b, pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_17);
 	writel(0x2a00090b, pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_17);
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_MONPI,
-			    CSR_ANA2L_PXP_CDR0_PR_XFICK_EN);
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_MONPI,
-			    CSR_ANA2L_PXP_CDR1_PR_XFICK_EN);
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_CDR0_PD_PICAL_CKD8_INV,
-			      CSR_ANA2L_PXP_CDR0_PD_EDGE_DISABLE);
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_CDR1_PD_PICAL_CKD8_INV,
-			      CSR_ANA2L_PXP_CDR1_PD_EDGE_DISABLE);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX0_PHYCK_DIV,
-				CSR_ANA2L_PXP_RX0_PHYCK_SEL, 0x1);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX1_PHYCK_DIV,
-				CSR_ANA2L_PXP_RX1_PHYCK_SEL, 0x1);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_CDR0_PR_MONPI,
+				      CSR_ANA2L_PXP_CDR0_PR_XFICK_EN);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_CDR1_PR_MONPI,
+				      CSR_ANA2L_PXP_CDR1_PR_XFICK_EN);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy,
+					REG_CSR_ANA2L_CDR0_PD_PICAL_CKD8_INV,
+					CSR_ANA2L_PXP_CDR0_PD_EDGE_DISABLE);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy,
+					REG_CSR_ANA2L_CDR1_PD_PICAL_CKD8_INV,
+					CSR_ANA2L_PXP_CDR1_PD_EDGE_DISABLE);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_RX0_PHYCK_DIV,
+					  CSR_ANA2L_PXP_RX0_PHYCK_SEL, 0x1);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_RX1_PHYCK_DIV,
+					  CSR_ANA2L_PXP_RX1_PHYCK_SEL, 0x1);
 }
 
 static void airoha_pcie_phy_init_jcpll(struct airoha_pcie_phy *pcie_phy)
 {
-	airoha_phy_set_bits(pcie_phy->pma0 +
-			    REG_PCIE_PMA_FORCE_PXP_JCPLL_CKOUT,
-			    PCIE_FORCE_SEL_DA_PXP_JCPLL_EN);
-	airoha_phy_clear_bits(pcie_phy->pma0 +
-			      REG_PCIE_PMA_FORCE_PXP_JCPLL_CKOUT,
-			      PCIE_FORCE_DA_PXP_JCPLL_EN);
-	airoha_phy_set_bits(pcie_phy->pma1 +
-			    REG_PCIE_PMA_FORCE_PXP_JCPLL_CKOUT,
-			    PCIE_FORCE_SEL_DA_PXP_JCPLL_EN);
-	airoha_phy_clear_bits(pcie_phy->pma1 +
-			      REG_PCIE_PMA_FORCE_PXP_JCPLL_CKOUT,
-			      PCIE_FORCE_DA_PXP_JCPLL_EN);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_JCPLL_TCL_VTP_EN,
-				CSR_ANA2L_PXP_JCPLL_SPARE_LOW, 0x20);
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_JCPLL_RST_DLY,
-			    CSR_ANA2L_PXP_JCPLL_RST);
-	writel(0x0, pcie_phy->csr_ana2l + REG_PCIE_CSR_ANA2L_JCPLL_SSC_DELTA1);
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_JCPLL_SSC_PERIOD,
-			      CSR_ANA2L_PXP_JCPLL_SSC_PERIOD);
+	airoha_phy_pma0_set_bits(pcie_phy, REG_PCIE_PMA_FORCE_PXP_JCPLL_CKOUT,
+				 PCIE_FORCE_SEL_DA_PXP_JCPLL_EN);
+	airoha_phy_pma0_clear_bits(pcie_phy,
+				   REG_PCIE_PMA_FORCE_PXP_JCPLL_CKOUT,
+				   PCIE_FORCE_DA_PXP_JCPLL_EN);
+	airoha_phy_pma1_set_bits(pcie_phy, REG_PCIE_PMA_FORCE_PXP_JCPLL_CKOUT,
+				 PCIE_FORCE_SEL_DA_PXP_JCPLL_EN);
+	airoha_phy_pma1_clear_bits(pcie_phy,
+				   REG_PCIE_PMA_FORCE_PXP_JCPLL_CKOUT,
+				   PCIE_FORCE_DA_PXP_JCPLL_EN);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_JCPLL_TCL_VTP_EN,
+					  CSR_ANA2L_PXP_JCPLL_SPARE_LOW, 0x20);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy,
+				      REG_CSR_ANA2L_JCPLL_RST_DLY,
+				      CSR_ANA2L_PXP_JCPLL_RST);
+	writel(0x0, pcie_phy->csr_ana2l + REG_CSR_ANA2L_JCPLL_SSC_DELTA1);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy,
+					REG_CSR_ANA2L_JCPLL_SSC_PERIOD,
+					CSR_ANA2L_PXP_JCPLL_SSC_PERIOD);
 
  RG_PXP_2L_JCPLL_SSC_EN.dat.value = Reg_R(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SSC_EN);
  RG_PXP_2L_JCPLL_SSC_EN.hal.rg_pxp_2l_jcpll_ssc_phase_ini = 0x0; 
@@ -959,379 +986,6 @@ static void airoha_pcie_phy_init_jcpll(struct airoha_pcie_phy *pcie_phy)
 
 static void airoha_pcie_phy_txpll(struct airoha_pcie_phy *pcie_phy)
 {
-}
-
-static void
-airoha_pcie_phy_set_rxlan0_signal_detect(struct airoha_pcie_phy *pcie_phy)
-{
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_COR_HBW,
-			    CSR_ANA2L_PXP_CDR0_PR_LDO_FORCE_ON);
-
-	usleep_range(100, 200);
-
-	airoha_phy_update_field(pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_19,
-				PCIE_PCP_RX_REV0_PCIE_GEN1, 0x18b0);
-	airoha_phy_update_field(pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_20,
-				PCIE_PCP_RX_REV0_PCIE_GEN2, 0x18b0);
-	airoha_phy_update_field(pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_20,
-				PCIE_PCP_RX_REV0_PCIE_GEN3, 0x1030);
-
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX0_SIGDET_DCTEST,
-				CSR_ANA2L_PXP_RX0_SIGDET_PEAK, 0x2);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX0_SIGDET_VTH_SEL,
-				CSR_ANA2L_PXP_RX0_SIGDET_VTH_SEL, 0x5);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX0_REV0,
-				CSR_ANA2L_PXP_VOS_PNINV, 0x2);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX0_SIGDET_DCTEST,
-				CSR_ANA2L_PXP_RX0_SIGDET_LPF_CTRL, 0x1);
-
-	airoha_phy_update_field(pcie_phy->pma0 + REG_PCIE_SS_RX_CAL2,
-				PCIE_CAL_OUT_OS, 0x0);
-
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2_PXP_RX0_FE_VB_EQ2,
-			    CSR_ANA2L_PXP_RX0_FE_VCM_GEN_PWDB);
-
-	airoha_phy_set_bits(pcie_phy->pma0 +
-			    REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_GAIN_CTRL,
-			    PCIE_FORCE_SEL_DA_PXP_RX_FE_PWDB);
-	airoha_phy_update_field(pcie_phy->pma0 +
-				REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_GAIN_CTRL,
-				PCIE_FORCE_DA_PXP_RX_FE_GAIN_CTRL, 0x3);
-	airoha_phy_update_field(pcie_phy->pma0 + REG_PCIE_PMA_RX_FORCE_MODE0,
-				PCIE_FORCE_DA_XPON_RX_FE_GAIN_CTRL, 0x1);
-	airoha_phy_update_field(pcie_phy->pma0 + REG_PCIE_PMA_SS_RX_SIGDET0,
-				PCIE_SIGDET_WIN_NONVLD_TIMES, 0x3);
-	airoha_phy_clear_bits(pcie_phy->pma0 + REG_PCIE_SEQUENCE_DISB_CTRL1,
-			      PCIE_DISB_RX_SDCAL_EN);
-
-	airoha_phy_set_bits(pcie_phy->pma0 +
-			    REG_PCIE_CTRL_SEQUENCE_FORCE_CTRL1,
-			    PCIE_FORCE_RX_SDCAL_EN);
-	usleep_range(150, 200);
-	airoha_phy_clear_bits(pcie_phy->pma0 +
-			      REG_PCIE_CTRL_SEQUENCE_FORCE_CTRL1,
-			      PCIE_FORCE_RX_SDCAL_EN);
-}
-
-static void
-airoha_pcie_phy_set_rxlan1_signal_detect(struct airoha_pcie_phy *pcie_phy)
-{
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_COR_HBW,
-			    CSR_ANA2L_PXP_CDR1_PR_LDO_FORCE_ON);
-
-	usleep_range(100, 200);
-
-	airoha_phy_update_field(pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_19,
-				PCIE_PCP_RX_REV0_PCIE_GEN1, 0x18b0);
-	airoha_phy_update_field(pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_20,
-				PCIE_PCP_RX_REV0_PCIE_GEN2, 0x18b0);
-	airoha_phy_update_field(pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_20,
-				PCIE_PCP_RX_REV0_PCIE_GEN3, 0x1030);
-
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX1_SIGDET_NOVTH,
-				CSR_ANA2L_PXP_RX1_SIGDET_PEAK, 0x2);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX1_SIGDET_NOVTH,
-				CSR_ANA2L_PXP_RX1_SIGDET_VTH_SEL, 0x5);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX1_REV0,
-				CSR_ANA2L_PXP_VOS_PNINV, 0x2);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX1_DAC_RANGE_EYE,
-				CSR_ANA2L_PXP_RX1_SIGDET_LPF_CTRL, 0x1);
-
-	airoha_phy_update_field(pcie_phy->pma1 + REG_PCIE_SS_RX_CAL2,
-				PCIE_CAL_OUT_OS, 0x0);
-
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_RX1_FE_VB_EQ1,
-			    CSR_ANA2L_PXP_RX1_FE_VCM_GEN_PWDB);
-
-	airoha_phy_set_bits(pcie_phy->pma1 +
-			    REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_GAIN_CTRL,
-			    PCIE_FORCE_SEL_DA_PXP_RX_FE_PWDB);
-	airoha_phy_update_field(pcie_phy->pma1 +
-				REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_GAIN_CTRL,
-				PCIE_FORCE_DA_PXP_RX_FE_GAIN_CTRL, 0x3);
-	airoha_phy_update_field(pcie_phy->pma1 + REG_PCIE_PMA_RX_FORCE_MODE0,
-				PCIE_FORCE_DA_XPON_RX_FE_GAIN_CTRL, 0x1);
-	airoha_phy_update_field(pcie_phy->pma1 + REG_PCIE_PMA_SS_RX_SIGDET0,
-				PCIE_SIGDET_WIN_NONVLD_TIMES, 0x3);
-	airoha_phy_clear_bits(pcie_phy->pma1 + REG_PCIE_SEQUENCE_DISB_CTRL1,
-			      PCIE_DISB_RX_SDCAL_EN);
-
-	airoha_phy_set_bits(pcie_phy->pma1 +
-			    REG_PCIE_CTRL_SEQUENCE_FORCE_CTRL1,
-			    PCIE_FORCE_RX_SDCAL_EN);
-	usleep_range(150, 200);
-	airoha_phy_clear_bits(pcie_phy->pma1 +
-			      REG_PCIE_CTRL_SEQUENCE_FORCE_CTRL1,
-			      PCIE_FORCE_RX_SDCAL_EN);
-}
-
-static void airoha_pcie_phy_set_rxflow(struct airoha_pcie_phy *pcie_phy)
-{
-	airoha_phy_set_bits(pcie_phy->pma0 +
-			    REG_PCIE_PMA_FORCE_DA_PXP_RX_SCAN_RST,
-			    PCIE_FORCE_DA_PXP_RX_SIGDET_PWDB |
-			    PCIE_FORCE_SEL_DA_PXP_RX_SIGDET_PWDB);
-	airoha_phy_set_bits(pcie_phy->pma1 +
-			    REG_PCIE_PMA_FORCE_DA_PXP_RX_SCAN_RST,
-			    PCIE_FORCE_DA_PXP_RX_SIGDET_PWDB |
-			    PCIE_FORCE_SEL_DA_PXP_RX_SIGDET_PWDB);
-
-	airoha_phy_set_bits(pcie_phy->pma0 +
-			    REG_PCIE_PMA_FORCE_DA_PXP_CDR_PD_PWDB,
-			    PCIE_FORCE_DA_PXP_CDR_PD_PWDB |
-			    PCIE_FORCE_SEL_DA_PXP_CDR_PD_PWDB);
-	airoha_phy_set_bits(pcie_phy->pma0 +
-			    REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_PWDB,
-			    PCIE_FORCE_DA_PXP_RX_FE_PWDB |
-			    PCIE_FORCE_SEL_DA_PXP_RX_FE_PWDB);
-	airoha_phy_set_bits(pcie_phy->pma1 +
-			    REG_PCIE_PMA_FORCE_DA_PXP_CDR_PD_PWDB,
-			    PCIE_FORCE_DA_PXP_CDR_PD_PWDB |
-			    PCIE_FORCE_SEL_DA_PXP_CDR_PD_PWDB);
-	airoha_phy_set_bits(pcie_phy->pma1 +
-			    REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_PWDB,
-			    PCIE_FORCE_DA_PXP_RX_FE_PWDB |
-			    PCIE_FORCE_SEL_DA_PXP_RX_FE_PWDB);
-
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_RX0_PHYCK_DIV,
-			    CSR_ANA2L_PXP_RX0_PHYCK_RSTB |
-			    CSR_ANA2L_PXP_RX0_TDC_CK_SEL);
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_RX1_PHYCK_DIV,
-			    CSR_ANA2L_PXP_RX1_PHYCK_RSTB |
-			    CSR_ANA2L_PXP_RX1_TDC_CK_SEL);
-
-	airoha_phy_set_bits(pcie_phy->pma0 + REG_PCIE_PMA_SW_RESET,
-			    PCIE_SW_RX_FIFO_RST | PCIE_SW_TX_RST |
-			    PCIE_SW_PMA_RST | PCIE_SW_ALLPCS_RST |
-			    PCIE_SW_TX_FIFO_RST);
-	airoha_phy_set_bits(pcie_phy->pma1 + REG_PCIE_PMA_SW_RESET,
-			    PCIE_SW_RX_FIFO_RST | PCIE_SW_TX_RST |
-			    PCIE_SW_PMA_RST | PCIE_SW_ALLPCS_RST |
-			    PCIE_SW_TX_FIFO_RST);
-
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2_PXP_RX0_FE_VB_EQ2,
-			    CSR_ANA2L_PXP_RX0_FE_VB_EQ2_EN |
-			    CSR_ANA2L_PXP_RX0_FE_VB_EQ3_EN);
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_RX0_SIGDET_VTH_SEL,
-			    CSR_ANA2L_PXP_RX0_FE_VB_EQ1_EN);
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_RX1_FE_VB_EQ1,
-			    CSR_ANA2L_PXP_RX1_FE_VB_EQ1_EN |
-			    CSR_ANA2L_PXP_RX1_FE_VB_EQ2_EN |
-			    CSR_ANA2L_PXP_RX1_FE_VB_EQ3_EN);
-
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX0_REV0,
-				CSR_ANA2L_PXP_FE_GAIN_NORMAL_MODE, 0x4);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX0_REV0,
-				CSR_ANA2L_PXP_FE_GAIN_TRAIN_MODE, 0x4);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX1_REV0,
-				CSR_ANA2L_PXP_FE_GAIN_NORMAL_MODE, 0x4);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX1_REV0,
-				CSR_ANA2L_PXP_FE_GAIN_TRAIN_MODE, 0x4);
-}
-
-static void airoha_pcie_phy_set_pr(struct airoha_pcie_phy *pcie_phy)
-{
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_VREG_IBAND,
-				CSR_ANA2L_PXP_CDR0_PR_VREG_IBAND, 0x5);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_VREG_IBAND,
-				CSR_ANA2L_PXP_CDR0_PR_VREG_CKBUF, 0x5);
-
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_CKREF_DIV,
-			      CSR_ANA2L_PXP_CDR0_PR_CKREF_DIV);
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_COR_HBW,
-			      CSR_ANA2L_PXP_CDR0_PR_CKREF_DIV1);
-
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_VREG_IBAND_VAL,
-				CSR_ANA2L_PXP_CDR1_PR_VREG_IBAND, 0x5);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_VREG_IBAND_VAL,
-				CSR_ANA2L_PXP_CDR1_PR_VREG_CKBUF, 0x5);
-
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_CKREF_DIV,
-			      CSR_ANA2L_PXP_CDR1_PR_CKREF_DIV);
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_COR_HBW,
-			      CSR_ANA2L_PXP_CDR1_PR_CKREF_DIV1);
-
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR0_LPF_RATIO,
-				CSR_ANA2L_PXP_CDR0_LPF_TOP_LIM, 0x20000);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR1_LPF_RATIO,
-				CSR_ANA2L_PXP_CDR1_LPF_TOP_LIM, 0x20000);
-
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_BETA_DAC,
-				CSR_ANA2L_PXP_CDR0_PR_BETA_SEL, 0x2);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_BETA_DAC,
-				CSR_ANA2L_PXP_CDR1_PR_BETA_SEL, 0x2);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_BETA_DAC,
-				CSR_ANA2L_PXP_CDR0_PR_KBAND_DIV, 0x4);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_BETA_DAC,
-				CSR_ANA2L_PXP_CDR1_PR_KBAND_DIV, 0x4);
-}
-
-static void airoha_pcie_phy_set_txflow(struct airoha_pcie_phy *pcie_phy)
-{
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_TX0_CKLDO,
-			    CSR_ANA2L_PXP_TX0_CKLDO_EN);
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_TX1_CKLDO,
-			    CSR_ANA2L_PXP_TX1_CKLDO_EN);
-
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_TX0_CKLDO,
-			    CSR_ANA2L_PXP_TX0_DMEDGEGEN_EN);
-	airoha_phy_set_bits(pcie_phy->csr_ana2l +
-			    REG_PCIE_CSR_ANA2L_PXP_TX1_CKLDO,
-			    CSR_ANA2L_PXP_TX1_DMEDGEGEN_EN);
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_TX1_MULTLANE,
-			      CSR_ANA2L_PXP_TX1_MULTLANE_EN);
-}
-
-static void airoha_pcie_phy_set_rx_mode(struct airoha_pcie_phy *pcie_phy)
-{
-	writel(0x804000, pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_27);
-	airoha_phy_update_field(pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_18,
-				PCIE_PXP_RX_VTH_SEL_PCIE_G1, 0x5);
-	airoha_phy_update_field(pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_18,
-				PCIE_PXP_RX_VTH_SEL_PCIE_G2, 0x5);
-	airoha_phy_update_field(pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_18,
-				PCIE_PXP_RX_VTH_SEL_PCIE_G3, 0x5);
-	airoha_phy_set_bits(pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_30,
-			    0x77700);
-
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_MONCK,
-			      CSR_ANA2L_PXP_CDR0_PR_MONCK_ENABLE);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR0_PR_MONCK,
-				CSR_ANA2L_PXP_CDR0_PR_RESERVE0, 0x2);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2_PXP_RX0_OSCAL_CTLE1IOS,
-				CSR_ANA2L_PXP_RX0_PR_OSCAL_VGA1IOS, 0x19);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2_PXP_RX0_OSCA_VGA1VOS,
-				CSR_ANA2L_PXP_RX0_PR_OSCAL_VGA1VOS, 0x19);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2_PXP_RX0_OSCA_VGA1VOS,
-				CSR_ANA2L_PXP_RX0_PR_OSCAL_VGA2IOS, 0x14);
-
-	writel(0x804000, pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_27);
-	airoha_phy_update_field(pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_18,
-				PCIE_PXP_RX_VTH_SEL_PCIE_G1, 0x5);
-	airoha_phy_update_field(pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_18,
-				PCIE_PXP_RX_VTH_SEL_PCIE_G2, 0x5);
-	airoha_phy_update_field(pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_18,
-				PCIE_PXP_RX_VTH_SEL_PCIE_G3, 0x5);
-
-	airoha_phy_set_bits(pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_30,
-			    0x77700);
-
-	airoha_phy_clear_bits(pcie_phy->csr_ana2l +
-			      REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_MONCK,
-			      CSR_ANA2L_PXP_CDR1_PR_MONCK_ENABLE);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_CDR1_PR_MONCK,
-				CSR_ANA2L_PXP_CDR1_PR_RESERVE0, 0x2);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX1_OSCAL_VGA1IOS,
-				CSR_ANA2L_PXP_RX1_PR_OSCAL_VGA1IOS, 0x19);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX1_OSCAL_VGA1IOS,
-				CSR_ANA2L_PXP_RX1_PR_OSCAL_VGA1VOS, 0x19);
-	airoha_phy_update_field(pcie_phy->csr_ana2l +
-				REG_PCIE_CSR_ANA2L_PXP_RX1_OSCAL_VGA1IOS,
-				CSR_ANA2L_PXP_RX1_PR_OSCAL_VGA2IOS, 0x14);
-}
-
-static void airoha_pcie_phy_load_kflow(struct airoha_pcie_phy *pcie_phy)
-{
-	airoha_phy_update_field(pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_12,
-				PCIE_FORCE_PMA_RX_SPEED, 0xa);
-	airoha_phy_update_field(pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_12,
-				PCIE_FORCE_PMA_RX_SPEED, 0xa);
-	Rx_PR_Fw_Pre_Cal(pcie_phy, 3,0); 
-	Rx_PR_Fw_Pre_Cal(pcie_phy, 3,1);
-
-	airoha_phy_clear_bits(pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_12,
-			      PCIE_FORCE_PMA_RX_SPEED);
-	airoha_phy_clear_bits(pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_12,
-			      PCIE_FORCE_PMA_RX_SPEED);
-	usleep_range(100, 200);
-
-	Rx_PR_Fw_Pre_Cal(pcie_phy, 2,0); 
-	Rx_PR_Fw_Pre_Cal(pcie_phy, 2,1);
-}
-
-/**
- * airoha_pcie_phy_init() - Initialize the phy
- * @phy: the phy to be initialized
- *
- * Initialize the phy registers.
- * The hardware settings will be reset during suspend, it should be
- * reinitialized when the consumer calls phy_init() again on resume.
- */
-static int airoha_pcie_phy_init(struct phy *phy)
-{
-	struct airoha_pcie_phy *pcie_phy = phy_get_drvdata(phy);
-
-	/* enable load FLL-K flow */
-	airoha_phy_set_bits(pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_14,
-				 PCIE_FLL_LOAD_EN);
-	airoha_phy_set_bits(pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_14,
-				 PCIE_FLL_LOAD_EN);
-
-	airoha_pcie_phy_init_set_default(pcie_phy);
-	airoha_pcie_phy_init_clk_out(pcie_phy);
-	airoha_pcie_phy_init_csr_ana2l(pcie_phy);
-
-	usleep_range(100, 200);
-
-	airoha_pcie_phy_init_rx(pcie_phy);
-	/* phase 1, no ssc for K TXPLL */
-	airoha_pcie_phy_init_jcpll(pcie_phy);
-
-	usleep_range(500, 600);
-
-	airoha_pcie_phy_txpll(pcie_phy);
-
- udelay(200);
-
-
-//*******  TXPLL SETTING
  rg_force_da_pxp_txpll_ckout_en.dat.value = Reg_R(pcie_phy, PCIE_PMA0, PMA_OFFSET, _rg_force_da_pxp_txpll_ckout_en);
  rg_force_da_pxp_txpll_ckout_en.hal.rg_force_sel_da_pxp_txpll_en = 0x1; 
  rg_force_da_pxp_txpll_ckout_en.hal.rg_force_da_pxp_txpll_en = 0x0; 
@@ -1554,41 +1208,411 @@ static int airoha_pcie_phy_init(struct phy *phy)
  rg_force_da_pxp_txpll_ckout_en.hal.rg_force_sel_da_pxp_txpll_en = 0x1; 
  rg_force_da_pxp_txpll_ckout_en.hal.rg_force_da_pxp_txpll_en = 0x1; 
  Reg_W(pcie_phy, PCIE_PMA1, PMA_OFFSET, _rg_force_da_pxp_txpll_ckout_en, rg_force_da_pxp_txpll_ckout_en.dat.value);
+}
 
- udelay(200);
+static void airoha_pcie_phy_init_ssc_jcpll(struct airoha_pcie_phy *pcie_phy)
+{
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_JCPLL_SSC_DELTA1,
+					  CSR_ANA2L_PXP_JCPLL_SSC_DELTA1,
+					  0x106);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_JCPLL_SSC_DELTA1,
+					  CSR_ANA2L_PXP_JCPLL_SSC_DELTA,
+					  0x106);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_JCPLL_SSC_PERIOD,
+					  CSR_ANA2L_PXP_JCPLL_SSC_PERIOD,
+					  0x31b);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_JCPLL_SSC,
+				      CSR_ANA2L_PXP_JCPLL_SSC_PHASE_INI);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_JCPLL_SSC,
+				      CSR_ANA2L_PXP_JCPLL_SSC_EN);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_JCPLL_SDM_IFM,
+				      CSR_ANA2L_PXP_JCPLL_SDM_IFM);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_JCPLL_SDM_HREN,
+				      REG_CSR_ANA2L_JCPLL_SDM_HREN);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy, REG_CSR_ANA2L_JCPLL_RST_DLY,
+					CSR_ANA2L_PXP_JCPLL_SDM_DI_EN);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_JCPLL_SSC,
+				      CSR_ANA2L_PXP_JCPLL_SSC_TRI_EN);
+}
 
+static void
+airoha_pcie_phy_set_rxlan0_signal_detect(struct airoha_pcie_phy *pcie_phy)
+{
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_CDR0_PR_COR_HBW,
+				      CSR_ANA2L_PXP_CDR0_PR_LDO_FORCE_ON);
 
-//*******  SSC JCPLL SETTING
- RG_PXP_2L_JCPLL_SSC_DELTA1.dat.value = Reg_R(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SSC_DELTA1);
- RG_PXP_2L_JCPLL_SSC_DELTA1.hal.rg_pxp_2l_jcpll_ssc_delta = 0x106; 
- RG_PXP_2L_JCPLL_SSC_DELTA1.hal.rg_pxp_2l_jcpll_ssc_delta1 = 0x106; 
- Reg_W(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SSC_DELTA1, RG_PXP_2L_JCPLL_SSC_DELTA1.dat.value);
+	usleep_range(100, 200);
 
- RG_PXP_2L_JCPLL_SSC_PERIOD.dat.value = Reg_R(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SSC_PERIOD);
- RG_PXP_2L_JCPLL_SSC_PERIOD.hal.rg_pxp_2l_jcpll_ssc_period = 0x31B; 
- Reg_W(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SSC_PERIOD, RG_PXP_2L_JCPLL_SSC_PERIOD.dat.value);
+	airoha_phy_pma0_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_19,
+				     PCIE_PCP_RX_REV0_PCIE_GEN1, 0x18b0);
+	airoha_phy_pma0_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_20,
+				     PCIE_PCP_RX_REV0_PCIE_GEN2, 0x18b0);
+	airoha_phy_pma0_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_20,
+				     PCIE_PCP_RX_REV0_PCIE_GEN3, 0x1030);
 
- RG_PXP_2L_JCPLL_SSC_EN.dat.value = Reg_R(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SSC_EN);
- RG_PXP_2L_JCPLL_SSC_EN.hal.rg_pxp_2l_jcpll_ssc_phase_ini = 0x1; 
- RG_PXP_2L_JCPLL_SSC_EN.hal.rg_pxp_2l_jcpll_ssc_en = 0x1; //enable SSC after TXPLL complete cal
- Reg_W(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SSC_EN, RG_PXP_2L_JCPLL_SSC_EN.dat.value);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_RX0_SIGDET_DCTEST,
+					  CSR_ANA2L_PXP_RX0_SIGDET_PEAK, 0x2);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_RX0_SIGDET_VTH_SEL,
+					  CSR_ANA2L_PXP_RX0_SIGDET_VTH_SEL,
+					  0x5);
+	airoha_phy_csr_ana2l_update_field(pcie_phy, REG_CSR_ANA2L_RX0_REV0,
+					  CSR_ANA2L_PXP_VOS_PNINV, 0x2);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_RX0_SIGDET_DCTEST,
+					  CSR_ANA2L_PXP_RX0_SIGDET_LPF_CTRL,
+					  0x1);
 
- RG_PXP_2L_JCPLL_SDM_IFM.dat.value = Reg_R(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SDM_IFM);
- RG_PXP_2L_JCPLL_SDM_IFM.hal.rg_pxp_2l_jcpll_sdm_ifm = 0x1; 
- Reg_W(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SDM_IFM, RG_PXP_2L_JCPLL_SDM_IFM.dat.value);
+	airoha_phy_pma0_update_field(pcie_phy, REG_PCIE_PMA_SS_RX_CAL2,
+				     PCIE_CAL_OUT_OS, 0x0);
 
- RG_PXP_2L_JCPLL_SDM_HREN.dat.value = Reg_R(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SDM_HREN);
- RG_PXP_2L_JCPLL_SDM_HREN.hal.rg_pxp_2l_jcpll_sdm_hren = 0x1; 
- Reg_W(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SDM_HREN, RG_PXP_2L_JCPLL_SDM_HREN.dat.value);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy,
+				      REG_PCIE_CSR_ANA2_PXP_RX0_FE_VB_EQ2,
+				      CSR_ANA2L_PXP_RX0_FE_VCM_GEN_PWDB);
 
- RG_PXP_2L_JCPLL_RST_DLY.dat.value = Reg_R(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_RST_DLY);
- RG_PXP_2L_JCPLL_RST_DLY.hal.rg_pxp_2l_jcpll_sdm_di_en = 0x0; 
- Reg_W(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_RST_DLY, RG_PXP_2L_JCPLL_RST_DLY.dat.value);
+	airoha_phy_pma0_set_bits(pcie_phy,
+				 REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_GAIN_CTRL,
+				 PCIE_FORCE_SEL_DA_PXP_RX_FE_PWDB);
+	airoha_phy_pma0_update_field(pcie_phy,
+				     REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_GAIN_CTRL,
+				     PCIE_FORCE_DA_PXP_RX_FE_GAIN_CTRL, 0x3);
+	airoha_phy_pma0_update_field(pcie_phy, REG_PCIE_PMA_RX_FORCE_MODE0,
+				     PCIE_FORCE_DA_XPON_RX_FE_GAIN_CTRL, 0x1);
+	airoha_phy_pma0_update_field(pcie_phy, REG_PCIE_PMA_SS_RX_SIGDET0,
+				     PCIE_SIGDET_WIN_NONVLD_TIMES, 0x3);
+	airoha_phy_pma0_clear_bits(pcie_phy, REG_PCIE_PMA_SEQUENCE_DISB_CTRL1,
+				   PCIE_DISB_RX_SDCAL_EN);
 
- RG_PXP_2L_JCPLL_SSC_EN.dat.value = Reg_R(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SSC_EN);
- RG_PXP_2L_JCPLL_SSC_EN.hal.rg_pxp_2l_jcpll_ssc_tri_en = 0x1; 
- Reg_W(pcie_phy, PCIE_ANA_2L, ANA_OFFSET, _RG_PXP_2L_JCPLL_SSC_EN, RG_PXP_2L_JCPLL_SSC_EN.dat.value);
+	airoha_phy_pma0_set_bits(pcie_phy,
+				 REG_PCIE_PMA_CTRL_SEQUENCE_FORCE_CTRL1,
+				 PCIE_FORCE_RX_SDCAL_EN);
+	usleep_range(150, 200);
+	airoha_phy_pma0_clear_bits(pcie_phy,
+				   REG_PCIE_PMA_CTRL_SEQUENCE_FORCE_CTRL1,
+				   PCIE_FORCE_RX_SDCAL_EN);
+}
 
+static void
+airoha_pcie_phy_set_rxlan1_signal_detect(struct airoha_pcie_phy *pcie_phy)
+{
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_CDR1_PR_COR_HBW,
+				      CSR_ANA2L_PXP_CDR1_PR_LDO_FORCE_ON);
+
+	usleep_range(100, 200);
+
+	airoha_phy_pma1_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_19,
+				     PCIE_PCP_RX_REV0_PCIE_GEN1, 0x18b0);
+	airoha_phy_pma1_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_20,
+				     PCIE_PCP_RX_REV0_PCIE_GEN2, 0x18b0);
+	airoha_phy_pma1_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_20,
+				     PCIE_PCP_RX_REV0_PCIE_GEN3, 0x1030);
+
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_RX1_SIGDET_NOVTH,
+					  CSR_ANA2L_PXP_RX1_SIGDET_PEAK, 0x2);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_RX1_SIGDET_NOVTH,
+					  CSR_ANA2L_PXP_RX1_SIGDET_VTH_SEL,
+					  0x5);
+	airoha_phy_csr_ana2l_update_field(pcie_phy, REG_CSR_ANA2L_RX1_REV0,
+					  CSR_ANA2L_PXP_VOS_PNINV, 0x2);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_RX1_DAC_RANGE_EYE,
+					  CSR_ANA2L_PXP_RX1_SIGDET_LPF_CTRL,
+					  0x1);
+
+	airoha_phy_pma1_update_field(pcie_phy, REG_PCIE_PMA_SS_RX_CAL2,
+				     PCIE_CAL_OUT_OS, 0x0);
+
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_RX1_FE_VB_EQ1,
+				      CSR_ANA2L_PXP_RX1_FE_VCM_GEN_PWDB);
+
+	airoha_phy_pma1_set_bits(pcie_phy,
+				 REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_GAIN_CTRL,
+				 PCIE_FORCE_SEL_DA_PXP_RX_FE_PWDB);
+	airoha_phy_pma1_update_field(pcie_phy,
+				     REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_GAIN_CTRL,
+				     PCIE_FORCE_DA_PXP_RX_FE_GAIN_CTRL, 0x3);
+	airoha_phy_pma1_update_field(pcie_phy, REG_PCIE_PMA_RX_FORCE_MODE0,
+				     PCIE_FORCE_DA_XPON_RX_FE_GAIN_CTRL, 0x1);
+	airoha_phy_pma1_update_field(pcie_phy, REG_PCIE_PMA_SS_RX_SIGDET0,
+				     PCIE_SIGDET_WIN_NONVLD_TIMES, 0x3);
+	airoha_phy_pma1_clear_bits(pcie_phy, REG_PCIE_PMA_SEQUENCE_DISB_CTRL1,
+				   PCIE_DISB_RX_SDCAL_EN);
+
+	airoha_phy_pma1_set_bits(pcie_phy,
+				 REG_PCIE_PMA_CTRL_SEQUENCE_FORCE_CTRL1,
+				 PCIE_FORCE_RX_SDCAL_EN);
+	usleep_range(150, 200);
+	airoha_phy_pma1_clear_bits(pcie_phy,
+				   REG_PCIE_PMA_CTRL_SEQUENCE_FORCE_CTRL1,
+				   PCIE_FORCE_RX_SDCAL_EN);
+}
+
+static void airoha_pcie_phy_set_rxflow(struct airoha_pcie_phy *pcie_phy)
+{
+	airoha_phy_pma0_set_bits(pcie_phy,
+				 REG_PCIE_PMA_FORCE_DA_PXP_RX_SCAN_RST,
+				 PCIE_FORCE_DA_PXP_RX_SIGDET_PWDB |
+				 PCIE_FORCE_SEL_DA_PXP_RX_SIGDET_PWDB);
+	airoha_phy_pma1_set_bits(pcie_phy,
+				 REG_PCIE_PMA_FORCE_DA_PXP_RX_SCAN_RST,
+				 PCIE_FORCE_DA_PXP_RX_SIGDET_PWDB |
+				 PCIE_FORCE_SEL_DA_PXP_RX_SIGDET_PWDB);
+
+	airoha_phy_pma0_set_bits(pcie_phy,
+				 REG_PCIE_PMA_FORCE_DA_PXP_CDR_PD_PWDB,
+				 PCIE_FORCE_DA_PXP_CDR_PD_PWDB |
+				 PCIE_FORCE_SEL_DA_PXP_CDR_PD_PWDB);
+	airoha_phy_pma0_set_bits(pcie_phy,
+				 REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_PWDB,
+				 PCIE_FORCE_DA_PXP_RX_FE_PWDB |
+				 PCIE_FORCE_SEL_DA_PXP_RX_FE_PWDB);
+	airoha_phy_pma1_set_bits(pcie_phy,
+				 REG_PCIE_PMA_FORCE_DA_PXP_CDR_PD_PWDB,
+				 PCIE_FORCE_DA_PXP_CDR_PD_PWDB |
+				 PCIE_FORCE_SEL_DA_PXP_CDR_PD_PWDB);
+	airoha_phy_pma1_set_bits(pcie_phy,
+				 REG_PCIE_PMA_FORCE_DA_PXP_RX_FE_PWDB,
+				 PCIE_FORCE_DA_PXP_RX_FE_PWDB |
+				 PCIE_FORCE_SEL_DA_PXP_RX_FE_PWDB);
+
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_RX0_PHYCK_DIV,
+				      CSR_ANA2L_PXP_RX0_PHYCK_RSTB |
+				      CSR_ANA2L_PXP_RX0_TDC_CK_SEL);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_RX1_PHYCK_DIV,
+				      CSR_ANA2L_PXP_RX1_PHYCK_RSTB |
+				      CSR_ANA2L_PXP_RX1_TDC_CK_SEL);
+
+	airoha_phy_pma0_set_bits(pcie_phy, REG_PCIE_PMA_SW_RESET,
+				 PCIE_SW_RX_FIFO_RST | PCIE_SW_TX_RST |
+				 PCIE_SW_PMA_RST | PCIE_SW_ALLPCS_RST |
+				 PCIE_SW_TX_FIFO_RST);
+	airoha_phy_pma1_set_bits(pcie_phy, REG_PCIE_PMA_SW_RESET,
+				 PCIE_SW_RX_FIFO_RST | PCIE_SW_TX_RST |
+				 PCIE_SW_PMA_RST | PCIE_SW_ALLPCS_RST |
+				 PCIE_SW_TX_FIFO_RST);
+
+	airoha_phy_csr_ana2l_set_bits(pcie_phy,
+				      REG_PCIE_CSR_ANA2_PXP_RX0_FE_VB_EQ2,
+				      CSR_ANA2L_PXP_RX0_FE_VB_EQ2_EN |
+				      CSR_ANA2L_PXP_RX0_FE_VB_EQ3_EN);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy,
+				      REG_CSR_ANA2L_RX0_SIGDET_VTH_SEL,
+				      CSR_ANA2L_PXP_RX0_FE_VB_EQ1_EN);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_RX1_FE_VB_EQ1,
+				      CSR_ANA2L_PXP_RX1_FE_VB_EQ1_EN |
+				      CSR_ANA2L_PXP_RX1_FE_VB_EQ2_EN |
+				      CSR_ANA2L_PXP_RX1_FE_VB_EQ3_EN);
+
+	airoha_phy_csr_ana2l_update_field(pcie_phy, REG_CSR_ANA2L_RX0_REV0,
+					  CSR_ANA2L_PXP_FE_GAIN_NORMAL_MODE,
+					  0x4);
+	airoha_phy_csr_ana2l_update_field(pcie_phy, REG_CSR_ANA2L_RX0_REV0,
+					  CSR_ANA2L_PXP_FE_GAIN_TRAIN_MODE,
+					  0x4);
+	airoha_phy_csr_ana2l_update_field(pcie_phy, REG_CSR_ANA2L_RX1_REV0,
+					  CSR_ANA2L_PXP_FE_GAIN_NORMAL_MODE,
+					  0x4);
+	airoha_phy_csr_ana2l_update_field(pcie_phy, REG_CSR_ANA2L_RX1_REV0,
+					  CSR_ANA2L_PXP_FE_GAIN_TRAIN_MODE,
+					  0x4);
+}
+
+static void airoha_pcie_phy_set_pr(struct airoha_pcie_phy *pcie_phy)
+{
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR0_PR_VREG_IBAND,
+					  CSR_ANA2L_PXP_CDR0_PR_VREG_IBAND,
+					  0x5);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR0_PR_VREG_IBAND,
+					  CSR_ANA2L_PXP_CDR0_PR_VREG_CKBUF,
+					  0x5);
+
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy,
+					REG_CSR_ANA2L_CDR0_PR_CKREF_DIV,
+					CSR_ANA2L_PXP_CDR0_PR_CKREF_DIV);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy,
+					REG_CSR_ANA2L_CDR0_PR_COR_HBW,
+					CSR_ANA2L_PXP_CDR0_PR_CKREF_DIV1);
+
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR1_PR_VREG_IBAND_VAL,
+					  CSR_ANA2L_PXP_CDR1_PR_VREG_IBAND,
+					  0x5);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR1_PR_VREG_IBAND_VAL,
+					  CSR_ANA2L_PXP_CDR1_PR_VREG_CKBUF,
+					  0x5);
+
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy,
+					REG_CSR_ANA2L_CDR1_PR_CKREF_DIV,
+					CSR_ANA2L_PXP_CDR1_PR_CKREF_DIV);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy,
+					REG_CSR_ANA2L_CDR1_PR_COR_HBW,
+					CSR_ANA2L_PXP_CDR1_PR_CKREF_DIV1);
+
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR0_LPF_RATIO,
+					  CSR_ANA2L_PXP_CDR0_LPF_TOP_LIM,
+					  0x20000);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR1_LPF_RATIO,
+					  CSR_ANA2L_PXP_CDR1_LPF_TOP_LIM,
+					  0x20000);
+
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR0_PR_BETA_DAC,
+					  CSR_ANA2L_PXP_CDR0_PR_BETA_SEL, 0x2);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR1_PR_BETA_DAC,
+					  CSR_ANA2L_PXP_CDR1_PR_BETA_SEL, 0x2);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR0_PR_BETA_DAC,
+					  CSR_ANA2L_PXP_CDR0_PR_KBAND_DIV,
+					  0x4);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR1_PR_BETA_DAC,
+					  CSR_ANA2L_PXP_CDR1_PR_KBAND_DIV,
+					  0x4);
+}
+
+static void airoha_pcie_phy_set_txflow(struct airoha_pcie_phy *pcie_phy)
+{
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_TX0_CKLDO,
+				      CSR_ANA2L_PXP_TX0_CKLDO_EN);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_TX1_CKLDO,
+				      CSR_ANA2L_PXP_TX1_CKLDO_EN);
+
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_TX0_CKLDO,
+				      CSR_ANA2L_PXP_TX0_DMEDGEGEN_EN);
+	airoha_phy_csr_ana2l_set_bits(pcie_phy, REG_CSR_ANA2L_TX1_CKLDO,
+				      CSR_ANA2L_PXP_TX1_DMEDGEGEN_EN);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy, REG_CSR_ANA2L_TX1_MULTLANE,
+					CSR_ANA2L_PXP_TX1_MULTLANE_EN);
+}
+
+static void airoha_pcie_phy_set_rx_mode(struct airoha_pcie_phy *pcie_phy)
+{
+	writel(0x804000, pcie_phy->pma0 + REG_PCIE_PMA_DIG_RESERVE_27);
+	airoha_phy_pma0_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_18,
+				     PCIE_PXP_RX_VTH_SEL_PCIE_G1, 0x5);
+	airoha_phy_pma0_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_18,
+				     PCIE_PXP_RX_VTH_SEL_PCIE_G2, 0x5);
+	airoha_phy_pma0_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_18,
+				     PCIE_PXP_RX_VTH_SEL_PCIE_G3, 0x5);
+	airoha_phy_pma0_set_bits(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_30,
+				 0x77700);
+
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy, REG_CSR_ANA2L_CDR0_PR_MONCK,
+					CSR_ANA2L_PXP_CDR0_PR_MONCK_ENABLE);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR0_PR_MONCK,
+					  CSR_ANA2L_PXP_CDR0_PR_RESERVE0, 0x2);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_PCIE_CSR_ANA2_PXP_RX0_OSCAL_CTLE1IOS,
+					  CSR_ANA2L_PXP_RX0_PR_OSCAL_VGA1IOS,
+					  0x19);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_PCIE_CSR_ANA2_PXP_RX0_OSCA_VGA1VOS,
+					  CSR_ANA2L_PXP_RX0_PR_OSCAL_VGA1VOS,
+					  0x19);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_PCIE_CSR_ANA2_PXP_RX0_OSCA_VGA1VOS,
+					  CSR_ANA2L_PXP_RX0_PR_OSCAL_VGA2IOS,
+					  0x14);
+
+	writel(0x804000, pcie_phy->pma1 + REG_PCIE_PMA_DIG_RESERVE_27);
+	airoha_phy_pma1_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_18,
+				     PCIE_PXP_RX_VTH_SEL_PCIE_G1, 0x5);
+	airoha_phy_pma1_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_18,
+				     PCIE_PXP_RX_VTH_SEL_PCIE_G2, 0x5);
+	airoha_phy_pma1_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_18,
+				     PCIE_PXP_RX_VTH_SEL_PCIE_G3, 0x5);
+
+	airoha_phy_pma1_set_bits(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_30,
+				 0x77700);
+
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy, REG_CSR_ANA2L_CDR1_PR_MONCK,
+					CSR_ANA2L_PXP_CDR1_PR_MONCK_ENABLE);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_CDR1_PR_MONCK,
+					  CSR_ANA2L_PXP_CDR1_PR_RESERVE0, 0x2);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_RX1_OSCAL_VGA1IOS,
+					  CSR_ANA2L_PXP_RX1_PR_OSCAL_VGA1IOS,
+					  0x19);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_RX1_OSCAL_VGA1IOS,
+					  CSR_ANA2L_PXP_RX1_PR_OSCAL_VGA1VOS,
+					  0x19);
+	airoha_phy_csr_ana2l_update_field(pcie_phy,
+					  REG_CSR_ANA2L_RX1_OSCAL_VGA1IOS,
+					  CSR_ANA2L_PXP_RX1_PR_OSCAL_VGA2IOS,
+					  0x14);
+}
+
+static void airoha_pcie_phy_load_kflow(struct airoha_pcie_phy *pcie_phy)
+{
+	airoha_phy_pma0_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_12,
+				     PCIE_FORCE_PMA_RX_SPEED, 0xa);
+	airoha_phy_pma1_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_12,
+				     PCIE_FORCE_PMA_RX_SPEED, 0xa);
+	Rx_PR_Fw_Pre_Cal(pcie_phy, 3,0); 
+	Rx_PR_Fw_Pre_Cal(pcie_phy, 3,1);
+
+	airoha_phy_pma0_clear_bits(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_12,
+				   PCIE_FORCE_PMA_RX_SPEED);
+	airoha_phy_pma1_clear_bits(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_12,
+				   PCIE_FORCE_PMA_RX_SPEED);
+	usleep_range(100, 200);
+
+	Rx_PR_Fw_Pre_Cal(pcie_phy, 2,0); 
+	Rx_PR_Fw_Pre_Cal(pcie_phy, 2,1);
+}
+
+/**
+ * airoha_pcie_phy_init() - Initialize the phy
+ * @phy: the phy to be initialized
+ *
+ * Initialize the phy registers.
+ * The hardware settings will be reset during suspend, it should be
+ * reinitialized when the consumer calls phy_init() again on resume.
+ */
+static int airoha_pcie_phy_init(struct phy *phy)
+{
+	struct airoha_pcie_phy *pcie_phy = phy_get_drvdata(phy);
+
+	/* enable load FLL-K flow */
+	airoha_phy_pma0_set_bits(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_14,
+				 PCIE_FLL_LOAD_EN);
+	airoha_phy_pma1_set_bits(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_14,
+				 PCIE_FLL_LOAD_EN);
+
+	airoha_pcie_phy_init_set_default(pcie_phy);
+	airoha_pcie_phy_init_clk_out(pcie_phy);
+	airoha_pcie_phy_init_csr_ana2l(pcie_phy);
+
+	usleep_range(100, 200);
+
+	airoha_pcie_phy_init_rx(pcie_phy);
+	/* phase 1, no ssc for K TXPLL */
+	airoha_pcie_phy_init_jcpll(pcie_phy);
+
+	usleep_range(500, 600);
+
+	/* TX PLL settings */
+	airoha_pcie_phy_txpll(pcie_phy);
+
+	usleep_range(200, 300);
+
+	/* SSC JCPLL setting */
+	airoha_pcie_phy_init_ssc_jcpll(pcie_phy);
 
 	usleep_range(100, 200);
 
@@ -1610,17 +1634,17 @@ static int airoha_pcie_phy_init(struct phy *phy)
 	airoha_pcie_phy_set_rx_mode(pcie_phy);
 	/* Load K-Flow */
 	airoha_pcie_phy_load_kflow(pcie_phy);
-	airoha_phy_clear_bits(pcie_phy->pma0 + REG_PCIE_PMA_SS_DA_XPON_PWDB0,
-			      PCIE_DA_XPON_CDR_PR_PWDB);
-	airoha_phy_clear_bits(pcie_phy->pma1 + REG_PCIE_PMA_SS_DA_XPON_PWDB0,
-			      PCIE_DA_XPON_CDR_PR_PWDB);
+	airoha_phy_pma0_clear_bits(pcie_phy, REG_PCIE_PMA_SS_DA_XPON_PWDB0,
+				   PCIE_DA_XPON_CDR_PR_PWDB);
+	airoha_phy_pma1_clear_bits(pcie_phy, REG_PCIE_PMA_SS_DA_XPON_PWDB0,
+				   PCIE_DA_XPON_CDR_PR_PWDB);
 
 	usleep_range(100, 200);
 
-	airoha_phy_set_bits(pcie_phy->pma0 + REG_PCIE_PMA_SS_DA_XPON_PWDB0,
-			    PCIE_DA_XPON_CDR_PR_PWDB);
-	airoha_phy_set_bits(pcie_phy->pma1 + REG_PCIE_PMA_SS_DA_XPON_PWDB0,
-			    PCIE_DA_XPON_CDR_PR_PWDB);
+	airoha_phy_pma0_set_bits(pcie_phy, REG_PCIE_PMA_SS_DA_XPON_PWDB0,
+				 PCIE_DA_XPON_CDR_PR_PWDB);
+	airoha_phy_pma1_set_bits(pcie_phy, REG_PCIE_PMA_SS_DA_XPON_PWDB0,
+				 PCIE_DA_XPON_CDR_PR_PWDB);
 
 	usleep_range(100, 200);
 
