@@ -225,24 +225,6 @@
 			status = "okay";
 		};
 
-		//pcie_phy: pcie_phy {
-		//	compatible = "econet,ecnt-pcie_phy";
-		//};
-
-		//common_phy: serdes_common_phy@1fa5a000 {
-		//	compatible = "airoha,serdes_common_phy";
-		//	reg = <0x0 0x1fa5a000 0x0 0xfff>,		//PCIEG3_PHY_PMA_PHYA
-		//	      <0x0 0x1fa5b000 0x0 0xfff>,		//PCIEG3_PHY_PMA_PHYD_0
-		//	      <0x0 0x1fa5c000 0x0 0xfff>,		//PCIEG3_PHY_PMA_PHYD_1
-		//	      <0x0 0x1fa7A000 0x0 0xfff>,     	//xfi_ana_pxp
-		//	      <0x0 0x1fa7B000 0x0 0xfff>,     	//xfi_pma
-		//	      <0x0 0x1fa8A000 0x0 0xfff>,     	//pon_ana_pxp
-		//	      <0x0 0x1fa8B000 0x0 0xfff>,   	//pon_pma
-		//	      <0x0 0x1fa84000 0x0 0x685>;     //multi_sgmii, PON_PHY_ASIC_RG range4,only for xilinx_fpga, PON_PHY_ASIC_RG range5,only for xilinx_fpga
-		//	interrupts = <GIC_SPI 43 IRQ_TYPE_LEVEL_HIGH>; // XPON_PHY_INTR 27+16
-		//	int_name = "common_int";
-		//};
-
 		spi: spi_nand@1fa10000 {
 			compatible = "airoha,airoha-snand";
 			reg = <0x0 0x1fa10000 0x0 0x140>,	//SPI Controller Base
