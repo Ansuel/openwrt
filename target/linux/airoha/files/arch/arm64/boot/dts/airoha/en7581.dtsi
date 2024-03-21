@@ -225,11 +225,14 @@
 			status = "okay";
 		};
 
-		spi: spi_nand@1fa10000 {
-			compatible = "airoha,airoha-snand";
-			reg = <0x0 0x1fa10000 0x0 0x140>,	//SPI Controller Base
-			      <0x0 0x1fa11000 0x0 0x160>;	//NFI2SPI
+		spi: spi@1fa10000 {
+			compatible = "airoha,en7581-spi";
+			reg = <0x0 0x1fa10000 0x0 0x140>,
+			      <0x0 0x1fa11000 0x0 0x160>;
 			interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
 			flash_nand: nand@0 {
 				compatible = "spi-nand";
 				reg = <0>;

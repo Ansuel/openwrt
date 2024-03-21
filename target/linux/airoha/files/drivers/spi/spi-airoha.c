@@ -13,6 +13,7 @@
 #include <linux/interrupt.h>
 #include <linux/dma-mapping.h>
 #include <linux/iopoll.h>
+#include <linux/platform_device.h>
 #include <linux/of_platform.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
@@ -180,8 +181,9 @@ static void airoha_spi_set_cs(struct airoha_snand *as, SPI_CONTROLLER_CHIP_SELEC
     airoha_spi_set_opfifo(as, cs, 1);
 }
 
-static int airoha_spi_write_data_fifo(struct airoha_snand *as, unsigned char *ptr_data, unsigned int data_len)
+static int airoha_spi_write_data_fifo(struct airoha_snand *as, void *data, unsigned int data_len)
 {
+    unsigned char *ptr_data = data;
     unsigned int idx;
     for(idx = 0; idx < data_len; idx++)
     {
@@ -243,7 +245,7 @@ static int airoha_spi_set_mode(struct airoha_snand *as, SPI_CONTROLLER_MODE_T mo
     return 0;
 }
 
-static int airoha_spi_write_one_byte_with_cmd(struct airoha_snand *as, unsigned char cmd, const u16 *data)
+static int airoha_spi_write_one_byte_with_cmd(struct airoha_snand *as, unsigned char cmd, void *data)
 {
     airoha_spi_set_opfifo(as, cmd, 1);
     airoha_spi_write_data_fifo(as, data, 1);
@@ -736,7 +738,8 @@ static int airoha_snand_setup(struct spi_device *spi)
 }
 
 static const struct of_device_id airoha_snand_ids[] = {
-    { .compatible = "airoha,airoha-snand" },
+    { .compatible = "airoha,en7581-spi" },
+    { }
 };
 MODULE_DEVICE_TABLE(of, airoha_snand_ids);
 
@@ -761,7 +764,7 @@ static int airoha_snand_probe(struct platform_device *pdev)
     if (is_nor()){ // TODO: EMMC check 
 	    return -1;
     }
-    printk("NAND device found\n");
+    printk("[%s-%d]: NAND device found\n", __func__, __LINE__);
 
     /* linux kernel platform */
     master = spi_alloc_master(&pdev->dev, sizeof(*as));
