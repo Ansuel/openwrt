@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2023 AIROHA Inc.
+ * Author: Lorenzo Bianconi <lorenzo@kernel.org>
  * Author: Ray Liu <ray.liu@airoha.com>
  */
 
@@ -22,87 +23,87 @@
 #include <asm/cacheflush.h>
 #include <linux/spi/spi.h> 
 
-#define _SPI_CONTROLLER_REGS_BASE                   0x1FA10000
-#define _SPI_CONTROLLER_REGS_READ_MODE              0x0000
-#define _SPI_CONTROLLER_REGS_READ_IDLE_EN           0x0004
-#define _SPI_CONTROLLER_REGS_SIDLY                  0x0008
-#define _SPI_CONTROLLER_REGS_CSHEXT                 0x000C
-#define _SPI_CONTROLLER_REGS_CSLEXT                 0x0010
-#define _SPI_CONTROLLER_REGS_MTX_MODE_TOG           0x0014
-#define _SPI_CONTROLLER_REGS_RDCTL_FSM              0x0018
-#define _SPI_CONTROLLER_REGS_MACMUX_SEL             0x001C
-#define _SPI_CONTROLLER_REGS_MANUAL_EN              0x0020
-#define _SPI_CONTROLLER_REGS_MANUAL_OPFIFO_EMPTY    0x0024
-#define _SPI_CONTROLLER_REGS_MANUAL_OPFIFO_WDATA    0x0028
-#define _SPI_CONTROLLER_REGS_MANUAL_OPFIFO_FULL     0x002C
-#define _SPI_CONTROLLER_REGS_MANUAL_OPFIFO_WR       0x0030
-#define _SPI_CONTROLLER_REGS_MANUAL_DFIFO_FULL      0x0034
-#define _SPI_CONTROLLER_REGS_MANUAL_DFIFO_WDATA     0x0038
-#define _SPI_CONTROLLER_REGS_MANUAL_DFIFO_EMPTY     0x003C
-#define _SPI_CONTROLLER_REGS_MANUAL_DFIFO_RD        0x0040
-#define _SPI_CONTROLLER_REGS_MANUAL_DFIFO_RDATA     0x0044
-#define _SPI_CONTROLLER_REGS_DUMMY                  0x0080
-#define _SPI_CONTROLLER_REGS_PROBE_SEL              0x0088
-#define _SPI_CONTROLLER_REGS_INTERRUPT              0x0090
-#define _SPI_CONTROLLER_REGS_INTERRUPT_EN           0x0094
-#define _SPI_CONTROLLER_REGS_SI_CK_SEL              0x009C
-#define _SPI_CONTROLLER_REGS_SW_CFGNANDADDR_VAL     0x010C
-#define _SPI_CONTROLLER_REGS_SW_CFGNANDADDR_EN      0x0110
-#define _SPI_CONTROLLER_REGS_SFC_STRAP              0x0114
-#define _SPI_CONTROLLER_REGS_NFI2SPI_EN             0x0130
-#define _SPI_NFI_REGS_BASE                          0x1FA11000
-#define _SPI_NFI_REGS_CNFG                          0x0000
-#define _SPI_NFI_REGS_PAGEFMT                       0x0004
-#define _SPI_NFI_REGS_CON                           0x0008
-#define _SPI_NFI_REGS_INTR_EN                       0x0010
-#define _SPI_NFI_REGS_INTR                          0x0014
-#define _SPI_NFI_REGS_CMD                           0x0020
-#define _SPI_NFI_REGS_STA                           0x0060
-#define _SPI_NFI_REGS_FIFOSTA                       0x0064
-#define _SPI_NFI_REGS_STRADDR                       0x0080
-#define _SPI_NFI_REGS_FDM0L                         0x00A0
-#define _SPI_NFI_REGS_FDM0M                         0x00A4
-#define _SPI_NFI_REGS_FDM7L                         0x00D8
-#define _SPI_NFI_REGS_FDM7M                         0x00DC
-#define _SPI_NFI_REGS_FIFODATA0                     0x0190
-#define _SPI_NFI_REGS_FIFODATA1                     0x0194
-#define _SPI_NFI_REGS_FIFODATA2                     0x0198
-#define _SPI_NFI_REGS_FIFODATA3                     0x019C
-#define _SPI_NFI_REGS_MASTERSTA                     0x0224
-#define _SPI_NFI_REGS_SECCUS_SIZE                   0x022C
-#define _SPI_NFI_REGS_RD_CTL2                       0x0510
-#define _SPI_NFI_REGS_RD_CTL3                       0x0514
-#define _SPI_NFI_REGS_PG_CTL1                       0x0524
-#define _SPI_NFI_REGS_PG_CTL2                       0x0528
-#define _SPI_NFI_REGS_NOR_PROG_ADDR                 0x052C
-#define _SPI_NFI_REGS_NOR_RD_ADDR                   0x0534
-#define _SPI_NFI_REGS_SNF_MISC_CTL                  0x0538
-#define _SPI_NFI_REGS_SNF_MISC_CTL2                 0x053C
-#define _SPI_NFI_REGS_SNF_STA_CTL1                  0x0550
-#define _SPI_NFI_REGS_SNF_STA_CTL2                  0x0554
-#define _SPI_NFI_REGS_SNF_NFI_CNFG                  0x055C
-/* SPI NAND Protocol OP */
-#define _SPI_NAND_OP_GET_FEATURE                    0x0F    /* Get Feature */
-#define _SPI_NAND_OP_SET_FEATURE                    0x1F    /* Set Feature */
-#define _SPI_NAND_OP_PAGE_READ                      0x13    /* Load page data into cache of SPI NAND chip */
-#define _SPI_NAND_OP_READ_FROM_CACHE_SINGLE         0x03    /* Read data from cache of SPI NAND chip, single speed*/
-#define _SPI_NAND_OP_READ_FROM_CACHE_SINGLE_FAST    0x0B    /* Read data from cache of SPI NAND chip, single speed*/
-#define _SPI_NAND_OP_READ_FROM_CACHE_DUAL           0x3B    /* Read data from cache of SPI NAND chip, dual speed*/
-#define _SPI_NAND_OP_READ_FROM_CACHE_QUAD           0x6B    /* Read data from cache of SPI NAND chip, quad speed*/
-#define _SPI_NAND_OP_WRITE_ENABLE                   0x06    /* Enable write data to  SPI NAND chip */
-#define _SPI_NAND_OP_WRITE_DISABLE                  0x04    /* Reseting the Write Enable Latch (WEL) */
-#define _SPI_NAND_OP_PROGRAM_LOAD_SINGLE            0x02    /* Write data into cache of SPI NAND chip with cache reset, single speed */
-#define _SPI_NAND_OP_PROGRAM_LOAD_QUAD              0x32    /* Write data into cache of SPI NAND chip with cache reset, quad speed */
-#define _SPI_NAND_OP_PROGRAM_LOAD_RAMDOM_SINGLE     0x84    /* Write data into cache of SPI NAND chip, single speed */
-#define _SPI_NAND_OP_PROGRAM_LOAD_RAMDON_QUAD       0x34    /* Write data into cache of SPI NAND chip, quad speed */
-#define _SPI_NAND_OP_PROGRAM_EXECUTE                0x10    /* Write data from cache into SPI NAND chip */
-#define _SPI_NAND_OP_READ_ID                        0x9F    /* Read Manufacture ID and Device ID */
-#define _SPI_NAND_OP_BLOCK_ERASE                    0xD8    /* Erase Block */
-#define _SPI_NAND_OP_RESET                          0xFF    /* Reset */
-#define _SPI_NAND_OP_DIE_SELECT                     0xC2    /* Die Select */
+#define REG_SPI_CONTROLLER_BASE                   	0x1FA10000
 
-#define WRITE_SPI_REG(a,b) writel(b, as->spi_base + a)
-#define READ_SPI_REG(a) readl(as->spi_base + a)
+#define REG_SPI_CONTROLLER_READ_MODE			0x0000
+#define REG_SPI_CONTROLLER_READ_IDLE_EN			0x0004
+#define REG_SPI_CONTROLLER_SIDLY			0x0008
+#define REG_SPI_CONTROLLER_CSHEXT			0x000c
+#define REG_SPI_CONTROLLER_CSLEXT			0x0010
+#define REG_SPI_CONTROLLER_MTX_MODE_TOG			0x0014
+#define REG_SPI_CONTROLLER_RDCTL_FSM			0x0018
+#define REG_SPI_CONTROLLER_MACMUX_SEL			0x001c
+#define REG_SPI_CONTROLLER_MANUAL_EN			0x0020
+#define REG_SPI_CONTROLLER_MANUAL_OPFIFO_EMPTY		0x0024
+#define REG_SPI_CONTROLLER_MANUAL_OPFIFO_WDATA		0x0028
+#define REG_SPI_CONTROLLER_MANUAL_OPFIFO_FULL 		0x002c
+#define REG_SPI_CONTROLLER_MANUAL_OPFIFO_WR		0x0030
+#define REG_SPI_CONTROLLER_MANUAL_DFIFO_FULL		0x0034
+#define REG_SPI_CONTROLLER_MANUAL_DFIFO_WDATA		0x0038
+#define REG_SPI_CONTROLLER_MANUAL_DFIFO_EMPTY		0x003c
+#define REG_SPI_CONTROLLER_MANUAL_DFIFO_RD		0x0040
+#define REG_SPI_CONTROLLER_MANUAL_DFIFO_RDATA		0x0044
+#define REG_SPI_CONTROLLER_DUMMY			0x0080
+#define REG_SPI_CONTROLLER_PROBE_SEL			0x0088
+#define REG_SPI_CONTROLLER_INTERRUPT			0x0090
+#define REG_SPI_CONTROLLER_INTERRUPT_EN			0x0094
+#define REG_SPI_CONTROLLER_SI_CK_SEL			0x009c
+#define REG_SPI_CONTROLLER_SW_CFGNANDADDR_VAL		0x010c
+#define REG_SPI_CONTROLLER_SW_CFGNANDADDR_EN		0x0110
+#define REG_SPI_CONTROLLER_SFC_STRAP			0x0114
+#define REG_SPI_CONTROLLER_NFI2SPI_EN			0x0130
+
+#define REG_SPI_NFI_CNFG				0x0000
+#define REG_SPI_NFI_PAGEFMT				0x0004
+#define REG_SPI_NFI_CON					0x0008
+#define REG_SPI_NFI_INTR_EN				0x0010
+#define REG_SPI_NFI_INTR				0x0014
+#define REG_SPI_NFI_CMD					0x0020
+#define REG_SPI_NFI_STA					0x0060
+#define REG_SPI_NFI_FIFOSTA				0x0064
+#define REG_SPI_NFI_STRADDR				0x0080
+#define REG_SPI_NFI_FDM0L				0x00a0
+#define REG_SPI_NFI_FDM0M				0x00a4
+#define REG_SPI_NFI_FDM7L				0x00d8
+#define REG_SPI_NFI_FDM7M				0x00dc
+#define REG_SPI_NFI_FIFODATA0				0x0190
+#define REG_SPI_NFI_FIFODATA1				0x0194
+#define REG_SPI_NFI_FIFODATA2				0x0198
+#define REG_SPI_NFI_FIFODATA3				0x019c
+#define REG_SPI_NFI_MASTERSTA				0x0224
+#define REG_SPI_NFI_SECCUS_SIZE				0x022c
+#define REG_SPI_NFI_RD_CTL2				0x0510
+#define REG_SPI_NFI_RD_CTL3				0x0514
+#define REG_SPI_NFI_PG_CTL1				0x0524
+#define REG_SPI_NFI_PG_CTL2				0x0528
+#define REG_SPI_NFI_NOR_PROG_ADDR			0x052c
+#define REG_SPI_NFI_NOR_RD_ADDR				0x0534
+#define REG_SPI_NFI_SNF_MISC_CTL			0x0538
+#define REG_SPI_NFI_SNF_MISC_CTL2			0x053c
+#define REG_SPI_NFI_SNF_STA_CTL1			0x0550
+#define REG_SPI_NFI_SNF_STA_CTL2			0x0554
+#define REG_SPI_NFI_SNF_NFI_CNFG			0x055c
+
+/* SPI NAND Protocol OP */
+#define _SPI_NAND_OP_GET_FEATURE			0x0f    /* Get Feature */
+#define _SPI_NAND_OP_SET_FEATURE			0x1f    /* Set Feature */
+#define _SPI_NAND_OP_PAGE_READ				0x13    /* Load page data into cache of SPI NAND chip */
+#define _SPI_NAND_OP_READ_FROM_CACHE_SINGLE		0x03    /* Read data from cache of SPI NAND chip, single speed*/
+#define _SPI_NAND_OP_READ_FROM_CACHE_SINGLE_FAST	0x0b    /* Read data from cache of SPI NAND chip, single speed*/
+#define _SPI_NAND_OP_READ_FROM_CACHE_DUAL		0x3b    /* Read data from cache of SPI NAND chip, dual speed*/
+#define _SPI_NAND_OP_READ_FROM_CACHE_QUAD		0x6b    /* Read data from cache of SPI NAND chip, quad speed*/
+#define _SPI_NAND_OP_WRITE_ENABLE			0x06    /* Enable write data to  SPI NAND chip */
+#define _SPI_NAND_OP_WRITE_DISABLE			0x04    /* Reseting the Write Enable Latch (WEL) */
+#define _SPI_NAND_OP_PROGRAM_LOAD_SINGLE		0x02    /* Write data into cache of SPI NAND chip with cache reset, single speed */
+#define _SPI_NAND_OP_PROGRAM_LOAD_QUAD			0x32    /* Write data into cache of SPI NAND chip with cache reset, quad speed */
+#define _SPI_NAND_OP_PROGRAM_LOAD_RAMDOM_SINGLE		0x84    /* Write data into cache of SPI NAND chip, single speed */
+#define _SPI_NAND_OP_PROGRAM_LOAD_RAMDON_QUAD		0x34    /* Write data into cache of SPI NAND chip, quad speed */
+#define _SPI_NAND_OP_PROGRAM_EXECUTE			0x10    /* Write data from cache into SPI NAND chip */
+#define _SPI_NAND_OP_READ_ID				0x9f    /* Read Manufacture ID and Device ID */
+#define _SPI_NAND_OP_BLOCK_ERASE			0xd8    /* Erase Block */
+#define _SPI_NAND_OP_RESET				0xff    /* Reset */
+#define _SPI_NAND_OP_DIE_SELECT				0xc2    /* Die Select */
+
 #define WRITE_NFI_REG(a,b) writel(b, as->nfi_base + a)
 #define READ_NFI_REG(a) readl(as->nfi_base + a)
 #define WRITE_NFI_REG_WITH_MASK(a,b,c) WRITE_NFI_REG(a, (READ_NFI_REG(a) & ~(b)) | (c))
@@ -111,25 +112,12 @@
 #define _SPI_NAND_OOB_SIZE                          (256)
 #define _SPI_NAND_CACHE_SIZE                        (_SPI_NAND_PAGE_SIZE+_SPI_NAND_OOB_SIZE)
 
-typedef enum{
-    SPI_NFI_SPI=0,
-    SPI_NFI_PARALLEL,
-    SPI_NFI_EMMC,
-} SPI_NFI_TYPE_T;
-
-typedef enum{
-    SPI_CONTROLLER_SPI_NAND=0,
-    SPI_CONTROLLER_SPI_NOR,
-    SPI_CONTROLLER_PARALLEL_NAND,
-    SPI_CONTROLLER_EMMC,
-} SPI_CONTROLLER_SPI_TYPE_T;
-
-typedef enum {
-    SPI_CONTROLLER_MODE_AUTO=0,
-    SPI_CONTROLLER_MODE_MANUAL,
-    SPI_CONTROLLER_MODE_DMA,
-    SPI_CONTROLLER_MODE_NO
-} SPI_CONTROLLER_MODE_T;
+enum airoha_spi_mode {
+	SPI_MODE_AUTO,
+	SPI_MODE_MANUAL,
+	SPI_MODE_DMA,
+	SPI_MODE_NO
+};
 
 typedef enum{
     SPI_CONTROLLER_CHIP_SELECT_HIGH=0,
@@ -162,17 +150,22 @@ struct airoha_snand {
     bool autofmt; // <-- soc controller ecc need to implement this feature
 };
 
-/* old API support start */
-static struct airoha_snand *old_as;
-DEFINE_SEMAPHORE(SPI_SEM);//Make sure all related SPI operations are atomic
-/* old API support end */
+static u32 airoha_spi_read(struct airoha_snand *as, u32 addr)
+{
+	return readl(as->spi_base + addr);
+}
+
+static void airoha_spi_write(struct airoha_snand *as, u32 addr, u32 val)
+{
+	writel(val, as->spi_base + addr);
+}
 
 static int airoha_spi_set_opfifo(struct airoha_snand *as, unsigned char op_cmd, unsigned int op_len)
 {
-    WRITE_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_OPFIFO_WDATA, ((((op_cmd) & 0x1f) << 0x9) | ((op_len) & 0x1ff)));
-    while(READ_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_OPFIFO_FULL));
-    WRITE_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_OPFIFO_WR, 0x1);
-    while(!READ_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_OPFIFO_EMPTY));
+    airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_OPFIFO_WDATA, ((((op_cmd) & 0x1f) << 0x9) | ((op_len) & 0x1ff)));
+    while(airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_OPFIFO_FULL));
+    airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_OPFIFO_WR, 0x1);
+    while(!airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_OPFIFO_EMPTY));
     return 0;
 }
 
@@ -188,11 +181,11 @@ static int airoha_spi_write_data_fifo(struct airoha_snand *as, void *data, unsig
     for(idx = 0; idx < data_len; idx++)
     {
         /* 1. Wait until dfifo is not full */
-        while(READ_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_DFIFO_FULL));
+        while(airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_FULL));
         /* 2. Write data to register DFIFO_WDATA */
-        WRITE_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_DFIFO_WDATA, ((*(ptr_data+idx)) & 0xff));
+        airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_WDATA, ((*(ptr_data+idx)) & 0xff));
         /* 3. Wait until dfifo is not full */
-        while(READ_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_DFIFO_FULL));
+        while(airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_FULL));
     }
     return 0;
 }
@@ -203,37 +196,37 @@ static int airoha_spi_read_data_fifo(struct airoha_snand *as, unsigned char *ptr
     for(idx = 0; idx < data_len; idx++)
     {
         /* 1. wait until dfifo is not empty */
-        while(READ_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_DFIFO_EMPTY));
+        while(airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_EMPTY));
         /* 2. read from dfifo to register DFIFO_RDATA */
-        *(ptr_rtn_data+idx) = (READ_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_DFIFO_RDATA)) & 0xff;
+        *(ptr_rtn_data+idx) = (airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_RDATA)) & 0xff;
         /* 3. enable register DFIFO_RD to read next byte */
-        WRITE_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_DFIFO_RD, 0x1);
+        airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_RD, 0x1);
     }
     return 0;
 }
 
-static int airoha_spi_set_mode(struct airoha_snand *as, SPI_CONTROLLER_MODE_T mode)
+static int airoha_spi_set_mode(struct airoha_snand *as, enum airoha_spi_mode mode)
 {
     switch(mode)
     {
-        case SPI_CONTROLLER_MODE_AUTO:
+        case SPI_MODE_AUTO:
         {
             break;
         }
-        case SPI_CONTROLLER_MODE_MANUAL:
+        case SPI_MODE_MANUAL:
         {
-            WRITE_SPI_REG(_SPI_CONTROLLER_REGS_NFI2SPI_EN, 0x0);
-            WRITE_SPI_REG(_SPI_CONTROLLER_REGS_READ_IDLE_EN, 0x0);
-            while(READ_SPI_REG(_SPI_CONTROLLER_REGS_RDCTL_FSM));
-            WRITE_SPI_REG(_SPI_CONTROLLER_REGS_MTX_MODE_TOG, 0x9);
-            WRITE_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_EN, 0x1);
+            airoha_spi_write(as, REG_SPI_CONTROLLER_NFI2SPI_EN, 0x0);
+            airoha_spi_write(as, REG_SPI_CONTROLLER_READ_IDLE_EN, 0x0);
+            while(airoha_spi_read(as, REG_SPI_CONTROLLER_RDCTL_FSM));
+            airoha_spi_write(as, REG_SPI_CONTROLLER_MTX_MODE_TOG, 0x9);
+            airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_EN, 0x1);
             break;
         }
-        case SPI_CONTROLLER_MODE_DMA:
+        case SPI_MODE_DMA:
         {
-            WRITE_SPI_REG(_SPI_CONTROLLER_REGS_NFI2SPI_EN, 0x1);
-            WRITE_SPI_REG(_SPI_CONTROLLER_REGS_MTX_MODE_TOG, 0x0);
-            WRITE_SPI_REG(_SPI_CONTROLLER_REGS_MANUAL_EN, 0x0);
+            airoha_spi_write(as, REG_SPI_CONTROLLER_NFI2SPI_EN, 0x1);
+            airoha_spi_write(as, REG_SPI_CONTROLLER_MTX_MODE_TOG, 0x0);
+            airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_EN, 0x0);
             break;
         }
         default:
@@ -241,7 +234,7 @@ static int airoha_spi_set_mode(struct airoha_snand *as, SPI_CONTROLLER_MODE_T mo
             break;
         }
     }
-    WRITE_SPI_REG(_SPI_CONTROLLER_REGS_DUMMY, as->nfi_cfg.dummy_byte_num);
+    airoha_spi_write(as, REG_SPI_CONTROLLER_DUMMY, as->nfi_cfg.dummy_byte_num);
     return 0;
 }
 
@@ -280,56 +273,56 @@ static int airoha_spi_read_nbytes(struct airoha_snand *as, unsigned char *ptr_rt
     return 0;
 }
 
-static int airoha_snand_nfi_init(struct airoha_snand *as)
+static int airoha_spi_nfi_init(struct airoha_snand *as)
 {
     /* switch to SNFI mode */
-    WRITE_NFI_REG(_SPI_NFI_REGS_SNF_NFI_CNFG, 0x1);
+    WRITE_NFI_REG(REG_SPI_NFI_SNF_NFI_CNFG, 0x1);
     /* Enable DMA */
-    WRITE_NFI_REG(_SPI_NFI_REGS_INTR_EN, READ_NFI_REG(_SPI_NFI_REGS_INTR_EN) | 0x0040);
+    WRITE_NFI_REG(REG_SPI_NFI_INTR_EN, READ_NFI_REG(REG_SPI_NFI_INTR_EN) | 0x0040);
     return 0;
 }
 
-static int airoha_snand_nfi_reset(struct airoha_snand *as)
+static int airoha_spi_nfi_reset(struct airoha_snand *as)
 {
     // reset nfi
-    WRITE_NFI_REG(_SPI_NFI_REGS_CON, 0x3);
+    WRITE_NFI_REG(REG_SPI_NFI_CON, 0x3);
     return 0;
 }
 
-static int airoha_snand_nfi_config(struct airoha_snand *as)
+static int airoha_spi_nfi_config(struct airoha_snand *as)
 {
     /* AutoFDM */
-    WRITE_NFI_REG(_SPI_NFI_REGS_CNFG, READ_NFI_REG(_SPI_NFI_REGS_CNFG) & ~(0x0200));
+    WRITE_NFI_REG(REG_SPI_NFI_CNFG, READ_NFI_REG(REG_SPI_NFI_CNFG) & ~(0x0200));
     /* HW ECC */
-    WRITE_NFI_REG(_SPI_NFI_REGS_CNFG, READ_NFI_REG(_SPI_NFI_REGS_CNFG) & ~(0x0100));
+    WRITE_NFI_REG(REG_SPI_NFI_CNFG, READ_NFI_REG(REG_SPI_NFI_CNFG) & ~(0x0100));
     /* DMA Burst */
-    WRITE_NFI_REG(_SPI_NFI_REGS_CNFG, READ_NFI_REG(_SPI_NFI_REGS_CNFG) | (0x0004));
+    WRITE_NFI_REG(REG_SPI_NFI_CNFG, READ_NFI_REG(REG_SPI_NFI_CNFG) | (0x0004));
     /* page format */
     switch(as->nfi_cfg.spare_size)
     {
         case 16:
         {
-            WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_PAGEFMT, 0x0030, (0x0 << 4));
+            WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_PAGEFMT, 0x0030, (0x0 << 4));
             break;
         }
         case 26:
         {
-            WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_PAGEFMT, 0x0030, (0x1 << 4));
+            WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_PAGEFMT, 0x0030, (0x1 << 4));
             break;
         }
         case 27:
         {
-            WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_PAGEFMT, 0x0030, (0x2 << 4));
+            WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_PAGEFMT, 0x0030, (0x2 << 4));
             break;
         }
         case 28:
         {
-            WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_PAGEFMT, 0x0030, (0x3 << 4));
+            WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_PAGEFMT, 0x0030, (0x3 << 4));
             break;
         }
         default:
         {
-            WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_PAGEFMT, 0x0030, (0x0 << 4));
+            WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_PAGEFMT, 0x0030, (0x0 << 4));
             break;
         }
     }
@@ -337,17 +330,17 @@ static int airoha_snand_nfi_config(struct airoha_snand *as)
     {
         case 512:
         {
-            WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_PAGEFMT, 0x0003, (0x0 << 0));
+            WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_PAGEFMT, 0x0003, (0x0 << 0));
             break;
         }
         case 2048:
         {
-            WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_PAGEFMT, 0x0003, (0x1 << 0));
+            WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_PAGEFMT, 0x0003, (0x1 << 0));
             break;
         }
         case 4096:
         {
-            WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_PAGEFMT, 0x0003, (0x2 << 0));
+            WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_PAGEFMT, 0x0003, (0x2 << 0));
             break;
         }
         default:
@@ -356,15 +349,15 @@ static int airoha_snand_nfi_config(struct airoha_snand *as)
         }
     }
     /* sec num */
-    WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_CON, 0xf000, as->nfi_cfg.sec_num << 12);
+    WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_CON, 0xf000, as->nfi_cfg.sec_num << 12);
     /* enable cust sec size */
-    WRITE_NFI_REG(_SPI_NFI_REGS_SECCUS_SIZE, READ_NFI_REG(_SPI_NFI_REGS_SECCUS_SIZE) | (0x00010000));
+    WRITE_NFI_REG(REG_SPI_NFI_SECCUS_SIZE, READ_NFI_REG(REG_SPI_NFI_SECCUS_SIZE) | (0x00010000));
     /* set cust sec size */
-    WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_SECCUS_SIZE, 0x00001fff, (as->nfi_cfg.sec_size << 0));
+    WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_SECCUS_SIZE, 0x00001fff, (as->nfi_cfg.sec_size << 0));
     return 0;
 }
 
-static bool airoha_snand_is_page_ops(const struct spi_mem_op *op)
+static bool airoha_spi_is_page_ops(const struct spi_mem_op *op)
 {
     if (op->addr.nbytes != 2)
         return false;
@@ -406,10 +399,10 @@ static bool airoha_snand_is_page_ops(const struct spi_mem_op *op)
     return false;
 }
 
-static int airoha_snand_adjust_op_size(struct spi_mem *mem, struct spi_mem_op *op)
+static int airoha_spi_adjust_op_size(struct spi_mem *mem, struct spi_mem_op *op)
 {
     struct airoha_snand *as = spi_master_get_devdata(mem->spi->master);
-    if(airoha_snand_is_page_ops(op))
+    if(airoha_spi_is_page_ops(op))
     {
         size_t l;
         if(as->autofmt)
@@ -430,32 +423,32 @@ static int airoha_snand_adjust_op_size(struct spi_mem *mem, struct spi_mem_op *o
     return 0;
 }
 
-static bool airoha_snand_supports_op(struct spi_mem *mem, const struct spi_mem_op *op)
+static bool airoha_spi_supports_op(struct spi_mem *mem, const struct spi_mem_op *op)
 {
     if (!spi_mem_default_supports_op(mem, op))
         return false;
     if (op->cmd.buswidth != 1)
         return false;
-    if (airoha_snand_is_page_ops(op))
+    if (airoha_spi_is_page_ops(op))
         return true;
     return ((op->addr.nbytes == 0 || op->addr.buswidth == 1) &&
         (op->dummy.nbytes == 0 || op->dummy.buswidth == 1) &&
         (op->data.nbytes == 0 || op->data.buswidth == 1));
 }
 
-static int airoha_snand_dirmap_create(struct spi_mem_dirmap_desc *desc)
+static int airoha_spi_dirmap_create(struct spi_mem_dirmap_desc *desc)
 {
     struct airoha_snand *as = spi_master_get_devdata(desc->mem->spi->master);
     if(!as->rx_buf || !as->tx_buf)
         return -EINVAL;
     if(desc->info.offset + desc->info.length > U32_MAX)
         return -EINVAL;
-    if(!airoha_snand_supports_op(desc->mem, &desc->info.op_tmpl))
+    if(!airoha_spi_supports_op(desc->mem, &desc->info.op_tmpl))
         return -EOPNOTSUPP;
     return 0;
 }
 
-static ssize_t airoha_snand_dirmap_read(struct spi_mem_dirmap_desc *desc, u64 offs, size_t len, void *buf)
+static ssize_t airoha_spi_dirmap_read(struct spi_mem_dirmap_desc *desc, u64 offs, size_t len, void *buf)
 {
     struct airoha_snand *as = spi_master_get_devdata(desc->mem->spi->master);
     struct spi_mem_op *op = &desc->info.op_tmpl;
@@ -491,38 +484,38 @@ static ssize_t airoha_snand_dirmap_read(struct spi_mem_dirmap_desc *desc, u64 of
     }
     // as->nfi_cfg.dummy_byte_num = op->dummy.nbytes;
 
-    airoha_spi_set_mode(as, SPI_CONTROLLER_MODE_DMA);
-    airoha_snand_nfi_reset(as);
-    airoha_snand_nfi_config(as);
+    airoha_spi_set_mode(as, SPI_MODE_DMA);
+    airoha_spi_nfi_reset(as);
+    airoha_spi_nfi_config(as);
     dma_sync_single_for_device(as->dev, as->rx_dma_addr, as->buf_len, DMA_FROM_DEVICE);
     mb();
     // set dma addr
-    WRITE_NFI_REG(_SPI_NFI_REGS_STRADDR, as->rx_dma_addr);
+    WRITE_NFI_REG(REG_SPI_NFI_STRADDR, as->rx_dma_addr);
     // set cust sec size
-    WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_SNF_MISC_CTL2, 0x1fff, (as->nfi_cfg.sec_size * as->nfi_cfg.sec_num) << 0);
+    WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_SNF_MISC_CTL2, 0x1fff, (as->nfi_cfg.sec_size * as->nfi_cfg.sec_num) << 0);
     // set read command
-    WRITE_NFI_REG(_SPI_NFI_REGS_RD_CTL2, op->cmd.opcode);
+    WRITE_NFI_REG(REG_SPI_NFI_RD_CTL2, op->cmd.opcode);
     // set read mode
-    WRITE_NFI_REG(_SPI_NFI_REGS_SNF_MISC_CTL, rd_mode << 16);
+    WRITE_NFI_REG(REG_SPI_NFI_SNF_MISC_CTL, rd_mode << 16);
     // set read addr
-    WRITE_NFI_REG(_SPI_NFI_REGS_RD_CTL3, 0x0);
+    WRITE_NFI_REG(REG_SPI_NFI_RD_CTL3, 0x0);
     // set nfi read
-    WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_CNFG, 0x7000, (6 << 12));
-    WRITE_NFI_REG(_SPI_NFI_REGS_CNFG, READ_NFI_REG(_SPI_NFI_REGS_CNFG) | 0x0002);
-    WRITE_NFI_REG(_SPI_NFI_REGS_CNFG, READ_NFI_REG(_SPI_NFI_REGS_CNFG) | 0x0001);
-    WRITE_NFI_REG(_SPI_NFI_REGS_CMD, 0x00);
+    WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_CNFG, 0x7000, (6 << 12));
+    WRITE_NFI_REG(REG_SPI_NFI_CNFG, READ_NFI_REG(REG_SPI_NFI_CNFG) | 0x0002);
+    WRITE_NFI_REG(REG_SPI_NFI_CNFG, READ_NFI_REG(REG_SPI_NFI_CNFG) | 0x0001);
+    WRITE_NFI_REG(REG_SPI_NFI_CMD, 0x00);
     // trigger dma start read
-    WRITE_NFI_REG(_SPI_NFI_REGS_CON, READ_NFI_REG(_SPI_NFI_REGS_CON) & ~(0x0100));
-    WRITE_NFI_REG(_SPI_NFI_REGS_CON, READ_NFI_REG(_SPI_NFI_REGS_CON) | (0x0100));
+    WRITE_NFI_REG(REG_SPI_NFI_CON, READ_NFI_REG(REG_SPI_NFI_CON) & ~(0x0100));
+    WRITE_NFI_REG(REG_SPI_NFI_CON, READ_NFI_REG(REG_SPI_NFI_CON) | (0x0100));
 
-    ret = readl_poll_timeout(as->nfi_base + _SPI_NFI_REGS_SNF_STA_CTL1, val, (val & 0x02000000) != 0, 0, 1000000);
+    ret = readl_poll_timeout(as->nfi_base + REG_SPI_NFI_SNF_STA_CTL1, val, (val & 0x02000000) != 0, 0, 1000000);
     if(ret)
     {
         printk("[Error] Read DMA : Check READ FROM CACHE Done Timeout ! \n");
         return -1;
     }
-    WRITE_NFI_REG(_SPI_NFI_REGS_SNF_STA_CTL1, READ_NFI_REG(_SPI_NFI_REGS_SNF_STA_CTL1) | 0x02000000);
-    ret = readl_poll_timeout(as->nfi_base + _SPI_NFI_REGS_INTR, val, (val & 0x0040) != 0, 0, 1000000);
+    WRITE_NFI_REG(REG_SPI_NFI_SNF_STA_CTL1, READ_NFI_REG(REG_SPI_NFI_SNF_STA_CTL1) | 0x02000000);
+    ret = readl_poll_timeout(as->nfi_base + REG_SPI_NFI_INTR, val, (val & 0x0040) != 0, 0, 1000000);
     if(ret)
     {
         printk("[Error] Read DMA : Check AHB Done Timeout ! \n");
@@ -532,12 +525,12 @@ static ssize_t airoha_snand_dirmap_read(struct spi_mem_dirmap_desc *desc, u64 of
     /* Does DMA read need delay for data ready from controller to DRAM */
     udelay(1);
     dma_sync_single_for_cpu(as->dev, as->rx_dma_addr, as->buf_len, DMA_FROM_DEVICE);
-    airoha_spi_set_mode(as, SPI_CONTROLLER_MODE_MANUAL);
+    airoha_spi_set_mode(as, SPI_MODE_MANUAL);
     memcpy(buf, as->rx_buf + offs, len);
     return len;
 }
 
-static ssize_t airoha_snand_dirmap_write(struct spi_mem_dirmap_desc *desc, u64 offs, size_t len, const void *buf)
+static ssize_t airoha_spi_dirmap_write(struct spi_mem_dirmap_desc *desc, u64 offs, size_t len, const void *buf)
 {
     struct airoha_snand *as = spi_master_get_devdata(desc->mem->spi->master);
     struct spi_mem_op *op = &desc->info.op_tmpl;
@@ -555,47 +548,47 @@ static ssize_t airoha_snand_dirmap_write(struct spi_mem_dirmap_desc *desc, u64 o
         wr_mode = 0x0;
     }
 
-    airoha_spi_set_mode(as, SPI_CONTROLLER_MODE_MANUAL);
+    airoha_spi_set_mode(as, SPI_MODE_MANUAL);
     dma_sync_single_for_cpu(as->dev, as->tx_dma_addr, as->buf_len, DMA_TO_DEVICE);
     memcpy(as->tx_buf, as->rx_buf, as->buf_len);
     memcpy(as->tx_buf + offs, buf, len);
     dma_sync_single_for_device(as->dev, as->tx_dma_addr, as->buf_len, DMA_TO_DEVICE);
     mb();
-    airoha_spi_set_mode(as, SPI_CONTROLLER_MODE_DMA);
-    airoha_snand_nfi_reset(as);
-    airoha_snand_nfi_config(as);
-    WRITE_NFI_REG(_SPI_NFI_REGS_STRADDR, as->tx_dma_addr);
-    WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_SNF_MISC_CTL2, 0x1fff0000, ((as->nfi_cfg.sec_size * as->nfi_cfg.sec_num) << 16));
-    WRITE_NFI_REG(_SPI_NFI_REGS_PG_CTL1, (op->cmd.opcode << 8));
-    WRITE_NFI_REG(_SPI_NFI_REGS_SNF_MISC_CTL, (wr_mode << 16));
-    WRITE_NFI_REG(_SPI_NFI_REGS_PG_CTL2, 0x0);
-    WRITE_NFI_REG(_SPI_NFI_REGS_CNFG, (READ_NFI_REG(_SPI_NFI_REGS_CNFG) & ~(0x0002)));
-    WRITE_NFI_REG_WITH_MASK(_SPI_NFI_REGS_CNFG, 0x7000, (3 << 12));
-    WRITE_NFI_REG(_SPI_NFI_REGS_CNFG, (READ_NFI_REG(_SPI_NFI_REGS_CNFG) | (0x0001)));
-    WRITE_NFI_REG(_SPI_NFI_REGS_CMD, 0x80);
-    WRITE_NFI_REG(_SPI_NFI_REGS_CON, (READ_NFI_REG(_SPI_NFI_REGS_CON) & ~(0x0200)));
-    WRITE_NFI_REG(_SPI_NFI_REGS_CON, (READ_NFI_REG(_SPI_NFI_REGS_CON) | (0x0200)));
+    airoha_spi_set_mode(as, SPI_MODE_DMA);
+    airoha_spi_nfi_reset(as);
+    airoha_spi_nfi_config(as);
+    WRITE_NFI_REG(REG_SPI_NFI_STRADDR, as->tx_dma_addr);
+    WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_SNF_MISC_CTL2, 0x1fff0000, ((as->nfi_cfg.sec_size * as->nfi_cfg.sec_num) << 16));
+    WRITE_NFI_REG(REG_SPI_NFI_PG_CTL1, (op->cmd.opcode << 8));
+    WRITE_NFI_REG(REG_SPI_NFI_SNF_MISC_CTL, (wr_mode << 16));
+    WRITE_NFI_REG(REG_SPI_NFI_PG_CTL2, 0x0);
+    WRITE_NFI_REG(REG_SPI_NFI_CNFG, (READ_NFI_REG(REG_SPI_NFI_CNFG) & ~(0x0002)));
+    WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_CNFG, 0x7000, (3 << 12));
+    WRITE_NFI_REG(REG_SPI_NFI_CNFG, (READ_NFI_REG(REG_SPI_NFI_CNFG) | (0x0001)));
+    WRITE_NFI_REG(REG_SPI_NFI_CMD, 0x80);
+    WRITE_NFI_REG(REG_SPI_NFI_CON, (READ_NFI_REG(REG_SPI_NFI_CON) & ~(0x0200)));
+    WRITE_NFI_REG(REG_SPI_NFI_CON, (READ_NFI_REG(REG_SPI_NFI_CON) | (0x0200)));
     udelay(1);
 
-    ret = readl_poll_timeout(as->nfi_base + _SPI_NFI_REGS_INTR, val, (val & 0x0040) != 0, 0, 1000000);
+    ret = readl_poll_timeout(as->nfi_base + REG_SPI_NFI_INTR, val, (val & 0x0040) != 0, 0, 1000000);
     if(ret)
     {
         printk("[Error] Write DMA : Check LOAD TO CACHE Done Timeout ! \n");
         return -1;
     }
 
-    ret = readl_poll_timeout(as->nfi_base + _SPI_NFI_REGS_SNF_STA_CTL1, val, (val & 0x04000000) != 0, 0, 1000000);
+    ret = readl_poll_timeout(as->nfi_base + REG_SPI_NFI_SNF_STA_CTL1, val, (val & 0x04000000) != 0, 0, 1000000);
     if(ret)
     {
         printk("[Error] Read DMA : Check AHB Done Timeout ! \n");
         return -1;
     }
-    WRITE_NFI_REG(_SPI_NFI_REGS_SNF_STA_CTL1, READ_NFI_REG(_SPI_NFI_REGS_SNF_STA_CTL1) | 0x04000000);
-    airoha_spi_set_mode(as, SPI_CONTROLLER_MODE_MANUAL);
+    WRITE_NFI_REG(REG_SPI_NFI_SNF_STA_CTL1, READ_NFI_REG(REG_SPI_NFI_SNF_STA_CTL1) | 0x04000000);
+    airoha_spi_set_mode(as, SPI_MODE_MANUAL);
     return len;
 }
 
-static int airoha_snand_op_transfer(struct airoha_snand *as, const struct spi_mem_op *op)
+static int airoha_spi_op_transfer(struct airoha_snand *as, const struct spi_mem_op *op)
 {
     unsigned int idx;
 
@@ -613,7 +606,7 @@ static int airoha_snand_op_transfer(struct airoha_snand *as, const struct spi_me
     }
 
     /* Switch To Manual Mode */
-    airoha_spi_set_mode(as, SPI_CONTROLLER_MODE_MANUAL);
+    airoha_spi_set_mode(as, SPI_MODE_MANUAL);
 
     airoha_spi_set_cs(as, SPI_CONTROLLER_CHIP_SELECT_LOW);
 
@@ -655,39 +648,30 @@ static int airoha_snand_op_transfer(struct airoha_snand *as, const struct spi_me
     return 0;
 }
 
-static int airoha_snand_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
+static int airoha_spi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 {
     struct airoha_snand *as = spi_master_get_devdata(mem->spi->master);
     int ret;
 
-    ret = airoha_snand_op_transfer(as, op); // op cmd
+    ret = airoha_spi_op_transfer(as, op); // op cmd
 
     return ret;
 }
 
-static const struct spi_controller_mem_ops airoha_snand_mem_ops = {
-    .adjust_op_size = airoha_snand_adjust_op_size,
-    .supports_op = airoha_snand_supports_op,
-    .exec_op = airoha_snand_exec_op,
-    .dirmap_create = airoha_snand_dirmap_create,
-    .dirmap_read = airoha_snand_dirmap_read,
-    .dirmap_write = airoha_snand_dirmap_write,
+static const struct spi_controller_mem_ops airoha_spi_mem_ops = {
+    .adjust_op_size = airoha_spi_adjust_op_size,
+    .supports_op = airoha_spi_supports_op,
+    .exec_op = airoha_spi_exec_op,
+    .dirmap_create = airoha_spi_dirmap_create,
+    .dirmap_read = airoha_spi_dirmap_read,
+    .dirmap_write = airoha_spi_dirmap_write,
 };
 
-static struct spi_board_info airoha_board_info =  { 
-	.modalias = "spidev", 
-	.max_speed_hz = 50000000,
-	.bus_num = 0 , 
-	.chip_select = 1, 
-	.mode = SPI_MODE_0,
-};
-
-static struct spi_device *airoha_spi_device; 
-static int airoha_snand_setup(struct spi_device *spi)
+static int airoha_spi_setup(struct spi_device *spi)
 {
     struct airoha_snand *as = spi_master_get_devdata(spi->master);
-    unsigned int sec_num = ((READ_NFI_REG(_SPI_NFI_REGS_CON) & 0xf000) >> 12);
-    unsigned int sec_size = (READ_NFI_REG(_SPI_NFI_REGS_SECCUS_SIZE) & 0x1fff);
+    unsigned int sec_num = ((READ_NFI_REG(REG_SPI_NFI_CON) & 0xf000) >> 12);
+    unsigned int sec_size = (READ_NFI_REG(REG_SPI_NFI_SECCUS_SIZE) & 0x1fff);
     int ret = 0;
 
 	
@@ -707,45 +691,45 @@ static int airoha_snand_setup(struct spi_device *spi)
     as->rx_buf = (unsigned char *)kmalloc(as->buf_len, GFP_KERNEL);
     if(!as->rx_buf)
     {
-        printk("[airoha_snand_setup] rx_buf allocate failed\n");
+        printk("[airoha_spi_setup] rx_buf allocate failed\n");
         return -ENOMEM;
     }
     as->rx_dma_addr = dma_map_single(as->dev, (void *)as->rx_buf, as->buf_len, DMA_FROM_DEVICE);
     ret = dma_mapping_error(as->dev, as->rx_dma_addr);
     if(ret)
     {
-        printk("[airoha_snand_setup] rx_dma_addr mapping error\n");
+        printk("[airoha_spi_setup] rx_dma_addr mapping error\n");
         return -EINVAL;
     }
     as->tx_buf = (unsigned char *)kmalloc(as->buf_len, GFP_KERNEL);
     if(!as->tx_buf)
     {
-        printk("[airoha_snand_setup] tx_buf allocate failed\n");
+        printk("[airoha_spi_setup] tx_buf allocate failed\n");
         return -ENOMEM;
     }
     as->tx_dma_addr = dma_map_single(as->dev, (void *)as->tx_buf, as->buf_len, DMA_TO_DEVICE);
     ret = dma_mapping_error(as->dev, as->tx_dma_addr);
     if(ret)
     {
-        printk("[airoha_snand_setup] tx_dma_addr mapping error\n");
+        printk("[airoha_spi_setup] tx_dma_addr mapping error\n");
         return -EINVAL;
     }
 
-    airoha_snand_nfi_init(as);
-    airoha_snand_nfi_config(as);
+    airoha_spi_nfi_init(as);
+    airoha_spi_nfi_config(as);
 
     return 0;
 }
 
-static const struct of_device_id airoha_snand_ids[] = {
+static const struct of_device_id airoha_spi_ids[] = {
     { .compatible = "airoha,en7581-spi" },
     { }
 };
-MODULE_DEVICE_TABLE(of, airoha_snand_ids);
+MODULE_DEVICE_TABLE(of, airoha_spi_ids);
 
 
 static bool is_nor(void) { 	
-	void __iomem *reg = ioremap((_SPI_CONTROLLER_REGS_BASE + _SPI_CONTROLLER_REGS_SFC_STRAP),4);
+	void __iomem *reg = ioremap((REG_SPI_CONTROLLER_BASE + REG_SPI_CONTROLLER_SFC_STRAP),4);
 	u32 val = readl(reg); 
 	iounmap(reg);
 	if (val & 0x2) { 
@@ -754,7 +738,7 @@ static bool is_nor(void) {
 	return true; 
 }
 
-static int airoha_snand_probe(struct platform_device *pdev)
+static int airoha_spi_probe(struct platform_device *pdev)
 {
     struct resource *spi_res = NULL;
     struct resource *nfi_res = NULL;
@@ -764,7 +748,7 @@ static int airoha_snand_probe(struct platform_device *pdev)
     if (is_nor()){ // TODO: EMMC check 
 	    return -1;
     }
-    printk("[%s-%d]: NAND device found\n", __func__, __LINE__);
+    printk("NAND device found\n");
 
     /* linux kernel platform */
     master = spi_alloc_master(&pdev->dev, sizeof(*as));
@@ -817,11 +801,11 @@ static int airoha_snand_probe(struct platform_device *pdev)
 
     /* Hook function pointer and settings to kernel */
     master->num_chipselect = 2;
-    master->mem_ops = &airoha_snand_mem_ops;
+    master->mem_ops = &airoha_spi_mem_ops;
     master->bits_per_word_mask = SPI_BPW_MASK(8);
     master->mode_bits = SPI_RX_DUAL;
     master->dev.of_node = pdev->dev.of_node;
-    master->setup = airoha_snand_setup;
+    master->setup = airoha_spi_setup;
 
 
 
@@ -835,14 +819,7 @@ static int airoha_snand_probe(struct platform_device *pdev)
 
 	printk("trying to init new device\n"); 
 
-	airoha_spi_device = spi_new_device(master , &airoha_board_info);
-	if (!airoha_spi_device) { 
-		printk("[airoha_snand_setup] spi new device failed\n");
-	}
 	printk("spi_device initailized\n"); 
-    /* old API support start */
-    old_as = as;
-    /* old API support end */
 
     return 0;
 
@@ -851,22 +828,18 @@ err_put_controller:
     return ret;
 }
 
-static int airoha_snand_remove(struct platform_device *pdev)
-{
-    return 0;
-}
-static struct platform_driver airoha_snand_driver = {
-    .driver = {
-        .name = "airoha-snand",
-        .of_match_table = airoha_snand_ids,
-    },
-    .probe = airoha_snand_probe,
-    .remove = airoha_snand_remove,
+static struct platform_driver airoha_spi_driver = {
+	.driver = {
+		.name = "airoha-spi",
+		.of_match_table = airoha_spi_ids,
+	},
+	.probe = airoha_spi_probe,
 };
 
-module_platform_driver(airoha_snand_driver);
+module_platform_driver(airoha_spi_driver);
 
-MODULE_DESCRIPTION("AIROHA SPI NAND driver");
+MODULE_DESCRIPTION("Airoha SPI driver");
+MODULE_AUTHOR("Lorenzo Bianconi <lorenzo@kernel.org>");
 MODULE_AUTHOR("Ray Liu <ray.liu@airoha.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_ALIAS("platform:airoha-snand");
