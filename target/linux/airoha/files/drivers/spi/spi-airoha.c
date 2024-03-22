@@ -23,35 +23,64 @@
 #include <asm/cacheflush.h>
 #include <linux/spi/spi.h> 
 
-#define REG_SPI_CONTROLLER_BASE                   	0x1FA10000
+#define REG_SPI_CTRL_BASE				0x1FA10000
 
-#define REG_SPI_CONTROLLER_READ_MODE			0x0000
-#define REG_SPI_CONTROLLER_READ_IDLE_EN			0x0004
-#define REG_SPI_CONTROLLER_SIDLY			0x0008
-#define REG_SPI_CONTROLLER_CSHEXT			0x000c
-#define REG_SPI_CONTROLLER_CSLEXT			0x0010
-#define REG_SPI_CONTROLLER_MTX_MODE_TOG			0x0014
-#define REG_SPI_CONTROLLER_RDCTL_FSM			0x0018
-#define REG_SPI_CONTROLLER_MACMUX_SEL			0x001c
-#define REG_SPI_CONTROLLER_MANUAL_EN			0x0020
-#define REG_SPI_CONTROLLER_MANUAL_OPFIFO_EMPTY		0x0024
-#define REG_SPI_CONTROLLER_MANUAL_OPFIFO_WDATA		0x0028
-#define REG_SPI_CONTROLLER_MANUAL_OPFIFO_FULL 		0x002c
-#define REG_SPI_CONTROLLER_MANUAL_OPFIFO_WR		0x0030
-#define REG_SPI_CONTROLLER_MANUAL_DFIFO_FULL		0x0034
-#define REG_SPI_CONTROLLER_MANUAL_DFIFO_WDATA		0x0038
-#define REG_SPI_CONTROLLER_MANUAL_DFIFO_EMPTY		0x003c
-#define REG_SPI_CONTROLLER_MANUAL_DFIFO_RD		0x0040
-#define REG_SPI_CONTROLLER_MANUAL_DFIFO_RDATA		0x0044
-#define REG_SPI_CONTROLLER_DUMMY			0x0080
-#define REG_SPI_CONTROLLER_PROBE_SEL			0x0088
-#define REG_SPI_CONTROLLER_INTERRUPT			0x0090
-#define REG_SPI_CONTROLLER_INTERRUPT_EN			0x0094
-#define REG_SPI_CONTROLLER_SI_CK_SEL			0x009c
-#define REG_SPI_CONTROLLER_SW_CFGNANDADDR_VAL		0x010c
-#define REG_SPI_CONTROLLER_SW_CFGNANDADDR_EN		0x0110
-#define REG_SPI_CONTROLLER_SFC_STRAP			0x0114
-#define REG_SPI_CONTROLLER_NFI2SPI_EN			0x0130
+#define REG_SPI_CTRL_READ_MODE				0x0000
+#define REG_SPI_CTRL_READ_IDLE_EN			0x0004
+#define REG_SPI_CTRL_SIDLY				0x0008
+#define REG_SPI_CTRL_CSHEXT				0x000c
+#define REG_SPI_CTRL_CSLEXT				0x0010
+#define REG_SPI_CTRL_MTX_MODE_TOG			0x0014
+
+#define REG_SPI_CTRL_RDCTL_FSM				0x0018
+#define SPI_CTRL_RDCTL_FSM				GENMASK(3, 0)
+
+#define REG_SPI_CTRL_MACMUX_SEL				0x001c
+
+#define REG_SPI_CTRL_MANUAL_EN				0x0020
+#define SPI_CTRL_MANUAL_EN				BIT(0)
+
+#define REG_SPI_CTRL_OPFIFO_EMPTY			0x0024
+#define SPI_CTRL_OPFIFO_EMPTY				BIT(0)
+
+#define REG_SPI_CTRL_OPFIFO_WDATA			0x0028
+#define SPI_CTRL_OPFIFO_LEN				GENMASK(8, 0)
+#define SPI_CTRL_OPFIFO_OP				GENMASK(13, 9)
+
+#define REG_SPI_CTRL_OPFIFO_FULL 			0x002c
+#define SPI_CTRL_OPFIFO_FULL				BIT(0)
+
+#define REG_SPI_CTRL_OPFIFO_WR				0x0030
+#define SPI_CTRL_OPFIFO_WR				BIT(0)
+
+#define REG_SPI_CTRL_DFIFO_FULL				0x0034
+#define SPI_CTRL_DFIFO_FULL				BIT(0)
+
+#define REG_SPI_CTRL_DFIFO_WDATA			0x0038
+#define SPI_CTRL_DFIFO_WDATA				GENMASK(7, 0)
+
+#define REG_SPI_CTRL_DFIFO_EMPTY			0x003c
+#define SPI_CTRL_DFIFO_EMPTY				BIT(0)
+
+#define REG_SPI_CTRL_DFIFO_RD				0x0040
+#define SPI_CTRL_DFIFO_RD				BIT(0)
+
+#define REG_SPI_CTRL_DFIFO_RDATA			0x0044
+#define SPI_CTRL_DFIFO_RDATA				GENMASK(7, 0)
+
+#define REG_SPI_CTRL_DUMMY				0x0080
+#define SPI_CTRL_CTRL_DUMMY				GENMASK(3, 0)
+
+#define REG_SPI_CTRL_PROBE_SEL				0x0088
+#define REG_SPI_CTRL_INTERRUPT				0x0090
+#define REG_SPI_CTRL_INTERRUPT_EN			0x0094
+#define REG_SPI_CTRL_SI_CK_SEL				0x009c
+#define REG_SPI_CTRL_SW_CFGNANDADDR_VAL			0x010c
+#define REG_SPI_CTRL_SW_CFGNANDADDR_EN			0x0110
+#define REG_SPI_CTRL_SFC_STRAP				0x0114
+
+#define REG_SPI_CTRL_NFI2SPI_EN				0x0130
+#define SPI_CTRL_NFI2SPI_EN				BIT(0)
 
 #define REG_SPI_NFI_CNFG				0x0000
 #define REG_SPI_NFI_PAGEFMT				0x0004
@@ -130,7 +159,6 @@ struct airoha_nfi_conf {
     size_t sec_size;
     unsigned char sec_num;
     unsigned char spare_size;
-    unsigned char dummy_byte_num;
 };
 
 struct airoha_snand {
@@ -160,82 +188,132 @@ static void airoha_spi_write(struct airoha_snand *as, u32 addr, u32 val)
 	writel(val, as->spi_base + addr);
 }
 
-static int airoha_spi_set_opfifo(struct airoha_snand *as, unsigned char op_cmd, unsigned int op_len)
+static int airoha_spi_set_opfifo(struct airoha_snand *as, u8 op_cmd, int op_len)
 {
-    airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_OPFIFO_WDATA, ((((op_cmd) & 0x1f) << 0x9) | ((op_len) & 0x1ff)));
-    while(airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_OPFIFO_FULL));
-    airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_OPFIFO_WR, 0x1);
-    while(!airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_OPFIFO_EMPTY));
-    return 0;
+	int err;
+	u32 val;
+
+	airoha_spi_write(as, REG_SPI_CTRL_OPFIFO_WDATA,
+			 FIELD_PREP(SPI_CTRL_OPFIFO_LEN, op_len) |
+			 FIELD_PREP(SPI_CTRL_OPFIFO_OP, op_cmd));
+
+	err = read_poll_timeout(airoha_spi_read, val,
+				!(val & SPI_CTRL_OPFIFO_FULL),
+				USEC_PER_MSEC, 250 * USEC_PER_MSEC, false,
+				as, REG_SPI_CTRL_OPFIFO_FULL);
+	if (err)
+		return err;
+
+	airoha_spi_write(as, REG_SPI_CTRL_OPFIFO_WR, SPI_CTRL_OPFIFO_WR);
+
+	return read_poll_timeout(airoha_spi_read, val,
+				 (val & SPI_CTRL_OPFIFO_EMPTY), USEC_PER_MSEC,
+				 250 * USEC_PER_MSEC, false, as,
+				 REG_SPI_CTRL_OPFIFO_EMPTY);
 }
 
 static void airoha_spi_set_cs(struct airoha_snand *as, SPI_CONTROLLER_CHIP_SELECT_T cs)
 {
-    airoha_spi_set_opfifo(as, cs, 1);
+	airoha_spi_set_opfifo(as, cs, 1);
 }
 
-static int airoha_spi_write_data_fifo(struct airoha_snand *as, void *data, unsigned int data_len)
+static int airoha_spi_write_data_fifo(struct airoha_snand *as, void *data, int len)
 {
-    unsigned char *ptr_data = data;
-    unsigned int idx;
-    for(idx = 0; idx < data_len; idx++)
-    {
-        /* 1. Wait until dfifo is not full */
-        while(airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_FULL));
-        /* 2. Write data to register DFIFO_WDATA */
-        airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_WDATA, ((*(ptr_data+idx)) & 0xff));
-        /* 3. Wait until dfifo is not full */
-        while(airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_FULL));
-    }
-    return 0;
+	u8 *ptr = data;
+	int i;
+	
+	for (i = 0; i < len; i++) {
+		int err;
+		u32 val;
+
+		/* 1. Wait until dfifo is not full */
+		err = read_poll_timeout(airoha_spi_read, val,
+					!(val & SPI_CTRL_DFIFO_FULL),
+					USEC_PER_MSEC, 250 * USEC_PER_MSEC, false,
+					as, REG_SPI_CTRL_DFIFO_FULL);
+		if (err)
+			return err;
+
+		/* 2. Write data to register DFIFO_WDATA */
+		airoha_spi_write(as, REG_SPI_CTRL_DFIFO_WDATA,
+				 FIELD_PREP(SPI_CTRL_DFIFO_WDATA, ptr[i]));
+
+		/* 3. Wait until dfifo is not full */
+		err = read_poll_timeout(airoha_spi_read, val,
+					!(val & SPI_CTRL_DFIFO_FULL),
+					USEC_PER_MSEC, 250 * USEC_PER_MSEC, false,
+					as, REG_SPI_CTRL_DFIFO_FULL);
+		if (err)
+			return err;
+	}
+
+	return 0;
 }
 
-static int airoha_spi_read_data_fifo(struct airoha_snand *as, unsigned char *ptr_rtn_data, unsigned int data_len)
+static int airoha_spi_read_data_fifo(struct airoha_snand *as, u8 *ptr, int len)
 {
-    unsigned int idx;
-    for(idx = 0; idx < data_len; idx++)
-    {
-        /* 1. wait until dfifo is not empty */
-        while(airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_EMPTY));
-        /* 2. read from dfifo to register DFIFO_RDATA */
-        *(ptr_rtn_data+idx) = (airoha_spi_read(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_RDATA)) & 0xff;
-        /* 3. enable register DFIFO_RD to read next byte */
-        airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_DFIFO_RD, 0x1);
-    }
-    return 0;
+	int i;
+
+	for (i = 0; i < len; i++) {
+		int err;
+		u32 val;
+
+		/* 1. wait until dfifo is not empty */
+		err = read_poll_timeout(airoha_spi_read, val,
+					!(val & SPI_CTRL_DFIFO_EMPTY),
+					USEC_PER_MSEC, 250 * USEC_PER_MSEC, false,
+					as, REG_SPI_CTRL_DFIFO_EMPTY);
+		if (err)
+			return err;
+
+		/* 2. read from dfifo to register DFIFO_RDATA */
+		ptr[i] = FIELD_GET(SPI_CTRL_DFIFO_RDATA,
+				   airoha_spi_read(as,
+						   REG_SPI_CTRL_DFIFO_RDATA));
+		/* 3. enable register DFIFO_RD to read next byte */
+		airoha_spi_write(as, REG_SPI_CTRL_DFIFO_RD, SPI_CTRL_DFIFO_RD);
+	}
+
+	return 0;
 }
 
-static int airoha_spi_set_mode(struct airoha_snand *as, enum airoha_spi_mode mode)
+static int airoha_spi_set_mode(struct airoha_snand *as,
+			       enum airoha_spi_mode mode)
 {
-    switch(mode)
-    {
-        case SPI_MODE_AUTO:
-        {
-            break;
-        }
-        case SPI_MODE_MANUAL:
-        {
-            airoha_spi_write(as, REG_SPI_CONTROLLER_NFI2SPI_EN, 0x0);
-            airoha_spi_write(as, REG_SPI_CONTROLLER_READ_IDLE_EN, 0x0);
-            while(airoha_spi_read(as, REG_SPI_CONTROLLER_RDCTL_FSM));
-            airoha_spi_write(as, REG_SPI_CONTROLLER_MTX_MODE_TOG, 0x9);
-            airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_EN, 0x1);
-            break;
-        }
-        case SPI_MODE_DMA:
-        {
-            airoha_spi_write(as, REG_SPI_CONTROLLER_NFI2SPI_EN, 0x1);
-            airoha_spi_write(as, REG_SPI_CONTROLLER_MTX_MODE_TOG, 0x0);
-            airoha_spi_write(as, REG_SPI_CONTROLLER_MANUAL_EN, 0x0);
-            break;
-        }
-        default:
-        {
-            break;
-        }
-    }
-    airoha_spi_write(as, REG_SPI_CONTROLLER_DUMMY, as->nfi_cfg.dummy_byte_num);
-    return 0;
+	switch (mode) {
+	case SPI_MODE_MANUAL: {
+		int err;
+		u32 val;
+
+		airoha_spi_write(as, REG_SPI_CTRL_NFI2SPI_EN, 0x0);
+		airoha_spi_write(as, REG_SPI_CTRL_READ_IDLE_EN, 0x0);
+
+		err = read_poll_timeout(airoha_spi_read, val,
+					!(val & SPI_CTRL_RDCTL_FSM),
+					USEC_PER_MSEC, 250 * USEC_PER_MSEC,
+					false, as, REG_SPI_CTRL_RDCTL_FSM);
+		if (err)
+			return err;
+
+		airoha_spi_write(as, REG_SPI_CTRL_MTX_MODE_TOG, 0x9);
+		airoha_spi_write(as, REG_SPI_CTRL_MANUAL_EN,
+				 SPI_CTRL_MANUAL_EN);
+		break;
+	}
+	case SPI_MODE_DMA:
+		airoha_spi_write(as, REG_SPI_CTRL_NFI2SPI_EN,
+				 SPI_CTRL_MANUAL_EN);
+		airoha_spi_write(as, REG_SPI_CTRL_MTX_MODE_TOG, 0x0);
+		airoha_spi_write(as, REG_SPI_CTRL_MANUAL_EN, 0x0);
+		break;
+	case SPI_MODE_AUTO:
+	default:
+		break;
+	}
+
+	airoha_spi_write(as, REG_SPI_CTRL_DUMMY, 0x0);
+
+	return 0;
 }
 
 static int airoha_spi_write_one_byte_with_cmd(struct airoha_snand *as, unsigned char cmd, void *data)
@@ -482,7 +560,6 @@ static ssize_t airoha_spi_dirmap_read(struct spi_mem_dirmap_desc *desc, u64 offs
     {
         rd_mode = 0x0;
     }
-    // as->nfi_cfg.dummy_byte_num = op->dummy.nbytes;
 
     airoha_spi_set_mode(as, SPI_MODE_DMA);
     airoha_spi_nfi_reset(as);
@@ -682,7 +759,6 @@ static int airoha_spi_setup(struct spi_device *spi)
     as->nfi_cfg.page_size = (((sec_size * sec_num) / 1024) * 1024);
     as->nfi_cfg.oob_size = ((sec_size * sec_num) % 1024);
     as->nfi_cfg.spare_size = 16;
-    as->nfi_cfg.dummy_byte_num = 0;
     as->current_page_num = 0;
     as->data_need_update = true;
 
@@ -729,7 +805,7 @@ MODULE_DEVICE_TABLE(of, airoha_spi_ids);
 
 
 static bool is_nor(void) { 	
-	void __iomem *reg = ioremap((REG_SPI_CONTROLLER_BASE + REG_SPI_CONTROLLER_SFC_STRAP),4);
+	void __iomem *reg = ioremap((REG_SPI_CTRL_BASE + REG_SPI_CTRL_SFC_STRAP),4);
 	u32 val = readl(reg); 
 	iounmap(reg);
 	if (val & 0x2) { 
