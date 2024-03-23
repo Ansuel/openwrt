@@ -190,6 +190,15 @@ typedef enum{
     SPI_CONTROLLER_CHIP_SELECT_LOW,
 } SPI_CONTROLLER_CHIP_SELECT_T;
 
+struct airoha_spi_dev {
+	size_t buf_len;
+
+	u8 *tx_buf;
+	dma_addr_t tx_dma_addr;
+	u8 *rx_buf;
+	dma_addr_t rx_dma_addr;
+};
+
 struct airoha_snand {
     struct spi_controller *master;
     struct device *dev;
@@ -206,11 +215,6 @@ struct airoha_snand {
 		unsigned char spare_size;
 	} nfi_cfg;
 
-    unsigned char *rx_buf;
-    unsigned char *tx_buf;
-    dma_addr_t rx_dma_addr;
-    dma_addr_t tx_dma_addr;
-    size_t buf_len;
     unsigned long current_page_num;
     bool data_need_update;
     bool autofmt; // <-- soc controller ecc need to implement this feature
@@ -619,16 +623,15 @@ static bool airoha_spi_supports_op(struct spi_mem *mem,
 
 static int airoha_spi_dirmap_create(struct spi_mem_dirmap_desc *desc)
 {
-	struct spi_mem *mem = desc->mem;
-	struct airoha_snand *as = spi_master_get_devdata(mem->spi->master);
+	struct airoha_spi_dev *aspi_dev = spi_get_ctldata(desc->mem->spi);
 
-	if (!as->rx_buf || !as->tx_buf)
+	if (!aspi_dev->rx_buf || !aspi_dev->tx_buf)
 		return -EINVAL;
 
 	if (desc->info.offset + desc->info.length > U32_MAX)
 		return -EINVAL;
 
-	if (!airoha_spi_supports_op(mem, &desc->info.op_tmpl))
+	if (!airoha_spi_supports_op(desc->mem, &desc->info.op_tmpl))
 		return -EOPNOTSUPP;
 
 	return 0;
@@ -637,7 +640,9 @@ static int airoha_spi_dirmap_create(struct spi_mem_dirmap_desc *desc)
 static ssize_t airoha_spi_dirmap_read(struct spi_mem_dirmap_desc *desc,
 				      u64 offs, size_t len, void *buf)
 {
-    struct airoha_snand *as = spi_master_get_devdata(desc->mem->spi->master);
+	struct spi_device *spi = desc->mem->spi;
+	struct airoha_spi_dev *aspi_dev = spi_get_ctldata(spi);
+    struct airoha_snand *as = spi_master_get_devdata(spi->master);
     struct spi_mem_op *op = &desc->info.op_tmpl;
     unsigned int rd_mode;
     int ret;
@@ -676,10 +681,10 @@ static ssize_t airoha_spi_dirmap_read(struct spi_mem_dirmap_desc *desc,
     ret = airoha_spi_nfi_config(as);
     if (ret)
 	    return ret;
-    dma_sync_single_for_device(as->dev, as->rx_dma_addr, as->buf_len, DMA_FROM_DEVICE);
+    dma_sync_single_for_device(as->dev, aspi_dev->rx_dma_addr, aspi_dev->buf_len, DMA_FROM_DEVICE);
     mb();
     // set dma addr
-    WRITE_NFI_REG(REG_SPI_NFI_STRADDR, as->rx_dma_addr);
+    WRITE_NFI_REG(REG_SPI_NFI_STRADDR, aspi_dev->rx_dma_addr);
     // set cust sec size
     WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_SNF_MISC_CTL2, 0x1fff, (as->nfi_cfg.sec_size * as->nfi_cfg.sec_num) << 0);
     // set read command
@@ -713,17 +718,19 @@ static ssize_t airoha_spi_dirmap_read(struct spi_mem_dirmap_desc *desc,
 
     /* Does DMA read need delay for data ready from controller to DRAM */
     udelay(1);
-    dma_sync_single_for_cpu(as->dev, as->rx_dma_addr, as->buf_len, DMA_FROM_DEVICE);
+    dma_sync_single_for_cpu(as->dev, aspi_dev->rx_dma_addr, aspi_dev->buf_len, DMA_FROM_DEVICE);
     ret = airoha_spi_set_mode(as, SPI_MODE_MANUAL);
     if (ret < 0)
 	    return ret;
-    memcpy(buf, as->rx_buf + offs, len);
+    memcpy(buf, aspi_dev->rx_buf + offs, len);
     return len;
 }
 
 static ssize_t airoha_spi_dirmap_write(struct spi_mem_dirmap_desc *desc, u64 offs, size_t len, const void *buf)
 {
-    struct airoha_snand *as = spi_master_get_devdata(desc->mem->spi->master);
+	struct spi_device *spi = desc->mem->spi;
+	struct airoha_spi_dev *aspi_dev = spi_get_ctldata(spi);
+    struct airoha_snand *as = spi_master_get_devdata(spi->master);
     struct spi_mem_op *op = &desc->info.op_tmpl;
     unsigned int wr_mode;
     int ret;
@@ -742,10 +749,10 @@ static ssize_t airoha_spi_dirmap_write(struct spi_mem_dirmap_desc *desc, u64 off
     ret = airoha_spi_set_mode(as, SPI_MODE_MANUAL);
     if (ret < 0)
 	    return ret;
-    dma_sync_single_for_cpu(as->dev, as->tx_dma_addr, as->buf_len, DMA_TO_DEVICE);
-    memcpy(as->tx_buf, as->rx_buf, as->buf_len);
-    memcpy(as->tx_buf + offs, buf, len);
-    dma_sync_single_for_device(as->dev, as->tx_dma_addr, as->buf_len, DMA_TO_DEVICE);
+    dma_sync_single_for_cpu(as->dev, aspi_dev->tx_dma_addr, aspi_dev->buf_len, DMA_TO_DEVICE);
+    memcpy(aspi_dev->tx_buf, aspi_dev->rx_buf, aspi_dev->buf_len);
+    memcpy(aspi_dev->tx_buf + offs, buf, len);
+    dma_sync_single_for_device(as->dev, aspi_dev->tx_dma_addr, aspi_dev->buf_len, DMA_TO_DEVICE);
     mb();
     ret = airoha_spi_set_mode(as, SPI_MODE_DMA);
     if (ret < 0)
@@ -754,7 +761,7 @@ static ssize_t airoha_spi_dirmap_write(struct spi_mem_dirmap_desc *desc, u64 off
     if (ret)
 	    return ret;
 
-    WRITE_NFI_REG(REG_SPI_NFI_STRADDR, as->tx_dma_addr);
+    WRITE_NFI_REG(REG_SPI_NFI_STRADDR, aspi_dev->tx_dma_addr);
     WRITE_NFI_REG_WITH_MASK(REG_SPI_NFI_SNF_MISC_CTL2, 0x1fff0000, ((as->nfi_cfg.sec_size * as->nfi_cfg.sec_num) << 16));
     WRITE_NFI_REG(REG_SPI_NFI_PG_CTL1, (op->cmd.opcode << 8));
     WRITE_NFI_REG(REG_SPI_NFI_SNF_MISC_CTL, (wr_mode << 16));
@@ -887,7 +894,70 @@ static const struct spi_controller_mem_ops airoha_spi_mem_ops = {
 
 static int airoha_spi_setup(struct spi_device *spi)
 {
+	struct airoha_spi_dev *aspi_dev = spi_get_ctldata(spi);
 	struct airoha_snand *as = spi_master_get_devdata(spi->master);
+
+	aspi_dev = kzalloc(sizeof(*aspi_dev), GFP_KERNEL);
+	if (!aspi_dev)
+		return -ENOMEM;
+
+	spi_set_ctldata(spi, aspi_dev);
+
+	/* prepare device buffer */
+	aspi_dev->buf_len = SPI_NAND_CACHE_SIZE;
+	aspi_dev->rx_buf = kzalloc(aspi_dev->buf_len, GFP_KERNEL);
+	if (!aspi_dev->rx_buf)
+		goto error_dev_free;
+
+	aspi_dev->rx_dma_addr = dma_map_single(as->dev, aspi_dev->rx_buf,
+					       aspi_dev->buf_len,
+					       DMA_FROM_DEVICE);
+	if (dma_mapping_error(as->dev, aspi_dev->rx_dma_addr))
+		goto error_rx_free;
+
+	aspi_dev->tx_buf = kzalloc(aspi_dev->buf_len, GFP_KERNEL);
+	if (!aspi_dev->tx_buf)
+		goto error_rx_unmap;
+
+	aspi_dev->tx_dma_addr = dma_map_single(as->dev, aspi_dev->tx_buf,
+					       aspi_dev->buf_len,
+					       DMA_TO_DEVICE);
+	if (dma_mapping_error(as->dev, aspi_dev->tx_dma_addr))
+		goto error_tx_free;
+
+	return 0;
+
+error_tx_free:
+	kfree(aspi_dev->tx_buf);
+error_rx_unmap:
+	dma_unmap_single(as->dev, aspi_dev->rx_dma_addr,
+			 aspi_dev->buf_len, DMA_FROM_DEVICE);
+error_rx_free:
+	kfree(aspi_dev->rx_buf);
+error_dev_free:
+	kfree(aspi_dev);
+
+	return -ENOMEM;
+}
+
+static void airoha_spi_cleanup(struct spi_device *spi)
+{
+	struct airoha_spi_dev *aspi_dev = spi_get_ctldata(spi);
+	struct airoha_snand *as = spi_master_get_devdata(spi->master);
+
+	dma_unmap_single(as->dev, aspi_dev->rx_dma_addr,
+			 aspi_dev->buf_len, DMA_FROM_DEVICE);
+	dma_unmap_single(as->dev, aspi_dev->tx_dma_addr,
+			 aspi_dev->buf_len, DMA_TO_DEVICE);
+
+	kfree(aspi_dev->rx_buf);
+	kfree(aspi_dev->tx_buf);
+
+	spi_set_ctldata(spi, NULL);
+}
+
+static int airoha_spi_nfi_setup(struct airoha_snand *as)
+{
 	u32 val, sec_size, sec_num;
 	int err;
 
@@ -903,7 +973,7 @@ static int airoha_spi_setup(struct spi_device *spi)
 
 	sec_size = FIELD_GET(SPI_NFI_CUS_SEC_SIZE, val);
 
-	/* init value */
+	/* init default value */
 	as->autofmt = false;
 	as->nfi_cfg.sec_size = sec_size;
 	as->nfi_cfg.sec_num = sec_num;
@@ -912,47 +982,11 @@ static int airoha_spi_setup(struct spi_device *spi)
 	as->current_page_num = 0;
 	as->data_need_update = true;
 
-	/* prepare buffer */
-	as->buf_len = SPI_NAND_CACHE_SIZE;
-	as->rx_buf = devm_kmalloc(as->dev, as->buf_len, GFP_KERNEL);
-	if (!as->rx_buf)
-		return -ENOMEM;
-
-	as->rx_dma_addr = dma_map_single(as->dev, (void *)as->rx_buf,
-					 as->buf_len, DMA_FROM_DEVICE);
-	err = dma_mapping_error(as->dev, as->rx_dma_addr);
+	err = airoha_spi_nfi_init(as);
 	if (err)
 		return err;
 
-	as->tx_buf = devm_kmalloc(as->dev, as->buf_len, GFP_KERNEL);
-	if (!as->tx_buf) {
-		err = -ENOMEM;
-		goto error_rx_unmap;
-	}
-
-	as->tx_dma_addr = dma_map_single(as->dev, (void *)as->tx_buf,
-					 as->buf_len, DMA_TO_DEVICE);
-	err = dma_mapping_error(as->dev, as->tx_dma_addr);
-	if (err)
-		goto error_rx_unmap;
-
-	err = airoha_spi_nfi_init(as);
-	if (err)
-		goto error_tx_unmap;
-
-	err = airoha_spi_nfi_config(as);
-	if (err)
-		goto error_tx_unmap;
-
-	return 0;
-
-error_tx_unmap:
-	dma_unmap_single(as->dev, as->tx_dma_addr, as->buf_len,
-			 DMA_FROM_DEVICE);
-error_rx_unmap:
-	dma_unmap_single(as->dev, as->rx_dma_addr, as->buf_len,
-			 DMA_FROM_DEVICE);
-	return err;
+	return airoha_spi_nfi_config(as);
 }
 
 static const struct of_device_id airoha_spi_ids[] = {
@@ -973,6 +1007,7 @@ static bool is_nor(void) {
 }
 
 static const struct regmap_config spi_ctrl_regmap_config = {
+	.name		= "ctrl",
 	.reg_bits	= 32,
 	.val_bits	= 32,
 	.reg_stride	= 4,
@@ -980,6 +1015,7 @@ static const struct regmap_config spi_ctrl_regmap_config = {
 };
 
 static const struct regmap_config spi_nfi_regmap_config = {
+	.name		= "nfi",
 	.reg_bits	= 32,
 	.val_bits	= 32,
 	.reg_stride	= 4,
@@ -992,7 +1028,7 @@ static int airoha_spi_probe(struct platform_device *pdev)
     struct resource *nfi_res = NULL;
     struct spi_controller *master;
     struct airoha_snand *as;
-    int ret;
+    int err;
     if (is_nor()){ // TODO: EMMC check 
 	    return -1;
     }
@@ -1014,13 +1050,13 @@ static int airoha_spi_probe(struct platform_device *pdev)
     spi_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
     if(!spi_res)
     {
-        ret = -ENODEV;
+        err = -ENODEV;
         goto err_put_controller;
     }
     as->spi_base = devm_ioremap_resource(&pdev->dev, spi_res);
     if(IS_ERR(as->spi_base))
     {
-        ret = PTR_ERR(as->spi_base);
+        err = PTR_ERR(as->spi_base);
         goto err_put_controller;
     }
 
@@ -1029,20 +1065,20 @@ static int airoha_spi_probe(struct platform_device *pdev)
 	if (IS_ERR(as->regmap_ctrl)) {
 		 dev_err(&pdev->dev, "failed to init spi ctrl regmap: %ld\n",
 			 PTR_ERR(as->regmap_ctrl));
-		 ret = PTR_ERR(as->regmap_ctrl);
+		 err = PTR_ERR(as->regmap_ctrl);
 		 goto err_put_controller;
 	}
 
     nfi_res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
     if(!nfi_res)
     {
-        ret = -ENODEV;
+        err = -ENODEV;
         goto err_put_controller;
     }
     as->nfi_base = devm_ioremap_resource(&pdev->dev, nfi_res);
     if(IS_ERR(as->nfi_base))
     {
-        ret = PTR_ERR(as->nfi_base);
+        err = PTR_ERR(as->nfi_base);
         goto err_put_controller;
     }
 
@@ -1051,18 +1087,18 @@ static int airoha_spi_probe(struct platform_device *pdev)
 	if (IS_ERR(as->regmap_nfi)) {
 		 dev_err(&pdev->dev, "failed to init spi nfi regmap: %ld\n",
 			 PTR_ERR(as->regmap_nfi));
-		 ret = PTR_ERR(as->regmap_nfi);
+		 err = PTR_ERR(as->regmap_nfi);
 		 goto err_put_controller;
 	}
 
     as->irq = platform_get_irq(pdev, 0);
     if(as->irq < 0)
     {
-        ret = as->irq;
+        err = as->irq;
         goto err_put_controller;
     }
-    ret = dma_set_mask(as->dev, DMA_BIT_MASK(32));
-    if(ret)
+    err = dma_set_mask(as->dev, DMA_BIT_MASK(32));
+    if(err)
     {
         goto err_put_controller;
     }
@@ -1074,10 +1110,15 @@ static int airoha_spi_probe(struct platform_device *pdev)
     master->mode_bits = SPI_RX_DUAL;
     master->dev.of_node = pdev->dev.of_node;
     master->setup = airoha_spi_setup;
+    master->cleanup = airoha_spi_cleanup;
 
-    ret = spi_register_master(master);
+	err = airoha_spi_nfi_setup(as);
+	if (err)
+		return err;
 
-    if(ret)
+    err = spi_register_master(master);
+
+    if(err)
     {
         goto err_put_controller;
     }
@@ -1091,7 +1132,7 @@ static int airoha_spi_probe(struct platform_device *pdev)
 
 err_put_controller:
     spi_master_put(master);
-    return ret;
+    return err;
 }
 
 static struct platform_driver airoha_spi_driver = {
