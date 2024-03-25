@@ -45,7 +45,7 @@
 		tclinux_slave@25c0000 {
 			label = "tclinux_slave";
 			reg = <0x025c0000 0x02500000>;
-		};		
+		};
 	};
 
 	partition-nor@1fa10000 {
@@ -66,4 +66,12 @@
 			reg = <0x1980000 0x400000>;
 		};
 	};
+};
+
+&gpio0 {
+	status = "okay";
+};
+
+&gpio1 {
+	status = "okay";
 };
