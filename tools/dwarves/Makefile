@@ -6,9 +6,9 @@ PKG_NAME:=dwarves
 PKG_VERSION:=1.26
 PKG_RELEASE:=1
 
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.xz
-PKG_SOURCE_URL:=https://fedorapeople.org/~acme/dwarves/
-PKG_HASH:=ad4c08339850e404609e2808012580b7e98366d2b91054bb93fe6dca94651fb4
+PKG_SOURCE:=pahole-$(PKG_VERSION).tar.gz
+PKG_SOURCE_URL:=https://git.kernel.org/pub/scm/devel/pahole/pahole.git/snapshot
+PKG_HASH:=5b5f79b88e0e81c6af478176a199c167e5f7713d74cca3f1ca3e1fa7990e06cd
 
 PKG_LICENSE:=GPL-2.0-only
 PKG_LICENSE_FILES:=COPYING
