@@ -65,6 +65,12 @@ struct en_clk_gate {
 	struct clk_hw hw;
 };
 
+struct en_clk_soc_data {
+	const struct clk_ops clk_pcie_ops;
+	int (*clk_hw_init)(struct platform_device *pdev, void __iomem *base,
+			   void __iomem *np_base);
+};
+
 static const u32 gsw_base[] = { 400000000, 500000000 };
 static const u32 emi_base[] = { 333000000, 400000000 };
 static const u32 bus_base[] = { 500000000, 540000000 };
@@ -260,9 +266,10 @@ static void en7523_pci_unprepare(struct clk_hw *hw)
 static struct clk_hw *en7523_register_pcie_clk(struct device *dev,
 					       void __iomem *np_base)
 {
+	const struct en_clk_soc_data *soc_data = of_device_get_match_data(dev);
 	struct clk_init_data init = {
 		.name = "pcie",
-		.ops = of_device_get_match_data(dev),
+		.ops = &soc_data->clk_pcie_ops,
 	};
 	struct en_clk_gate *cg;
 
@@ -338,35 +345,6 @@ static void en7581_pci_unprepare(struct clk_hw *hw)
 	msleep(100);
 }
 
-static void en7523_register_clocks(struct device *dev, struct clk_hw_onecell_data *clk_data,
-				   void __iomem *base, void __iomem *np_base)
-{
-	struct clk_hw *hw;
-	u32 rate;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(en7523_base_clks); i++) {
-		const struct en_clk_desc *desc = &en7523_base_clks[i];
-
-		rate = en7523_get_base_rate(base, i);
-		rate /= en7523_get_div(base, i);
-
-		hw = clk_hw_register_fixed_rate(dev, desc->name, NULL, 0, rate);
-		if (IS_ERR(hw)) {
-			pr_err("Failed to register clk %s: %ld\n",
-			       desc->name, PTR_ERR(hw));
-			continue;
-		}
-
-		clk_data->hws[desc->id] = hw;
-	}
-
-	hw = en7523_register_pcie_clk(dev, np_base);
-	clk_data->hws[EN7523_CLK_PCIE] = hw;
-
-	clk_data->num = EN7523_NUM_CLOCKS;
-}
-
 static int en7581_clk_hw_init(struct platform_device *pdev,
 			      void __iomem *base,
 			      void __iomem *np_base)
@@ -398,9 +376,39 @@ static int en7581_clk_hw_init(struct platform_device *pdev,
 	return 0;
 }
 
+static void en7523_register_clocks(struct device *dev, struct clk_hw_onecell_data *clk_data,
+				   void __iomem *base, void __iomem *np_base)
+{
+	struct clk_hw *hw;
+	u32 rate;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(en7523_base_clks); i++) {
+		const struct en_clk_desc *desc = &en7523_base_clks[i];
+
+		rate = en7523_get_base_rate(base, i);
+		rate /= en7523_get_div(base, i);
+
+		hw = clk_hw_register_fixed_rate(dev, desc->name, NULL, 0, rate);
+		if (IS_ERR(hw)) {
+			pr_err("Failed to register clk %s: %ld\n",
+			       desc->name, PTR_ERR(hw));
+			continue;
+		}
+
+		clk_data->hws[desc->id] = hw;
+	}
+
+	hw = en7523_register_pcie_clk(dev, np_base);
+	clk_data->hws[EN7523_CLK_PCIE] = hw;
+
+	clk_data->num = EN7523_NUM_CLOCKS;
+}
+
 static int en7523_clk_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
+	const struct en_clk_soc_data *soc_data;
 	struct clk_hw_onecell_data *clk_data;
 	void __iomem *base, *np_base;
 	int r;
@@ -413,8 +421,9 @@ static int en7523_clk_probe(struct platform_device *pdev)
 	if (IS_ERR(np_base))
 		return PTR_ERR(np_base);
 
-	if (of_device_is_compatible(node, "airoha,en7581-scu")) {
-		r = en7581_clk_hw_init(pdev, base, np_base);
+	soc_data = of_device_get_match_data(&pdev->dev);
+	if (soc_data->clk_hw_init) {
+		r = soc_data->clk_hw_init(pdev, base, np_base);
 		if (r)
 			return r;
 	}
@@ -436,21 +445,26 @@ static int en7523_clk_probe(struct platform_device *pdev)
 	return r;
 }
 
-static const struct clk_ops en7523_pcie_ops = {
-	.is_enabled = en7523_pci_is_enabled,
-	.prepare = en7523_pci_prepare,
-	.unprepare = en7523_pci_unprepare,
+static const struct en_clk_soc_data en7523_data = {
+	.clk_pcie_ops = {
+		.is_enabled = en7523_pci_is_enabled,
+		.prepare = en7523_pci_prepare,
+		.unprepare = en7523_pci_unprepare,
+	},
 };
 
-static const struct clk_ops en7581_pcie_ops = {
-	.is_enabled = en7581_pci_is_enabled,
-	.prepare = en7581_pci_prepare,
-	.unprepare = en7581_pci_unprepare,
+static const struct en_clk_soc_data en7581_data = {
+	.clk_pcie_ops = {
+		.is_enabled = en7581_pci_is_enabled,
+		.prepare = en7581_pci_prepare,
+		.unprepare = en7581_pci_unprepare,
+	},
+	.clk_hw_init = en7581_clk_hw_init,
 };
 
 static const struct of_device_id of_match_clk_en7523[] = {
-	{ .compatible = "airoha,en7523-scu", .data = &en7523_pcie_ops },
-	{ .compatible = "airoha,en7581-scu", .data = &en7581_pcie_ops },
+	{ .compatible = "airoha,en7523-scu", .data = &en7523_data },
+	{ .compatible = "airoha,en7581-scu", .data = &en7581_data },
 	{ /* sentinel */ }
 };
 
