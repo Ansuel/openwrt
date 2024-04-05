@@ -66,9 +66,9 @@ struct en_clk_gate {
 };
 
 struct en_clk_soc_data {
-	const struct clk_ops clk_pcie_ops;
-	int (*clk_hw_init)(struct platform_device *pdev, void __iomem *base,
-			   void __iomem *np_base);
+	const struct clk_ops pcie_ops;
+	int (*hw_init)(struct platform_device *pdev, void __iomem *base,
+		       void __iomem *np_base);
 };
 
 static const u32 gsw_base[] = { 400000000, 500000000 };
@@ -269,7 +269,7 @@ static struct clk_hw *en7523_register_pcie_clk(struct device *dev,
 	const struct en_clk_soc_data *soc_data = of_device_get_match_data(dev);
 	struct clk_init_data init = {
 		.name = "pcie",
-		.ops = &soc_data->clk_pcie_ops,
+		.ops = &soc_data->pcie_ops,
 	};
 	struct en_clk_gate *cg;
 
@@ -279,6 +279,9 @@ static struct clk_hw *en7523_register_pcie_clk(struct device *dev,
 
 	cg->base = np_base;
 	cg->hw.init = &init;
+
+	if (init.ops->disable)
+		init.ops->disable(&cg->hw);
 	init.ops->unprepare(&cg->hw);
 
 	if (clk_hw_register(dev, &cg->hw))
@@ -311,6 +314,15 @@ static int en7581_pci_prepare(struct clk_hw *hw)
 	writel(val & ~REG_RESET2_CONTROL_PCIE2, np_base + REG_RESET_CONTROL2);
 	usleep_range(5000, 10000);
 
+	return 0;
+}
+
+static int en7581_pci_enable(struct clk_hw *hw)
+{
+	struct en_clk_gate *cg = container_of(hw, struct en_clk_gate, hw);
+	void __iomem *np_base = cg->base;
+	u32 val, mask;
+
 	mask = REG_PCI_CONTROL_REFCLK_EN0 | REG_PCI_CONTROL_REFCLK_EN1 |
 	       REG_PCI_CONTROL_PERSTOUT1 | REG_PCI_CONTROL_PERSTOUT2 |
 	       REG_PCI_CONTROL_PERSTOUT;
@@ -327,13 +339,6 @@ static void en7581_pci_unprepare(struct clk_hw *hw)
 	void __iomem *np_base = cg->base;
 	u32 val, mask;
 
-	mask = REG_PCI_CONTROL_REFCLK_EN0 | REG_PCI_CONTROL_REFCLK_EN1 |
-	       REG_PCI_CONTROL_PERSTOUT1 | REG_PCI_CONTROL_PERSTOUT2 |
-	       REG_PCI_CONTROL_PERSTOUT;
-	val = readl(np_base + REG_PCI_CONTROL);
-	writel(val & ~mask, np_base + REG_PCI_CONTROL);
-	usleep_range(1000, 2000);
-
 	mask = REG_RESET_CONTROL_PCIE1 | REG_RESET_CONTROL_PCIE2 |
 	       REG_RESET_CONTROL_PCIEHB;
 	val = readl(np_base + REG_RESET_CONTROL1);
@@ -343,6 +348,20 @@ static void en7581_pci_unprepare(struct clk_hw *hw)
 	val = readl(np_base + REG_RESET_CONTROL2);
 	writel(val | REG_RESET_CONTROL_PCIE2, np_base + REG_RESET_CONTROL2);
 	msleep(100);
+}
+
+static void en7581_pci_disable(struct clk_hw *hw)
+{
+	struct en_clk_gate *cg = container_of(hw, struct en_clk_gate, hw);
+	void __iomem *np_base = cg->base;
+	u32 val, mask;
+
+	mask = REG_PCI_CONTROL_REFCLK_EN0 | REG_PCI_CONTROL_REFCLK_EN1 |
+	       REG_PCI_CONTROL_PERSTOUT1 | REG_PCI_CONTROL_PERSTOUT2 |
+	       REG_PCI_CONTROL_PERSTOUT;
+	val = readl(np_base + REG_PCI_CONTROL);
+	writel(val & ~mask, np_base + REG_PCI_CONTROL);
+	usleep_range(1000, 2000);
 }
 
 static int en7581_clk_hw_init(struct platform_device *pdev,
@@ -422,8 +441,8 @@ static int en7523_clk_probe(struct platform_device *pdev)
 		return PTR_ERR(np_base);
 
 	soc_data = of_device_get_match_data(&pdev->dev);
-	if (soc_data->clk_hw_init) {
-		r = soc_data->clk_hw_init(pdev, base, np_base);
+	if (soc_data->hw_init) {
+		r = soc_data->hw_init(pdev, base, np_base);
 		if (r)
 			return r;
 	}
@@ -446,7 +465,7 @@ static int en7523_clk_probe(struct platform_device *pdev)
 }
 
 static const struct en_clk_soc_data en7523_data = {
-	.clk_pcie_ops = {
+	.pcie_ops = {
 		.is_enabled = en7523_pci_is_enabled,
 		.prepare = en7523_pci_prepare,
 		.unprepare = en7523_pci_unprepare,
@@ -454,12 +473,14 @@ static const struct en_clk_soc_data en7523_data = {
 };
 
 static const struct en_clk_soc_data en7581_data = {
-	.clk_pcie_ops = {
+	.pcie_ops = {
 		.is_enabled = en7581_pci_is_enabled,
 		.prepare = en7581_pci_prepare,
+		.enable = en7581_pci_enable,
 		.unprepare = en7581_pci_unprepare,
+		.disable = en7581_pci_disable,
 	},
-	.clk_hw_init = en7581_clk_hw_init,
+	.hw_init = en7581_clk_hw_init,
 };
 
 static const struct of_device_id of_match_clk_en7523[] = {

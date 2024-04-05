@@ -823,10 +823,8 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
 	int err;
 
 	writel_relaxed(0x23020133, pcie->base + 0x10044);
-	if (!__clk_is_enabled(pcie->clks[0].clk)) {
-		writel_relaxed(0x50500032, pcie->base + 0x15030);
-		writel_relaxed(0x50500032, pcie->base + 0x15130);
-	}
+	writel_relaxed(0x50500032, pcie->base + 0x15030);
+	writel_relaxed(0x50500032, pcie->base + 0x15130);
 
 	/* PHY power on and enable pipe clock */
 	reset_control_deassert(pcie->phy_reset);
