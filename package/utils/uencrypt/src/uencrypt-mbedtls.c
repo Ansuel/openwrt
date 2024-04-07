@@ -50,7 +50,7 @@ const cipher_t *get_cipher_or_print_error(char *name)
 	cipher = mbedtls_cipher_info_from_type(*list);
 	if (!cipher)
 	    continue;
-	fprintf(stderr, "\t%s\n", cipher->name);
+	fprintf(stderr, "\t%s\n", mbedtls_cipher_info_get_name(cipher));
     }
     return NULL;
 }
@@ -59,14 +59,14 @@ int get_cipher_ivsize(const cipher_t *cipher)
 {
     const mbedtls_cipher_info_t *c = cipher;
 
-    return c->iv_size;
+    return mbedtls_cipher_info_get_iv_size(c);
 }
 
 int get_cipher_keysize(const cipher_t *cipher)
 {
     const mbedtls_cipher_info_t *c = cipher;
 
-    return c->key_bitlen >> 3;
+    return mbedtls_cipher_info_get_key_bitlen(c) >> 3;
 }
 
 ctx_t *create_ctx(const cipher_t *cipher, const unsigned char *key,
@@ -103,7 +103,7 @@ ctx_t *create_ctx(const cipher_t *cipher, const unsigned char *key,
 	}
     }
 
-    if (cipher_info->mode == MBEDTLS_MODE_CBC) {
+    if (mbedtls_cipher_info_get_mode(cipher_info) == MBEDTLS_MODE_CBC) {
 	ret = mbedtls_cipher_set_padding_mode(ctx, padding ?
 						   MBEDTLS_PADDING_PKCS7 :
 						   MBEDTLS_PADDING_NONE);
@@ -113,7 +113,7 @@ ctx_t *create_ctx(const cipher_t *cipher, const unsigned char *key,
 	    goto abort;
 	}
     } else {
-	if (cipher_info->block_size > 1 && padding) {
+	if (mbedtls_cipher_info_get_block_size(cipher_info) > 1 && padding) {
 	    fprintf(stderr,
 		    "Error: mbedTLS only allows padding with CBC ciphers.\n");
 	    goto abort;
