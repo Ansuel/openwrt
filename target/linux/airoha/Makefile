@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 ARCH:=aarch64
 BOARD:=airoha
-BOARDNAME:=Airoha AN75xx
+BOARDNAME:=Airoha EN75xx
 SUBTARGETS:=en7581 en7523
 CPU_TYPE:=cortex-a53
 FEATURES:=dt squashfs nand ramdisk gpio source-only
