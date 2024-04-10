@@ -1,28 +1,21 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2023 AIROHA Inc.
+ * Copyright (c) 2024 AIROHA Inc
  * Author: Lorenzo Bianconi <lorenzo@kernel.org>
  * Author: Ray Liu <ray.liu@airoha.com>
  */
 
+#include <linux/device.h>
+#include <linux/dma-mapping.h>
+#include <linux/init.h>
+#include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/init.h>
-#include <linux/device.h>
 #include <linux/mutex.h>
-#include <linux/clk.h>
-#include <linux/interrupt.h>
-#include <linux/dma-mapping.h>
-#include <linux/iopoll.h>
 #include <linux/platform_device.h>
-#include <linux/of_platform.h>
+#include <linux/regmap.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
-#include <linux/mtd/nand.h>
-#include <linux/mtd/spinand.h>
-#include <asm/cacheflush.h>
-#include <linux/spi/spi.h> 
-#include <linux/regmap.h>
 
 /* SPI */
 #define REG_SPI_CTRL_BASE			0x1FA10000
@@ -267,7 +260,7 @@ static int airoha_snand_write_data_to_fifo(struct airoha_snand_ctrl *as_ctrl,
 					   const u8 *data, int len)
 {
 	int i;
-	
+
 	for (i = 0; i < len; i++) {
 		int err;
 		u32 val;
@@ -402,7 +395,8 @@ static int airoha_snand_write_data(struct airoha_snand_ctrl *as_ctrl, u8 cmd,
 	int i = 0;
 
 	while (i < len) {
-		int err, data_len = min(len, MAX_TRANSFER_SIZE);
+		int data_len = min(len, MAX_TRANSFER_SIZE);
+		int err;
 
 		err = airoha_snand_set_fifo_op(as_ctrl, cmd, data_len);
 		if (err)
@@ -561,7 +555,7 @@ static bool airoha_snand_is_page_ops(const struct spi_mem_op *op)
 		if ((op->addr.buswidth == 4 || op->addr.buswidth == 1) &&
 		    op->data.buswidth == 4)
 			return true;
-		
+
 		/* dual io / dual out */
 		if ((op->addr.buswidth == 2 || op->addr.buswidth == 1) &&
 		    op->data.buswidth == 2)
@@ -916,12 +910,12 @@ static int airoha_snand_exec_op(struct spi_mem *mem,
 		as_dev->data_need_update = true;
 		as_dev->cur_page_num = op->addr.val;
 	}
-	
+
 	/* switch to manual mode */
 	err = airoha_snand_set_mode(as_ctrl, SPI_MODE_MANUAL);
 	if (err < 0)
 	        return err;
-	
+
 	err = airoha_snand_set_cs(as_ctrl, SPI_CHIP_SEL_LOW);
 	if (err < 0)
 	        return err;
@@ -930,7 +924,7 @@ static int airoha_snand_exec_op(struct spi_mem *mem,
 	err = airoha_snand_write_data(as_ctrl, 0x8, &opcode, sizeof(opcode));
 	if (err)
 	        return err;
-	
+
 	/* addr part */
 	for (i = 0; i < op->addr.nbytes; i++) {
 		u8 cmd = opcode == SPI_NAND_OP_GET_FEATURE ? 0x11 : 0x8;
@@ -941,7 +935,7 @@ static int airoha_snand_exec_op(struct spi_mem *mem,
 		if (err)
 			return err;
 	}
-	
+
 	/* dummy */
 	for (i = 0; i < op->dummy.nbytes; i++) {
 		data = 0xff;
@@ -950,7 +944,7 @@ static int airoha_snand_exec_op(struct spi_mem *mem,
 		if (err)
 			return err;
 	}
-	
+
 	/* data */
 	if (op->data.dir == SPI_MEM_DATA_IN) {
 		err = airoha_snand_read_data(as_ctrl, op->data.buf.in,
@@ -963,7 +957,7 @@ static int airoha_snand_exec_op(struct spi_mem *mem,
 		if (err)
 			return err;
 	}
-	
+
 	return airoha_snand_set_cs(as_ctrl, SPI_CHIP_SEL_HIGH);
 }
 
@@ -1009,7 +1003,7 @@ error_buf_free:
 error_dev_free:
 	kfree(as_dev);
 
-	return -ENOMEM;
+	return -EINVAL;
 }
 
 static void airoha_snand_cleanup(struct spi_device *spi)
@@ -1073,8 +1067,8 @@ static const struct regmap_config spi_nfi_regmap_config = {
 };
 
 static const struct of_device_id airoha_snand_ids[] = {
-    { .compatible = "airoha,en7581-snand" },
-    { }
+	{ .compatible	= "airoha,en7581-snand" },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, airoha_snand_ids);
 
