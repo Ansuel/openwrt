@@ -44,7 +44,7 @@
 #define SPI_CTRL_OPFIFO_LEN			GENMASK(8, 0)
 #define SPI_CTRL_OPFIFO_OP			GENMASK(13, 9)
 
-#define REG_SPI_CTRL_OPFIFO_FULL 		0x002c
+#define REG_SPI_CTRL_OPFIFO_FULL		0x002c
 #define SPI_CTRL_OPFIFO_FULL			BIT(0)
 
 #define REG_SPI_CTRL_OPFIFO_WR			0x0030
@@ -475,7 +475,7 @@ static int airoha_snand_nfi_config(struct airoha_snand_ctrl *as_ctrl)
 
 	/* DMA Burst */
 	err = regmap_set_bits(as_ctrl->regmap_nfi, REG_SPI_NFI_CNFG,
-			      SPI_NFI_AHB_DONE_EN);
+			      SPI_NFI_DMA_BURST_EN);
 	if (err)
 		return err;
 
@@ -502,14 +502,14 @@ static int airoha_snand_nfi_config(struct airoha_snand_ctrl *as_ctrl)
 
 	switch (as_ctrl->nfi_cfg.page_size) {
 	case 2048:
-	    val = FIELD_PREP(SPI_NFI_PAGE_SIZE, 0x1);
-	    break;
+		val = FIELD_PREP(SPI_NFI_PAGE_SIZE, 0x1);
+		break;
 	case 4096:
-	    val = FIELD_PREP(SPI_NFI_PAGE_SIZE, 0x2);
-	    break;
+		val = FIELD_PREP(SPI_NFI_PAGE_SIZE, 0x2);
+		break;
 	default:
-	    val = FIELD_PREP(SPI_NFI_PAGE_SIZE, 0x0);
-	    break;
+		val = FIELD_PREP(SPI_NFI_PAGE_SIZE, 0x0);
+		break;
 	}
 
 	err = regmap_update_bits(as_ctrl->regmap_nfi, REG_SPI_NFI_PAGEFMT,
@@ -523,6 +523,7 @@ static int airoha_snand_nfi_config(struct airoha_snand_ctrl *as_ctrl)
 				 SPI_NFI_SEC_NUM, val);
 	if (err)
 		return err;
+
 	/* enable cust sec size */
 	err = regmap_set_bits(as_ctrl->regmap_nfi, REG_SPI_NFI_SECCUS_SIZE,
 			      SPI_NFI_CUS_SEC_SIZE_EN);
@@ -914,16 +915,16 @@ static int airoha_snand_exec_op(struct spi_mem *mem,
 	/* switch to manual mode */
 	err = airoha_snand_set_mode(as_ctrl, SPI_MODE_MANUAL);
 	if (err < 0)
-	        return err;
+		return err;
 
 	err = airoha_snand_set_cs(as_ctrl, SPI_CHIP_SEL_LOW);
 	if (err < 0)
-	        return err;
+		return err;
 
 	/* opcode */
 	err = airoha_snand_write_data(as_ctrl, 0x8, &opcode, sizeof(opcode));
 	if (err)
-	        return err;
+		return err;
 
 	/* addr part */
 	for (i = 0; i < op->addr.nbytes; i++) {
@@ -1094,9 +1095,9 @@ static int airoha_snand_probe(struct platform_device *pdev)
 	as_ctrl->regmap_ctrl = devm_regmap_init_mmio(&pdev->dev, base,
 						     &spi_ctrl_regmap_config);
 	if (IS_ERR(as_ctrl->regmap_ctrl)) {
-		 dev_err(&pdev->dev, "failed to init spi ctrl regmap: %ld\n",
-			 PTR_ERR(as_ctrl->regmap_ctrl));
-		 return PTR_ERR(as_ctrl->regmap_ctrl);
+		dev_err(&pdev->dev, "failed to init spi ctrl regmap: %ld\n",
+			PTR_ERR(as_ctrl->regmap_ctrl));
+		return PTR_ERR(as_ctrl->regmap_ctrl);
 	}
 
 	base = devm_platform_get_and_ioremap_resource(pdev, 1, &res);
@@ -1106,9 +1107,9 @@ static int airoha_snand_probe(struct platform_device *pdev)
 	as_ctrl->regmap_nfi = devm_regmap_init_mmio(&pdev->dev, base,
 						    &spi_nfi_regmap_config);
 	if (IS_ERR(as_ctrl->regmap_nfi)) {
-		 dev_err(&pdev->dev, "failed to init spi nfi regmap: %ld\n",
-			 PTR_ERR(as_ctrl->regmap_nfi));
-		 return PTR_ERR(as_ctrl->regmap_nfi);
+		dev_err(&pdev->dev, "failed to init spi nfi regmap: %ld\n",
+			PTR_ERR(as_ctrl->regmap_nfi));
+		return PTR_ERR(as_ctrl->regmap_nfi);
 	}
 
 	err = dma_set_mask(as_ctrl->dev, DMA_BIT_MASK(32));
@@ -1143,4 +1144,4 @@ module_platform_driver(airoha_snand_driver);
 MODULE_DESCRIPTION("Airoha SPI-NAND Flash Controller Driver");
 MODULE_AUTHOR("Lorenzo Bianconi <lorenzo@kernel.org>");
 MODULE_AUTHOR("Ray Liu <ray.liu@airoha.com>");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
