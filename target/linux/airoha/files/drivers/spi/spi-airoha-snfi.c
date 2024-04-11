@@ -595,13 +595,13 @@ static int airoha_snand_adjust_op_size(struct spi_mem *mem,
 		len = as_ctrl->nfi_cfg.sec_size;
 		len += as_ctrl->nfi_cfg.spare_size;
 		len *= as_ctrl->nfi_cfg.sec_num;
-		op->data.nbytes = min(op->data.nbytes, len);
+		op->data.nbytes = min_t(size_t, op->data.nbytes, len);
 	} else {
 		len = 1 + op->addr.nbytes + op->dummy.nbytes;
 		if (len >= 160)
 			return -EOPNOTSUPP;
 
-		op->data.nbytes = min(op->data.nbytes, 160 - len);
+		op->data.nbytes = min_t(size_t, op->data.nbytes, 160 - len);
 	}
 
 	return 0;
