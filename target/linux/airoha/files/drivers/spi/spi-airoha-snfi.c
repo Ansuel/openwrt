@@ -5,6 +5,7 @@
  * Author: Ray Liu <ray.liu@airoha.com>
  */
 
+#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/init.h>
@@ -212,6 +213,7 @@ struct airoha_snand_ctrl {
 	struct device *dev;
 	struct regmap *regmap_ctrl;
 	struct regmap *regmap_nfi;
+	struct clk *spi_clk;
 
 	struct {
 		size_t page_size;
@@ -866,8 +868,6 @@ static ssize_t airoha_snand_dirmap_write(struct spi_mem_dirmap_desc *desc,
 	if (err)
 		return err;
 
-	udelay(1);
-
 	err = regmap_read_poll_timeout(as_ctrl->regmap_nfi, REG_SPI_NFI_INTR,
 				       val, (val & SPI_NFI_AHB_DONE), 0,
 				       USEC_PER_SEC);
@@ -887,8 +887,10 @@ static ssize_t airoha_snand_dirmap_write(struct spi_mem_dirmap_desc *desc,
 		return err;
 
 	err = airoha_snand_set_mode(as_ctrl, SPI_MODE_MANUAL);
+	if (err < 0)
+		return err;
 
-	return err < 0 ? err : len;
+	return len;
 }
 
 static int airoha_snand_exec_op(struct spi_mem *mem,
@@ -1075,8 +1077,8 @@ MODULE_DEVICE_TABLE(of, airoha_snand_ids);
 
 static int airoha_snand_probe(struct platform_device *pdev)
 {
-	struct spi_controller *ctrl;
 	struct airoha_snand_ctrl *as_ctrl;
+	struct spi_controller *ctrl;
 	struct resource *res;
 	void __iomem *base;
 	int err;
@@ -1110,6 +1112,12 @@ static int airoha_snand_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to init spi nfi regmap: %ld\n",
 			PTR_ERR(as_ctrl->regmap_nfi));
 		return PTR_ERR(as_ctrl->regmap_nfi);
+	}
+
+	as_ctrl->spi_clk = devm_clk_get_enabled(&pdev->dev, "spi");
+	if (IS_ERR(as_ctrl->spi_clk)) {
+		dev_err(&pdev->dev, "unable to get spi clk");
+		return PTR_ERR(as_ctrl->spi_clk);
 	}
 
 	err = dma_set_mask(as_ctrl->dev, DMA_BIT_MASK(32));
