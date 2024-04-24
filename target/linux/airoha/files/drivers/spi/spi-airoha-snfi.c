@@ -5,16 +5,18 @@
  * Author: Ray Liu <ray.liu@airoha.com>
  */
 
+#include <asm-generic/unaligned.h>
+#include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
-#include <linux/init.h>
-#include <linux/iopoll.h>
-#include <linux/kernel.h>
+#include <linux/types.h>
+#include <linux/math.h>
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
+#include <linux/sizes.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
 
@@ -108,13 +110,11 @@
 #define SPI_NFI_BUSY_RETURN_EN			BIT(4)
 #define SPI_NFI_ACCESS_LOCK_EN			BIT(5)
 #define SPI_NFI_AHB_DONE_EN			BIT(6)
-#define SPI_NFI_ALL_IRQ_EN			(SPI_NFI_RD_DONE_EN | \
-						 SPI_NFI_WR_DONE_EN | \
-						 SPI_NFI_RST_DONE_EN | \
-						 SPI_NFI_ERASE_DONE_EN | \
-						 SPI_NFI_BUSY_RETURN_EN | \
-						 SPI_NFI_ACCESS_LOCK_EN | \
-						 SPI_NFI_AHB_DONE_EN)
+#define SPI_NFI_ALL_IRQ_EN					\
+	(SPI_NFI_RD_DONE_EN | SPI_NFI_WR_DONE_EN |		\
+	 SPI_NFI_RST_DONE_EN | SPI_NFI_ERASE_DONE_EN |		\
+	 SPI_NFI_BUSY_RETURN_EN | SPI_NFI_ACCESS_LOCK_EN |	\
+	 SPI_NFI_AHB_DONE_EN)
 
 #define REG_SPI_NFI_INTR			0x0014
 #define SPI_NFI_AHB_DONE			BIT(6)
@@ -187,11 +187,12 @@
 #define SPI_NAND_OP_RESET			0xff
 #define SPI_NAND_OP_DIE_SELECT			0xc2
 
+#define SPI_NAND_CACHE_SIZE			(SZ_4K + SZ_256)
+
 enum airoha_snand_mode {
 	SPI_MODE_AUTO,
 	SPI_MODE_MANUAL,
 	SPI_MODE_DMA,
-	SPI_MODE_NO
 };
 
 enum airoha_snand_cs {
@@ -205,8 +206,8 @@ struct airoha_snand_dev {
 	u8 *txrx_buf;
 	dma_addr_t dma_addr;
 
-	bool data_need_update;
 	u64 cur_page_num;
+	bool data_need_update;
 };
 
 struct airoha_snand_ctrl {
@@ -218,8 +219,8 @@ struct airoha_snand_ctrl {
 	struct {
 		size_t page_size;
 		size_t sec_size;
-		unsigned char sec_num;
-		unsigned char spare_size;
+		u8 sec_num;
+		u8 spare_size;
 	} nfi_cfg;
 };
 
@@ -394,12 +395,12 @@ static int airoha_snand_set_mode(struct airoha_snand_ctrl *as_ctrl,
 static int airoha_snand_write_data(struct airoha_snand_ctrl *as_ctrl, u8 cmd,
 				   const u8 *data, int len)
 {
-	int i = 0;
+	int i, data_len;
 
-	while (i < len) {
-		int data_len = min(len, MAX_TRANSFER_SIZE);
+	for (i = 0; i < len; i += data_len) {
 		int err;
 
+		data_len = min(len, MAX_TRANSFER_SIZE);
 		err = airoha_snand_set_fifo_op(as_ctrl, cmd, data_len);
 		if (err)
 			return err;
@@ -408,8 +409,6 @@ static int airoha_snand_write_data(struct airoha_snand_ctrl *as_ctrl, u8 cmd,
 						      data_len);
 		if (err < 0)
 			return err;
-
-		i += data_len;
 	}
 
 	return 0;
@@ -418,11 +417,12 @@ static int airoha_snand_write_data(struct airoha_snand_ctrl *as_ctrl, u8 cmd,
 static int airoha_snand_read_data(struct airoha_snand_ctrl *as_ctrl, u8 *data,
 				  int len)
 {
-	int i = 0;
+	int i, data_len;
 
-	while (i < len) {
-		int err, data_len = min(len, MAX_TRANSFER_SIZE);
+	for (i = 0; i < len; i += data_len) {
+		int err;
 
+		data_len = min(len, MAX_TRANSFER_SIZE);
 		err = airoha_snand_set_fifo_op(as_ctrl, 0xc, data_len);
 		if (err)
 			return err;
@@ -431,8 +431,6 @@ static int airoha_snand_read_data(struct airoha_snand_ctrl *as_ctrl, u8 *data,
 						       data_len);
 		if (err < 0)
 			return err;
-
-		i += data_len;
 	}
 
 	return 0;
@@ -681,7 +679,6 @@ static ssize_t airoha_snand_dirmap_read(struct spi_mem_dirmap_desc *desc,
 
 	dma_sync_single_for_device(as_ctrl->dev, as_dev->dma_addr,
 				   as_dev->buf_len, DMA_BIDIRECTIONAL);
-	mb();
 
 	/* set dma addr */
 	err = regmap_write(as_ctrl->regmap_nfi, REG_SPI_NFI_STRADDR,
@@ -794,7 +791,6 @@ static ssize_t airoha_snand_dirmap_write(struct spi_mem_dirmap_desc *desc,
 	memcpy(as_dev->txrx_buf + offs, buf, len);
 	dma_sync_single_for_device(as_ctrl->dev, as_dev->dma_addr,
 				   as_dev->buf_len, DMA_BIDIRECTIONAL);
-	mb();
 
 	err = airoha_snand_set_mode(as_ctrl, SPI_MODE_DMA);
 	if (err < 0)
@@ -806,7 +802,7 @@ static ssize_t airoha_snand_dirmap_write(struct spi_mem_dirmap_desc *desc,
 
 	if (op->cmd.opcode == SPI_NAND_OP_PROGRAM_LOAD_QUAD ||
 	    op->cmd.opcode == SPI_NAND_OP_PROGRAM_LOAD_RAMDON_QUAD)
-		wr_mode = 2;
+		wr_mode = BIT(1);
 	else
 		wr_mode = 0;
 
@@ -815,8 +811,8 @@ static ssize_t airoha_snand_dirmap_write(struct spi_mem_dirmap_desc *desc,
 	if (err)
 		return err;
 
-	val = as_ctrl->nfi_cfg.sec_size * as_ctrl->nfi_cfg.sec_num;
-	val = FIELD_PREP(SPI_NFI_PROG_LOAD_BYTE_NUM, val);
+	val = FIELD_PREP(SPI_NFI_PROG_LOAD_BYTE_NUM,
+			 as_ctrl->nfi_cfg.sec_size * as_ctrl->nfi_cfg.sec_num);
 	err = regmap_update_bits(as_ctrl->regmap_nfi,
 				 REG_SPI_NFI_SNF_MISC_CTL2,
 				 SPI_NFI_PROG_LOAD_BYTE_NUM, val);
@@ -897,8 +893,8 @@ static int airoha_snand_exec_op(struct spi_mem *mem,
 				const struct spi_mem_op *op)
 {
 	struct airoha_snand_dev *as_dev = spi_get_ctldata(mem->spi);
+	u8 data[8], cmd, opcode = op->cmd.opcode;
 	struct airoha_snand_ctrl *as_ctrl;
-	u8 data, opcode = op->cmd.opcode;
 	int i, err;
 
 	as_ctrl = spi_master_get_devdata(mem->spi->master);
@@ -929,21 +925,22 @@ static int airoha_snand_exec_op(struct spi_mem *mem,
 		return err;
 
 	/* addr part */
-	for (i = 0; i < op->addr.nbytes; i++) {
-		u8 cmd = opcode == SPI_NAND_OP_GET_FEATURE ? 0x11 : 0x8;
+	cmd = opcode == SPI_NAND_OP_GET_FEATURE ? 0x11 : 0x8;
+	put_unaligned_be64(op->addr.val, data);
 
-		data = op->addr.val >> ((op->addr.nbytes - i - 1) * 8);
-		err = airoha_snand_write_data(as_ctrl, cmd, &data,
-					      sizeof(data));
+	for (i = 0; i < op->addr.nbytes; i++) {
+		err = airoha_snand_write_data(as_ctrl, cmd,
+					      &data[8 - op->addr.nbytes + i],
+					      sizeof(data[0]));
 		if (err)
 			return err;
 	}
 
 	/* dummy */
+	data[0] = 0xff;
 	for (i = 0; i < op->dummy.nbytes; i++) {
-		data = 0xff;
-		err = airoha_snand_write_data(as_ctrl, 0x8, &data,
-					      sizeof(data));
+		err = airoha_snand_write_data(as_ctrl, 0x8, &data[0],
+					      sizeof(data[0]));
 		if (err)
 			return err;
 	}
@@ -973,40 +970,33 @@ static const struct spi_controller_mem_ops airoha_snand_mem_ops = {
 	.dirmap_write = airoha_snand_dirmap_write,
 };
 
-#define SPI_NAND_CACHE_SIZE	(4096 + 256)
-
 static int airoha_snand_setup(struct spi_device *spi)
 {
-	struct airoha_snand_dev *as_dev = spi_get_ctldata(spi);
 	struct airoha_snand_ctrl *as_ctrl;
+	struct airoha_snand_dev *as_dev;
 
-	as_dev = kzalloc(sizeof(*as_dev), GFP_KERNEL);
+	as_ctrl = spi_master_get_devdata(spi->master);
+
+	as_dev = devm_kzalloc(as_ctrl->dev, sizeof(*as_dev), GFP_KERNEL);
 	if (!as_dev)
 		return -ENOMEM;
 
-	spi_set_ctldata(spi, as_dev);
-	as_dev->data_need_update = true;
-
 	/* prepare device buffer */
 	as_dev->buf_len = SPI_NAND_CACHE_SIZE;
-	as_dev->txrx_buf = kzalloc(as_dev->buf_len, GFP_KERNEL);
+	as_dev->txrx_buf = devm_kzalloc(as_ctrl->dev, as_dev->buf_len,
+					GFP_KERNEL);
 	if (!as_dev->txrx_buf)
-		goto error_dev_free;
+		return -ENOMEM;
 
-	as_ctrl = spi_master_get_devdata(spi->master);
 	as_dev->dma_addr = dma_map_single(as_ctrl->dev, as_dev->txrx_buf,
 					  as_dev->buf_len, DMA_BIDIRECTIONAL);
 	if (dma_mapping_error(as_ctrl->dev, as_dev->dma_addr))
-		goto error_buf_free;
+		return -ENOMEM;
+
+	as_dev->data_need_update = true;
+	spi_set_ctldata(spi, as_dev);
 
 	return 0;
-
-error_buf_free:
-	kfree(as_dev->txrx_buf);
-error_dev_free:
-	kfree(as_dev);
-
-	return -EINVAL;
 }
 
 static void airoha_snand_cleanup(struct spi_device *spi)
@@ -1017,7 +1007,8 @@ static void airoha_snand_cleanup(struct spi_device *spi)
 	as_ctrl = spi_master_get_devdata(spi->master);
 	dma_unmap_single(as_ctrl->dev, as_dev->dma_addr,
 			 as_dev->buf_len, DMA_BIDIRECTIONAL);
-	kfree(as_dev->txrx_buf);
+	devm_kfree(as_ctrl->dev, as_dev->txrx_buf);
+	devm_kfree(as_ctrl->dev, as_dev);
 
 	spi_set_ctldata(spi, NULL);
 }
@@ -1033,8 +1024,7 @@ static int airoha_snand_nfi_setup(struct airoha_snand_ctrl *as_ctrl)
 
 	sec_num = FIELD_GET(SPI_NFI_SEC_NUM, val);
 
-	err = regmap_read(as_ctrl->regmap_nfi,
-			  REG_SPI_NFI_SECCUS_SIZE, &val);
+	err = regmap_read(as_ctrl->regmap_nfi, REG_SPI_NFI_SECCUS_SIZE, &val);
 	if (err)
 		return err;
 
@@ -1043,7 +1033,7 @@ static int airoha_snand_nfi_setup(struct airoha_snand_ctrl *as_ctrl)
 	/* init default value */
 	as_ctrl->nfi_cfg.sec_size = sec_size;
 	as_ctrl->nfi_cfg.sec_num = sec_num;
-	as_ctrl->nfi_cfg.page_size = rounddown(sec_size * sec_num, 1024);
+	as_ctrl->nfi_cfg.page_size = round_down(sec_size * sec_num, 1024);
 	as_ctrl->nfi_cfg.spare_size = 16;
 
 	err = airoha_snand_nfi_init(as_ctrl);
@@ -1071,54 +1061,50 @@ static const struct regmap_config spi_nfi_regmap_config = {
 
 static const struct of_device_id airoha_snand_ids[] = {
 	{ .compatible	= "airoha,en7581-snand" },
-	{ }
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, airoha_snand_ids);
 
 static int airoha_snand_probe(struct platform_device *pdev)
 {
 	struct airoha_snand_ctrl *as_ctrl;
+	struct device *dev = &pdev->dev;
 	struct spi_controller *ctrl;
 	struct resource *res;
 	void __iomem *base;
 	int err;
 
-	ctrl = devm_spi_alloc_master(&pdev->dev, sizeof(*as_ctrl));
+	ctrl = devm_spi_alloc_master(dev, sizeof(*as_ctrl));
 	if (!ctrl)
 		return -ENOMEM;
 
 	as_ctrl = spi_master_get_devdata(ctrl);
-	as_ctrl->dev = &pdev->dev;
+	as_ctrl->dev = dev;
 
 	base = devm_platform_get_and_ioremap_resource(pdev, 0, &res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
-	as_ctrl->regmap_ctrl = devm_regmap_init_mmio(&pdev->dev, base,
+	as_ctrl->regmap_ctrl = devm_regmap_init_mmio(dev, base,
 						     &spi_ctrl_regmap_config);
-	if (IS_ERR(as_ctrl->regmap_ctrl)) {
-		dev_err(&pdev->dev, "failed to init spi ctrl regmap: %ld\n",
-			PTR_ERR(as_ctrl->regmap_ctrl));
-		return PTR_ERR(as_ctrl->regmap_ctrl);
-	}
+	if (IS_ERR(as_ctrl->regmap_ctrl))
+		return dev_err_probe(dev, PTR_ERR(as_ctrl->regmap_ctrl),
+				     "failed to init spi ctrl regmap\n");
 
 	base = devm_platform_get_and_ioremap_resource(pdev, 1, &res);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 
-	as_ctrl->regmap_nfi = devm_regmap_init_mmio(&pdev->dev, base,
+	as_ctrl->regmap_nfi = devm_regmap_init_mmio(dev, base,
 						    &spi_nfi_regmap_config);
-	if (IS_ERR(as_ctrl->regmap_nfi)) {
-		dev_err(&pdev->dev, "failed to init spi nfi regmap: %ld\n",
-			PTR_ERR(as_ctrl->regmap_nfi));
-		return PTR_ERR(as_ctrl->regmap_nfi);
-	}
+	if (IS_ERR(as_ctrl->regmap_nfi))
+		return dev_err_probe(dev, PTR_ERR(as_ctrl->regmap_nfi),
+				     "failed to init spi nfi regmap\n");
 
-	as_ctrl->spi_clk = devm_clk_get_enabled(&pdev->dev, "spi");
-	if (IS_ERR(as_ctrl->spi_clk)) {
-		dev_err(&pdev->dev, "unable to get spi clk");
-		return PTR_ERR(as_ctrl->spi_clk);
-	}
+	as_ctrl->spi_clk = devm_clk_get_enabled(dev, "spi");
+	if (IS_ERR(as_ctrl->spi_clk))
+		return dev_err_probe(dev, PTR_ERR(as_ctrl->spi_clk),
+				     "unable to get spi clk\n");
 
 	err = dma_set_mask(as_ctrl->dev, DMA_BIT_MASK(32));
 	if (err)
@@ -1128,7 +1114,7 @@ static int airoha_snand_probe(struct platform_device *pdev)
 	ctrl->mem_ops = &airoha_snand_mem_ops;
 	ctrl->bits_per_word_mask = SPI_BPW_MASK(8);
 	ctrl->mode_bits = SPI_RX_DUAL;
-	ctrl->dev.of_node = pdev->dev.of_node;
+	ctrl->dev.of_node = dev->of_node;
 	ctrl->setup = airoha_snand_setup;
 	ctrl->cleanup = airoha_snand_cleanup;
 
@@ -1136,7 +1122,7 @@ static int airoha_snand_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
-	return devm_spi_register_controller(&pdev->dev, ctrl);
+	return devm_spi_register_controller(dev, ctrl);
 }
 
 static struct platform_driver airoha_snand_driver = {
@@ -1146,7 +1132,6 @@ static struct platform_driver airoha_snand_driver = {
 	},
 	.probe = airoha_snand_probe,
 };
-
 module_platform_driver(airoha_snand_driver);
 
 MODULE_DESCRIPTION("Airoha SPI-NAND Flash Controller Driver");

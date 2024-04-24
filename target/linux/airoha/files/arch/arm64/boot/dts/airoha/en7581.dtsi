@@ -169,8 +169,6 @@
 			clocks = <&scuclk EN7523_CLK_SPI>;
 			clock-names = "spi";
 
-			interrupts = <GIC_SPI 51 IRQ_TYPE_LEVEL_HIGH>;
-
 			#address-cells = <1>;
 			#size-cells = <0>;
 			spi_nand: nand@0 {
