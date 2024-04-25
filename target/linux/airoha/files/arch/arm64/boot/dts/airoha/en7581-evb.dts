@@ -75,3 +75,7 @@
 &gpio1 {
 	status = "okay";
 };
+
+&switch {
+	status = "okay";
+};
