@@ -6,6 +6,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
+#include <linux/reset-controller.h>
 #include <dt-bindings/clock/en7523-clk.h>
 
 #define REG_PCI_CONTROL			0x88
@@ -65,8 +66,18 @@ struct en_clk_gate {
 	struct clk_hw hw;
 };
 
+#define RST_NR_PER_BANK		32
+struct en_reset_data {
+	void __iomem *mem_base;
+	struct reset_controller_dev rcdev;
+};
+
 struct en_clk_soc_data {
 	const struct clk_ops pcie_ops;
+	struct {
+		u32 base_addr;
+		u16 n_banks;
+	} reset_data;
 	int (*hw_init)(struct platform_device *pdev, void __iomem *base,
 		       void __iomem *np_base);
 };
@@ -424,6 +435,81 @@ static void en7523_register_clocks(struct device *dev, struct clk_hw_onecell_dat
 	clk_data->num = EN7523_NUM_CLOCKS;
 }
 
+static int en7523_reset_update(struct reset_controller_dev *rcdev,
+			       unsigned long id, bool assert)
+{
+	int offset = id % RST_NR_PER_BANK;
+	int bank = id / RST_NR_PER_BANK;
+	struct en_reset_data *rst_data;
+	u32 val;
+
+	rst_data = container_of(rcdev, struct en_reset_data, rcdev);
+	val = readl(rst_data->mem_base + bank * sizeof(u32));
+	if (assert)
+		val |= BIT(offset);
+	else
+		val &= ~BIT(offset);
+	writel(val, rst_data->mem_base + bank * sizeof(u32));
+
+	return 0;
+}
+
+static int en7523_reset_assert(struct reset_controller_dev *rcdev,
+			       unsigned long id)
+{
+	return en7523_reset_update(rcdev, id, true);
+}
+
+static int en7523_reset_deassert(struct reset_controller_dev *rcdev,
+				 unsigned long id)
+{
+	return en7523_reset_update(rcdev, id, false);
+}
+
+static int en7523_reset_status(struct reset_controller_dev *rcdev,
+			       unsigned long id)
+{
+	int offset = id % RST_NR_PER_BANK;
+	int bank = id / RST_NR_PER_BANK;
+	struct en_reset_data *rst_data;
+	u32 val;
+
+	rst_data = container_of(rcdev, struct en_reset_data, rcdev);
+	val = readl(rst_data->mem_base + bank * sizeof(u32));
+
+	return !!(val & BIT(offset));
+}
+
+static const struct reset_control_ops en7523_reset_ops = {
+	.assert = en7523_reset_assert,
+	.deassert = en7523_reset_deassert,
+	.status = en7523_reset_status,
+};
+
+static int en7523_reset_register(struct device *dev, void __iomem *base,
+				 const struct en_clk_soc_data *soc_data)
+{
+	u32 nr_resets = soc_data->reset_data.n_banks * RST_NR_PER_BANK;
+	struct en_reset_data *rst_data;
+
+	/* no reset lines available */
+	if (!nr_resets)
+		return 0;
+
+	rst_data = devm_kzalloc(dev, sizeof(*rst_data), GFP_KERNEL);
+	if (!rst_data)
+		return -ENOMEM;
+
+	rst_data->mem_base = base + soc_data->reset_data.base_addr;
+	rst_data->rcdev.owner = THIS_MODULE;
+	rst_data->rcdev.ops = &en7523_reset_ops;
+	rst_data->rcdev.of_node = dev->of_node;
+	rst_data->rcdev.dev = dev;
+	rst_data->rcdev.nr_resets = nr_resets;
+
+	return devm_reset_controller_register(dev, &rst_data->rcdev);
+}
+
 static int en7523_clk_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -456,12 +542,14 @@ static int en7523_clk_probe(struct platform_device *pdev)
 	en7523_register_clocks(&pdev->dev, clk_data, base, np_base);
 
 	r = of_clk_add_hw_provider(node, of_clk_hw_onecell_get, clk_data);
-	if (r)
+	if (r) {
 		dev_err(&pdev->dev,
 			"could not register clock provider: %s: %d\n",
 			pdev->name, r);
+		return r;
+	}
 
-	return r;
+	return en7523_reset_register(&pdev->dev, np_base, soc_data);
 }
 
 static const struct en_clk_soc_data en7523_data = {
@@ -479,6 +567,10 @@ static const struct en_clk_soc_data en7581_data = {
 		.enable = en7581_pci_enable,
 		.unprepare = en7581_pci_unprepare,
 		.disable = en7581_pci_disable,
+	},
+	.reset_data = {
+		.base_addr = REG_RESET_CONTROL2,
+		.n_banks = 2,
 	},
 	.hw_init = en7581_clk_hw_init,
 };

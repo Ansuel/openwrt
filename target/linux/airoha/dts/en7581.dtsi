@@ -4,6 +4,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/clock/en7523-clk.h>
+#include <dt-bindings/reset/airoha,en7581-reset.h>
 
 / {
 	interrupt-parent = <&gic>;
@@ -159,6 +160,7 @@
 			      <0x0 0x1fb00000 0x0 0x1000>,
 			      <0x0 0x1fbe3400 0x0 0xfc>;
 			#clock-cells = <1>;
+			#reset-cells = <1>;
 		};
 
 		snfi: spi@1fa10000 {
@@ -281,6 +283,7 @@
 		switch: switch@1fb58000 {
 			compatible = "mediatek,mt7988-switch";
 			reg = <0 0x1fb58000 0 0x8000>;
+			resets = <&scuclk EN7581_GSW_RST>;
 			#address-cells = <1>;
 			#size-cells = <1>;
 
