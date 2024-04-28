@@ -290,6 +290,12 @@
 			#gpio-cells = <2>;
 		};
 
+		eth: ethernet@1fb50000 {
+			compatible = "airoha,en7581-eth";
+			reg = <0 0x1fb50000 0 0x2600>,
+			      <0 0x1fb54000 0 0x4000>;
+		};
+
 		switch: switch@1fb58000 {
 			compatible = "mediatek,mt7988-switch";
 			reg = <0 0x1fb58000 0 0x8000>;
@@ -327,6 +333,7 @@
 
 				port@6 {
 					reg = <6>;
+					ethernet = <&eth>;
 					phy-mode = "internal";
 
 					fixed-link {
