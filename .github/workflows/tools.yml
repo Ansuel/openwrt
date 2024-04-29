@@ -1,27 +1,46 @@
 name: Build host tools
 
 on:
-  pull_request:
-    paths:
-      - 'include/**'
-      - 'tools/**'
-      - '.github/workflows/tools.yml'
   push:
-    paths:
-      - 'include/**'
-      - 'tools/**'
-      - '.github/workflows/tools.yml'
-    branches-ignore:
-      - master
-
-permissions:
-  contents: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  build-tools:
-    name: Build host tools for linux and macos based systems
-    uses: openwrt/actions-shared-workflows/.github/workflows/tools.yml@main
+  build:
+    name: Build tools
+    runs-on: ubuntu-latest
+
+    container: alpine:latest
+
+    steps:
+      - name: test
+        run: |
+          apk add --no-cache gcc g++ ncurses-dev git rsync perl tar bash patch findutils diffutils grep gzip unzip bzip2 wget python3 file which make gawk coreutils linux-headers argp-standalone musl-fts-dev musl-obstack-dev musl-libintl
+
+          adduser -D buildbot
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: openwrt
+
+      - name: Fix permission
+        run: chown -R buildbot:buildbot openwrt
+
+      - name: Set configs for tools container
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: |
+          touch .config
+          echo CONFIG_DEVEL=y >> .config
+          echo CONFIG_AUTOREMOVE=y >> .config
+          echo CONFIG_CCACHE=y >> .config
+          echo CONFIG_BUILD_ALL_HOST_TOOLS=y >> .config
+
+      - name: Make prereq
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: make defconfig
+
+      - name: Build tools
+        shell: su buildbot -c "sh -e {0}"
+        working-directory: openwrt
+        run: make tools/install -j$(nproc) BUILD_LOG=1 || ret=$? .github/workflows/scripts/show_build_failures.sh
