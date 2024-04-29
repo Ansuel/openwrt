@@ -311,24 +311,28 @@
 					reg = <0>;
 					label = "lan0";
 					phy-mode = "internal";
+					phy-handle = <&gsw_phy0>;
 				};
 
 				gsw_port1: port@1 {
 					reg = <1>;
 					label = "lan1";
 					phy-mode = "internal";
+					phy-handle = <&gsw_phy1>;
 				};
 
 				gsw_port2: port@2 {
 					reg = <2>;
 					label = "lan2";
 					phy-mode = "internal";
+					phy-handle = <&gsw_phy2>;
 				};
 
 				gsw_port3: port@3 {
 					reg = <3>;
 					label = "lan3";
 					phy-mode = "internal";
+					phy-handle = <&gsw_phy3>;
 				};
 
 				port@6 {
@@ -347,6 +351,30 @@
 			mdio {
 				#address-cells = <1>;
 				#size-cells = <0>;
+
+				gsw_phy0: ethernet-phy@0 {
+					compatible = "ethernet-phy-ieee802.3-c22";
+					reg = <9>;
+					phy-mode = "internal";
+				};
+
+				gsw_phy1: ethernet-phy@1 {
+					compatible = "ethernet-phy-ieee802.3-c22";
+					reg = <10>;
+					phy-mode = "internal";
+				};
+
+				gsw_phy2: ethernet-phy@2 {
+					compatible = "ethernet-phy-ieee802.3-c22";
+					reg = <11>;
+					phy-mode = "internal";
+				};
+			
+				gsw_phy3: ethernet-phy@3 {
+					compatible = "ethernet-phy-ieee802.3-c22";
+					reg = <12>;
+					phy-mode = "internal";
+				};
 			};
 		};
 	};
