@@ -556,6 +556,14 @@ static bool airoha_snand_is_page_ops(const struct spi_mem_op *op)
 		if (op->dummy.nbytes * BITS_PER_BYTE / op->dummy.buswidth > 0xf)
 			return false;
 
+		/* quad in / quad out */
+		if (op->addr.buswidth == 4)
+			return op->data.buswidth == 4;
+
+		if (op->addr.buswidth == 2)
+			return op->data.buswidth == 2;
+
+		/* standard spi */
 		return op->data.buswidth == 4 || op->data.buswidth == 2 ||
 		       op->data.buswidth == 1;
 	case SPI_MEM_DATA_OUT:
@@ -578,16 +586,17 @@ static int airoha_snand_adjust_op_size(struct spi_mem *mem,
 		max_len = as_ctrl->nfi_cfg.sec_size;
 		max_len += as_ctrl->nfi_cfg.spare_size;
 		max_len *= as_ctrl->nfi_cfg.sec_num;
+
+		if (op->data.nbytes > max_len)
+			op->data.nbytes = max_len;
 	} else {
 		max_len = 1 + op->addr.nbytes + op->dummy.nbytes;
 		if (max_len >= 160)
 			return -EOPNOTSUPP;
 
-		max_len = 160 - max_len;
+		if (op->data.nbytes > 160 - max_len)
+			op->data.nbytes = 160 - max_len;
 	}
-
-	if (op->data.nbytes > max_len)
-		op->data.nbytes = max_len;
 
 	return 0;
 }
@@ -629,9 +638,9 @@ static ssize_t airoha_snand_dirmap_read(struct spi_mem_dirmap_desc *desc,
 					u64 offs, size_t len, void *buf)
 {
 	struct spi_device *spi = desc->mem->spi;
+	struct airoha_snand_ctrl *as_ctrl = spi_master_get_devdata(spi->master);
 	struct airoha_snand_dev *as_dev = spi_get_ctldata(spi);
 	struct spi_mem_op *op = &desc->info.op_tmpl;
-	struct airoha_snand_ctrl *as_ctrl;
 	u32 val, rd_mode;
 	int err;
 
@@ -652,7 +661,6 @@ static ssize_t airoha_snand_dirmap_read(struct spi_mem_dirmap_desc *desc,
 		break;
 	}
 
-	as_ctrl = spi_master_get_devdata(spi->master);
 	err = airoha_snand_set_mode(as_ctrl, SPI_MODE_DMA);
 	if (err < 0)
 		return err;
@@ -759,13 +767,12 @@ static ssize_t airoha_snand_dirmap_write(struct spi_mem_dirmap_desc *desc,
 					 u64 offs, size_t len, const void *buf)
 {
 	struct spi_device *spi = desc->mem->spi;
+	struct airoha_snand_ctrl *as_ctrl = spi_master_get_devdata(spi->master);
 	struct airoha_snand_dev *as_dev = spi_get_ctldata(spi);
 	struct spi_mem_op *op = &desc->info.op_tmpl;
-	struct airoha_snand_ctrl *as_ctrl;
 	u32 wr_mode, val;
 	int err;
 
-	as_ctrl = spi_master_get_devdata(spi->master);
 	err = airoha_snand_set_mode(as_ctrl, SPI_MODE_MANUAL);
 	if (err < 0)
 		return err;
@@ -876,12 +883,12 @@ static ssize_t airoha_snand_dirmap_write(struct spi_mem_dirmap_desc *desc,
 static int airoha_snand_exec_op(struct spi_mem *mem,
 				const struct spi_mem_op *op)
 {
-	struct airoha_snand_dev *as_dev = spi_get_ctldata(mem->spi);
+	struct spi_device *spi = mem->spi;
+	struct airoha_snand_ctrl *as_ctrl = spi_master_get_devdata(spi->master);
+	struct airoha_snand_dev *as_dev = spi_get_ctldata(spi);
 	u8 data[8], cmd, opcode = op->cmd.opcode;
-	struct airoha_snand_ctrl *as_ctrl;
 	int i, err;
 
-	as_ctrl = spi_master_get_devdata(mem->spi->master);
 	if (opcode == SPI_NAND_OP_PROGRAM_EXECUTE &&
 	    op->addr.val == as_dev->cur_page_num) {
 		as_dev->data_need_update = true;
@@ -956,10 +963,8 @@ static const struct spi_controller_mem_ops airoha_snand_mem_ops = {
 
 static int airoha_snand_setup(struct spi_device *spi)
 {
-	struct airoha_snand_ctrl *as_ctrl;
+	struct airoha_snand_ctrl *as_ctrl = spi_master_get_devdata(spi->master);
 	struct airoha_snand_dev *as_dev;
-
-	as_ctrl = spi_master_get_devdata(spi->master);
 
 	as_dev = devm_kzalloc(as_ctrl->dev, sizeof(*as_dev), GFP_KERNEL);
 	if (!as_dev)
@@ -985,10 +990,9 @@ static int airoha_snand_setup(struct spi_device *spi)
 
 static void airoha_snand_cleanup(struct spi_device *spi)
 {
+	struct airoha_snand_ctrl *as_ctrl = spi_master_get_devdata(spi->master);
 	struct airoha_snand_dev *as_dev = spi_get_ctldata(spi);
-	struct airoha_snand_ctrl *as_ctrl;
 
-	as_ctrl = spi_master_get_devdata(spi->master);
 	dma_unmap_single(as_ctrl->dev, as_dev->dma_addr,
 			 as_dev->buf_len, DMA_BIDIRECTIONAL);
 	spi_set_ctldata(spi, NULL);
@@ -1039,12 +1043,6 @@ static const struct regmap_config spi_nfi_regmap_config = {
 	.reg_stride	= 4,
 	.max_register	= REG_SPI_NFI_SNF_NFI_CNFG,
 };
-
-static const struct of_device_id airoha_snand_ids[] = {
-	{ .compatible	= "airoha,en7581-snand" },
-	{ /* sentinel */ }
-};
-MODULE_DEVICE_TABLE(of, airoha_snand_ids);
 
 static int airoha_snand_probe(struct platform_device *pdev)
 {
@@ -1104,6 +1102,12 @@ static int airoha_snand_probe(struct platform_device *pdev)
 
 	return devm_spi_register_controller(dev, ctrl);
 }
+
+static const struct of_device_id airoha_snand_ids[] = {
+	{ .compatible	= "airoha,en7581-snand" },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(of, airoha_snand_ids);
 
 static struct platform_driver airoha_snand_driver = {
 	.driver = {
