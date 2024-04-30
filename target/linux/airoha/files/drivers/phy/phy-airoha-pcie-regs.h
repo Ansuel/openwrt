@@ -364,7 +364,23 @@
 #define PCIE_SW_ALLPCS_RST				BIT(4)
 #define PCIE_SW_REF_RST					BIT(5)
 #define PCIE_SW_TX_FIFO_RST				BIT(6)
+#define PCIE_SW_XFI_TXPCS_RST				BIT(7)
 #define PCIE_SW_XFI_RXPCS_RST				BIT(8)
+#define PCIE_SW_XFI_RXPCS_BIST_RST			BIT(9)
+#define PCIE_SW_HSG_TXPCS_RST				BIT(10)
+#define PCIE_SW_HSG_RXPCS_RST				BIT(11)
+#define PCIE_PMA_SW_RST					(PCIE_SW_RX_FIFO_RST | \
+							 PCIE_SW_RX_RST | \
+							 PCIE_SW_TX_RST | \
+							 PCIE_SW_PMA_RST | \
+							 PCIE_SW_ALLPCS_RST | \
+							 PCIE_SW_REF_RST | \
+							 PCIE_SW_TX_FIFO_RST | \
+							 PCIE_SW_XFI_TXPCS_RST | \
+							 PCIE_SW_XFI_RXPCS_RST | \
+							 PCIE_SW_XFI_RXPCS_BIST_RST | \
+							 PCIE_SW_HSG_TXPCS_RST | \
+							 PCIE_SW_HSG_RXPCS_RST)
 
 #define REG_PCIE_PMA_RO_RX_FREQDET			0x0530
 #define PCIE_RO_FL_OUT					GENMASK(31, 16)

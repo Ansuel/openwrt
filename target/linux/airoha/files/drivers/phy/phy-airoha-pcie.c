@@ -1248,8 +1248,25 @@ static int airoha_pcie_phy_init(struct phy *phy)
 	return 0;
 }
 
+static int airoha_pcie_phy_exit(struct phy *phy)
+{
+	struct airoha_pcie_phy *pcie_phy = phy_get_drvdata(phy);
+
+	airoha_phy_pma0_clear_bits(pcie_phy, REG_PCIE_PMA_SW_RESET,
+				   PCIE_PMA_SW_RST);
+	airoha_phy_pma1_clear_bits(pcie_phy, REG_PCIE_PMA_SW_RESET,
+				   PCIE_PMA_SW_RST);
+	airoha_phy_csr_ana2l_clear_bits(pcie_phy, REG_CSR_ANA2L_JCPLL_SSC,
+					CSR_ANA2L_PXP_JCPLL_SSC_PHASE_INI |
+					CSR_ANA2L_PXP_JCPLL_SSC_TRI_EN |
+					CSR_ANA2L_PXP_JCPLL_SSC_EN);
+
+	return 0;
+}
+
 static const struct phy_ops airoha_pcie_phy_ops = {
 	.init = airoha_pcie_phy_init,
+	.exit = airoha_pcie_phy_exit,
 	.owner = THIS_MODULE,
 };
 
@@ -1296,7 +1313,7 @@ static int airoha_pcie_phy_probe(struct platform_device *pdev)
 
 static const struct of_device_id airoha_pcie_phy_of_match[] = {
 	{ .compatible = "airoha,en7581-pcie-phy" },
-	{ },
+	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, airoha_pcie_phy_of_match);
 
