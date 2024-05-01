@@ -300,6 +300,12 @@
 			compatible = "mediatek,mt7988-switch";
 			reg = <0 0x1fb58000 0 0x8000>;
 			resets = <&scuclk EN7581_GSW_RST>;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+			interrupt-parent = <&gic>;
+			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
+
 			#address-cells = <1>;
 			#size-cells = <1>;
 
