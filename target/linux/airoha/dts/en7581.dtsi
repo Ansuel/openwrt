@@ -187,6 +187,26 @@
 			};
 		};
 
+		gpio0: gpio@1fbf0200 {
+			compatible = "airoha,en7523-gpio";
+			reg = <0 0x1fbf0204 0 0x4>,
+			      <0 0x1fbf0200 0 0x4>,
+			      <0 0x1fbf0220 0 0x4>,
+			      <0 0x1fbf0214 0 0x4>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
+		gpio1: gpio@1fbf0270 {
+			compatible = "airoha,en7523-gpio";
+			reg = <0 0x1fbf0270 0 0x4>,
+			      <0 0x1fbf0260 0 0x4>,
+			      <0 0x1fbf0264 0 0x4>,
+			      <0 0x1fbf0278 0 0x4>;
+			gpio-controller;
+			#gpio-cells = <2>;
+		};
+
 		pciephy: phy@1fa5a000 {
 			compatible = "airoha,en7581-pcie-phy";
 			reg = <0x0 0x1fa5a000 0x0 0xfff>,
@@ -270,30 +290,25 @@
 			};
 		};
 
-		gpio0: gpio@1fbf0200 {
-			compatible = "airoha,en7523-gpio";
-			reg = <0 0x1fbf0204 0 0x4>,
-			      <0 0x1fbf0200 0 0x4>,
-			      <0 0x1fbf0220 0 0x4>,
-			      <0 0x1fbf0214 0 0x4>;
-			gpio-controller;
-			#gpio-cells = <2>;
-		};
-
-		gpio1: gpio@1fbf0270 {
-			compatible = "airoha,en7523-gpio";
-			reg = <0 0x1fbf0270 0 0x4>,
-			      <0 0x1fbf0260 0 0x4>,
-			      <0 0x1fbf0264 0 0x4>,
-			      <0 0x1fbf0278 0 0x4>;
-			gpio-controller;
-			#gpio-cells = <2>;
-		};
-
-		eth: ethernet@1fb50000 {
+		eth0: ethernet@1fb50000 {
 			compatible = "airoha,en7581-eth";
 			reg = <0 0x1fb50000 0 0x2600>,
 			      <0 0x1fb54000 0 0x4000>;
+
+			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 57 IRQ_TYPE_LEVEL_HIGH>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy-mode = "internal";
+			fixed-link {
+				speed = <10000>;
+				full-duplex;
+				pause;
+			};
 		};
 
 		switch: switch@1fb58000 {
@@ -343,7 +358,7 @@
 
 				port@6 {
 					reg = <6>;
-					ethernet = <&eth>;
+					ethernet = <&eth0>;
 					phy-mode = "internal";
 
 					fixed-link {
