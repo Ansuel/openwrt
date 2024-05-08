@@ -664,7 +664,7 @@ diff -Naur a/drivers/mtd/parsers/airohapart.c b/drivers/mtd/parsers/airohapart.c
 +    airoha_map.bankwidth = 2;
 +    airoha_map.phys = 0x00000000;
 +    airoha_map.size = 0x02000000;
-+    printk("airoha_map: flash device 0x%08x at 0x%08x\n", airoha_map.size, airoha_map.phys);
++    //printk("airoha_map: flash device 0x%08x at 0x%08x\n", airoha_map.size, airoha_map.phys);
 +    airoha_map.virt = ioremap(airoha_map.phys, airoha_map.size);
 +
 +    ioremap(0x1fc00000, 0x400000);
