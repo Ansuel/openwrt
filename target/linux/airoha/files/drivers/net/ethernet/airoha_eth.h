@@ -46,6 +46,12 @@
 #define REG_CDM5_RX_OQ1_DROP_CNT	0x29d4
 
 /* QDMA */
+#define REG_TX_IRQ_BASE			0x0050
+
+#define REG_TX_IRQ_CFG			0x0054
+#define TX_IRQ_DEPTH_MASK		GENMASK(11, 0)
+#define TX_IRQ_THR_MASK			GENMASK(27, 16)
+
 #define REG_TX_RING_BASE(idx)		(0x0100 + (idx << 5))
 
 #define REG_RX_RING_BASE(idx)		(0x0200 + (idx << 5))
@@ -86,7 +92,12 @@ struct airoha_qdma_desc {
 };
 
 struct airoha_queue_entry {
-	void *buf;
+	union {
+		void *buf;
+		struct sk_buff *skb;
+	};
+	dma_addr_t dma_addr;
+	u16 dma_len;
 };
 
 struct airoha_queue {
@@ -95,7 +106,12 @@ struct airoha_queue {
 	struct airoha_qdma_desc *desc;
 	u16 head;
 	u16 tail;
+
+	int queued;
 	int ndesc;
+	int buf_size;
+
+	struct page_pool *page_pool;
 };
 
 struct airoha_eth {
@@ -111,4 +127,6 @@ struct airoha_eth {
 
 	struct airoha_queue q_xmit[2];
 	struct airoha_queue q_rx[2];
+
+	void *xmit_buf;
 };
