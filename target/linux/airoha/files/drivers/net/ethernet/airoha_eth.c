@@ -471,6 +471,12 @@ static int airoha_probe(struct platform_device *pdev)
 		return err;
 	}
 
+	eth->irq = platform_get_irq(pdev, 0);
+	if (eth->irq < 0) {
+		dev_err(dev, "failed reading irq line\n");
+		return eth->irq;
+	}
+
 	net_dev->netdev_ops = &airoha_netdev_ops;
 	net_dev->max_mtu = AIROHA_MAX_MTU;
 	net_dev->watchdog_timeo = 5 * HZ;
@@ -478,7 +484,7 @@ static int airoha_probe(struct platform_device *pdev)
 	net_dev->hw_features = AIROHA_HW_FEATURES;
 	net_dev->features |= net_dev->hw_features;
 	net_dev->dev.of_node = np;
-	/* FIXME: missing IRQ line here */
+	net_dev->irq = eth->irq;
 	SET_NETDEV_DEV(net_dev, dev);
 
 	err = of_get_ethdev_address(np, net_dev);

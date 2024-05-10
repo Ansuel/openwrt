@@ -174,6 +174,8 @@ struct airoha_eth {
 	struct airoha_queue q_xmit[2];
 	struct airoha_queue q_rx[2];
 
+	int irq;
+
 	void *irq_q;
 	void *hfwd_desc;
 	void *hfwd_q;
