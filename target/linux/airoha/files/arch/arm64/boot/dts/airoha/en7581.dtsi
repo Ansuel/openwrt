@@ -295,6 +295,11 @@
 			reg = <0 0x1fb50000 0 0x2600>,
 			      <0 0x1fb54000 0 0x4000>;
 
+			resets = <&scuclk EN7581_FE_RST>,
+				 <&scuclk EN7581_FE_PDMA_RST>,
+				 <&scuclk EN7581_FE_QDMA_RST>;
+			reset-names = "fe", "pdma", "qdma";
+
 			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 56 IRQ_TYPE_LEVEL_HIGH>,

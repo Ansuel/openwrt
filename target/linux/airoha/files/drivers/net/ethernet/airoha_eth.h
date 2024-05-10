@@ -3,6 +3,7 @@
  * Copyright (C) 2024 Lorenzo Bianconi <lorenzo@kernel.org>
  */
 
+#define AIROHA_MAX_NUM_RSTS	3
 #define AIROHA_RX_ETH_HLEN	(ETH_HLEN + ETH_FCS_LEN)
 #define AIROHA_MAX_MTU		(2000 - AIROHA_RX_ETH_HLEN)
 #define AIROHA_MAX_DEVS		2
@@ -46,6 +47,12 @@
 #define REG_CDM5_RX_OQ1_DROP_CNT	0x29d4
 
 /* QDMA */
+#define REG_FWD_DSCP_BASE		0x0010
+#define REG_FWD_BUF_BASE		0x0014
+
+#define REG_HW_FWD_DSCP_CFG		0x0018
+#define HW_FWD_DSCP_PAYLOAD_SIZE_MASK	GENMASK(29, 28)
+
 #define REG_TX_IRQ_BASE			0x0050
 
 #define REG_TX_IRQ_CFG			0x0054
@@ -53,6 +60,12 @@
 #define TX_IRQ_THR_MASK			GENMASK(27, 16)
 
 #define REG_TX_RING_BASE(idx)		(0x0100 + (idx << 5))
+
+#define REG_TX_CPU_IDX(idx)		(0x0108 + (idx << 5))
+#define TX_RING_CPU_IDX_MASK		GENMASK(15, 0)
+
+#define REG_TX_DMA_IDX(idx)		(0x010c + (idx << 5))
+#define TX_RING_DMA_IDX_MASK		GENMASK(15, 0)
 
 #define REG_RX_RING_BASE(idx)		(0x0200 + (idx << 5))
 
@@ -67,28 +80,59 @@
 #define RX_RING_DMA_IDX_MASK		GENMASK(15, 0)
 
 #define REG_LMGR_INIT_CFG		0x1000
-#define HWFWD_PKTSIZE_OVERHEAD_MASK	GENMASK(27, 20)
+#define HW_FWD_DESC_NUM_MASK		GENMASK(16, 0)
+#define HW_FWD_PKTSIZE_OVERHEAD_MASK	GENMASK(27, 20)
+#define LGMR_INIT_START			BIT(31)
+
+#define REG_FWD_DSCP_LOW_THR		0x1004
+#define FWD_DSCP_LOW_THR_MASK		GENMASK(17, 0)
 
 #define TX0_DSCP_NUM			1536
 #define TX1_DSCP_NUM			128
 #define RX0_DSCP_NUM			1024
 #define RX1_DSCP_NUM			1024
+#define HW_DSCP_NUM			256
+#define MAX_PKT_LEN			2048
+
+/* DW0 */
+#define QDMA_DESC_LEN_MASK		GENMASK(15, 0)
+#define QDMA_DESC_NO_DROP_MASK		BIT(24)
+#define QDMA_DESC_DEI_MASK		BIT(25)
+#define QDMA_DESC_MORE_MASK		BIT(29) /* more SG elements */
+#define QDMA_DESC_DROP_MASK		BIT(30) /* tx: drop pkt - rx: overflow */
+#define QDMA_DESC_DONE_MASK		BIT(31)
+/* DW2 */
+#define QDMA_DESC_NEXT_ID_MASK		GENMASK(15, 0)
 
 struct airoha_qdma_desc {
-	u32 len		: 16;
-	u32 rsv0	: 8;
-	u32 no_drop	: 1;
-	u32 dei		: 1;
-	u32 rsv1	: 3;
-	u32 more	: 1; /* more SG elements */
-	u32 drop	: 1; /* tx: drop pkt
-			      * rx: overflow
-			      */
-	u32 done	: 1;
-	u32 addr;
-	u32 next_idx	: 16;
-	u32 rsv2	: 16;
-	u32 data[4];
+	__le32 ctrl;
+	__le32 addr;
+	__le32 data;
+	__le32 msg0;
+	__le32 msg1;
+	__le32 msg2;
+	__le32 msg3;
+};
+
+/* DW1 */
+#define QDMA_FWD_DESC_LEN_MASK		GENMASK(15, 0)
+#define QDMA_FWD_DESC_IDX_MASK		GENMASK(27, 16)
+#define QDMA_FWD_DESC_RING_MASK		GENMASK(30, 28)
+#define QDMA_FWD_DESC_CTX_MASK		BIT(31)
+/* DW2 */
+#define QDMA_FWD_DESC_FIRST_IDX_MASK	GENMASK(15, 0)
+/* DW3 */
+#define QDMA_FWD_DESC_MORE_PKT_NUM_MASK	GENMASK(2, 0)
+
+struct airoha_qdma_fwd_desc {
+	__le32 addr;
+	__le32 ctrl0;
+	__le32 ctrl1;
+	__le32 ctrl2;
+	__le32 msg0;
+	__le32 msg1;
+	__le32 rsv2;
+	__le32 rsv3;
 };
 
 struct airoha_queue_entry {
@@ -120,6 +164,8 @@ struct airoha_eth {
 	void __iomem *qdma_regs;
 	void __iomem *fe_regs;
 
+	struct reset_control_bulk_data resets[AIROHA_MAX_NUM_RSTS];
+
 	struct phylink *phylink;
 	struct phylink_config phylink_config;
 	phy_interface_t interface;
@@ -128,5 +174,7 @@ struct airoha_eth {
 	struct airoha_queue q_xmit[2];
 	struct airoha_queue q_rx[2];
 
-	void *xmit_buf;
+	void *irq_q;
+	void *hfwd_desc;
+	void *hfwd_q;
 };
