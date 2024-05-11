@@ -4,9 +4,10 @@
  */
 
 #define AIROHA_MAX_NUM_RSTS	3
-#define AIROHA_RX_ETH_HLEN	(ETH_HLEN + ETH_FCS_LEN)
-#define AIROHA_MAX_MTU		(2000 - AIROHA_RX_ETH_HLEN)
 #define AIROHA_MAX_DEVS		2
+#define AIROHA_NUM_TX_RING	2
+#define AIROHA_NUM_RX_RING	2
+#define AIROHA_MAX_MTU		(2048 - (ETH_HLEN + ETH_FCS_LEN))
 #define AIROHA_HW_FEATURES	(NETIF_F_IP_CSUM | NETIF_F_RXCSUM |	\
 				 NETIF_F_HW_VLAN_CTAG_TX | 		\
 				 NETIF_F_SG | NETIF_F_TSO |		\
@@ -53,6 +54,12 @@
 #define REG_HW_FWD_DSCP_CFG		0x0018
 #define HW_FWD_DSCP_PAYLOAD_SIZE_MASK	GENMASK(29, 28)
 
+#define REG_INT_STATUS1			0x0020
+#define REG_INT_STATUS2			0x0024
+#define REG_INT_STATUS3			0x0720
+#define REG_INT_STATUS4			0x0724
+#define REG_INT_STATUS5			0x0730
+
 #define REG_TX_IRQ_BASE			0x0050
 
 #define REG_TX_IRQ_CFG			0x0054
@@ -87,24 +94,23 @@
 #define REG_FWD_DSCP_LOW_THR		0x1004
 #define FWD_DSCP_LOW_THR_MASK		GENMASK(17, 0)
 
-#define TX0_DSCP_NUM			1536
-#define TX1_DSCP_NUM			128
-#define RX0_DSCP_NUM			1024
-#define RX1_DSCP_NUM			1024
+#define TX_DSCP_NUM			1024
+#define RX_DSCP_NUM			1024
 #define HW_DSCP_NUM			256
 #define MAX_PKT_LEN			2048
 
-/* DW0 */
+/* DW1 */
 #define QDMA_DESC_LEN_MASK		GENMASK(15, 0)
 #define QDMA_DESC_NO_DROP_MASK		BIT(24)
 #define QDMA_DESC_DEI_MASK		BIT(25)
 #define QDMA_DESC_MORE_MASK		BIT(29) /* more SG elements */
 #define QDMA_DESC_DROP_MASK		BIT(30) /* tx: drop pkt - rx: overflow */
 #define QDMA_DESC_DONE_MASK		BIT(31)
-/* DW2 */
+/* DW3 */
 #define QDMA_DESC_NEXT_ID_MASK		GENMASK(15, 0)
 
 struct airoha_qdma_desc {
+	__le32 rsv;
 	__le32 ctrl;
 	__le32 addr;
 	__le32 data;
@@ -164,6 +170,9 @@ struct airoha_eth {
 	void __iomem *qdma_regs;
 	void __iomem *fe_regs;
 
+	spinlock_t irq_lock;
+	u32 irqmask;
+
 	struct reset_control_bulk_data resets[AIROHA_MAX_NUM_RSTS];
 
 	struct phylink *phylink;
@@ -171,8 +180,8 @@ struct airoha_eth {
 	phy_interface_t interface;
 	int speed;
 
-	struct airoha_queue q_xmit[2];
-	struct airoha_queue q_rx[2];
+	struct airoha_queue q_xmit[AIROHA_NUM_TX_RING];
+	struct airoha_queue q_rx[AIROHA_NUM_RX_RING];
 
 	int irq;
 
