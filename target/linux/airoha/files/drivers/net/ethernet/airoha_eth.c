@@ -276,16 +276,26 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 	while (done < budget) {
 		struct airoha_queue_entry *e = &q->entry[q->tail];
 		struct airoha_qdma_desc *desc = &q->desc[q->tail];
+		dma_addr_t dma_addr = le32_to_cpu(desc->addr);
+		u32 desc_ctrl = le32_to_cpu(desc->ctrl);
 		int len, qid = q - &eth->q_rx[0];
 		struct sk_buff *skb;
-		u32 desc_ctrl;
+
+		if (!(desc_ctrl & QDMA_DESC_DONE_MASK))
+			break;
+
+		len = FIELD_GET(QDMA_DESC_LEN_MASK, desc_ctrl);
+		if (!dma_addr || !len)
+			break;
 
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued--;
 
-		dma_sync_single_for_cpu(eth->dev, e->dma_addr,
+		dma_sync_single_for_cpu(eth->dev, dma_addr,
 					SKB_WITH_OVERHEAD(q->buf_size),
 					page_pool_get_dma_dir(q->page_pool));
+
+		mb();
 
 		skb = napi_build_skb(e->buf, q->buf_size);
 		if (!skb) {
@@ -295,8 +305,6 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 			continue;
 		}
 
-		desc_ctrl = le32_to_cpu(desc->ctrl);
-		len = FIELD_GET(QDMA_DESC_LEN_MASK, desc_ctrl);
 		__skb_put(skb, len);
 
 		skb_mark_for_recycle(skb);
