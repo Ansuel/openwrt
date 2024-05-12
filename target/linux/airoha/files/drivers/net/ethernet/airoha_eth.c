@@ -536,72 +536,70 @@ static int airoha_hw_init(struct airoha_eth *eth)
 
 static int airoha_probe(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
-	struct net_device *net_dev;
+	struct device_node *np = pdev->dev.of_node;
 	phy_interface_t phy_mode;
+	struct net_device *dev;
 	struct airoha_eth *eth;
 	int err;
 
-	net_dev = devm_alloc_etherdev_mqs(dev, sizeof(*eth),
-					  AIROHA_NUM_TX_RING,
-					  AIROHA_NUM_RX_RING);
-	if (!net_dev) {
-		dev_err(dev, "alloc_etherdev failed\n");
+	dev = devm_alloc_etherdev_mqs(&pdev->dev, sizeof(*eth),
+				      AIROHA_NUM_TX_RING, AIROHA_NUM_RX_RING);
+	if (!dev) {
+		dev_err(&pdev->dev, "alloc_etherdev failed\n");
 		return -ENOMEM;
 	}
 
-	eth = netdev_priv(net_dev);
+	eth = netdev_priv(dev);
+	platform_set_drvdata(pdev, eth);
+	eth->dev = &pdev->dev;
+
 	eth->fe_regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(eth->fe_regs))
-		return dev_err_probe(dev, PTR_ERR(eth->fe_regs),
+		return dev_err_probe(eth->dev, PTR_ERR(eth->fe_regs),
 				     "failed to iomap fe regs\n");
 
 	eth->qdma_regs = devm_platform_ioremap_resource(pdev, 1);
 	if (IS_ERR(eth->qdma_regs))
-		return dev_err_probe(dev, PTR_ERR(eth->qdma_regs),
+		return dev_err_probe(eth->dev, PTR_ERR(eth->qdma_regs),
 				     "failed to iomap qdma regs\n");
 
 	eth->resets[0].id = "fe";
 	eth->resets[1].id = "pdma";
 	eth->resets[2].id = "qdma";
-	err = devm_reset_control_bulk_get_exclusive(dev, AIROHA_MAX_NUM_RSTS,
+	err = devm_reset_control_bulk_get_exclusive(eth->dev,
+						    AIROHA_MAX_NUM_RSTS,
 						    eth->resets);
 	if (err) {
-		dev_err(dev, "failed to get bulk reset lines\n");
+		dev_err(eth->dev, "failed to get bulk reset lines\n");
 		return err;
 	}
 
+	spin_lock_init(&eth->irq_lock);
 	eth->irq = platform_get_irq(pdev, 0);
 	if (eth->irq < 0) {
-		dev_err(dev, "failed reading irq line\n");
+		dev_err(eth->dev, "failed reading irq line\n");
 		return eth->irq;
 	}
 
-	net_dev->netdev_ops = &airoha_netdev_ops;
-	net_dev->max_mtu = AIROHA_MAX_MTU;
-	net_dev->watchdog_timeo = 5 * HZ;
+	dev->netdev_ops = &airoha_netdev_ops;
+	dev->max_mtu = AIROHA_MAX_MTU;
+	dev->watchdog_timeo = 5 * HZ;
 	/* FIXME: check HW features */
-	net_dev->hw_features = AIROHA_HW_FEATURES;
-	net_dev->features |= net_dev->hw_features;
-	net_dev->dev.of_node = np;
-	net_dev->irq = eth->irq;
-	SET_NETDEV_DEV(net_dev, dev);
+	dev->hw_features = AIROHA_HW_FEATURES;
+	dev->features |= dev->hw_features;
+	dev->dev.of_node = np;
+	dev->irq = eth->irq;
+	SET_NETDEV_DEV(dev, eth->dev);
 
-	err = of_get_ethdev_address(np, net_dev);
+	err = of_get_ethdev_address(np, dev);
 	if (err) {
 		if (err == -EPROBE_DEFER)
 			return err;
 
-		eth_hw_addr_random(net_dev);
-		dev_err(dev, "generated random MAC address %pM\n",
-			net_dev->dev_addr);
+		eth_hw_addr_random(dev);
+		dev_err(eth->dev, "generated random MAC address %pM\n",
+			dev->dev_addr);
 	}
-
-	spin_lock_init(&eth->irq_lock);
-	eth->dev = dev;
-
-	platform_set_drvdata(pdev, eth);
 
 	err = airoha_hw_init(eth);
 	if (err)
@@ -610,7 +608,7 @@ static int airoha_probe(struct platform_device *pdev)
 	/* phylink create */
 	err = of_get_phy_mode(np, &phy_mode);
 	if (err) {
-		dev_err(dev, "incorrect phy-mode\n");
+		dev_err(eth->dev, "incorrect phy-mode\n");
 		return err;
 	}
 
@@ -618,7 +616,7 @@ static int airoha_probe(struct platform_device *pdev)
 	eth->interface = PHY_INTERFACE_MODE_NA;
 	eth->speed = SPEED_UNKNOWN;
 
-	eth->phylink_config.dev = &net_dev->dev;
+	eth->phylink_config.dev = &dev->dev;
 	eth->phylink_config.type = PHYLINK_NETDEV;
 	eth->phylink_config.mac_capabilities = MAC_ASYM_PAUSE | MAC_SYM_PAUSE |
 					       MAC_10 | MAC_100 | MAC_1000 |
@@ -631,7 +629,7 @@ static int airoha_probe(struct platform_device *pdev)
 	if (IS_ERR(eth->phylink))
 		return PTR_ERR(eth->phylink);
 
-	return register_netdev(net_dev);
+	return register_netdev(dev);
 }
 
 static void airoha_remove(struct platform_device *pdev)
