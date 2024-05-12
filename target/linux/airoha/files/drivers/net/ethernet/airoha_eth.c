@@ -3,6 +3,7 @@
  * Copyright (c) 2024 AIROHA Inc
  * Author: Lorenzo Bianconi <lorenzo@kernel.org>
  */
+#include <linux/debugfs.h>
 #include <linux/etherdevice.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
@@ -44,6 +45,48 @@ static u32 airoha_rmw(void __iomem *base, u32 offset, u32 mask, u32 val)
 #define airoha_qdma_rmw(eth, offset, mask, val)	airoha_rmw((eth)->qdma_regs, (offset), (mask), (val))
 #define airoha_qdma_set(eth, offset, val)	airoha_rmw((eth)->qdma_regs, (offset), 0, (val))
 #define airoha_qdma_clear(eth, offset, val)	airoha_rmw((eth)->qdma_regs, (offset), (val), 0)
+
+static int airoha_fe_reg_set(void *data, u64 val)
+{
+	struct airoha_eth *eth = data;
+
+	airoha_fe_wr(eth, eth->debugfs_reg, val);
+
+	return 0;
+}
+
+static int airoha_fe_reg_get(void *data, u64 *val)
+{
+	struct airoha_eth *eth = data;
+
+	*val = airoha_fe_rr(eth, eth->debugfs_reg);
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_fe, airoha_fe_reg_get, airoha_fe_reg_set,
+			 "0x%08llx\n");
+
+static int airoha_qdma_reg_set(void *data, u64 val)
+{
+	struct airoha_eth *eth = data;
+
+	airoha_qdma_wr(eth, eth->debugfs_reg, val);
+
+	return 0;
+}
+
+static int airoha_qdma_reg_get(void *data, u64 *val)
+{
+	struct airoha_eth *eth = data;
+
+	*val = airoha_qdma_rr(eth, eth->debugfs_reg);
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_qdma, airoha_qdma_reg_get, airoha_qdma_reg_set,
+			 "0x%08llx\n");
 
 static void airoha_set_irqmask(struct airoha_eth *eth, int index,
 			       u32 clear, u32 set)
@@ -699,13 +742,30 @@ static int airoha_probe(struct platform_device *pdev)
 
 	/* FIXME: create phylink */
 
-	return register_netdev(dev);
+	err = register_netdev(dev);
+	if (err)
+		return err;
+
+	eth->debugfs_dir =  debugfs_create_dir(KBUILD_MODNAME, NULL);
+	if (IS_ERR(eth->debugfs_dir))
+		return PTR_ERR(eth->debugfs_dir);
+
+	debugfs_create_u32("regidx", 0600, eth->debugfs_dir,
+			   &eth->debugfs_reg);
+	debugfs_create_file_unsafe("fe_regval", 0600, eth->debugfs_dir, eth,
+				   &fops_fe);
+	debugfs_create_file_unsafe("qdma_regval", 0600, eth->debugfs_dir, eth,
+				   &fops_qdma);
+
+	return 0;
 }
 
 static void airoha_remove(struct platform_device *pdev)
 {
 	struct airoha_eth *eth = platform_get_drvdata(pdev);
 	int i;
+
+	debugfs_remove(eth->debugfs_dir);
 
 	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++) {
 		struct airoha_queue *q = &eth->q_rx[i];

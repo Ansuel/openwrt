@@ -364,6 +364,9 @@ struct airoha_eth {
 	void *irq_q;
 	void *hfwd_desc;
 	void *hfwd_q;
+
+	struct dentry *debugfs_dir;
+	u32 debugfs_reg;
 };
 
 static inline void airoha_qdma_start_rx_napi(struct airoha_eth *eth)
