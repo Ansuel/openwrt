@@ -177,12 +177,14 @@
 #define RX1_DONE_INT_MASK		BIT(1)
 #define RX0_DONE_INT_MASK		BIT(0)
 
-#define INT_IDX1_MASK						\
+#define RX_DONE_INT_MASK					\
 	(RX0_DONE_INT_MASK | RX1_DONE_INT_MASK |		\
 	 RX2_DONE_INT_MASK | RX3_DONE_INT_MASK |		\
 	 RX4_DONE_INT_MASK | RX7_DONE_INT_MASK |		\
 	 RX8_DONE_INT_MASK | RX9_DONE_INT_MASK |		\
-	 RX15_DONE_INT_MASK |					\
+	 RX15_DONE_INT_MASK)
+#define INT_IDX1_MASK						\
+	(RX_DONE_INT_MASK |					\
 	 RX0_NO_CPU_DSCP_INT_MASK | RX1_NO_CPU_DSCP_INT_MASK |	\
 	 RX2_NO_CPU_DSCP_INT_MASK | RX3_NO_CPU_DSCP_INT_MASK |	\
 	 RX4_NO_CPU_DSCP_INT_MASK | RX7_NO_CPU_DSCP_INT_MASK |	\
@@ -277,14 +279,6 @@
 /* DW3 */
 #define QDMA_DESC_NEXT_ID_MASK		GENMASK(15, 0)
 
-enum {
-	QDMA_INT_REG_IDX0,
-	QDMA_INT_REG_IDX1,
-	QDMA_INT_REG_IDX2,
-	QDMA_INT_REG_IDX3,
-	QDMA_INT_REG_IDX4,
-};
-
 struct airoha_qdma_desc {
 	__le32 rsv;
 	__le32 ctrl;
@@ -317,6 +311,14 @@ struct airoha_qdma_fwd_desc {
 	__le32 rsv3;
 };
 
+enum {
+	QDMA_INT_REG_IDX0,
+	QDMA_INT_REG_IDX1,
+	QDMA_INT_REG_IDX2,
+	QDMA_INT_REG_IDX3,
+	QDMA_INT_REG_IDX4,
+};
+
 struct airoha_queue_entry {
 	union {
 		void *buf;
@@ -327,6 +329,8 @@ struct airoha_queue_entry {
 };
 
 struct airoha_queue {
+	struct airoha_eth *eth;
+
 	spinlock_t lock;
 	struct airoha_queue_entry *entry;
 	struct airoha_qdma_desc *desc;
@@ -337,11 +341,13 @@ struct airoha_queue {
 	int ndesc;
 	int buf_size;
 
+	struct napi_struct napi;
 	struct page_pool *page_pool;
 };
 
 struct airoha_eth {
 	struct device *dev;
+	struct net_device *net_dev;
 
 	void __iomem *qdma_regs;
 	void __iomem *fe_regs;
@@ -352,11 +358,6 @@ struct airoha_eth {
 
 	struct reset_control_bulk_data resets[AIROHA_MAX_NUM_RSTS];
 
-	struct phylink *phylink;
-	struct phylink_config phylink_config;
-	phy_interface_t interface;
-	int speed;
-
 	struct airoha_queue q_xmit[AIROHA_NUM_TX_RING];
 	struct airoha_queue q_rx[AIROHA_NUM_RX_RING];
 
@@ -364,3 +365,19 @@ struct airoha_eth {
 	void *hfwd_desc;
 	void *hfwd_q;
 };
+
+static inline void airoha_qdma_start_rx_napi(struct airoha_eth *eth)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++)
+		napi_enable(&eth->q_rx[i].napi);
+}
+
+static inline void airoha_qdma_stop_rx_napi(struct airoha_eth *eth)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++)
+		napi_disable(&eth->q_rx[i].napi);
+}
