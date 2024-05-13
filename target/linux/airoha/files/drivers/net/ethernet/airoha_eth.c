@@ -108,18 +108,37 @@ static void airoha_set_irqmask(struct airoha_eth *eth, int index,
 #define airoha_irq_enable(eth, index, mask)	airoha_set_irqmask((eth), (index), 0, (mask))
 #define airoha_irq_disable(eth, index, mask)	airoha_set_irqmask((eth), (index), (mask), 0)
 
+static void airoha_set_macaddr(struct airoha_eth *eth, const u8 *addr)
+{
+	u32 val;
+
+	val = (addr[0] << 16) | (addr[1] << 8) | addr[2];
+	airoha_fe_wr(eth, REG_FE_LAN_MAC_H, val);
+
+	val = (addr[3] << 16) | (addr[4] << 8) | addr[5];
+	airoha_fe_wr(eth, REG_FE_LAN_MAC_LMIN, val);
+	airoha_fe_wr(eth, REG_FE_LAN_MAC_LMAX, val);
+}
+
+static int airoha_dev_set_macaddr(struct net_device *dev, void *p)
+{
+	struct airoha_eth *eth = netdev_priv(dev);
+	int err;
+
+	err = eth_mac_addr(dev, p);
+	if (err)
+		return err;
+
+	airoha_set_macaddr(eth, dev->dev_addr);
+
+	return 0;
+}
+
 static int airoha_dev_init(struct net_device *dev)
 {
 	struct airoha_eth *eth = netdev_priv(dev);
-	const u8 *addr = dev->dev_addr;
-	u32 mac_h, mac_lmin;
 
-	mac_h = (addr[0] << 16) | (addr[1] << 8) | addr[2];
-	mac_lmin = (addr[3] << 16) | (addr[4] << 8) | addr[5];
-
-	airoha_fe_wr(eth, REG_FE_LAN_MAC_H, mac_h);
-	airoha_fe_wr(eth, REG_FE_LAN_MAC_LMIN, mac_lmin);
-	airoha_fe_wr(eth, REG_FE_LAN_MAC_LMAX, mac_lmin);
+	airoha_set_macaddr(eth, dev->dev_addr);
 
 	return 0;
 }
@@ -138,7 +157,7 @@ static void airoha_set_port_fwd_cfg(struct airoha_eth *eth, u32 addr, u32 val)
 
 static int airoha_set_gdma_port(struct airoha_eth *eth, int port, bool enable)
 {
-	u32 vip_port, cfg_addr, val = enable ? 4 : 0xf;
+	u32 vip_port, cfg_addr, val = enable ? 0x4 : 0xf;
 
 	switch (port) {
 	case 0:
@@ -162,8 +181,8 @@ static int airoha_set_gdma_port(struct airoha_eth *eth, int port, bool enable)
 	}
 
 	if (enable) {
-		airoha_fe_set(eth, REG_FE_VIP_PORT_EN, vip_port);
-		airoha_fe_set(eth, REG_FE_IFC_PORT_EN, vip_port);
+		airoha_fe_wr(eth, REG_FE_VIP_PORT_EN, vip_port);
+		airoha_fe_wr(eth, REG_FE_IFC_PORT_EN, vip_port);
 	} else {
 		airoha_fe_clear(eth, REG_FE_VIP_PORT_EN, vip_port);
 		airoha_fe_clear(eth, REG_FE_IFC_PORT_EN, vip_port);
@@ -177,9 +196,11 @@ static int airoha_set_gdma_port(struct airoha_eth *eth, int port, bool enable)
 static int airoha_set_gdma_ports(struct airoha_eth *eth, bool enable)
 {
 	const int port_list[] = { 0, 1, 2, 4 };
-	int i, err;
+	int i;
 
 	for (i = 0; i < ARRAY_SIZE(port_list); i++) {
+		int err;
+
 		err = airoha_set_gdma_port(eth, port_list[i], enable);
 		if (err)
 			return err;
@@ -243,6 +264,7 @@ static const struct net_device_ops airoha_netdev_ops = {
 	.ndo_stop		= airoha_dev_stop,
 	.ndo_start_xmit		= airoha_dev_start_xmit,
 	.ndo_change_mtu		= airoha_dev_change_mtu,
+	.ndo_set_mac_address	= airoha_dev_set_macaddr,
 };
 
 static void airoha_maccr_init(struct airoha_eth *eth)

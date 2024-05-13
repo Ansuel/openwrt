@@ -4,7 +4,7 @@
  */
 
 #define AIROHA_MAX_NUM_RSTS	3
-#define AIROHA_MAX_MTU		(2048 - (ETH_HLEN + ETH_FCS_LEN))
+#define AIROHA_MAX_MTU		2000
 #define AIROHA_HW_FEATURES	(NETIF_F_IP_CSUM | NETIF_F_RXCSUM |	\
 				 NETIF_F_HW_VLAN_CTAG_TX | 		\
 				 NETIF_F_SG | NETIF_F_TSO |		\
@@ -23,6 +23,7 @@
 /* FE */
 #define CDMA1_BASE			0x0400
 #define GDMA1_BASE			0x0500
+#define GDMA2_BASE			0x1500
 #define GDMA3_BASE			0x1100
 #define GDMA4_BASE			0x2400
 
