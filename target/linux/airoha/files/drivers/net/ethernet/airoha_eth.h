@@ -239,24 +239,36 @@
 #define TX_IRQ_THR_MASK			GENMASK(27, 16)
 #define TX_IRQ_DEPTH_MASK		GENMASK(11, 0)
 
-#define REG_TX_RING_BASE(idx)		(0x0100 + (idx << 5))
+#define REG_TX_RING_BASE(_n)	\
+	(((_n) < 8) ? 0x0100 + ((_n) << 5) : 0x0b00 + (((_n) - 8) << 5))
 
-#define REG_TX_CPU_IDX(idx)		(0x0108 + (idx << 5))
+#define REG_TX_CPU_IDX(_n)	\
+	(((_n) < 8) ? 0x0108 + ((_n) << 5) : 0x0b08 + (((_n) - 8) << 5))
+
 #define TX_RING_CPU_IDX_MASK		GENMASK(15, 0)
 
-#define REG_TX_DMA_IDX(idx)		(0x010c + (idx << 5))
+#define REG_TX_DMA_IDX(_n)	\
+	(((_n) < 8) ? 0x010c + ((_n) << 5) : 0x0b0c + (((_n) - 8) << 5))
+
 #define TX_RING_DMA_IDX_MASK		GENMASK(15, 0)
 
-#define REG_RX_RING_BASE(idx)		(0x0200 + (idx << 5))
+#define REG_RX_RING_BASE(_n)	\
+	(((_n) < 16) ? 0x0200 + ((_n) << 5) : 0x0e00 + (((_n) - 16) << 5))
 
-#define REG_RX_RING_SIZE(idx)		(0x0204 + (idx << 5))
+#define REG_RX_RING_SIZE(_n)	\
+	(((_n) < 16) ? 0x0204 + ((_n) << 5) : 0x0e04 + (((_n) - 16) << 5))
+
 #define RX_RING_THR_MASK		GENMASK(31, 16)
 #define RX_RING_SIZE_MASK		GENMASK(15, 0)
 
-#define REG_RX_CPU_IDX(idx)		(0x0208 + (idx << 5))
+#define REG_RX_CPU_IDX(_n)	\
+	(((_n) < 16) ? 0x0208 + ((_n) << 5) : 0x0e08 + (((_n) - 16) << 5))
+
 #define RX_RING_CPU_IDX_MASK		GENMASK(15, 0)
 
-#define REG_RX_DMA_IDX(idx)		(0x020c + (idx << 5))
+#define REG_RX_DMA_IDX(_n)	\
+	(((_n) < 16) ? 0x020c + ((_n) << 5) : 0x0e0c + (((_n) - 16) << 5))
+
 #define RX_RING_DMA_IDX_MASK		GENMASK(15, 0)
 
 #define REG_LMGR_INIT_CFG		0x1000

@@ -768,7 +768,7 @@ static int airoha_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
-	eth->debugfs_dir =  debugfs_create_dir(KBUILD_MODNAME, NULL);
+	eth->debugfs_dir = debugfs_create_dir(KBUILD_MODNAME, NULL);
 	if (IS_ERR(eth->debugfs_dir))
 		return PTR_ERR(eth->debugfs_dir);
 
