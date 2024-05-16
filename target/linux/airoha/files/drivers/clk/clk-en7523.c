@@ -9,6 +9,8 @@
 #include <linux/reset-controller.h>
 #include <dt-bindings/clock/en7523-clk.h>
 
+#define RST_NR_PER_BANK			32
+
 #define REG_PCI_CONTROL			0x88
 #define   REG_PCI_CONTROL_PERSTOUT	BIT(29)
 #define   REG_PCI_CONTROL_PERSTOUT1	BIT(26)
@@ -66,7 +68,6 @@ struct en_clk_gate {
 	struct clk_hw hw;
 };
 
-#define RST_NR_PER_BANK		32
 struct en_reset_data {
 	void __iomem *mem_base;
 	struct reset_controller_dev rcdev;
@@ -514,7 +515,16 @@ static int en7523_clk_probe(struct platform_device *pdev)
 		return r;
 	}
 
-	return en7523_reset_register(&pdev->dev, np_base, soc_data);
+	r = en7523_reset_register(&pdev->dev, np_base, soc_data);
+	if (r) {
+		dev_err(&pdev->dev,
+			"could not register reset controller: %s: %d\n",
+			pdev->name, r);
+		of_clk_del_provider(node);
+		return r;
+	}
+
+	return 0;
 }
 
 static const struct en_clk_soc_data en7523_data = {
