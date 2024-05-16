@@ -212,7 +212,7 @@
 			reg = <0x0 0x1fa5a000 0x0 0xfff>,
 			      <0x0 0x1fa5b000 0x0 0xfff>,
 			      <0x0 0x1fa5c000 0x0 0xfff>;
-			reg-names = "csr_2l", "pma0", "pma1";
+			reg-names = "csr-2l", "pma0", "pma1";
 			#phy-cells = <0>;
 		};
 

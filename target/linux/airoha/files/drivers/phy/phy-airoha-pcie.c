@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (C) 2024 Lorenzo Bianconi <lorenzo@kernel.org>
+ * Copyright (c) 2024 AIROHA Inc
+ * Author: Lorenzo Bianconi <lorenzo@kernel.org>
  */
 
 #include <linux/delay.h>
@@ -13,6 +14,15 @@
 
 #include "phy-airoha-pcie-regs.h"
 
+#define LEQ_LEN_CTRL_MAX_VAL	7
+#define FREQ_LOCK_MAX_ATTEMPT	10
+
+enum airoha_pcie_port_gen {
+	PCIE_PORT_GEN1 = 1,
+	PCIE_PORT_GEN2,
+	PCIE_PORT_GEN3,
+};
+
 /**
  * struct airoha_pcie_phy - PCIe phy driver main structure
  * @dev: pointer to device
@@ -20,7 +30,6 @@
  * @csr_2l: Analogic lane IO mapped register base address
  * @pma0: IO mapped register base address of PMA0-PCIe
  * @pma1: IO mapped register base address of PMA1-PCIe
- * @data: pointer to SoC dependent data
  */
 struct airoha_pcie_phy {
 	struct device *dev;
@@ -58,7 +67,7 @@ static void airoha_phy_update_bits(void __iomem *reg, u32 mask, u32 val)
 		BUILD_BUG_ON_MSG(!__builtin_constant_p((mask)),			\
 				 "mask is not constant");			\
 		airoha_phy_update_bits((reg), (mask),				\
-				       FIELD_PREP((mask), (val))); 		\
+				       FIELD_PREP((mask), (val)));		\
 	} while (0)
 
 #define airoha_phy_csr_2l_clear_bits(pcie_phy, reg, mask)			\
@@ -82,10 +91,10 @@ static void airoha_phy_update_bits(void __iomem *reg, u32 mask, u32 val)
 
 static void
 airoha_phy_init_lane0_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
-				      int gen)
+				      enum airoha_pcie_port_gen gen)
 {
-	u32 fl_out_target = gen == 3 ? 41600 : 41941;
-	u32 lock_cyclecnt = gen == 3 ? 26000 : 32767;
+	u32 fl_out_target = gen == PCIE_PORT_GEN3 ? 41600 : 41941;
+	u32 lock_cyclecnt = gen == PCIE_PORT_GEN3 ? 26000 : 32767;
 	u32 pr_idac, val, cdr_pr_idac_tmp = 0;
 	int i;
 
@@ -143,7 +152,7 @@ airoha_phy_init_lane0_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
 				 REG_PCIE_PMA_FORCE_DA_PXP_CDR_PR_PIEYE_PWDB,
 				 PCIE_FORCE_DA_PXP_CDR_PR_PWDB);
 
-	for (i = 0; i < 7; i++) {
+	for (i = 0; i < LEQ_LEN_CTRL_MAX_VAL; i++) {
 		airoha_phy_pma0_update_field(pcie_phy,
 				REG_PCIE_PMA_FORCE_DA_PXP_CDR_PR_IDAC,
 				PCIE_FORCE_DA_PXP_CDR_PR_IDAC, i << 8);
@@ -163,7 +172,7 @@ airoha_phy_init_lane0_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
 			cdr_pr_idac_tmp = i << 8;
 	}
 
-	for (i = 7; i >= 0; i--) {
+	for (i = LEQ_LEN_CTRL_MAX_VAL; i >= 0; i--) {
 		pr_idac = cdr_pr_idac_tmp | (0x1 << i);
 		airoha_phy_pma0_update_field(pcie_phy,
 				REG_PCIE_PMA_FORCE_DA_PXP_CDR_PR_IDAC,
@@ -191,7 +200,9 @@ airoha_phy_init_lane0_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
 				     PCIE_FORCE_DA_PXP_CDR_PR_IDAC,
 				     cdr_pr_idac_tmp);
 
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < FREQ_LOCK_MAX_ATTEMPT; i++) {
+		u32 val;
+
 		airoha_phy_pma0_clear_bits(pcie_phy,
 					   REG_PCIE_PMA_SS_RX_FREQ_DET4,
 					   PCIE_FREQLOCK_DET_EN);
@@ -200,6 +211,10 @@ airoha_phy_init_lane0_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
 					     PCIE_FREQLOCK_DET_EN, 0x3);
 
 		usleep_range(10000, 15000);
+
+		val = readl(pcie_phy->pma0 + REG_PCIE_PMA_RO_RX_FREQDET);
+		if (val & PCIE_RO_FBCK_LOCK)
+			break;
 	}
 
 	/* turn off force mode and update band values */
@@ -218,7 +233,7 @@ airoha_phy_init_lane0_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
 	airoha_phy_pma0_clear_bits(pcie_phy,
 				   REG_PCIE_PMA_FORCE_DA_PXP_CDR_PR_IDAC,
 				   PCIE_FORCE_SEL_DA_PXP_CDR_PR_IDAC);
-	if (gen == 3) {
+	if (gen == PCIE_PORT_GEN3) {
 		airoha_phy_pma0_update_field(pcie_phy,
 					     REG_PCIE_PMA_DIG_RESERVE_14,
 					     PCIE_FLL_IDAC_PCIEG3,
@@ -237,10 +252,10 @@ airoha_phy_init_lane0_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
 
 static void
 airoha_phy_init_lane1_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
-				      int gen)
+				      enum airoha_pcie_port_gen gen)
 {
-	u32 fl_out_target = gen == 3 ? 41600 : 41941;
-	u32 lock_cyclecnt = gen == 3 ? 26000 : 32767;
+	u32 fl_out_target = gen == PCIE_PORT_GEN3 ? 41600 : 41941;
+	u32 lock_cyclecnt = gen == PCIE_PORT_GEN3 ? 26000 : 32767;
 	u32 pr_idac, val, cdr_pr_idac_tmp = 0;
 	int i;
 
@@ -297,7 +312,7 @@ airoha_phy_init_lane1_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
 				 REG_PCIE_PMA_FORCE_DA_PXP_CDR_PR_PIEYE_PWDB,
 				 PCIE_FORCE_DA_PXP_CDR_PR_PWDB);
 
-	for (i = 0; i < 7; i++) {
+	for (i = 0; i < LEQ_LEN_CTRL_MAX_VAL; i++) {
 		airoha_phy_pma1_update_field(pcie_phy,
 				REG_PCIE_PMA_FORCE_DA_PXP_CDR_PR_IDAC,
 				PCIE_FORCE_DA_PXP_CDR_PR_IDAC, i << 8);
@@ -317,7 +332,7 @@ airoha_phy_init_lane1_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
 			cdr_pr_idac_tmp = i << 8;
 	}
 
-	for (i = 7; i >= 0; i--) {
+	for (i = LEQ_LEN_CTRL_MAX_VAL; i >= 0; i--) {
 		pr_idac = cdr_pr_idac_tmp | (0x1 << i);
 		airoha_phy_pma1_update_field(pcie_phy,
 				REG_PCIE_PMA_FORCE_DA_PXP_CDR_PR_IDAC,
@@ -345,7 +360,9 @@ airoha_phy_init_lane1_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
 				     PCIE_FORCE_DA_PXP_CDR_PR_IDAC,
 				     cdr_pr_idac_tmp);
 
-	for (i = 0; i < 10; i++) {
+	for (i = 0; i < FREQ_LOCK_MAX_ATTEMPT; i++) {
+		u32 val;
+
 		airoha_phy_pma1_clear_bits(pcie_phy,
 					   REG_PCIE_PMA_SS_RX_FREQ_DET4,
 					   PCIE_FREQLOCK_DET_EN);
@@ -354,6 +371,10 @@ airoha_phy_init_lane1_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
 					     PCIE_FREQLOCK_DET_EN, 0x3);
 
 		usleep_range(10000, 15000);
+
+		val = readl(pcie_phy->pma1 + REG_PCIE_PMA_RO_RX_FREQDET);
+		if (val & PCIE_RO_FBCK_LOCK)
+			break;
 	}
 
 	/* turn off force mode and update band values */
@@ -372,7 +393,7 @@ airoha_phy_init_lane1_rx_fw_pre_calib(struct airoha_pcie_phy *pcie_phy,
 	airoha_phy_pma1_clear_bits(pcie_phy,
 				   REG_PCIE_PMA_FORCE_DA_PXP_CDR_PR_IDAC,
 				   PCIE_FORCE_SEL_DA_PXP_CDR_PR_IDAC);
-	if (gen == 3) {
+	if (gen == PCIE_PORT_GEN3) {
 		airoha_phy_pma1_update_field(pcie_phy,
 					     REG_PCIE_PMA_DIG_RESERVE_14,
 					     PCIE_FLL_IDAC_PCIEG3,
@@ -941,8 +962,7 @@ static void airoha_pcie_phy_set_rxflow(struct airoha_pcie_phy *pcie_phy)
 	airoha_phy_csr_2l_update_field(pcie_phy, REG_CSR_2L_RX0_REV0,
 				       CSR_2L_PXP_FE_GAIN_TRAIN_MODE, 0x4);
 	airoha_phy_csr_2l_update_field(pcie_phy, REG_CSR_2L_RX1_REV0,
-					  CSR_2L_PXP_FE_GAIN_NORMAL_MODE,
-					  0x4);
+				       CSR_2L_PXP_FE_GAIN_NORMAL_MODE, 0x4);
 	airoha_phy_csr_2l_update_field(pcie_phy, REG_CSR_2L_RX1_REV0,
 				       CSR_2L_PXP_FE_GAIN_TRAIN_MODE, 0x4);
 }
@@ -1056,8 +1076,8 @@ static void airoha_pcie_phy_load_kflow(struct airoha_pcie_phy *pcie_phy)
 				     PCIE_FORCE_PMA_RX_SPEED, 0xa);
 	airoha_phy_pma1_update_field(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_12,
 				     PCIE_FORCE_PMA_RX_SPEED, 0xa);
-	airoha_phy_init_lane0_rx_fw_pre_calib(pcie_phy, 3);
-	airoha_phy_init_lane1_rx_fw_pre_calib(pcie_phy, 3);
+	airoha_phy_init_lane0_rx_fw_pre_calib(pcie_phy, PCIE_PORT_GEN3);
+	airoha_phy_init_lane1_rx_fw_pre_calib(pcie_phy, PCIE_PORT_GEN3);
 
 	airoha_phy_pma0_clear_bits(pcie_phy, REG_PCIE_PMA_DIG_RESERVE_12,
 				   PCIE_FORCE_PMA_RX_SPEED);
@@ -1065,8 +1085,8 @@ static void airoha_pcie_phy_load_kflow(struct airoha_pcie_phy *pcie_phy)
 				   PCIE_FORCE_PMA_RX_SPEED);
 	usleep_range(100, 200);
 
-	airoha_phy_init_lane0_rx_fw_pre_calib(pcie_phy, 2);
-	airoha_phy_init_lane1_rx_fw_pre_calib(pcie_phy, 2);
+	airoha_phy_init_lane0_rx_fw_pre_calib(pcie_phy, PCIE_PORT_GEN2);
+	airoha_phy_init_lane1_rx_fw_pre_calib(pcie_phy, PCIE_PORT_GEN2);
 }
 
 /**
@@ -1176,10 +1196,10 @@ static int airoha_pcie_phy_probe(struct platform_device *pdev)
 	if (!pcie_phy)
 		return -ENOMEM;
 
-	pcie_phy->csr_2l = devm_platform_ioremap_resource_byname(pdev, "csr_2l");
+	pcie_phy->csr_2l = devm_platform_ioremap_resource_byname(pdev, "csr-2l");
 	if (IS_ERR(pcie_phy->csr_2l))
 		return dev_err_probe(dev, PTR_ERR(pcie_phy->csr_2l),
-				     "Failed to map phy-csr_2l base\n");
+				     "Failed to map phy-csr-2l base\n");
 
 	pcie_phy->pma0 = devm_platform_ioremap_resource_byname(pdev, "pma0");
 	if (IS_ERR(pcie_phy->pma0))

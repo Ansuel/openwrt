@@ -1,6 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (C) 2024 Lorenzo Bianconi <lorenzo@kernel.org>
+ * Copyright (c) 2024 AIROHA Inc
+ * Author: Lorenzo Bianconi <lorenzo@kernel.org>
  */
 
 #ifndef _PHY_AIROHA_PCIE_H
@@ -223,7 +224,7 @@
 #define CSR_2L_PXP_CDR0_PR_VREG_CKBUF		GENMASK(10, 8)
 
 #define REG_CSR_2L_CDR0_PR_CKREF_DIV		0x0128
-#define CSR_2L_PXP_CDR0_PR_CKREF_DIV 		GENMASK(1, 0)
+#define CSR_2L_PXP_CDR0_PR_CKREF_DIV		GENMASK(1, 0)
 
 #define REG_CSR_2L_CDR0_PR_MONCK		0x012c
 #define CSR_2L_PXP_CDR0_PR_MONCK_ENABLE		BIT(0)
@@ -256,7 +257,7 @@
 #define CSR_2L_PXP_RX0_PR_OSCAL_VGA1VOS		GENMASK(5, 0)
 #define CSR_2L_PXP_RX0_PR_OSCAL_VGA2IOS		GENMASK(13, 8)
 
-#define REG_CSR_2L_RX1_REV0 			0x01b4
+#define REG_CSR_2L_RX1_REV0			0x01b4
 
 #define REG_CSR_2L_RX1_PHYCK_DIV		0x01b8
 #define CSR_2L_PXP_RX1_PHYCK_SEL		GENMASK(9, 8)
@@ -383,6 +384,7 @@
 						 PCIE_SW_HSG_RXPCS_RST)
 
 #define REG_PCIE_PMA_RO_RX_FREQDET		0x0530
+#define PCIE_RO_FBCK_LOCK			BIT(0)
 #define PCIE_RO_FL_OUT				GENMASK(31, 16)
 
 #define REG_PCIE_PMA_FORCE_DA_PXP_CDR_PR_IDAC	0x0794
