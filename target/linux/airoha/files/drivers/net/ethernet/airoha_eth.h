@@ -19,7 +19,6 @@
 	 (_n) == 15 ? 128 :	\
 	 (_n) ==  0 ? 1024 : 16)
 #define HW_DSCP_NUM		1024
-#define MAX_PKT_LEN		2048
 
 /* FE */
 #define CDMA1_BASE			0x0400
@@ -143,7 +142,7 @@
 	 RX4_COHERENT_INT_MASK | RX7_COHERENT_INT_MASK |	\
 	 RX8_COHERENT_INT_MASK | RX9_COHERENT_INT_MASK |	\
 	 RX15_COHERENT_INT_MASK |				\
-	 IRQ_INT_MASK | IRQ2_INT_MASK | IRQ_FULL_INT_MASK)
+	 IRQ_INT_MASK | IRQ_FULL_INT_MASK)
 
 /* QDMA_CSR_INT_ENABLE2 */
 #define RX15_NO_CPU_DSCP_INT_MASK	BIT(31)
@@ -240,6 +239,9 @@
 #define TX_IRQ_THR_MASK			GENMASK(27, 16)
 #define TX_IRQ_DEPTH_MASK		GENMASK(11, 0)
 
+#define REG_IRQ_CLEAR_LEN		0x0058
+#define IRQ_CLEAR_LEN_MASK		GENMASK(7, 0)
+
 #define REG_IRQ_STATUS			0x005c
 #define IRQ_ENTRY_LEN_MASK		GENMASK(27, 16)
 #define IRQ_HEAD_IDX_MASK		GENMASK(11, 0)
@@ -256,6 +258,9 @@
 	(((_n) < 8) ? 0x010c + ((_n) << 5) : 0x0b0c + (((_n) - 8) << 5))
 
 #define TX_RING_DMA_IDX_MASK		GENMASK(15, 0)
+
+#define IRQ_RING_IDX_MASK		GENMASK(20, 16)
+#define IRQ_DESC_IDX_MASK		GENMASK(15, 0)
 
 #define REG_RX_RING_BASE(_n)	\
 	(((_n) < 16) ? 0x0200 + ((_n) << 5) : 0x0e00 + (((_n) - 16) << 5))
@@ -375,6 +380,10 @@ enum airoha_dport {
 	DPORT_GDMA4 = 9,
 };
 
+enum {
+	DEV_STATE_INITIALIZED,
+};
+
 struct airoha_queue_entry {
 	union {
 		void *buf;
@@ -404,6 +413,8 @@ struct airoha_queue {
 struct airoha_eth {
 	struct net_device *net_dev;
 
+	unsigned long state;
+
 	void __iomem *qdma_regs;
 	void __iomem *fe_regs;
 
@@ -416,7 +427,9 @@ struct airoha_eth {
 	struct airoha_queue q_xmit[AIROHA_NUM_TX_RING];
 	struct airoha_queue q_rx[AIROHA_NUM_RX_RING];
 
+	struct tasklet_struct xmit_tasklet;
 	void *irq_q;
+
 	void *hfwd_desc;
 	void *hfwd_q;
 
@@ -428,8 +441,6 @@ static inline void airoha_qdma_start_napi(struct airoha_eth *eth)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(eth->q_xmit); i++)
-		napi_enable(&eth->q_xmit[i].napi);
 	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++)
 		napi_enable(&eth->q_rx[i].napi);
 }
@@ -438,8 +449,6 @@ static inline void airoha_qdma_stop_napi(struct airoha_eth *eth)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(eth->q_xmit); i++)
-		napi_disable(&eth->q_xmit[i].napi);
 	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++)
 		napi_disable(&eth->q_rx[i].napi);
 }
