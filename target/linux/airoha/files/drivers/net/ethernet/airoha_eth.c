@@ -46,48 +46,6 @@ static u32 airoha_rmw(void __iomem *base, u32 offset, u32 mask, u32 val)
 #define airoha_qdma_set(eth, offset, val)	airoha_rmw((eth)->qdma_regs, (offset), 0, (val))
 #define airoha_qdma_clear(eth, offset, val)	airoha_rmw((eth)->qdma_regs, (offset), (val), 0)
 
-static int airoha_fe_reg_set(void *data, u64 val)
-{
-	struct airoha_eth *eth = data;
-
-	airoha_fe_wr(eth, eth->debugfs_reg, val);
-
-	return 0;
-}
-
-static int airoha_fe_reg_get(void *data, u64 *val)
-{
-	struct airoha_eth *eth = data;
-
-	*val = airoha_fe_rr(eth, eth->debugfs_reg);
-
-	return 0;
-}
-
-DEFINE_DEBUGFS_ATTRIBUTE(fops_fe, airoha_fe_reg_get, airoha_fe_reg_set,
-			 "0x%08llx\n");
-
-static int airoha_qdma_reg_set(void *data, u64 val)
-{
-	struct airoha_eth *eth = data;
-
-	airoha_qdma_wr(eth, eth->debugfs_reg, val);
-
-	return 0;
-}
-
-static int airoha_qdma_reg_get(void *data, u64 *val)
-{
-	struct airoha_eth *eth = data;
-
-	*val = airoha_qdma_rr(eth, eth->debugfs_reg);
-
-	return 0;
-}
-
-DEFINE_DEBUGFS_ATTRIBUTE(fops_qdma, airoha_qdma_reg_get, airoha_qdma_reg_set,
-			 "0x%08llx\n");
-
 static void airoha_set_irqmask(struct airoha_eth *eth, int index,
 			       u32 clear, u32 set)
 {
@@ -118,29 +76,6 @@ static void airoha_set_macaddr(struct airoha_eth *eth, const u8 *addr)
 	val = (addr[3] << 16) | (addr[4] << 8) | addr[5];
 	airoha_fe_wr(eth, REG_FE_LAN_MAC_LMIN, val);
 	airoha_fe_wr(eth, REG_FE_LAN_MAC_LMAX, val);
-}
-
-static int airoha_dev_set_macaddr(struct net_device *dev, void *p)
-{
-	struct airoha_eth *eth = netdev_priv(dev);
-	int err;
-
-	err = eth_mac_addr(dev, p);
-	if (err)
-		return err;
-
-	airoha_set_macaddr(eth, dev->dev_addr);
-
-	return 0;
-}
-
-static int airoha_dev_init(struct net_device *dev)
-{
-	struct airoha_eth *eth = netdev_priv(dev);
-
-	airoha_set_macaddr(eth, dev->dev_addr);
-
-	return 0;
 }
 
 static void airoha_set_port_fwd_cfg(struct airoha_eth *eth, u32 addr, u32 val)
@@ -209,64 +144,6 @@ static int airoha_set_gdma_ports(struct airoha_eth *eth, bool enable)
 	return 0;
 }
 
-static int airoha_dev_open(struct net_device *dev)
-{
-	struct airoha_eth *eth = netdev_priv(dev);
-	int err;
-
-	netif_tx_start_all_queues(dev);
-	airoha_qdma_start_rx_napi(eth);
-
-	err = airoha_set_gdma_ports(eth, true);
-	if (err)
-		return err;
-
-	airoha_qdma_set(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_TX_DMA_EN);
-	airoha_qdma_set(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_RX_DMA_EN);
-
-	return 0;
-}
-
-static int airoha_dev_stop(struct net_device *dev)
-{
-	struct airoha_eth *eth = netdev_priv(dev);
-	int err;
-
-	netif_tx_disable(dev);
-	airoha_qdma_stop_rx_napi(eth);
-
-	err = airoha_set_gdma_ports(eth, false);
-	if (err)
-		return err;
-
-	airoha_qdma_clear(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_TX_DMA_EN);
-	airoha_qdma_clear(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_RX_DMA_EN);
-
-	return 0;
-}
-
-static netdev_tx_t airoha_dev_start_xmit(struct sk_buff *skb,
-					 struct net_device *dev)
-{
-	return NETDEV_TX_OK;
-}
-
-static int airoha_dev_change_mtu(struct net_device *dev, int new_mtu)
-{
-	dev->mtu = new_mtu;
-
-	return 0;
-}
-
-static const struct net_device_ops airoha_netdev_ops = {
-	.ndo_init		= airoha_dev_init,
-	.ndo_open		= airoha_dev_open,
-	.ndo_stop		= airoha_dev_stop,
-	.ndo_start_xmit		= airoha_dev_start_xmit,
-	.ndo_change_mtu		= airoha_dev_change_mtu,
-	.ndo_set_mac_address	= airoha_dev_set_macaddr,
-};
-
 static void airoha_maccr_init(struct airoha_eth *eth)
 {
 	airoha_fe_set(eth, REG_GDMA1_FWD_CFG, GDMA1_TCP_CKSUM);
@@ -285,6 +162,7 @@ static int airoha_qdma_fill_rx_queue(struct airoha_eth *eth,
 				     struct airoha_queue *q)
 {
 	int qid = q - &eth->q_rx[0], nframes = 0;
+	struct net_device *dev = eth->net_dev;
 
 	spin_lock_bh(&q->lock);
 	while (q->queued < q->ndesc - 1) {
@@ -305,8 +183,8 @@ static int airoha_qdma_fill_rx_queue(struct airoha_eth *eth,
 		e->dma_len = SKB_WITH_OVERHEAD(q->buf_size);
 
 		dir = page_pool_get_dma_dir(q->page_pool);
-		dma_sync_single_for_device(eth->dev, e->dma_addr, e->dma_len,
-					   dir);
+		dma_sync_single_for_device(dev->dev.parent, e->dma_addr,
+					   e->dma_len, dir);
 
 		val = FIELD_PREP(QDMA_DESC_LEN_MASK, e->dma_len);
 		WRITE_ONCE(desc->ctrl, cpu_to_le32(val));
@@ -335,6 +213,7 @@ static int airoha_qdma_fill_rx_queue(struct airoha_eth *eth,
 static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 {
 	struct airoha_eth *eth = q->eth;
+	struct net_device *dev = eth->net_dev;
 	int done = 0;
 
 	spin_lock_bh(&q->lock);
@@ -356,7 +235,7 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued--;
 
-		dma_sync_single_for_cpu(eth->dev, dma_addr,
+		dma_sync_single_for_cpu(dev->dev.parent, dma_addr,
 					SKB_WITH_OVERHEAD(q->buf_size),
 					page_pool_get_dma_dir(q->page_pool));
 
@@ -387,7 +266,7 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 	return done;
 }
 
-static int airoha_qdma_napi_poll(struct napi_struct *napi, int budget)
+static int airoha_qdma_rx_napi_poll(struct napi_struct *napi, int budget)
 {
 	struct airoha_queue *q = container_of(napi, struct airoha_queue, napi);
 	struct airoha_eth *eth = q->eth;
@@ -407,6 +286,7 @@ static int airoha_qdma_napi_poll(struct napi_struct *napi, int budget)
 static int airoha_qdma_init_rx_queue(struct airoha_eth *eth,
 				     struct airoha_queue *q, int ndesc)
 {
+	struct net_device *dev = eth->net_dev;
 	struct page_pool_params pp_params = {
 		.order = 0,
 		.pool_size = 256,
@@ -415,7 +295,7 @@ static int airoha_qdma_init_rx_queue(struct airoha_eth *eth,
 		.dma_dir = DMA_FROM_DEVICE,
 		.max_len = PAGE_SIZE,
 		.nid = NUMA_NO_NODE,
-		.dev = eth->dev,
+		.dev = dev->dev.parent,
 	};
 	int qid = q - &eth->q_rx[0], thr;
 	dma_addr_t dma_addr;
@@ -425,7 +305,7 @@ static int airoha_qdma_init_rx_queue(struct airoha_eth *eth,
 	q->ndesc = ndesc;
 	q->eth = eth;
 
-	q->entry = devm_kzalloc(eth->dev, q->ndesc * sizeof(*q->entry),
+	q->entry = devm_kzalloc(dev->dev.parent, q->ndesc * sizeof(*q->entry),
 				GFP_KERNEL);
 	if (!q->entry)
 		return -ENOMEM;
@@ -438,12 +318,13 @@ static int airoha_qdma_init_rx_queue(struct airoha_eth *eth,
 		return err;
 	}
 
-	netif_napi_add(eth->net_dev, &q->napi, airoha_qdma_napi_poll);
-
-	q->desc = dmam_alloc_coherent(eth->dev, q->ndesc * sizeof(*q->desc),
+	q->desc = dmam_alloc_coherent(dev->dev.parent,
+				      q->ndesc * sizeof(*q->desc),
 				      &dma_addr, GFP_KERNEL);
 	if (!q->desc)
 		return -ENOMEM;
+
+	netif_napi_add(eth->net_dev, &q->napi, airoha_qdma_rx_napi_poll);
 
 	airoha_qdma_wr(eth, REG_RX_RING_BASE(qid), dma_addr);
 	airoha_qdma_rmw(eth, REG_RX_RING_SIZE(qid), RX_RING_SIZE_MASK,
@@ -463,6 +344,8 @@ static int airoha_qdma_init_rx_queue(struct airoha_eth *eth,
 static void airoha_qdma_clenaup_rx_queue(struct airoha_eth *eth,
 					 struct airoha_queue *q)
 {
+	struct net_device *dev = eth->net_dev;
+
 	spin_lock_bh(&q->lock);
 
 	while (q->queued) {
@@ -471,8 +354,8 @@ static void airoha_qdma_clenaup_rx_queue(struct airoha_eth *eth,
 		enum dma_data_direction dir;
 
 		dir = page_pool_get_dma_dir(q->page_pool);
-		dma_sync_single_for_cpu(eth->dev, e->dma_addr, e->dma_len,
-					dir);
+		dma_sync_single_for_cpu(dev->dev.parent, e->dma_addr,
+					e->dma_len, dir);
 		page_pool_put_full_page(q->page_pool, page, false);
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued--;
@@ -481,47 +364,13 @@ static void airoha_qdma_clenaup_rx_queue(struct airoha_eth *eth,
 	spin_unlock_bh(&q->lock);
 }
 
-static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
-{
-	struct airoha_eth *eth = dev_instance;
-	u32 intr[5];
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(intr); i++) {
-		intr[i] = airoha_rr(eth, REG_INT_STATUS(i));
-		intr[i] &= eth->irqmask[i];
-		airoha_wr(eth, REG_INT_STATUS(i), intr[i]);
-	}
-
-	if (intr[1] & RX_DONE_INT_MASK) {
-		int i;
-
-		airoha_irq_disable(eth, QDMA_INT_REG_IDX1, RX_DONE_INT_MASK);
-		for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++) {
-			if (intr[1] & BIT(i))
-				napi_schedule(&eth->q_rx[i].napi);
-		}
-	}
-
-	if (intr[0] & IRQ_INT_MASK) {
-		;/* FIXME: manage TXDONE event */
-	}
-
-	/* FIXME: take into account error events from the device */
-
-	return IRQ_HANDLED;
-}
-
 static int airoha_qdma_init_rx(struct airoha_eth *eth)
 {
-	int i, err;
-
-	err = devm_request_irq(eth->dev, eth->irq, airoha_irq_handler,
-			        IRQF_SHARED, KBUILD_MODNAME, eth);
-	if (err)
-		return err;
+	int i;
 
 	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++) {
+		int err;
+
 		err = airoha_qdma_init_rx_queue(eth, &eth->q_rx[i],
 						RX_DSCP_NUM(i));
 		if (err)
@@ -531,9 +380,29 @@ static int airoha_qdma_init_rx(struct airoha_eth *eth)
 	return 0;
 }
 
+static int airoha_qdma_tx_napi_poll(struct napi_struct *napi, int budget)
+{
+	struct airoha_queue *q = container_of(napi, struct airoha_queue, napi);
+	struct airoha_eth *eth = q->eth;
+	int done = 0;
+
+	if (done < budget && napi_complete(napi))
+		airoha_irq_disable(eth, QDMA_INT_REG_IDX0, IRQ_INT_MASK);
+
+	return done;
+}
+
+static int airoha_qdma_xmit_done(struct airoha_eth *eth)
+{
+	airoha_irq_disable(eth, QDMA_INT_REG_IDX0, IRQ_INT_MASK);
+
+	return 0;
+}
+
 static int airoha_qdma_init_tx_queue(struct airoha_eth *eth,
 				     struct airoha_queue *q, int size)
 {
+	struct net_device *dev = eth->net_dev;
 	int i, qid = q - &eth->q_xmit[0];
 	dma_addr_t dma_addr;
 
@@ -541,12 +410,13 @@ static int airoha_qdma_init_tx_queue(struct airoha_eth *eth,
 	q->ndesc = size;
 	q->eth = eth;
 
-	q->entry = devm_kzalloc(eth->dev, q->ndesc * sizeof(*q->entry),
+	q->entry = devm_kzalloc(dev->dev.parent, q->ndesc * sizeof(*q->entry),
 				GFP_KERNEL);
 	if (!q->entry)
 		return -ENOMEM;
 
-	q->desc = dmam_alloc_coherent(eth->dev, q->ndesc * sizeof(*q->desc),
+	q->desc = dmam_alloc_coherent(dev->dev.parent,
+				      q->ndesc * sizeof(*q->desc),
 				      &dma_addr, GFP_KERNEL);
 	if (!q->desc)
 		return -ENOMEM;
@@ -557,6 +427,8 @@ static int airoha_qdma_init_tx_queue(struct airoha_eth *eth,
 		val = FIELD_PREP(QDMA_DESC_DONE_MASK, 1);
 		WRITE_ONCE(q->desc[i].ctrl, cpu_to_le32(val));
 	}
+
+	netif_napi_add(eth->net_dev, &q->napi, airoha_qdma_tx_napi_poll);
 
 	airoha_qdma_wr(eth, REG_TX_RING_BASE(qid), dma_addr);
 	airoha_qdma_rmw(eth, REG_TX_CPU_IDX(qid), TX_RING_CPU_IDX_MASK,
@@ -583,6 +455,11 @@ static int airoha_qdma_init_tx(struct airoha_eth *eth)
 	return 0;
 }
 
+static void airoha_qdma_clenaup_tx_queue(struct airoha_eth *eth,
+					 struct airoha_queue *q)
+{
+}
+
 static u32 airoha_qdma_lmgr_rr(struct airoha_eth *eth)
 {
 	return airoha_qdma_rr(eth, REG_LMGR_INIT_CFG);
@@ -590,12 +467,13 @@ static u32 airoha_qdma_lmgr_rr(struct airoha_eth *eth)
 
 static int airoha_qdma_init_hw_queues(struct airoha_eth *eth)
 {
+	struct net_device *dev = eth->net_dev;
 	dma_addr_t dma_addr;
 	u32 status;
 	int size;
 
-	eth->irq_q = dmam_alloc_coherent(eth->dev, MAX_PKT_LEN, &dma_addr,
-					 GFP_KERNEL);
+	eth->irq_q = dmam_alloc_coherent(dev->dev.parent, MAX_PKT_LEN,
+					 &dma_addr, GFP_KERNEL);
 	if (!eth->irq_q)
 		return -ENOMEM;
 
@@ -607,7 +485,7 @@ static int airoha_qdma_init_hw_queues(struct airoha_eth *eth)
 			FIELD_PREP(TX_IRQ_THR_MASK, 32));
 
 	size = HW_DSCP_NUM * sizeof(struct airoha_qdma_fwd_desc);
-	eth->hfwd_desc = dmam_alloc_coherent(eth->dev, size, &dma_addr,
+	eth->hfwd_desc = dmam_alloc_coherent(dev->dev.parent, size, &dma_addr,
 					     GFP_KERNEL);
 	if (!eth->hfwd_desc)
 		return -ENOMEM;
@@ -615,7 +493,7 @@ static int airoha_qdma_init_hw_queues(struct airoha_eth *eth)
 	airoha_qdma_wr(eth, REG_FWD_DSCP_BASE, dma_addr);
 
 	size = MAX_PKT_LEN * HW_DSCP_NUM;
-	eth->hfwd_q = dmam_alloc_coherent(eth->dev, size, &dma_addr,
+	eth->hfwd_q = dmam_alloc_coherent(dev->dev.parent, size, &dma_addr,
 					  GFP_KERNEL);
 	if (!eth->hfwd_q)
 		return -ENOMEM;
@@ -660,9 +538,45 @@ static int airoha_qdma_hw_init(struct airoha_eth *eth)
 	return 0;
 }
 
+static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
+{
+	struct airoha_eth *eth = dev_instance;
+	u32 intr[5];
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(intr); i++) {
+		intr[i] = airoha_rr(eth, REG_INT_STATUS(i));
+		intr[i] &= eth->irqmask[i];
+		airoha_wr(eth, REG_INT_STATUS(i), intr[i]);
+	}
+
+	if (intr[1] & RX_DONE_INT_MASK) {
+		int i;
+
+		airoha_irq_disable(eth, QDMA_INT_REG_IDX1, RX_DONE_INT_MASK);
+		for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++) {
+			if (intr[1] & BIT(i))
+				napi_schedule(&eth->q_rx[i].napi);
+		}
+	}
+
+	if (intr[0] & IRQ_INT_MASK)
+		airoha_qdma_xmit_done(eth);
+
+	/* FIXME: take into account error events from the device */
+
+	return IRQ_HANDLED;
+}
+
 static int airoha_qdma_init(struct airoha_eth *eth)
 {
+	struct net_device *dev = eth->net_dev;
 	int err;
+
+	err = devm_request_irq(dev->dev.parent, eth->irq, airoha_irq_handler,
+			       IRQF_SHARED, KBUILD_MODNAME, eth);
+	if (err)
+		return err;
 
 	err = airoha_qdma_init_rx(eth);
 	if (err)
@@ -691,6 +605,240 @@ static int airoha_hw_init(struct airoha_eth *eth)
 	return airoha_qdma_init(eth);
 }
 
+static int airoha_dev_open(struct net_device *dev)
+{
+	struct airoha_eth *eth = netdev_priv(dev);
+	int err;
+
+	netif_tx_start_all_queues(dev);
+	airoha_qdma_start_napi(eth);
+
+	err = airoha_set_gdma_ports(eth, true);
+	if (err)
+		return err;
+
+	airoha_qdma_set(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_TX_DMA_EN);
+	airoha_qdma_set(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_RX_DMA_EN);
+
+	return 0;
+}
+
+static int airoha_dev_stop(struct net_device *dev)
+{
+	struct airoha_eth *eth = netdev_priv(dev);
+	int err;
+
+	netif_tx_disable(dev);
+	airoha_qdma_stop_napi(eth);
+
+	err = airoha_set_gdma_ports(eth, false);
+	if (err)
+		return err;
+
+	airoha_qdma_clear(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_TX_DMA_EN);
+	airoha_qdma_clear(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_RX_DMA_EN);
+
+	return 0;
+}
+
+static int airoha_dev_set_macaddr(struct net_device *dev, void *p)
+{
+	struct airoha_eth *eth = netdev_priv(dev);
+	int err;
+
+	err = eth_mac_addr(dev, p);
+	if (err)
+		return err;
+
+	airoha_set_macaddr(eth, dev->dev_addr);
+
+	return 0;
+}
+
+static int airoha_dev_init(struct net_device *dev)
+{
+	struct airoha_eth *eth = netdev_priv(dev);
+
+	airoha_set_macaddr(eth, dev->dev_addr);
+
+	return 0;
+}
+
+static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
+				   struct net_device *dev)
+{
+	struct net_device_stats *stats = &dev->stats;
+	struct airoha_eth *eth = netdev_priv(dev);
+	struct airoha_queue *q = &eth->q_xmit[0];
+	struct airoha_qdma_desc *desc;
+	struct airoha_queue_entry *e;
+	dma_addr_t addr;
+	u32 val;
+
+	/* FIXME: TSO support */
+	if (skb_linearize(skb))
+		goto error;
+
+	if (skb->len > AIROHA_MAX_PACKET_SIZE)
+		goto error;
+
+	spin_lock_bh(&q->lock);
+
+	if (q->queued == q->ndesc) {
+		/* no space left in the queue */
+		goto error_unlock;
+	}
+
+	desc = &q->desc[q->head];
+	addr = dma_map_single(dev->dev.parent, skb->data, skb->len,
+			      DMA_TO_DEVICE);
+	if (unlikely(dma_mapping_error(dev->dev.parent, addr)))
+		goto error_unlock;
+
+	val = FIELD_PREP(QDMA_DESC_LEN_MASK, skb->len);
+	desc->ctrl = cpu_to_le32(val);
+	desc->addr = cpu_to_le32(addr);
+	val = FIELD_PREP(QDMA_DESC_NEXT_ID_MASK, q->head);
+	desc->data = cpu_to_le32(val);
+	desc->msg0 = 0;
+	desc->msg1 = 0;
+	desc->msg2 = 0xffff;
+
+	e = &q->entry[q->head];
+	e->dma_addr = addr;
+	e->dma_len = skb->len;
+	e->skb = skb;
+
+	q->head = (q->head + 1) % q->ndesc;
+	q->queued++;
+
+	spin_unlock_bh(&q->lock);
+
+	return NETDEV_TX_OK;
+
+error_unlock:
+	spin_unlock_bh(&q->lock);
+error:
+	dev_kfree_skb_any(skb);
+	stats->tx_dropped++;
+
+	return NETDEV_TX_OK;
+}
+
+static int airoha_dev_change_mtu(struct net_device *dev, int new_mtu)
+{
+	dev->mtu = new_mtu;
+
+	return 0;
+}
+
+static const struct net_device_ops airoha_netdev_ops = {
+	.ndo_init		= airoha_dev_init,
+	.ndo_open		= airoha_dev_open,
+	.ndo_stop		= airoha_dev_stop,
+	.ndo_start_xmit		= airoha_dev_xmit,
+	.ndo_change_mtu		= airoha_dev_change_mtu,
+	.ndo_set_mac_address	= airoha_dev_set_macaddr,
+};
+
+static int airoha_fe_reg_set(void *data, u64 val)
+{
+	struct airoha_eth *eth = data;
+
+	airoha_fe_wr(eth, eth->debugfs_reg, val);
+
+	return 0;
+}
+
+static int airoha_fe_reg_get(void *data, u64 *val)
+{
+	struct airoha_eth *eth = data;
+
+	*val = airoha_fe_rr(eth, eth->debugfs_reg);
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_fe, airoha_fe_reg_get, airoha_fe_reg_set,
+			 "0x%08llx\n");
+
+static int airoha_qdma_reg_set(void *data, u64 val)
+{
+	struct airoha_eth *eth = data;
+
+	airoha_qdma_wr(eth, eth->debugfs_reg, val);
+
+	return 0;
+}
+
+static int airoha_qdma_reg_get(void *data, u64 *val)
+{
+	struct airoha_eth *eth = data;
+
+	*val = airoha_qdma_rr(eth, eth->debugfs_reg);
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(fops_qdma, airoha_qdma_reg_get, airoha_qdma_reg_set,
+			 "0x%08llx\n");
+
+static int airoha_rx_queues_show(struct seq_file *s, void *data)
+{
+	struct airoha_eth *eth = s->private;
+	int i;
+
+	seq_puts(s, "     queue | hw-queued |      head |      tail |\n");
+	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++) {
+		struct airoha_queue *q = &eth->q_rx[i];
+
+		seq_printf(s, " %9d | %9d | %9d | %9d |\n",
+			   i, q->queued, q->head, q->tail);
+	}
+
+	return 0;
+}
+
+DEFINE_SHOW_ATTRIBUTE(airoha_rx_queues);
+
+static int airoha_xmit_queues_show(struct seq_file *s, void *data)
+{
+	struct airoha_eth *eth = s->private;
+	int i;
+
+	seq_puts(s, "     queue | hw-queued |      head |      tail |\n");
+	for (i = 0; i < ARRAY_SIZE(eth->q_xmit); i++) {
+		struct airoha_queue *q = &eth->q_xmit[i];
+
+		seq_printf(s, " %9d | %9d | %9d | %9d |\n",
+			   i, q->queued, q->head, q->tail);
+	}
+
+	return 0;
+}
+
+DEFINE_SHOW_ATTRIBUTE(airoha_xmit_queues);
+
+static int airoha_register_debugfs(struct airoha_eth *eth)
+{
+	eth->debugfs_dir = debugfs_create_dir(KBUILD_MODNAME, NULL);
+	if (IS_ERR(eth->debugfs_dir))
+		return PTR_ERR(eth->debugfs_dir);
+
+	debugfs_create_u32("regidx", 0600, eth->debugfs_dir,
+			   &eth->debugfs_reg);
+	debugfs_create_file_unsafe("fe_regval", 0600, eth->debugfs_dir, eth,
+				   &fops_fe);
+	debugfs_create_file_unsafe("qdma_regval", 0600, eth->debugfs_dir, eth,
+				   &fops_qdma);
+	debugfs_create_file("rx-queues", 0400, eth->debugfs_dir, eth,
+			    &airoha_rx_queues_fops);
+	debugfs_create_file("xmit-queues", 0400, eth->debugfs_dir, eth,
+			    &airoha_xmit_queues_fops);
+
+	return 0;
+}
+
 static int airoha_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -707,34 +855,33 @@ static int airoha_probe(struct platform_device *pdev)
 
 	eth = netdev_priv(dev);
 	platform_set_drvdata(pdev, eth);
-	eth->dev = &pdev->dev;
 	eth->net_dev = dev;
 
 	eth->fe_regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(eth->fe_regs))
-		return dev_err_probe(eth->dev, PTR_ERR(eth->fe_regs),
+		return dev_err_probe(&pdev->dev, PTR_ERR(eth->fe_regs),
 				     "failed to iomap fe regs\n");
 
 	eth->qdma_regs = devm_platform_ioremap_resource(pdev, 1);
 	if (IS_ERR(eth->qdma_regs))
-		return dev_err_probe(eth->dev, PTR_ERR(eth->qdma_regs),
+		return dev_err_probe(&pdev->dev, PTR_ERR(eth->qdma_regs),
 				     "failed to iomap qdma regs\n");
 
 	eth->resets[0].id = "fe";
 	eth->resets[1].id = "pdma";
 	eth->resets[2].id = "qdma";
-	err = devm_reset_control_bulk_get_exclusive(eth->dev,
+	err = devm_reset_control_bulk_get_exclusive(&pdev->dev,
 						    AIROHA_MAX_NUM_RSTS,
 						    eth->resets);
 	if (err) {
-		dev_err(eth->dev, "failed to get bulk reset lines\n");
+		dev_err(&pdev->dev, "failed to get bulk reset lines\n");
 		return err;
 	}
 
 	spin_lock_init(&eth->irq_lock);
 	eth->irq = platform_get_irq(pdev, 0);
 	if (eth->irq < 0) {
-		dev_err(eth->dev, "failed reading irq line\n");
+		dev_err(&pdev->dev, "failed reading irq line\n");
 		return eth->irq;
 	}
 
@@ -746,7 +893,7 @@ static int airoha_probe(struct platform_device *pdev)
 	dev->features |= dev->hw_features;
 	dev->dev.of_node = np;
 	dev->irq = eth->irq;
-	SET_NETDEV_DEV(dev, eth->dev);
+	SET_NETDEV_DEV(dev, &pdev->dev);
 
 	err = of_get_ethdev_address(np, dev);
 	if (err) {
@@ -754,7 +901,7 @@ static int airoha_probe(struct platform_device *pdev)
 			return err;
 
 		eth_hw_addr_random(dev);
-		dev_err(eth->dev, "generated random MAC address %pM\n",
+		dev_err(&pdev->dev, "generated random MAC address %pM\n",
 			dev->dev_addr);
 	}
 
@@ -768,18 +915,7 @@ static int airoha_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
-	eth->debugfs_dir = debugfs_create_dir(KBUILD_MODNAME, NULL);
-	if (IS_ERR(eth->debugfs_dir))
-		return PTR_ERR(eth->debugfs_dir);
-
-	debugfs_create_u32("regidx", 0600, eth->debugfs_dir,
-			   &eth->debugfs_reg);
-	debugfs_create_file_unsafe("fe_regval", 0600, eth->debugfs_dir, eth,
-				   &fops_fe);
-	debugfs_create_file_unsafe("qdma_regval", 0600, eth->debugfs_dir, eth,
-				   &fops_qdma);
-
-	return 0;
+	return airoha_register_debugfs(eth);
 }
 
 static void airoha_remove(struct platform_device *pdev)
@@ -795,6 +931,13 @@ static void airoha_remove(struct platform_device *pdev)
 		airoha_qdma_clenaup_rx_queue(eth, q);
 		netif_napi_del(&q->napi);
 		page_pool_destroy(q->page_pool);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(eth->q_xmit); i++) {
+		struct airoha_queue *q = &eth->q_xmit[i];
+
+		airoha_qdma_clenaup_tx_queue(eth, q);
+		netif_napi_del(&q->napi);
 	}
 }
 

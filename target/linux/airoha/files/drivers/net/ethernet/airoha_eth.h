@@ -5,6 +5,7 @@
 
 #define AIROHA_MAX_NUM_RSTS	3
 #define AIROHA_MAX_MTU		2000
+#define AIROHA_MAX_PACKET_SIZE	2048
 #define AIROHA_HW_FEATURES	(NETIF_F_IP_CSUM | NETIF_F_RXCSUM |	\
 				 NETIF_F_HW_VLAN_CTAG_TX | 		\
 				 NETIF_F_SG | NETIF_F_TSO |		\
@@ -56,30 +57,30 @@
 #define REG_CDM5_RX_OQ1_DROP_CNT	0x29d4
 
 /* QDMA */
-#define REG_QDMA_GLOBAL_CFG			0x0004
-#define GLOBAL_CFG_RX_2B_OFFSET			BIT(31)
-#define GLOBAL_CFG_DMA_PREFERENCE_MASK		GENMASK(30, 29)
-#define GLOBAL_CFG_CPU_TXR_ROUND_ROBIN		BIT(28)
-#define GLOBAL_CFG_DSCP_BYTE_SWAP		BIT(27)
-#define GLOBAL_CFG_PAYLOAD_BYTE_SWAP		BIT(26)
-#define GLOBAL_CFG_MULTICAST_MODIFY_FP		BIT(25)
-#define GLOBAL_CFG_OAM_MODIFY_MASK		BIT(24)
-#define GLOBAL_CFG_RESET_MASK			BIT(23)
-#define GLOBAL_CFG_RESET_DONE_MASK		BIT(22)
-#define GLOBAL_CFG_MULTICAST_EN_MASK		BIT(21)
-#define GLOBAL_CFG_IRQ1_EN			BIT(20)
-#define GLOBAL_CFG_IRQ0_EN			BIT(19)
-#define GLOBAL_CFG_LOOPCNT_EN			BIT(18)
-#define GLOBAL_CFG_RD_BYPASS_WR			BIT(17)
-#define GLOBAL_CFG_QDMA_LOOPBACK		BIT(16)
-#define GLOBAL_CFG_LPBK_RXQ_SEL_MASK		GENMASK(13, 8)
-#define GLOBAL_CFG_CHECK_DONE			BIT(7)
-#define GLOBAL_CFG_TX_WB_DONE			BIT(6)
-#define GLOBAL_CFG_MAX_ISSUE_NUM_MASK		GENMASK(5, 4)
-#define GLOBAL_CFG_RX_DMA_BUSY			BIT(3)
-#define GLOBAL_CFG_RX_DMA_EN			BIT(2)
-#define GLOBAL_CFG_TX_DMA_BUSY			BIT(1)
-#define GLOBAL_CFG_TX_DMA_EN			BIT(0)
+#define REG_QDMA_GLOBAL_CFG		0x0004
+#define GLOBAL_CFG_RX_2B_OFFSET		BIT(31)
+#define GLOBAL_CFG_DMA_PREFERENCE_MASK	GENMASK(30, 29)
+#define GLOBAL_CFG_CPU_TXR_ROUND_ROBIN	BIT(28)
+#define GLOBAL_CFG_DSCP_BYTE_SWAP	BIT(27)
+#define GLOBAL_CFG_PAYLOAD_BYTE_SWAP	BIT(26)
+#define GLOBAL_CFG_MULTICAST_MODIFY_FP	BIT(25)
+#define GLOBAL_CFG_OAM_MODIFY_MASK	BIT(24)
+#define GLOBAL_CFG_RESET_MASK		BIT(23)
+#define GLOBAL_CFG_RESET_DONE_MASK	BIT(22)
+#define GLOBAL_CFG_MULTICAST_EN_MASK	BIT(21)
+#define GLOBAL_CFG_IRQ1_EN		BIT(20)
+#define GLOBAL_CFG_IRQ0_EN		BIT(19)
+#define GLOBAL_CFG_LOOPCNT_EN		BIT(18)
+#define GLOBAL_CFG_RD_BYPASS_WR		BIT(17)
+#define GLOBAL_CFG_QDMA_LOOPBACK	BIT(16)
+#define GLOBAL_CFG_LPBK_RXQ_SEL_MASK	GENMASK(13, 8)
+#define GLOBAL_CFG_CHECK_DONE		BIT(7)
+#define GLOBAL_CFG_TX_WB_DONE		BIT(6)
+#define GLOBAL_CFG_MAX_ISSUE_NUM_MASK	GENMASK(5, 4)
+#define GLOBAL_CFG_RX_DMA_BUSY		BIT(3)
+#define GLOBAL_CFG_RX_DMA_EN		BIT(2)
+#define GLOBAL_CFG_TX_DMA_BUSY		BIT(1)
+#define GLOBAL_CFG_TX_DMA_EN		BIT(0)
 
 #define REG_FWD_DSCP_BASE		0x0010
 #define REG_FWD_BUF_BASE		0x0014
@@ -239,6 +240,10 @@
 #define TX_IRQ_THR_MASK			GENMASK(27, 16)
 #define TX_IRQ_DEPTH_MASK		GENMASK(11, 0)
 
+#define REG_IRQ_STATUS			0x005c
+#define IRQ_ENTRY_LEN_MASK		GENMASK(27, 16)
+#define IRQ_HEAD_IDX_MASK		GENMASK(11, 0)
+
 #define REG_TX_RING_BASE(_n)	\
 	(((_n) < 8) ? 0x0100 + ((_n) << 5) : 0x0b00 + (((_n) - 8) << 5))
 
@@ -282,15 +287,41 @@
 #define REG_TXQ_CNGST_CFG		0x10a0
 #define TXQ_CNGST_DEI_DROP_EN		BIT(30)
 
-/* DW1 */
+/* CTRL */
 #define QDMA_DESC_DONE_MASK		BIT(31)
 #define QDMA_DESC_DROP_MASK		BIT(30) /* tx: drop pkt - rx: overflow */
 #define QDMA_DESC_MORE_MASK		BIT(29) /* more SG elements */
 #define QDMA_DESC_DEI_MASK		BIT(25)
 #define QDMA_DESC_NO_DROP_MASK		BIT(24)
 #define QDMA_DESC_LEN_MASK		GENMASK(15, 0)
-/* DW3 */
+/* DATA */
 #define QDMA_DESC_NEXT_ID_MASK		GENMASK(15, 0)
+/* MSG0 */
+#define QDMA_ETH_TXMSG_MIC_IDX_MASK		BIT(30)
+#define QDMA_ETH_TXMSG_GENPORT_MASK		GENMASK(29, 14)
+#define QDMA_ETH_TXMSG_ICO_MASK			BIT(13)
+#define QDMA_ETH_TXMSG_UCO_MASK			BIT(12)
+#define QDMA_ETH_TXMSG_TCO_MASK			BIT(11)
+#define QDMA_ETH_TXMSG_TSO_MASK			BIT(10)
+#define QDMA_ETH_TXMSG_FAST_MASK		BIT(9)
+#define QDMA_ETH_TXMSG_OAM_MASK			BIT(8)
+#define QDMA_ETH_TXMSG_CHAN_MASK		GENMASK(7, 3)
+#define QDMA_ETH_TXMSG_QUEUE_MASK		GENMASK(2, 0)
+/* MSG1 */
+#define QDMA_ETH_TXMSG_NO_DROP_MASK		BIT(31)
+#define QDMA_ETH_TXMSG_METER_G0_MASK		GENMASK(30, 24)	/* 0x7f means no use meters */
+#define QDMA_ETH_TXMSG_FPORT_MASK		GENMASK(23, 20)
+#define QDMA_ETH_TXMSG_NBOQ_MASK		GENMASK(19, 15)
+#define QDMA_ETH_TXMSG_HWF_MASK			BIT(14)
+#define QDMA_ETH_TXMSG_HOP_MASK			BIT(13)
+#define QDMA_ETH_TXMSG_PTP_MASK			BIT(12)
+#define QDMA_ETH_TXMSG_ACNT_G1_MASK		GENMASK(10, 6)	/* 0x3f means no count */
+#define QDMA_ETH_TXMSG_ACNT_G0_MASK		GENMASK(5, 0)	/* 0x3f means no count */
+/* MSG2 */
+#define QDMA_ETH_TXMSG_SW_UDF_MASK		GENMASK(31, 24)
+#define QDMA_ETH_TXMSG_METER_G2_MASK		GENMASK(15, 12)
+#define QDMA_ETH_TXMSG_METER_G1_MASK		GENMASK(11, 7)
+#define QDMA_ETH_TXMSG_ACNT_G2_MASK		GENMASK(6, 0)
 
 struct airoha_qdma_desc {
 	__le32 rsv;
@@ -303,14 +334,14 @@ struct airoha_qdma_desc {
 	__le32 msg3;
 };
 
-/* DW1 */
+/* CTRL0 */
 #define QDMA_FWD_DESC_CTX_MASK		BIT(31)
 #define QDMA_FWD_DESC_RING_MASK		GENMASK(30, 28)
 #define QDMA_FWD_DESC_IDX_MASK		GENMASK(27, 16)
 #define QDMA_FWD_DESC_LEN_MASK		GENMASK(15, 0)
-/* DW2 */
+/* CTRL1 */
 #define QDMA_FWD_DESC_FIRST_IDX_MASK	GENMASK(15, 0)
-/* DW3 */
+/* CTRL2 */
 #define QDMA_FWD_DESC_MORE_PKT_NUM_MASK	GENMASK(2, 0)
 
 struct airoha_qdma_fwd_desc {
@@ -330,6 +361,18 @@ enum {
 	QDMA_INT_REG_IDX2,
 	QDMA_INT_REG_IDX3,
 	QDMA_INT_REG_IDX4,
+};
+
+enum airoha_dport {
+	DPORT_PDMA,
+	DPORT_GDMA1,
+	DPORT_GDMA2,
+	DPORT_GDMA3,
+	DPORT_PPE,
+	DPORT_QDMA,
+	DPORT_QDMA_HW,
+	DPORT_DISCARD,
+	DPORT_GDMA4 = 9,
 };
 
 struct airoha_queue_entry {
@@ -359,7 +402,6 @@ struct airoha_queue {
 };
 
 struct airoha_eth {
-	struct device *dev;
 	struct net_device *net_dev;
 
 	void __iomem *qdma_regs;
@@ -382,18 +424,22 @@ struct airoha_eth {
 	u32 debugfs_reg;
 };
 
-static inline void airoha_qdma_start_rx_napi(struct airoha_eth *eth)
+static inline void airoha_qdma_start_napi(struct airoha_eth *eth)
 {
 	int i;
 
+	for (i = 0; i < ARRAY_SIZE(eth->q_xmit); i++)
+		napi_enable(&eth->q_xmit[i].napi);
 	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++)
 		napi_enable(&eth->q_rx[i].napi);
 }
 
-static inline void airoha_qdma_stop_rx_napi(struct airoha_eth *eth)
+static inline void airoha_qdma_stop_napi(struct airoha_eth *eth)
 {
 	int i;
 
+	for (i = 0; i < ARRAY_SIZE(eth->q_xmit); i++)
+		napi_disable(&eth->q_xmit[i].napi);
 	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++)
 		napi_disable(&eth->q_rx[i].napi);
 }

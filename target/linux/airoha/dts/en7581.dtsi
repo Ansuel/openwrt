@@ -316,7 +316,7 @@
 
 			phy-mode = "internal";
 			fixed-link {
-				speed = <10000>;
+				speed = <1000>;
 				full-duplex;
 				pause;
 			};
@@ -373,7 +373,7 @@
 					phy-mode = "internal";
 
 					fixed-link {
-						speed = <10000>;
+						speed = <1000>;
 						full-duplex;
 						pause;
 					};
