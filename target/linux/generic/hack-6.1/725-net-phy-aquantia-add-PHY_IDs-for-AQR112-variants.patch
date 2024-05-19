@@ -21,7 +21,7 @@ Signed-off-by: Daniel Golle <daniel@makrotopia.org>
  
  #define MDIO_PHYXS_VEND_IF_STATUS		0xe812
  #define MDIO_PHYXS_VEND_IF_STATUS_TYPE_MASK	GENMASK(7, 3)
-@@ -960,6 +962,30 @@ static struct phy_driver aqr_driver[] =
+@@ -960,6 +962,34 @@ static struct phy_driver aqr_driver[] =
  	.get_strings	= aqr107_get_strings,
  	.get_stats	= aqr107_get_stats,
  },
@@ -29,6 +29,7 @@ Signed-off-by: Daniel Golle <daniel@makrotopia.org>
 +	PHY_ID_MATCH_MODEL(PHY_ID_AQR112C),
 +	.name		= "Aquantia AQR112C",
 +	.probe		= aqr107_probe,
++	.get_rate_matching = aqr107_get_rate_matching,
 +	.config_aneg	= aqr_config_aneg_set_prot,
 +	.config_intr	= aqr_config_intr,
 +	.handle_interrupt = aqr_handle_interrupt,
@@ -36,11 +37,13 @@ Signed-off-by: Daniel Golle <daniel@makrotopia.org>
 +	.get_sset_count	= aqr107_get_sset_count,
 +	.get_strings	= aqr107_get_strings,
 +	.get_stats	= aqr107_get_stats,
++	.link_change_notify = aqr107_link_change_notify,
 +},
 +{
 +	PHY_ID_MATCH_MODEL(PHY_ID_AQR112R),
 +	.name		= "Aquantia AQR112R",
 +	.probe		= aqr107_probe,
++	.get_rate_matching = aqr107_get_rate_matching,
 +	.config_aneg	= aqr_config_aneg_set_prot,
 +	.config_intr	= aqr_config_intr,
 +	.handle_interrupt = aqr_handle_interrupt,
@@ -48,6 +51,7 @@ Signed-off-by: Daniel Golle <daniel@makrotopia.org>
 +	.get_sset_count	= aqr107_get_sset_count,
 +	.get_strings	= aqr107_get_strings,
 +	.get_stats	= aqr107_get_stats,
++	.link_change_notify = aqr107_link_change_notify,
 +},
  };
  
