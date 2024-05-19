@@ -754,7 +754,8 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 	val = FIELD_PREP(QDMA_DESC_NEXT_ID_MASK, q->head);
 	WRITE_ONCE(desc->data, cpu_to_le32(val));
 	WRITE_ONCE(desc->msg0, 0);
-	WRITE_ONCE(desc->msg1, 0);
+	val = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, DPORT_GDMA1);
+	WRITE_ONCE(desc->msg1, cpu_to_le32(val));
 	WRITE_ONCE(desc->msg2, 0xffff);
 
 	e = &q->entry[q->head];
