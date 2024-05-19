@@ -276,7 +276,7 @@ static int airoha_qdma_rx_napi_poll(struct napi_struct *napi, int budget)
 	} while (cur && done < budget);
 
 	if (done < budget && napi_complete(napi))
-		airoha_irq_disable(eth, QDMA_INT_REG_IDX1, RX_DONE_INT_MASK);
+		airoha_irq_enable(eth, QDMA_INT_REG_IDX1, RX_DONE_INT_MASK);
 
 	return done;
 }
