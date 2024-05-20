@@ -19,6 +19,7 @@
 	 (_n) == 15 ? 128 :	\
 	 (_n) ==  0 ? 1024 : 16)
 #define HW_DSCP_NUM		1024
+#define IRQ_QUEUE_LEN		2048
 
 /* FE */
 #define CDMA1_BASE			0x0400
@@ -282,9 +283,9 @@
 #define RX_RING_DMA_IDX_MASK		GENMASK(15, 0)
 
 #define REG_LMGR_INIT_CFG		0x1000
+#define LGMR_INIT_START			BIT(31)
 #define HW_FWD_PKTSIZE_OVERHEAD_MASK	GENMASK(27, 20)
 #define HW_FWD_DESC_NUM_MASK		GENMASK(16, 0)
-#define LGMR_INIT_START			BIT(31)
 
 #define REG_FWD_DSCP_LOW_THR		0x1004
 #define FWD_DSCP_LOW_THR_MASK		GENMASK(17, 0)
@@ -345,8 +346,8 @@ struct airoha_qdma_fwd_desc {
 	__le32 ctrl2;
 	__le32 msg0;
 	__le32 msg1;
-	__le32 rsv2;
-	__le32 rsv3;
+	__le32 rsv0;
+	__le32 rsv1;
 };
 
 enum {

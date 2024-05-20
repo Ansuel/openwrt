@@ -387,20 +387,19 @@ static void airoha_xmit_tasklet(struct tasklet_struct *t)
 	len = FIELD_GET(IRQ_ENTRY_LEN_MASK, irq_status);
 
 	for (i = 0; i < len; i++) {
-		u32 *ptr = eth->irq_q + (head + i) % AIROHA_MAX_PACKET_SIZE;
+		u32 *ptr = eth->irq_q + (head + i) % IRQ_QUEUE_LEN;
+		u32 qid, last, val = *ptr;
 		struct airoha_queue *q;
-		u32 qid, last;
 
-		if (*ptr == 0xff)
+		if (val == 0xff)
 			break;
 
-		last = FIELD_GET(IRQ_DESC_IDX_MASK, *ptr);
-		qid = FIELD_GET(IRQ_RING_IDX_MASK, *ptr);
+		*ptr = 0xff; /* mark as done */
+		last = FIELD_GET(IRQ_DESC_IDX_MASK, val);
+		qid = FIELD_GET(IRQ_RING_IDX_MASK, val);
 
 		if (qid >= ARRAY_SIZE(eth->q_xmit))
 			continue;
-
-		*ptr = 0xff; /* mark as done */
 
 		q = &eth->q_xmit[qid];
 		spin_lock_bh(&q->lock);
@@ -414,6 +413,8 @@ static void airoha_xmit_tasklet(struct tasklet_struct *t)
 			q->queued--;
 
 			dev_kfree_skb_any(e->skb);
+			e->skb = NULL;
+
 			WRITE_ONCE(desc->msg0, 0);
 			WRITE_ONCE(desc->msg1, 0);
 
@@ -431,7 +432,7 @@ static void airoha_xmit_tasklet(struct tasklet_struct *t)
 			airoha_qdma_rmw(eth, REG_IRQ_CLEAR_LEN,
 					IRQ_CLEAR_LEN_MASK, 0x80);
 		airoha_qdma_rmw(eth, REG_IRQ_CLEAR_LEN,
-				IRQ_CLEAR_LEN_MASK, i & 0x7f);
+				IRQ_CLEAR_LEN_MASK, (i & 0x7f));
 	}
 }
 
@@ -502,6 +503,7 @@ static void airoha_qdma_clenaup_tx_queue(struct airoha_eth *eth,
 
 		dma_unmap_single(dev, e->dma_addr, e->dma_len, DMA_TO_DEVICE);
 		dev_kfree_skb_any(e->skb);
+		e->skb = NULL;
 
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued--;
@@ -522,7 +524,7 @@ static int airoha_qdma_init_hw_queues(struct airoha_eth *eth)
 	u32 status;
 	int size;
 
-	size = AIROHA_MAX_PACKET_SIZE << 2;
+	size = IRQ_QUEUE_LEN * sizeof(u32);
 	eth->irq_q = dmam_alloc_coherent(dev, size, &dma_addr, GFP_KERNEL);
 	if (!eth->irq_q)
 		return -ENOMEM;
@@ -530,8 +532,7 @@ static int airoha_qdma_init_hw_queues(struct airoha_eth *eth)
 	memset(eth->irq_q, 0xff, size);
 	airoha_qdma_wr(eth, REG_TX_IRQ_BASE, dma_addr);
 	airoha_qdma_rmw(eth, REG_TX_IRQ_CFG, TX_IRQ_DEPTH_MASK,
-			FIELD_PREP(TX_IRQ_DEPTH_MASK,
-				   AIROHA_MAX_PACKET_SIZE));
+			FIELD_PREP(TX_IRQ_DEPTH_MASK, IRQ_QUEUE_LEN));
 	airoha_qdma_rmw(eth, REG_TX_IRQ_CFG, TX_IRQ_THR_MASK,
 			FIELD_PREP(TX_IRQ_THR_MASK, 32));
 
@@ -543,7 +544,7 @@ static int airoha_qdma_init_hw_queues(struct airoha_eth *eth)
 
 	airoha_qdma_wr(eth, REG_FWD_DSCP_BASE, dma_addr);
 
-	size = AIROHA_MAX_PACKET_SIZE * HW_DSCP_NUM;
+	size = IRQ_QUEUE_LEN * HW_DSCP_NUM;
 	eth->hfwd_q = dmam_alloc_coherent(dev, size, &dma_addr, GFP_KERNEL);
 	if (!eth->hfwd_q)
 		return -ENOMEM;
@@ -555,7 +556,7 @@ static int airoha_qdma_init_hw_queues(struct airoha_eth *eth)
 			HW_FWD_DSCP_PAYLOAD_SIZE_MASK,
 			FIELD_PREP(HW_FWD_DSCP_PAYLOAD_SIZE_MASK, 0));
 	airoha_qdma_rmw(eth, REG_FWD_DSCP_LOW_THR, FWD_DSCP_LOW_THR_MASK,
-			FIELD_PREP(FWD_DSCP_LOW_THR_MASK, 256));
+			FIELD_PREP(FWD_DSCP_LOW_THR_MASK, 128));
 	airoha_qdma_set(eth, REG_LMGR_INIT_CFG, LGMR_INIT_START);
 
 	return readx_poll_timeout(airoha_qdma_lmgr_rr, eth, status,
