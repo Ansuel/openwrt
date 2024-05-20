@@ -147,6 +147,8 @@ static int airoha_set_gdma_ports(struct airoha_eth *eth, bool enable)
 static void airoha_maccr_init(struct airoha_eth *eth)
 {
 	airoha_fe_set(eth, REG_GDMA1_FWD_CFG, GDMA1_TCP_CKSUM);
+	airoha_fe_set(eth, REG_GDMA1_FWD_CFG, GDMA1_UDP_CKSUM);
+	airoha_fe_set(eth, REG_GDMA1_FWD_CFG, GDMA1_IP4_CKSUM);
 	airoha_set_port_fwd_cfg(eth, REG_GDMA1_FWD_CFG, 0);
 
 	airoha_fe_set(eth, REG_FE_CPORT_CFG, FE_CPORT_PAD);
