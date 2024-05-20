@@ -756,7 +756,7 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 	WRITE_ONCE(desc->msg0, 0);
 	val = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, DPORT_GDMA1);
 	WRITE_ONCE(desc->msg1, cpu_to_le32(val));
-	WRITE_ONCE(desc->msg2, 0xffff);
+	WRITE_ONCE(desc->msg2, cpu_to_le32(0xffff));
 
 	e = &q->entry[q->head];
 	e->dma_addr = addr;
