@@ -80,14 +80,14 @@ static void airoha_set_macaddr(struct airoha_eth *eth, const u8 *addr)
 
 static void airoha_set_port_fwd_cfg(struct airoha_eth *eth, u32 addr, u32 val)
 {
-	airoha_fe_rmw(eth, addr, GDMA1_OCFQ_MASK,
-		      FIELD_PREP(GDMA1_OCFQ_MASK, val));
-	airoha_fe_rmw(eth, addr, GDMA1_MCFQ_MASK,
-		      FIELD_PREP(GDMA1_MCFQ_MASK, val));
-	airoha_fe_rmw(eth, addr, GDMA1_BCFQ_MASK,
-		      FIELD_PREP(GDMA1_BCFQ_MASK, val));
-	airoha_fe_rmw(eth, addr, GDMA1_UCFQ_MASK,
-		      FIELD_PREP(GDMA1_UCFQ_MASK, val));
+	airoha_fe_rmw(eth, addr, GDM1_OCFQ_MASK,
+		      FIELD_PREP(GDM1_OCFQ_MASK, val));
+	airoha_fe_rmw(eth, addr, GDM1_MCFQ_MASK,
+		      FIELD_PREP(GDM1_MCFQ_MASK, val));
+	airoha_fe_rmw(eth, addr, GDM1_BCFQ_MASK,
+		      FIELD_PREP(GDM1_BCFQ_MASK, val));
+	airoha_fe_rmw(eth, addr, GDM1_UCFQ_MASK,
+		      FIELD_PREP(GDM1_UCFQ_MASK, val));
 }
 
 static int airoha_set_gdma_port(struct airoha_eth *eth, int port, bool enable)
@@ -97,19 +97,19 @@ static int airoha_set_gdma_port(struct airoha_eth *eth, int port, bool enable)
 	switch (port) {
 	case 0:
 		vip_port = BIT(22);
-		cfg_addr = REG_GDMA3_FWD_CFG;
+		cfg_addr = REG_GDM3_FWD_CFG;
 		break;
 	case 1:
 		vip_port = BIT(23);
-		cfg_addr = REG_GDMA3_FWD_CFG;
+		cfg_addr = REG_GDM3_FWD_CFG;
 		break;
 	case 2:
 		vip_port = BIT(25);
-		cfg_addr = REG_GDMA4_FWD_CFG;
+		cfg_addr = REG_GDM4_FWD_CFG;
 		break;
 	case 4:
 		vip_port = BIT(24);
-		cfg_addr = REG_GDMA4_FWD_CFG;
+		cfg_addr = REG_GDM4_FWD_CFG;
 		break;
 	default:
 		return -EINVAL;
@@ -146,18 +146,18 @@ static int airoha_set_gdma_ports(struct airoha_eth *eth, bool enable)
 
 static void airoha_maccr_init(struct airoha_eth *eth)
 {
-	airoha_fe_set(eth, REG_GDMA1_FWD_CFG, GDMA1_TCP_CKSUM);
-	airoha_fe_set(eth, REG_GDMA1_FWD_CFG, GDMA1_UDP_CKSUM);
-	airoha_fe_set(eth, REG_GDMA1_FWD_CFG, GDMA1_IP4_CKSUM);
-	airoha_set_port_fwd_cfg(eth, REG_GDMA1_FWD_CFG, 0);
+	airoha_fe_set(eth, REG_GDM1_FWD_CFG, GDM1_TCP_CKSUM);
+	airoha_fe_set(eth, REG_GDM1_FWD_CFG, GDM1_UDP_CKSUM);
+	airoha_fe_set(eth, REG_GDM1_FWD_CFG, GDM1_IP4_CKSUM);
+	airoha_set_port_fwd_cfg(eth, REG_GDM1_FWD_CFG, 0);
 
 	airoha_fe_set(eth, REG_FE_CPORT_CFG, FE_CPORT_PAD);
-	airoha_fe_rmw(eth, REG_CDMA1_VLAN_CTRL, CDMA1_VLAN_MASK,
-		      FIELD_PREP(CDMA1_VLAN_MASK, 0x8100));
-	airoha_fe_rmw(eth, REG_GDMA1_LEN_CFG, GDMA1_SHORT_LEN_MASK,
-		      FIELD_PREP(GDMA1_SHORT_LEN_MASK, 60));
-	airoha_fe_rmw(eth, REG_GDMA1_LEN_CFG, GDMA1_LONG_LEN_MASK,
-		      FIELD_PREP(GDMA1_LONG_LEN_MASK, 4004));
+	airoha_fe_rmw(eth, REG_CDM1_VLAN_CTRL, CDM1_VLAN_MASK,
+		      FIELD_PREP(CDM1_VLAN_MASK, 0x8100));
+	airoha_fe_rmw(eth, REG_GDM1_LEN_CFG, GDM1_SHORT_LEN_MASK,
+		      FIELD_PREP(GDM1_SHORT_LEN_MASK, 60));
+	airoha_fe_rmw(eth, REG_GDM1_LEN_CFG, GDM1_LONG_LEN_MASK,
+		      FIELD_PREP(GDM1_LONG_LEN_MASK, 4004));
 }
 
 static int airoha_qdma_fill_rx_queue(struct airoha_eth *eth,
@@ -757,9 +757,11 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 	val = FIELD_PREP(QDMA_DESC_NEXT_ID_MASK, q->head);
 	WRITE_ONCE(desc->data, cpu_to_le32(val));
 	WRITE_ONCE(desc->msg0, 0);
-	val = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, DPORT_GDMA1);
+	val = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, DPORT_GDM1) |
+	      FIELD_PREP(QDMA_ETH_TXMSG_METER_MASK, 0x7f);
 	WRITE_ONCE(desc->msg1, cpu_to_le32(val));
-	WRITE_ONCE(desc->msg2, cpu_to_le32(0xffff));
+	WRITE_ONCE(desc->msg2, 0);
+	WRITE_ONCE(desc->msg3, 0);
 
 	e = &q->entry[q->head];
 	e->dma_addr = addr;
