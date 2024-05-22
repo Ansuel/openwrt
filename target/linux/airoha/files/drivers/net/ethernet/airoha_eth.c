@@ -588,8 +588,6 @@ static int airoha_qdma_hw_init(struct airoha_eth *eth)
 
 	/* FIXME add QoS configuration here */
 
-	airoha_qdma_set(eth, REG_TXQ_CNGST_CFG, TXQ_CNGST_DEI_DROP_EN);
-
 	return 0;
 }
 
@@ -922,6 +920,12 @@ static int airoha_probe(struct platform_device *pdev)
 	eth = netdev_priv(dev);
 	eth->net_dev = dev;
 
+	err = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
+	if (err) {
+		dev_err(&pdev->dev, "failed configuring DMA mask\n");
+		return err;
+	}
+
 	eth->fe_regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(eth->fe_regs))
 		return dev_err_probe(&pdev->dev, PTR_ERR(eth->fe_regs),
@@ -931,12 +935,6 @@ static int airoha_probe(struct platform_device *pdev)
 	if (IS_ERR(eth->qdma_regs))
 		return dev_err_probe(&pdev->dev, PTR_ERR(eth->qdma_regs),
 				     "failed to iomap qdma regs\n");
-
-	err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
-	if (err) {
-		dev_err(&pdev->dev, "failed configuring DMA mask\n");
-		return err;
-	}
 
 	eth->resets[0].id = "fe";
 	eth->resets[1].id = "pdma";
