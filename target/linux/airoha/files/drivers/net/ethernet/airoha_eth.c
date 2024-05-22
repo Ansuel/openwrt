@@ -546,7 +546,7 @@ static int airoha_qdma_init_hfwd_queues(struct airoha_eth *eth)
 
 	airoha_qdma_wr(eth, REG_FWD_DSCP_BASE, dma_addr);
 
-	size = IRQ_QUEUE_LEN * HW_DSCP_NUM;
+	size = AIROHA_MAX_PACKET_SIZE * HW_DSCP_NUM;
 	eth->hfwd_q = dmam_alloc_coherent(dev, size, &dma_addr, GFP_KERNEL);
 	if (!eth->hfwd_q)
 		return -ENOMEM;
@@ -931,6 +931,12 @@ static int airoha_probe(struct platform_device *pdev)
 	if (IS_ERR(eth->qdma_regs))
 		return dev_err_probe(&pdev->dev, PTR_ERR(eth->qdma_regs),
 				     "failed to iomap qdma regs\n");
+
+	err = dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+	if (err) {
+		dev_err(&pdev->dev, "failed configuring DMA mask\n");
+		return err;
+	}
 
 	eth->resets[0].id = "fe";
 	eth->resets[1].id = "pdma";
