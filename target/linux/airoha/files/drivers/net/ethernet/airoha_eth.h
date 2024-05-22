@@ -87,8 +87,10 @@
 #define REG_FWD_DSCP_BASE		0x0010
 #define REG_FWD_BUF_BASE		0x0014
 
-#define REG_HW_FWD_DSCP_CFG		0x0018
-#define HW_FWD_DSCP_PAYLOAD_SIZE_MASK	GENMASK(29, 28)
+#define REG_HW_FWD_DSCP_CFG			0x0018
+#define HW_FWD_DSCP_PAYLOAD_SIZE_MASK		GENMASK(29, 28)
+#define HW_FWD_DSCP_SCATTER_LEN_MASK		GENMASK(17, 16)
+#define HW_FWD_DSCP_MIN_SCATTER_LEN_MASK	GENMASK(15, 0)
 
 #define REG_INT_STATUS(_n)		\
 	((_n) == 4) ? 0x0730 :		\
@@ -423,10 +425,10 @@ struct airoha_eth {
 	struct reset_control_bulk_data resets[AIROHA_MAX_NUM_RSTS];
 
 	struct airoha_queue q_xmit[AIROHA_NUM_TX_RING];
-	struct airoha_queue q_rx[AIROHA_NUM_RX_RING];
-
 	struct tasklet_struct xmit_tasklet;
 	void *irq_q;
+
+	struct airoha_queue q_rx[AIROHA_NUM_RX_RING];
 
 	void *hfwd_desc;
 	void *hfwd_q;

@@ -28,7 +28,7 @@ static void airoha_wr(void __iomem *base, u32 offset, u32 val)
 
 static u32 airoha_rmw(void __iomem *base, u32 offset, u32 mask, u32 val)
 {
-	val |= airoha_rr(base, offset) & ~mask;
+	val |= (airoha_rr(base, offset) & ~mask);
 	airoha_wr(base, offset, val);
 
 	return val;
@@ -197,7 +197,7 @@ static int airoha_qdma_fill_rx_queue(struct airoha_eth *eth,
 		WRITE_ONCE(desc->msg2, 0);
 		WRITE_ONCE(desc->msg3, 0);
 
-		mb();
+		wmb();
 		airoha_qdma_rmw(eth, REG_RX_CPU_IDX(qid), RX_RING_CPU_IDX_MASK,
 				FIELD_PREP(RX_RING_CPU_IDX_MASK, q->head));
 
@@ -238,8 +238,6 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 		dma_sync_single_for_cpu(dev, dma_addr,
 					SKB_WITH_OVERHEAD(q->buf_size),
 					page_pool_get_dma_dir(q->page_pool));
-
-		mb();
 
 		skb = napi_build_skb(e->buf, q->buf_size);
 		if (!skb) {
@@ -477,9 +475,23 @@ static int airoha_qdma_init_tx_queue(struct airoha_eth *eth,
 
 static int airoha_qdma_init_tx(struct airoha_eth *eth)
 {
-	int i;
+	struct device *dev = eth->net_dev->dev.parent;
+	dma_addr_t dma_addr;
+	int i, size;
 
 	tasklet_setup(&eth->xmit_tasklet, airoha_xmit_tasklet);
+
+	size = IRQ_QUEUE_LEN * sizeof(u32);
+	eth->irq_q = dmam_alloc_coherent(dev, size, &dma_addr, GFP_KERNEL);
+	if (!eth->irq_q)
+		return -ENOMEM;
+
+	memset(eth->irq_q, 0xff, size);
+	airoha_qdma_wr(eth, REG_TX_IRQ_BASE, dma_addr);
+	airoha_qdma_rmw(eth, REG_TX_IRQ_CFG, TX_IRQ_DEPTH_MASK,
+			FIELD_PREP(TX_IRQ_DEPTH_MASK, IRQ_QUEUE_LEN));
+	airoha_qdma_rmw(eth, REG_TX_IRQ_CFG, TX_IRQ_THR_MASK,
+			FIELD_PREP(TX_IRQ_THR_MASK, 32));
 
 	for (i = 0; i < ARRAY_SIZE(eth->q_xmit); i++) {
 		int err;
@@ -519,24 +531,12 @@ static u32 airoha_qdma_lmgr_rr(struct airoha_eth *eth)
 	return airoha_qdma_rr(eth, REG_LMGR_INIT_CFG);
 }
 
-static int airoha_qdma_init_hw_queues(struct airoha_eth *eth)
+static int airoha_qdma_init_hfwd_queues(struct airoha_eth *eth)
 {
 	struct device *dev = eth->net_dev->dev.parent;
 	dma_addr_t dma_addr;
 	u32 status;
 	int size;
-
-	size = IRQ_QUEUE_LEN * sizeof(u32);
-	eth->irq_q = dmam_alloc_coherent(dev, size, &dma_addr, GFP_KERNEL);
-	if (!eth->irq_q)
-		return -ENOMEM;
-
-	memset(eth->irq_q, 0xff, size);
-	airoha_qdma_wr(eth, REG_TX_IRQ_BASE, dma_addr);
-	airoha_qdma_rmw(eth, REG_TX_IRQ_CFG, TX_IRQ_DEPTH_MASK,
-			FIELD_PREP(TX_IRQ_DEPTH_MASK, IRQ_QUEUE_LEN));
-	airoha_qdma_rmw(eth, REG_TX_IRQ_CFG, TX_IRQ_THR_MASK,
-			FIELD_PREP(TX_IRQ_THR_MASK, 32));
 
 	size = HW_DSCP_NUM * sizeof(struct airoha_qdma_fwd_desc);
 	eth->hfwd_desc = dmam_alloc_coherent(dev, size, &dma_addr,
@@ -552,13 +552,14 @@ static int airoha_qdma_init_hw_queues(struct airoha_eth *eth)
 		return -ENOMEM;
 
 	airoha_qdma_wr(eth, REG_FWD_BUF_BASE, dma_addr);
-	airoha_qdma_rmw(eth, REG_LMGR_INIT_CFG, HW_FWD_DESC_NUM_MASK,
-			FIELD_PREP(HW_FWD_DESC_NUM_MASK, HW_DSCP_NUM));
+
 	airoha_qdma_rmw(eth, REG_HW_FWD_DSCP_CFG,
 			HW_FWD_DSCP_PAYLOAD_SIZE_MASK,
 			FIELD_PREP(HW_FWD_DSCP_PAYLOAD_SIZE_MASK, 0));
 	airoha_qdma_rmw(eth, REG_FWD_DSCP_LOW_THR, FWD_DSCP_LOW_THR_MASK,
 			FIELD_PREP(FWD_DSCP_LOW_THR_MASK, 128));
+	airoha_qdma_rmw(eth, REG_LMGR_INIT_CFG, HW_FWD_DESC_NUM_MASK,
+			FIELD_PREP(HW_FWD_DESC_NUM_MASK, HW_DSCP_NUM));
 	airoha_qdma_set(eth, REG_LMGR_INIT_CFG, LGMR_INIT_START);
 
 	return readx_poll_timeout(airoha_qdma_lmgr_rr, eth, status,
@@ -570,9 +571,11 @@ static int airoha_qdma_hw_init(struct airoha_eth *eth)
 {
 	int i;
 
+	/* clear pending irqs */
 	for (i = 0; i < ARRAY_SIZE(eth->irqmask); i++)
 		airoha_qdma_wr(eth, REG_INT_STATUS(i), 0xffffffff);
 
+	/* setup irqs */
 	airoha_irq_enable(eth, QDMA_INT_REG_IDX0, INT_IDX0_MASK);
 	airoha_irq_enable(eth, QDMA_INT_REG_IDX1, INT_IDX1_MASK);
 	airoha_irq_enable(eth, QDMA_INT_REG_IDX4, INT_IDX4_MASK);
@@ -641,7 +644,7 @@ static int airoha_qdma_init(struct airoha_eth *eth)
 	if (err)
 		return err;
 
-	err = airoha_qdma_init_hw_queues(eth);
+	err = airoha_qdma_init_hfwd_queues(eth);
 	if (err)
 		return err;
 
@@ -768,7 +771,7 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 	e->dma_len = skb->len;
 	e->skb = skb;
 
-	mb();
+	wmb();
 	airoha_qdma_rmw(eth, REG_TX_CPU_IDX(qid), TX_RING_CPU_IDX_MASK,
 			FIELD_PREP(TX_RING_CPU_IDX_MASK, q->head));
 
