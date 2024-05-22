@@ -18,7 +18,7 @@
 	 (_n) == 11 ? 128 :	\
 	 (_n) == 15 ? 128 :	\
 	 (_n) ==  0 ? 1024 : 16)
-#define HW_DSCP_NUM		1024
+#define HW_DSCP_NUM		2048
 #define IRQ_QUEUE_LEN		2048
 
 /* FE */
