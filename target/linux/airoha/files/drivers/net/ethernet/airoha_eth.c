@@ -379,6 +379,7 @@ static int airoha_qdma_init_rx(struct airoha_eth *eth)
 static void airoha_xmit_tasklet(struct tasklet_struct *t)
 {
 	struct airoha_eth *eth = from_tasklet(eth, t, xmit_tasklet);
+	struct device *dev = eth->net_dev->dev.parent;
 	u32 irq_status, len, head;
 	int i;
 
@@ -412,6 +413,8 @@ static void airoha_xmit_tasklet(struct tasklet_struct *t)
 			q->tail = (q->tail + 1) % q->ndesc;
 			q->queued--;
 
+			dma_unmap_single(dev, e->dma_addr, e->dma_len,
+					 DMA_TO_DEVICE);
 			dev_kfree_skb_any(e->skb);
 			e->skb = NULL;
 
