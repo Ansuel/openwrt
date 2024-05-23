@@ -13,6 +13,7 @@
 #include <linux/phylink.h>
 #include <linux/platform_device.h>
 #include <linux/reset.h>
+#include <linux/tcp.h>
 #include <net/page_pool.h>
 #include "airoha_eth.h"
 
@@ -726,68 +727,91 @@ static int airoha_dev_init(struct net_device *dev)
 static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 				   struct net_device *dev)
 {
-	struct net_device_stats *stats = &dev->stats;
+	struct skb_shared_info *sinfo = skb_shinfo(skb);
+	u32 nr_frags = 1 + sinfo->nr_frags, msg1 = 0;
 	struct airoha_eth *eth = netdev_priv(dev);
-	struct airoha_queue *q = &eth->q_xmit[0];
-	int qid = q - &eth->q_xmit[0];
-	struct airoha_qdma_desc *desc;
-	struct airoha_queue_entry *e;
-	dma_addr_t addr;
-	u32 val;
+	int i, qid = 0; /* FIXME */
+	struct airoha_queue *q = &eth->q_xmit[qid];
+	u32 len = skb_headlen(skb);
+	void *data = skb->data;
+	u16 index;
 
-	/* FIXME: TSO support */
-	if (skb_linearize(skb))
-		goto error;
+	/* TSO: fill MSS info in tcp checksum field */
+	if (skb_is_gso(skb)) {
+		if (skb_cow_head(skb, 0))
+			goto error;
 
-	if (skb->len > AIROHA_MAX_PACKET_SIZE)
-		goto error;
+		msg1 = FIELD_PREP(QDMA_ETH_TXMSG_TCO_MASK, 1) |
+		       FIELD_PREP(QDMA_ETH_TXMSG_ICO_MASK, 1);
+		if (sinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)) {
+			tcp_hdr(skb)->check = cpu_to_be16(sinfo->gso_size);
+			msg1 |= FIELD_PREP(QDMA_ETH_TXMSG_TSO_MASK, 1);
+		}
+	}
 
 	spin_lock_bh(&q->lock);
 
-	if (q->queued == q->ndesc) {
-		/* no space left in the queue */
+	if (q->queued + nr_frags > q->ndesc) {
+		/* not enough space in the queue */
 		goto error_unlock;
 	}
 
-	desc = &q->desc[q->head];
-	addr = dma_map_single(dev->dev.parent, skb->data, skb->len,
-			      DMA_TO_DEVICE);
-	if (unlikely(dma_mapping_error(dev->dev.parent, addr)))
-		goto error_unlock;
+	index = q->head;
+	for (i = 0; i < nr_frags; i++) {
+		struct airoha_qdma_desc *desc = &q->desc[index];
+		struct airoha_queue_entry *e = &q->entry[index];
+		skb_frag_t *frag = &sinfo->frags[i];
+		dma_addr_t addr;
+		u32 val;
 
-	val = FIELD_PREP(QDMA_DESC_LEN_MASK, skb->len);
-	WRITE_ONCE(desc->ctrl, cpu_to_le32(val));
-	WRITE_ONCE(desc->addr, cpu_to_le32(addr));
-	val = FIELD_PREP(QDMA_DESC_NEXT_ID_MASK, q->head);
-	WRITE_ONCE(desc->data, cpu_to_le32(val));
-	WRITE_ONCE(desc->msg0, 0);
-	val = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, DPORT_GDM1) |
-	      FIELD_PREP(QDMA_ETH_TXMSG_METER_MASK, 0x7f);
-	WRITE_ONCE(desc->msg1, cpu_to_le32(val));
-	WRITE_ONCE(desc->msg2, 0);
-	WRITE_ONCE(desc->msg3, 0);
+		addr = dma_map_single(dev->dev.parent, data, len,
+				      DMA_TO_DEVICE);
+		if (unlikely(dma_mapping_error(dev->dev.parent, addr)))
+			goto error_unmap;
 
-	e = &q->entry[q->head];
-	e->dma_addr = addr;
-	e->dma_len = skb->len;
-	e->skb = skb;
+		val = FIELD_PREP(QDMA_DESC_LEN_MASK, len);
+		if (i < nr_frags - 1)
+			val |= FIELD_PREP(QDMA_DESC_MORE_MASK, 1);
+		WRITE_ONCE(desc->ctrl, cpu_to_le32(val));
+		WRITE_ONCE(desc->addr, cpu_to_le32(addr));
+		val = FIELD_PREP(QDMA_DESC_NEXT_ID_MASK, index);
+		WRITE_ONCE(desc->data, cpu_to_le32(val));
+		WRITE_ONCE(desc->msg0, 0);
+		msg1 |= FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, DPORT_GDM1) |
+			FIELD_PREP(QDMA_ETH_TXMSG_METER_MASK, 0x7f);
+		WRITE_ONCE(desc->msg1, cpu_to_le32(msg1));
+		WRITE_ONCE(desc->msg2, 0);
+		WRITE_ONCE(desc->msg3, 0);
 
-	wmb();
-	airoha_qdma_rmw(eth, REG_TX_CPU_IDX(qid), TX_RING_CPU_IDX_MASK,
-			FIELD_PREP(TX_RING_CPU_IDX_MASK, q->head));
+		e->skb = i ? NULL : skb;
+		e->dma_addr = addr;
+		e->dma_len = len;
 
-	q->head = (q->head + 1) % q->ndesc;
-	q->queued++;
+		wmb();
+		airoha_qdma_rmw(eth, REG_TX_CPU_IDX(qid), TX_RING_CPU_IDX_MASK,
+				FIELD_PREP(TX_RING_CPU_IDX_MASK, index));
+
+		index = (index + 1) % q->ndesc;
+		data = skb_frag_address(frag);
+		len = skb_frag_size(frag);
+	}
+
+	q->head = index;
+	q->queued += i;
 
 	spin_unlock_bh(&q->lock);
 
 	return NETDEV_TX_OK;
 
+error_unmap:
+	for (; i >= 0; i++)
+		dma_unmap_single(dev->dev.parent, q->entry[i].dma_addr,
+				 q->entry[i].dma_len, DMA_TO_DEVICE);
 error_unlock:
 	spin_unlock_bh(&q->lock);
 error:
 	dev_kfree_skb_any(skb);
-	stats->tx_dropped++;
+	dev->stats.tx_dropped++;
 
 	return NETDEV_TX_OK;
 }
