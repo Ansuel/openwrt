@@ -708,6 +708,9 @@ static int airoha_qdma_hw_init(struct airoha_eth *eth)
 		airoha_qdma_clear(eth, REG_RX_DELAY_INT_IDX(i),
 				  RX_DELAY_INT_MASK);
 
+	airoha_qdma_set(eth, REG_TXQ_CNGST_CFG,
+			TXQ_CNGST_DROP_EN | TXQ_CNGST_DEI_DROP_EN);
+
 	return 0;
 }
 
