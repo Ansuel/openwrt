@@ -572,6 +572,101 @@ static int airoha_qdma_init_hfwd_queues(struct airoha_eth *eth)
 				  25 * USEC_PER_MSEC);
 }
 
+static void airoha_qdma_set_rx_ratelimit(struct airoha_eth *eth,
+					 struct airoha_queue *q)
+{
+}
+
+static void airoha_qdma_congestion_ctrl_init(struct airoha_eth *eth)
+{
+}
+
+static void airoha_qdma_ageing_ctrl_init(struct airoha_eth *eth)
+{
+}
+
+static void airoha_qdma_sdn_ctrl_init(struct airoha_eth *eth)
+{
+}
+
+static void airoha_qdma_multicast_ctrl_init(struct airoha_eth *eth)
+{
+}
+
+static void airoha_qdma_hw_qos_ctrl_init(struct airoha_eth *eth)
+{
+}
+
+static void airoha_qdma_init_qos(struct airoha_eth *eth)
+{
+	int i;
+
+	airoha_qdma_clear(eth, REG_TXWRR_MODE_CFG, TWRR_WEIGHT_SCALE_MASK);
+	airoha_qdma_set(eth, REG_TXWRR_MODE_CFG, TWRR_WEIGHT_BASE_MASK);
+
+	airoha_qdma_clear(eth, REG_PSE_BUF_USAGE_CFG,
+			  PSE_BUF_ESTIMATE_EN_MASK);
+
+	airoha_qdma_set(eth, REG_EGRESS_RATE_METER_CFG,
+			EGRESS_RATE_METER_EN_MASK |
+			EGRESS_RATE_METER_EQ_RATE_EN_MASK);
+	/* 2047us x 31 = 63.457ms */
+	airoha_qdma_rmw(eth, REG_EGRESS_RATE_METER_CFG,
+			EGRESS_RATE_METER_WINDOW_SZ_MASK,
+			FIELD_PREP(EGRESS_RATE_METER_WINDOW_SZ_MASK, 0x1f));
+	airoha_qdma_rmw(eth, REG_EGRESS_RATE_METER_CFG,
+			EGRESS_RATE_METER_TIMESLICE_MASK,
+			FIELD_PREP(EGRESS_RATE_METER_TIMESLICE_MASK, 0x7ff));
+
+	/* ratelimit init */
+	airoha_qdma_set(eth, REG_GLB_TRTCM_CFG, GLB_TRTCM_EN_MASK);
+	airoha_qdma_rmw(eth, REG_GLB_TRTCM_CFG, GLB_FAST_TICK_MASK,
+			FIELD_PREP(GLB_FAST_TICK_MASK, 25)); /* fast-tick 25us */
+	airoha_qdma_rmw(eth, REG_GLB_TRTCM_CFG, GLB_SLOW_TICK_RATIO_MASK,
+			FIELD_PREP(GLB_SLOW_TICK_RATIO_MASK, 40));
+
+	airoha_qdma_set(eth, REG_EGRESS_TRTCM_CFG, EGRESS_TRTCM_EN_MASK);
+	airoha_qdma_rmw(eth, REG_EGRESS_TRTCM_CFG, EGRESS_FAST_TICK_MASK,
+			FIELD_PREP(EGRESS_FAST_TICK_MASK, 25));
+	airoha_qdma_rmw(eth, REG_EGRESS_TRTCM_CFG,
+			EGRESS_SLOW_TICK_RATIO_MASK,
+			FIELD_PREP(EGRESS_SLOW_TICK_RATIO_MASK, 40));
+
+	airoha_qdma_set(eth, REG_INGRESS_TRTCM_CFG, INGRESS_TRTCM_EN_MASK);
+	airoha_qdma_clear(eth, REG_INGRESS_TRTCM_CFG,
+			  INGRESS_TRTCM_MODE_MASK);
+	airoha_qdma_rmw(eth, REG_INGRESS_TRTCM_CFG, INGRESS_FAST_TICK_MASK,
+			FIELD_PREP(INGRESS_FAST_TICK_MASK, 125));
+	airoha_qdma_rmw(eth, REG_INGRESS_TRTCM_CFG,
+			INGRESS_SLOW_TICK_RATIO_MASK,
+			FIELD_PREP(INGRESS_SLOW_TICK_RATIO_MASK, 8));
+
+	airoha_qdma_set(eth, REG_SLA_TRTCM_CFG, SLA_TRTCM_EN_MASK);
+	airoha_qdma_rmw(eth, REG_SLA_TRTCM_CFG, SLA_FAST_TICK_MASK,
+			FIELD_PREP(SLA_FAST_TICK_MASK, 25));
+	airoha_qdma_rmw(eth, REG_SLA_TRTCM_CFG, SLA_SLOW_TICK_RATIO_MASK,
+			FIELD_PREP(SLA_SLOW_TICK_RATIO_MASK, 40));
+
+	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++)
+		airoha_qdma_set_rx_ratelimit(eth, &eth->q_rx[i]);
+
+	/* FIXME */
+	/*airoha_qdma_set(eth, REG_TX_RING_BLOCKING(0),
+			TX_RING_IRQ_BLOCKING_TX_DROP_EN_MASK); */
+	for (i = 0; i < ARRAY_SIZE(eth->q_xmit); i++) {
+		airoha_qdma_clear(eth, REG_TX_RING_BLOCKING(i),
+				  TX_RING_IRQ_BLOCKING_MAX_TH_TXRING_EN_MASK);
+		airoha_qdma_clear(eth, REG_TX_RING_BLOCKING(i),
+				  TX_RING_IRQ_BLOCKING_MIN_TH_TXRING_EN_MASK);
+	}
+
+	airoha_qdma_congestion_ctrl_init(eth);
+	airoha_qdma_ageing_ctrl_init(eth);
+	airoha_qdma_sdn_ctrl_init(eth);
+	airoha_qdma_multicast_ctrl_init(eth);
+	airoha_qdma_hw_qos_ctrl_init(eth);
+}
+
 static int airoha_qdma_hw_init(struct airoha_eth *eth)
 {
 	int i;
@@ -587,12 +682,12 @@ static int airoha_qdma_hw_init(struct airoha_eth *eth)
 
 	/* setup irq binding */
 	for (i = 0; i < ARRAY_SIZE(eth->q_xmit); i++) {
-		if (TX_RING_IRQ_BLOCKING_MAP & BIT(i))
+		if (TX_RING_IRQ_BLOCKING_MAP_MASK & BIT(i))
 			airoha_qdma_set(eth, REG_TX_RING_BLOCKING(i),
-					TX_RING_IRQ_BLOCKING_CFG);
+					TX_RING_IRQ_BLOCKING_CFG_MASK);
 		else
 			airoha_qdma_clear(eth, REG_TX_RING_BLOCKING(i),
-					  TX_RING_IRQ_BLOCKING_CFG);
+					  TX_RING_IRQ_BLOCKING_CFG_MASK);
 	}
 
 	airoha_qdma_wr(eth, REG_QDMA_GLOBAL_CFG,
@@ -606,7 +701,12 @@ static int airoha_qdma_hw_init(struct airoha_eth *eth)
 		       GLOBAL_CFG_TX_WB_DONE |
 		       FIELD_PREP(GLOBAL_CFG_MAX_ISSUE_NUM_MASK, 2));
 
-	/* FIXME add QoS configuration here */
+	airoha_qdma_init_qos(eth);
+
+	/* disable qdma rx delay interrupt */
+	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++)
+		airoha_qdma_clear(eth, REG_RX_DELAY_INT_IDX(i),
+				  RX_DELAY_INT_MASK);
 
 	return 0;
 }
