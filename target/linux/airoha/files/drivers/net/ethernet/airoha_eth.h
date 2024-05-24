@@ -254,6 +254,12 @@
 #define REG_TX_RING_BASE(_n)	\
 	(((_n) < 8) ? 0x0100 + ((_n) << 5) : 0x0b00 + (((_n) - 8) << 5))
 
+#define REG_TX_RING_BLOCKING(_n)	\
+	(((_n) < 8) ? 0x0104 + ((_n) << 5) : 0x0b04 + (((_n) - 8) << 5))
+
+#define TX_RING_IRQ_BLOCKING_MAP	BIT(6)
+#define TX_RING_IRQ_BLOCKING_CFG	BIT(4)
+
 #define REG_TX_CPU_IDX(_n)	\
 	(((_n) < 8) ? 0x0108 + ((_n) << 5) : 0x0b08 + (((_n) - 8) << 5))
 

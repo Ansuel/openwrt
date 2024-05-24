@@ -248,6 +248,7 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 			continue;
 		}
 
+		skb_reserve(skb, 2);
 		__skb_put(skb, len);
 
 		skb_mark_for_recycle(skb);
@@ -584,11 +585,26 @@ static int airoha_qdma_hw_init(struct airoha_eth *eth)
 	airoha_irq_enable(eth, QDMA_INT_REG_IDX1, INT_IDX1_MASK);
 	airoha_irq_enable(eth, QDMA_INT_REG_IDX4, INT_IDX4_MASK);
 
+	/* setup irq binding */
+	for (i = 0; i < ARRAY_SIZE(eth->q_xmit); i++) {
+		if (TX_RING_IRQ_BLOCKING_MAP & BIT(i))
+			airoha_qdma_set(eth, REG_TX_RING_BLOCKING(i),
+					TX_RING_IRQ_BLOCKING_CFG);
+		else
+			airoha_qdma_clear(eth, REG_TX_RING_BLOCKING(i),
+					  TX_RING_IRQ_BLOCKING_CFG);
+	}
+
 	airoha_qdma_wr(eth, REG_QDMA_GLOBAL_CFG,
-		       GLOBAL_CFG_PAYLOAD_BYTE_SWAP | GLOBAL_CFG_IRQ0_EN |
+		       GLOBAL_CFG_RX_2B_OFFSET |
 		       FIELD_PREP(GLOBAL_CFG_DMA_PREFERENCE_MASK, 3) |
-		       FIELD_PREP(GLOBAL_CFG_MAX_ISSUE_NUM_MASK, 2) |
-		       GLOBAL_CFG_CPU_TXR_ROUND_ROBIN);
+		       GLOBAL_CFG_CPU_TXR_ROUND_ROBIN |
+		       GLOBAL_CFG_PAYLOAD_BYTE_SWAP |
+		       GLOBAL_CFG_MULTICAST_MODIFY_FP |
+		       GLOBAL_CFG_MULTICAST_EN_MASK |
+		       GLOBAL_CFG_IRQ0_EN | GLOBAL_CFG_IRQ1_EN |
+		       GLOBAL_CFG_TX_WB_DONE |
+		       FIELD_PREP(GLOBAL_CFG_MAX_ISSUE_NUM_MASK, 2));
 
 	/* FIXME add QoS configuration here */
 
