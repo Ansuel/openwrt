@@ -6,20 +6,17 @@
 #define AIROHA_MAX_NUM_RSTS	3
 #define AIROHA_MAX_MTU		2000
 #define AIROHA_MAX_PACKET_SIZE	2048
-#define AIROHA_HW_FEATURES	(NETIF_F_IP_CSUM | NETIF_F_RXCSUM |	\
-				 NETIF_F_HW_VLAN_CTAG_TX | 		\
-				 NETIF_F_SG | NETIF_F_TSO |		\
-				 NETIF_F_TSO6 | NETIF_F_IPV6_CSUM)
 #define AIROHA_NUM_TX_RING	32
 #define AIROHA_NUM_RX_RING	32
 #define TX_DSCP_NUM(_n)		((_n) ? 128 : 1536)
+#define AIROHA_NUM_TX_IRQ	2
 #define RX_DSCP_NUM(_n)		\
 	((_n) ==  2 ? 128 :	\
 	 (_n) == 11 ? 128 :	\
 	 (_n) == 15 ? 128 :	\
 	 (_n) ==  0 ? 1024 : 16)
 #define HW_DSCP_NUM		2048
-#define IRQ_QUEUE_LEN		2048
+#define IRQ_QUEUE_LEN(_n)	((_n) ? 1024 : 2048)
 
 /* FE */
 #define CDM1_BASE			0x0400
@@ -147,6 +144,7 @@
 	 RX4_COHERENT_INT_MASK | RX7_COHERENT_INT_MASK |	\
 	 RX8_COHERENT_INT_MASK | RX9_COHERENT_INT_MASK |	\
 	 RX15_COHERENT_INT_MASK |				\
+	 IRQ2_INT_MASK | IRQ2_FULL_INT_MASK |			\
 	 IRQ_INT_MASK | IRQ_FULL_INT_MASK)
 
 /* QDMA_CSR_INT_ENABLE2 */
@@ -238,16 +236,16 @@
 	 TX28_COHERENT_INT_MASK | TX29_COHERENT_INT_MASK |	\
 	 TX30_COHERENT_INT_MASK | TX31_COHERENT_INT_MASK)
 
-#define REG_TX_IRQ_BASE			0x0050
+#define REG_TX_IRQ_BASE(_n)		((_n) ? 0x0048 : 0x0050)
 
-#define REG_TX_IRQ_CFG			0x0054
+#define REG_TX_IRQ_CFG(_n)		((_n) ? 0x0048 : 0x0054)
 #define TX_IRQ_THR_MASK			GENMASK(27, 16)
 #define TX_IRQ_DEPTH_MASK		GENMASK(11, 0)
 
-#define REG_IRQ_CLEAR_LEN		0x0058
+#define REG_IRQ_CLEAR_LEN(_n)		((_n) ? 0x0064 : 0x0058)
 #define IRQ_CLEAR_LEN_MASK		GENMASK(7, 0)
 
-#define REG_IRQ_STATUS			0x005c
+#define REG_IRQ_STATUS(_n)		((_n) ? 0x0068 : 0x005c)
 #define IRQ_ENTRY_LEN_MASK		GENMASK(27, 16)
 #define IRQ_HEAD_IDX_MASK		GENMASK(11, 0)
 
@@ -308,6 +306,7 @@
 
 #define REG_LMGR_INIT_CFG		0x1000
 #define LGMR_INIT_START			BIT(31)
+#define LGMR_RAM_MODE_MASK		BIT(30)
 #define HW_FWD_PKTSIZE_OVERHEAD_MASK	GENMASK(27, 20)
 #define HW_FWD_DESC_NUM_MASK		GENMASK(16, 0)
 
@@ -360,7 +359,7 @@
 #define QDMA_DESC_NEXT_ID_MASK		GENMASK(15, 0)
 /* MSG0 */
 #define QDMA_ETH_TXMSG_MIC_IDX_MASK	BIT(30)
-#define QDMA_ETH_TXMSG_GEM_PORT_ID_MASK	GENMASK(29, 14)
+#define QDMA_ETH_TXMSG_SP_TAG_MASK	GENMASK(29, 14)
 #define QDMA_ETH_TXMSG_ICO_MASK		BIT(13)
 #define QDMA_ETH_TXMSG_UCO_MASK		BIT(12)
 #define QDMA_ETH_TXMSG_TCO_MASK		BIT(11)
@@ -418,6 +417,7 @@ enum {
 	QDMA_INT_REG_IDX2,
 	QDMA_INT_REG_IDX3,
 	QDMA_INT_REG_IDX4,
+	QDMA_INT_REG_MAX
 };
 
 enum airoha_dport {
@@ -462,6 +462,14 @@ struct airoha_queue {
 	struct page_pool *page_pool;
 };
 
+struct airoha_tx_irq_queue {
+	struct airoha_eth *eth;
+
+	struct tasklet_struct tasklet;
+	void *q;
+	int size;
+};
+
 struct airoha_eth {
 	struct net_device *net_dev;
 
@@ -471,16 +479,15 @@ struct airoha_eth {
 	void __iomem *fe_regs;
 
 	spinlock_t irq_lock;
-	u32 irqmask[5];
+	u32 irqmask[QDMA_INT_REG_MAX];
 	int irq;
 
 	struct reset_control_bulk_data resets[AIROHA_MAX_NUM_RSTS];
 
-	struct airoha_queue q_xmit[AIROHA_NUM_TX_RING];
-	struct tasklet_struct xmit_tasklet;
-	void *irq_q;
-
+	struct airoha_queue q_tx[AIROHA_NUM_TX_RING];
 	struct airoha_queue q_rx[AIROHA_NUM_RX_RING];
+
+	struct airoha_tx_irq_queue q_tx_irq[AIROHA_NUM_TX_IRQ];
 
 	void *hfwd_desc;
 	void *hfwd_q;
@@ -489,11 +496,15 @@ struct airoha_eth {
 	u32 debugfs_reg;
 };
 
+#define airoha_qdma_for_each_q_rx(eth, i)		\
+	for (i = 0; i < ARRAY_SIZE((eth)->q_rx); i++)	\
+		if ((eth)->q_rx[i].ndesc)
+
 static inline void airoha_qdma_start_napi(struct airoha_eth *eth)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++)
+	airoha_qdma_for_each_q_rx(eth, i)
 		napi_enable(&eth->q_rx[i].napi);
 }
 
@@ -501,6 +512,6 @@ static inline void airoha_qdma_stop_napi(struct airoha_eth *eth)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++)
+	airoha_qdma_for_each_q_rx(eth, i)
 		napi_disable(&eth->q_rx[i].napi);
 }
