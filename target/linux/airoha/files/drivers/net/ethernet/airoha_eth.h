@@ -21,6 +21,8 @@
 /* FE */
 #define CDM1_BASE			0x0400
 #define GDM1_BASE			0x0500
+#define PPE1_BASE			0x0c00
+
 #define GDM2_BASE			0x1500
 #define GDM3_BASE			0x1100
 #define GDM4_BASE			0x2400
@@ -35,6 +37,7 @@
 #define CDM1_VLAN_MASK			GENMASK(31, 16)
 
 #define REG_GDM1_FWD_CFG		GDM1_BASE
+#define GDM1_DROP_CRC_ERR		BIT(23)
 #define GDM1_IP4_CKSUM			BIT(22)
 #define GDM1_TCP_CKSUM			BIT(21)
 #define GDM1_UDP_CKSUM			BIT(20)
@@ -49,6 +52,12 @@
 
 #define REG_FE_CPORT_CFG		(GDM1_BASE + 0x40)
 #define FE_CPORT_PAD			BIT(26)
+
+#define REG_PPE1_TB_HASH_CFG		(PPE1_BASE + 0x250)
+#define PPE1_SRAM_TABLE_EN_MASK		BIT(0)
+#define PPE1_SRAM_HASH1_EN_MASK		BIT(8)
+#define PPE1_DRAM_TABLE_EN_MASK		BIT(16)
+#define PPE1_DRAM_HASH1_EN_MASK		BIT(24)
 
 #define REG_GDM3_FWD_CFG		GDM3_BASE
 #define REG_GDM4_FWD_CFG		(GDM4_BASE + 0x100)
@@ -127,12 +136,20 @@
 #define TX1_COHERENT_INT_MASK		BIT(9)
 #define TX0_COHERENT_INT_MASK		BIT(8)
 #define CNT_OVER_FLOW_INT_MASK		BIT(7)
-#define IRQ2_FULL_INT_MASK		BIT(5)
-#define IRQ2_INT_MASK			BIT(4)
+#define IRQ1_FULL_INT_MASK		BIT(5)
+#define IRQ1_INT_MASK			BIT(4)
 #define HWFWD_DSCP_LOW_INT_MASK		BIT(3)
 #define HWFWD_DSCP_EMPTY_INT_MASK	BIT(2)
-#define IRQ_FULL_INT_MASK		BIT(1)
-#define IRQ_INT_MASK			BIT(0)
+#define IRQ0_FULL_INT_MASK		BIT(1)
+#define IRQ0_INT_MASK			BIT(0)
+
+#define IRQ_INT_MASK(_n)					\
+	((_n) ? IRQ1_INT_MASK | IRQ1_FULL_INT_MASK		\
+	      : IRQ0_INT_MASK | IRQ0_FULL_INT_MASK)
+
+#define INT_TX_MASK						\
+	(IRQ1_INT_MASK | IRQ1_FULL_INT_MASK |			\
+	 IRQ0_INT_MASK | IRQ0_FULL_INT_MASK)
 
 #define INT_IDX0_MASK						\
 	(TX0_COHERENT_INT_MASK | TX1_COHERENT_INT_MASK |	\
@@ -143,9 +160,7 @@
 	 RX2_COHERENT_INT_MASK | RX3_COHERENT_INT_MASK |	\
 	 RX4_COHERENT_INT_MASK | RX7_COHERENT_INT_MASK |	\
 	 RX8_COHERENT_INT_MASK | RX9_COHERENT_INT_MASK |	\
-	 RX15_COHERENT_INT_MASK |				\
-	 IRQ2_INT_MASK | IRQ2_FULL_INT_MASK |			\
-	 IRQ_INT_MASK | IRQ_FULL_INT_MASK)
+	 RX15_COHERENT_INT_MASK | INT_TX_MASK)
 
 /* QDMA_CSR_INT_ENABLE2 */
 #define RX15_NO_CPU_DSCP_INT_MASK	BIT(31)
@@ -306,7 +321,7 @@
 
 #define REG_LMGR_INIT_CFG		0x1000
 #define LGMR_INIT_START			BIT(31)
-#define LGMR_RAM_MODE_MASK		BIT(30)
+#define LGMR_SRAM_MODE_MASK		BIT(30)
 #define HW_FWD_PKTSIZE_OVERHEAD_MASK	GENMASK(27, 20)
 #define HW_FWD_DESC_NUM_MASK		GENMASK(16, 0)
 
@@ -433,6 +448,20 @@ enum airoha_dport {
 };
 
 enum {
+	FE_DP_CPU,
+	FE_DP_GDM1,
+	FE_DP_GDM2,
+	FE_DP_QDMA1_HWF,
+	FE_DP_GDMA3_HWF = 3,
+	FE_DP_PPE,
+	FE_DP_QDMA2_CPU,
+	FE_DP_QDMA2_HWF,
+	FE_DP_DISCARD,
+	FE_DP_PPE2 = 8,
+	FE_DP_DROP = 15,
+};
+
+enum {
 	DEV_STATE_INITIALIZED,
 };
 
@@ -465,9 +494,12 @@ struct airoha_queue {
 struct airoha_tx_irq_queue {
 	struct airoha_eth *eth;
 
-	struct tasklet_struct tasklet;
-	void *q;
+	struct napi_struct napi;
+	u32 *q;
+
 	int size;
+	int queued;
+	u16 head;
 };
 
 struct airoha_eth {
@@ -504,6 +536,9 @@ static inline void airoha_qdma_start_napi(struct airoha_eth *eth)
 {
 	int i;
 
+	for (i = 0; i < ARRAY_SIZE(eth->q_tx_irq); i++)
+		napi_enable(&eth->q_tx_irq[i].napi);
+
 	airoha_qdma_for_each_q_rx(eth, i)
 		napi_enable(&eth->q_rx[i].napi);
 }
@@ -511,6 +546,9 @@ static inline void airoha_qdma_start_napi(struct airoha_eth *eth)
 static inline void airoha_qdma_stop_napi(struct airoha_eth *eth)
 {
 	int i;
+
+	for (i = 0; i < ARRAY_SIZE(eth->q_tx_irq); i++)
+		napi_disable(&eth->q_tx_irq[i].napi);
 
 	airoha_qdma_for_each_q_rx(eth, i)
 		napi_disable(&eth->q_rx[i].napi);

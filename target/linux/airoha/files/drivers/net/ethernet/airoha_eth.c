@@ -93,7 +93,7 @@ static void airoha_set_port_fwd_cfg(struct airoha_eth *eth, u32 addr, u32 val)
 
 static int airoha_set_gdma_port(struct airoha_eth *eth, int port, bool enable)
 {
-	u32 vip_port, cfg_addr, val = enable ? 0x4 : 0xf;
+	u32 vip_port, cfg_addr, val = enable ? FE_DP_PPE : FE_DP_DROP;
 
 	switch (port) {
 	case 0:
@@ -117,8 +117,8 @@ static int airoha_set_gdma_port(struct airoha_eth *eth, int port, bool enable)
 	}
 
 	if (enable) {
-		airoha_fe_wr(eth, REG_FE_VIP_PORT_EN, vip_port);
-		airoha_fe_wr(eth, REG_FE_IFC_PORT_EN, vip_port);
+		airoha_fe_set(eth, REG_FE_VIP_PORT_EN, vip_port);
+		airoha_fe_set(eth, REG_FE_IFC_PORT_EN, vip_port);
 	} else {
 		airoha_fe_clear(eth, REG_FE_VIP_PORT_EN, vip_port);
 		airoha_fe_clear(eth, REG_FE_IFC_PORT_EN, vip_port);
@@ -147,17 +147,17 @@ static int airoha_set_gdma_ports(struct airoha_eth *eth, bool enable)
 
 static void airoha_maccr_init(struct airoha_eth *eth)
 {
-	airoha_fe_set(eth, REG_GDM1_FWD_CFG, GDM1_TCP_CKSUM);
-	airoha_fe_set(eth, REG_GDM1_FWD_CFG, GDM1_UDP_CKSUM);
-	airoha_fe_set(eth, REG_GDM1_FWD_CFG, GDM1_IP4_CKSUM);
-	airoha_set_port_fwd_cfg(eth, REG_GDM1_FWD_CFG, 0);
+	airoha_fe_set(eth, REG_GDM1_FWD_CFG,
+		      GDM1_TCP_CKSUM | GDM1_UDP_CKSUM | GDM1_IP4_CKSUM |
+		      GDM1_DROP_CRC_ERR);
+	airoha_set_port_fwd_cfg(eth, REG_GDM1_FWD_CFG, FE_DP_CPU);
 
 	airoha_fe_set(eth, REG_FE_CPORT_CFG, FE_CPORT_PAD);
 	airoha_fe_rmw(eth, REG_CDM1_VLAN_CTRL, CDM1_VLAN_MASK,
 		      FIELD_PREP(CDM1_VLAN_MASK, 0x8100));
-	airoha_fe_rmw(eth, REG_GDM1_LEN_CFG, GDM1_SHORT_LEN_MASK,
-		      FIELD_PREP(GDM1_SHORT_LEN_MASK, 60));
-	airoha_fe_rmw(eth, REG_GDM1_LEN_CFG, GDM1_LONG_LEN_MASK,
+	airoha_fe_rmw(eth, REG_GDM1_LEN_CFG,
+		      GDM1_SHORT_LEN_MASK | GDM1_LONG_LEN_MASK,
+		      FIELD_PREP(GDM1_SHORT_LEN_MASK, 60) |
 		      FIELD_PREP(GDM1_LONG_LEN_MASK, 4004));
 }
 
@@ -383,27 +383,30 @@ static int airoha_qdma_init_rx(struct airoha_eth *eth)
 	return 0;
 }
 
-static void airoha_tx_tasklet(struct tasklet_struct *t)
+static int airoha_qdma_tx_napi_poll(struct napi_struct *napi, int budget)
 {
-	struct airoha_tx_irq_queue *irq_q = from_tasklet(irq_q, t, tasklet);
-	struct airoha_eth *eth = irq_q->eth;
-	struct device *dev = eth->net_dev->dev.parent;
-	int i, id = irq_q - &eth->q_tx_irq[0];
-	u32 irq_status, len, head;
+	struct airoha_tx_irq_queue *irq_q;
+	struct airoha_eth *eth;
+	struct device *dev;
+	int id, done = 0;
 
-	irq_status = airoha_qdma_rr(eth, REG_IRQ_STATUS(id));
-	head = FIELD_GET(IRQ_HEAD_IDX_MASK, irq_status);
-	len = FIELD_GET(IRQ_ENTRY_LEN_MASK, irq_status);
+	irq_q = container_of(napi, struct airoha_tx_irq_queue, napi);
+	eth = irq_q->eth;
+	id = irq_q - &eth->q_tx_irq[0];
+	dev = eth->net_dev->dev.parent;
 
-	for (i = 0; i < len; i++) {
-		u32 *ptr = irq_q->q + (head + i) % irq_q->size;
-		u32 qid, last, val = *ptr;
+	while (irq_q->queued > 0 && done < budget) {
+		u32 qid, last, val = irq_q->q[irq_q->head];
 		struct airoha_queue *q;
 
 		if (val == 0xff)
 			break;
 
-		*ptr = 0xff; /* mark as done */
+		irq_q->q[irq_q->head] = 0xff; /* mark as done */
+		irq_q->head = (irq_q->head + 1) % irq_q->size;
+		irq_q->queued--;
+		done++;
+
 		last = FIELD_GET(IRQ_DESC_IDX_MASK, val);
 		qid = FIELD_GET(IRQ_RING_IDX_MASK, val);
 
@@ -416,7 +419,12 @@ static void airoha_tx_tasklet(struct tasklet_struct *t)
 		while (q->queued > 0) {
 			struct airoha_qdma_desc *desc = &q->desc[q->tail];
 			struct airoha_queue_entry *e = &q->entry[q->tail];
+			u32 desc_ctrl = le32_to_cpu(desc->ctrl);
 			u16 index = q->tail;
+
+			if (!(desc_ctrl & QDMA_DESC_DONE_MASK) &&
+			    !(desc_ctrl & QDMA_DESC_DROP_MASK))
+				break;
 
 			q->tail = (q->tail + 1) % q->ndesc;
 			q->queued--;
@@ -436,15 +444,20 @@ static void airoha_tx_tasklet(struct tasklet_struct *t)
 		spin_unlock_bh(&q->lock);
 	}
 
-	if (i) {
-		int j, len = i >> 7;
+	if (done) {
+		int i, len = done >> 7;
 
-		for (j = 0; j < len; j++)
+		for (i = 0; i < len; i++)
 			airoha_qdma_rmw(eth, REG_IRQ_CLEAR_LEN(id),
 					IRQ_CLEAR_LEN_MASK, 0x80);
 		airoha_qdma_rmw(eth, REG_IRQ_CLEAR_LEN(id),
-				IRQ_CLEAR_LEN_MASK, (i & 0x7f));
+				IRQ_CLEAR_LEN_MASK, (done & 0x7f));
 	}
+
+	if (done < budget && napi_complete(napi))
+		airoha_irq_enable(eth, QDMA_INT_REG_IDX0, IRQ_INT_MASK(id));
+
+	return done;
 }
 
 static int airoha_qdma_init_tx_queue(struct airoha_eth *eth,
@@ -492,7 +505,7 @@ static int airoha_qdma_tx_irq_init(struct airoha_eth *eth,
 	int id = irq_q - &eth->q_tx_irq[0];
 	dma_addr_t dma_addr;
 
-	tasklet_setup(&irq_q->tasklet, airoha_tx_tasklet);
+	netif_napi_add(eth->net_dev, &irq_q->napi, airoha_qdma_tx_napi_poll);
 	irq_q->q = dmam_alloc_coherent(dev, size * sizeof(u32), &dma_addr,
 				       GFP_KERNEL);
 	if (!irq_q->q)
@@ -580,12 +593,11 @@ static int airoha_qdma_init_hfwd_queues(struct airoha_eth *eth)
 			FIELD_PREP(HW_FWD_DSCP_PAYLOAD_SIZE_MASK, 0));
 	airoha_qdma_rmw(eth, REG_FWD_DSCP_LOW_THR, FWD_DSCP_LOW_THR_MASK,
 			FIELD_PREP(FWD_DSCP_LOW_THR_MASK, 128));
-	//airoha_qdma_rmw(eth, REG_LMGR_INIT_CFG,
-	//		LGMR_INIT_START | LGMR_RAM_MODE_MASK |
-	//		HW_FWD_DESC_NUM_MASK,
-	//		FIELD_PREP(HW_FWD_DESC_NUM_MASK, HW_DSCP_NUM) |
-	//		LGMR_INIT_START);
-	airoha_qdma_set(eth, REG_LMGR_INIT_CFG, LGMR_INIT_START);
+	airoha_qdma_rmw(eth, REG_LMGR_INIT_CFG,
+			LGMR_INIT_START | LGMR_SRAM_MODE_MASK |
+			HW_FWD_DESC_NUM_MASK,
+			FIELD_PREP(HW_FWD_DESC_NUM_MASK, HW_DSCP_NUM) |
+			LGMR_INIT_START);
 
 	return read_poll_timeout(airoha_qdma_rr, status,
 				 !(status & LGMR_INIT_START), USEC_PER_MSEC,
@@ -705,8 +717,6 @@ static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
 		return IRQ_NONE;
 
 	if (intr[1] & RX_DONE_INT_MASK) {
-		int i;
-
 		airoha_irq_disable(eth, QDMA_INT_REG_IDX1, RX_DONE_INT_MASK);
 		airoha_qdma_for_each_q_rx(eth, i) {
 			if (intr[1] & BIT(i))
@@ -714,11 +724,22 @@ static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
 		}
 	}
 
-	if (intr[0] & (IRQ_INT_MASK | IRQ_FULL_INT_MASK))
-		tasklet_schedule(&eth->q_tx_irq[0].tasklet);
+	if (intr[0] & INT_TX_MASK) {
+		for (i = 0; i < ARRAY_SIZE(eth->q_tx_irq); i++) {
+			struct airoha_tx_irq_queue *irq_q = &eth->q_tx_irq[i];
+			u32 status, head;
 
-	if (intr[0] & (IRQ2_INT_MASK | IRQ2_FULL_INT_MASK))
-		tasklet_schedule(&eth->q_tx_irq[1].tasklet);
+			airoha_irq_disable(eth, QDMA_INT_REG_IDX0,
+					   IRQ_INT_MASK(i));
+
+			status = airoha_qdma_rr(eth, REG_IRQ_STATUS(i));
+			head = FIELD_GET(IRQ_HEAD_IDX_MASK, status);
+			irq_q->head = head % irq_q->size;
+			irq_q->queued = FIELD_GET(IRQ_ENTRY_LEN_MASK, status);
+
+			napi_schedule(&eth->q_tx_irq[i].napi);
+		}
+	}
 
 	/* FIXME: take into account error events from the device */
 
@@ -993,15 +1014,12 @@ static int airoha_xmit_queues_show(struct seq_file *s, void *data)
 	struct airoha_eth *eth = s->private;
 	int i;
 
-	seq_puts(s, "     queue |       irq | hw-queued |");
-	seq_puts(s, "      head |      tail |\n");
+	seq_puts(s, "     queue | hw-queued |      head |      tail |\n");
 	for (i = 0; i < ARRAY_SIZE(eth->q_tx); i++) {
-		u32 val = airoha_qdma_rr(eth, REG_TX_RING_BLOCKING(i));
 		struct airoha_queue *q = &eth->q_tx[i];
 
-		seq_printf(s, " %9d | %9d | %9d | %9d | %9d |\n",
-			   i, !!(val & TX_RING_IRQ_BLOCKING_CFG_MASK),
-			   q->queued, q->head, q->tail);
+		seq_printf(s, " %9d | %9d | %9d | %9d |\n",
+			   i, q->queued, q->head, q->tail);
 	}
 
 	return 0;
@@ -1136,7 +1154,7 @@ static void airoha_remove(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(eth->q_tx_irq); i++)
-		tasklet_disable(&eth->q_tx_irq[i].tasklet);
+		netif_napi_del(&eth->q_tx_irq[i].napi);
 	for (i = 0; i < ARRAY_SIZE(eth->q_tx); i++)
 		airoha_qdma_clenaup_tx_queue(&eth->q_tx[i]);
 }
