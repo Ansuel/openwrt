@@ -47,8 +47,8 @@ static u32 airoha_rmw(void __iomem *base, u32 offset, u32 mask, u32 val)
 #define airoha_qdma_set(eth, offset, val)	airoha_rmw((eth)->qdma_regs, (offset), 0, (val))
 #define airoha_qdma_clear(eth, offset, val)	airoha_rmw((eth)->qdma_regs, (offset), (val), 0)
 
-static void airoha_set_irqmask(struct airoha_eth *eth, int index,
-			       u32 clear, u32 set)
+static void airoha_qdma_set_irqmask(struct airoha_eth *eth, int index,
+				    u32 clear, u32 set)
 {
 	unsigned long flags;
 
@@ -64,8 +64,17 @@ static void airoha_set_irqmask(struct airoha_eth *eth, int index,
 	spin_unlock_irqrestore(&eth->irq_lock, flags);
 }
 
-#define airoha_irq_enable(eth, index, mask)	airoha_set_irqmask((eth), (index), 0, (mask))
-#define airoha_irq_disable(eth, index, mask)	airoha_set_irqmask((eth), (index), (mask), 0)
+static void airoha_qdma_irq_enable(struct airoha_eth *eth, int index,
+				   u32 mask)
+{
+	airoha_qdma_set_irqmask(eth, index, 0, mask);
+}
+
+static void airoha_qdma_irq_disable(struct airoha_eth *eth, int index,
+				    u32 mask)
+{
+	airoha_qdma_set_irqmask(eth, index, mask, 0);
+}
 
 static void airoha_set_macaddr(struct airoha_eth *eth, const u8 *addr)
 {
@@ -278,7 +287,8 @@ static int airoha_qdma_rx_napi_poll(struct napi_struct *napi, int budget)
 	} while (cur && done < budget);
 
 	if (done < budget && napi_complete(napi))
-		airoha_irq_enable(eth, QDMA_INT_REG_IDX1, RX_DONE_INT_MASK);
+		airoha_qdma_irq_enable(eth, QDMA_INT_REG_IDX1,
+				       RX_DONE_INT_MASK);
 
 	return done;
 }
@@ -455,7 +465,8 @@ static int airoha_qdma_tx_napi_poll(struct napi_struct *napi, int budget)
 	}
 
 	if (done < budget && napi_complete(napi))
-		airoha_irq_enable(eth, QDMA_INT_REG_IDX0, IRQ_INT_MASK(id));
+		airoha_qdma_irq_enable(eth, QDMA_INT_REG_IDX0,
+				       TX_DONE_INT_MASK(id));
 
 	return done;
 }
@@ -663,9 +674,9 @@ static int airoha_qdma_hw_init(struct airoha_eth *eth)
 		airoha_qdma_wr(eth, REG_INT_STATUS(i), 0xffffffff);
 
 	/* setup irqs */
-	airoha_irq_enable(eth, QDMA_INT_REG_IDX0, INT_IDX0_MASK);
-	airoha_irq_enable(eth, QDMA_INT_REG_IDX1, INT_IDX1_MASK);
-	airoha_irq_enable(eth, QDMA_INT_REG_IDX4, INT_IDX4_MASK);
+	airoha_qdma_irq_enable(eth, QDMA_INT_REG_IDX0, INT_IDX0_MASK);
+	airoha_qdma_irq_enable(eth, QDMA_INT_REG_IDX1, INT_IDX1_MASK);
+	airoha_qdma_irq_enable(eth, QDMA_INT_REG_IDX4, INT_IDX4_MASK);
 
 	/* setup irq binding */
 	for (i = 0; i < ARRAY_SIZE(eth->q_tx); i++) {
@@ -708,6 +719,7 @@ static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(eth->irqmask); i++) {
+		airoha_qdma_wr(eth, REG_INT_ENABLE(i), 0);
 		intr[i] = airoha_qdma_rr(eth, REG_INT_STATUS(i));
 		intr[i] &= eth->irqmask[i];
 		airoha_qdma_wr(eth, REG_INT_STATUS(i), intr[i]);
@@ -717,7 +729,8 @@ static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
 		return IRQ_NONE;
 
 	if (intr[1] & RX_DONE_INT_MASK) {
-		airoha_irq_disable(eth, QDMA_INT_REG_IDX1, RX_DONE_INT_MASK);
+		airoha_qdma_irq_disable(eth, QDMA_INT_REG_IDX1,
+					RX_DONE_INT_MASK);
 		airoha_qdma_for_each_q_rx(eth, i) {
 			if (intr[1] & BIT(i))
 				napi_schedule(&eth->q_rx[i].napi);
@@ -729,8 +742,8 @@ static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
 			struct airoha_tx_irq_queue *irq_q = &eth->q_tx_irq[i];
 			u32 status, head;
 
-			airoha_irq_disable(eth, QDMA_INT_REG_IDX0,
-					   IRQ_INT_MASK(i));
+			airoha_qdma_irq_disable(eth, QDMA_INT_REG_IDX0,
+						TX_DONE_INT_MASK(i));
 
 			status = airoha_qdma_rr(eth, REG_IRQ_STATUS(i));
 			head = FIELD_GET(IRQ_HEAD_IDX_MASK, status);
@@ -768,7 +781,13 @@ static int airoha_qdma_init(struct airoha_eth *eth)
 	if (err)
 		return err;
 
-	return airoha_qdma_hw_init(eth);
+	err = airoha_qdma_hw_init(eth);
+	if (err)
+		return err;
+
+	set_bit(DEV_STATE_INITIALIZED, &eth->state);
+
+	return 0;
 }
 
 static int airoha_hw_init(struct airoha_eth *eth)
@@ -789,8 +808,6 @@ static int airoha_dev_open(struct net_device *dev)
 	int err;
 
 	netif_tx_start_all_queues(dev);
-	airoha_qdma_start_napi(eth);
-
 	err = airoha_set_gdma_ports(eth, true);
 	if (err)
 		return err;
@@ -807,8 +824,6 @@ static int airoha_dev_stop(struct net_device *dev)
 	int err;
 
 	netif_tx_disable(dev);
-	airoha_qdma_stop_napi(eth);
-
 	err = airoha_set_gdma_ports(eth, false);
 	if (err)
 		return err;
@@ -1124,6 +1139,7 @@ static int airoha_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
+	airoha_qdma_start_napi(eth);
 	err = register_netdev(dev);
 	if (err)
 		return err;
@@ -1133,7 +1149,6 @@ static int airoha_probe(struct platform_device *pdev)
 		return err;
 
 	platform_set_drvdata(pdev, eth);
-	set_bit(DEV_STATE_INITIALIZED, &eth->state);
 
 	return 0;
 }

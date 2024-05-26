@@ -143,7 +143,7 @@
 #define IRQ0_FULL_INT_MASK		BIT(1)
 #define IRQ0_INT_MASK			BIT(0)
 
-#define IRQ_INT_MASK(_n)					\
+#define TX_DONE_INT_MASK(_n)					\
 	((_n) ? IRQ1_INT_MASK | IRQ1_FULL_INT_MASK		\
 	      : IRQ0_INT_MASK | IRQ0_FULL_INT_MASK)
 
