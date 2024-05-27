@@ -170,6 +170,16 @@ static void airoha_fe_maccr_init(struct airoha_eth *eth)
 		      FIELD_PREP(GDM1_LONG_LEN_MASK, 4004));
 }
 
+static void airoha_fe_vip_setup(struct airoha_eth *eth)
+{
+}
+
+static void airoha_fe_oq_rsv_init(struct airoha_eth *eth)
+{
+	/* hw misses PPE2 oq rsv */
+	airoha_fe_set(eth, REG_FE_PSE_BUF_SET, BIT(9));
+}
+
 static int airoha_fe_init(struct airoha_eth *eth)
 {
 	airoha_fe_maccr_init(eth);
@@ -198,6 +208,16 @@ static int airoha_fe_init(struct airoha_eth *eth)
 		      FIELD_PREP(GDM4_SPORT_OFF1_MASK, 8) |
 		      FIELD_PREP(GDM4_SPORT_OFF0_MASK, 8));
 
+	/* set PSE Page as 128B */
+	airoha_fe_rmw(eth, REG_FE_DMA_GLO_CFG,
+		      FE_DMA_GLO_L2_SPACE_MASK | FE_DMA_GLO_PG_SZ_MASK,
+		      FIELD_PREP(FE_DMA_GLO_L2_SPACE_MASK, 2) |
+		      FE_DMA_GLO_PG_SZ_MASK);
+	airoha_fe_wr(eth, REG_FE_RST_GLO_CFG,
+		     FE_RST_CORE_MASK | FE_RST_GDM3_MBI_ARB_MASK |
+		     FE_RST_GDM4_MBI_ARB_MASK);
+	usleep_range(1000, 2000);
+
 	/* connect RxRing1 and RxRing15 to PSE Port0 OQ-1
 	 * connect other rings to PSE Port0 OQ-0
 	 */
@@ -205,6 +225,13 @@ static int airoha_fe_init(struct airoha_eth *eth)
 	airoha_fe_wr(eth, REG_FE_CDM1_OQ_MAP1, BIT(28));
 	airoha_fe_wr(eth, REG_FE_CDM1_OQ_MAP2, BIT(4));
 	airoha_fe_wr(eth, REG_FE_CDM1_OQ_MAP3, BIT(28));
+
+	airoha_fe_vip_setup(eth);
+	airoha_fe_oq_rsv_init(eth);
+
+	airoha_fe_set(eth, REG_GDM_MISC_CFG,
+		      GDM2_RDM_ACK_WAIT_PREF_MASK |
+		      GDM2_CHN_VLD_MODE_MASK);
 
 	return 0;
 }
