@@ -719,7 +719,6 @@ static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(eth->irqmask); i++) {
-		airoha_qdma_wr(eth, REG_INT_ENABLE(i), 0);
 		intr[i] = airoha_qdma_rr(eth, REG_INT_STATUS(i));
 		intr[i] &= eth->irqmask[i];
 		airoha_qdma_wr(eth, REG_INT_STATUS(i), intr[i]);
@@ -742,6 +741,9 @@ static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
 			struct airoha_tx_irq_queue *irq_q = &eth->q_tx_irq[i];
 			u32 status, head;
 
+			if (!(intr[0] & TX_DONE_INT_MASK(i)))
+				continue;
+
 			airoha_qdma_irq_disable(eth, QDMA_INT_REG_IDX0,
 						TX_DONE_INT_MASK(i));
 
@@ -753,8 +755,6 @@ static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
 			napi_schedule(&eth->q_tx_irq[i].napi);
 		}
 	}
-
-	/* FIXME: take into account error events from the device */
 
 	return IRQ_HANDLED;
 }
@@ -792,9 +792,12 @@ static int airoha_qdma_init(struct airoha_eth *eth)
 
 static int airoha_hw_init(struct airoha_eth *eth)
 {
-	reset_control_bulk_assert(AIROHA_MAX_NUM_RSTS, eth->resets);
+	/* disable xsi */
+	reset_control_bulk_assert(AIROHA_MAX_NUM_XSI_RSTS, eth->xsi_rsts);
+
+	reset_control_bulk_assert(AIROHA_MAX_NUM_RSTS, eth->rsts);
 	msleep(20);
-	reset_control_bulk_deassert(AIROHA_MAX_NUM_RSTS, eth->resets);
+	reset_control_bulk_deassert(AIROHA_MAX_NUM_RSTS, eth->rsts);
 	msleep(20);
 
 	airoha_maccr_init(eth);
@@ -1095,14 +1098,26 @@ static int airoha_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, PTR_ERR(eth->qdma_regs),
 				     "failed to iomap qdma regs\n");
 
-	eth->resets[0].id = "fe";
-	eth->resets[1].id = "pdma";
-	eth->resets[2].id = "qdma";
+	eth->rsts[0].id = "fe";
+	eth->rsts[1].id = "pdma";
+	eth->rsts[2].id = "qdma";
 	err = devm_reset_control_bulk_get_exclusive(&pdev->dev,
 						    AIROHA_MAX_NUM_RSTS,
-						    eth->resets);
+						    eth->rsts);
 	if (err) {
 		dev_err(&pdev->dev, "failed to get bulk reset lines\n");
+		return err;
+	}
+
+	eth->xsi_rsts[0].id = "xsi-mac";
+	eth->xsi_rsts[1].id = "hsi0-mac";
+	eth->xsi_rsts[2].id = "hsi1-mac";
+	eth->xsi_rsts[3].id = "hsi-mac";
+	err = devm_reset_control_bulk_get_exclusive(&pdev->dev,
+						    AIROHA_MAX_NUM_XSI_RSTS,
+						    eth->xsi_rsts);
+	if (err) {
+		dev_err(&pdev->dev, "failed to get bulk xsi reset lines\n");
 		return err;
 	}
 

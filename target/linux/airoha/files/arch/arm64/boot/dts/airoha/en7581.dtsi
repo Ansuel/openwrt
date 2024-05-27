@@ -297,8 +297,13 @@
 
 			resets = <&scuclk EN7581_FE_RST>,
 				 <&scuclk EN7581_FE_PDMA_RST>,
-				 <&scuclk EN7581_FE_QDMA_RST>;
-			reset-names = "fe", "pdma", "qdma";
+				 <&scuclk EN7581_FE_QDMA_RST>,
+				 <&scuclk EN7581_XSI_MAC_RST>,
+				 <&scuclk EN7581_DUAL_HSI0_MAC_RST>,
+				 <&scuclk EN7581_DUAL_HSI1_MAC_RST>,
+				 <&scuclk EN7581_HSI_MAC_RST>;
+			reset-names = "fe", "pdma", "qdma", "xsi-mac",
+				      "hsi0-mac", "hsi1-mac", "hsi-mac";
 
 			interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>,

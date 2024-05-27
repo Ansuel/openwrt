@@ -4,6 +4,7 @@
  */
 
 #define AIROHA_MAX_NUM_RSTS	3
+#define AIROHA_MAX_NUM_XSI_RSTS	4
 #define AIROHA_MAX_MTU		2000
 #define AIROHA_MAX_PACKET_SIZE	2048
 #define AIROHA_NUM_TX_RING	32
@@ -514,7 +515,8 @@ struct airoha_eth {
 	u32 irqmask[QDMA_INT_REG_MAX];
 	int irq;
 
-	struct reset_control_bulk_data resets[AIROHA_MAX_NUM_RSTS];
+	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
+	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
 
 	struct airoha_queue q_tx[AIROHA_NUM_TX_RING];
 	struct airoha_queue q_rx[AIROHA_NUM_RX_RING];
