@@ -379,7 +379,7 @@
 
 #define REG_TX_IRQ_BASE(_n)		((_n) ? 0x0048 : 0x0050)
 
-#define REG_TX_IRQ_CFG(_n)		((_n) ? 0x0048 : 0x0054)
+#define REG_TX_IRQ_CFG(_n)		((_n) ? 0x004c : 0x0054)
 #define TX_IRQ_THR_MASK			GENMASK(27, 16)
 #define TX_IRQ_DEPTH_MASK		GENMASK(11, 0)
 
