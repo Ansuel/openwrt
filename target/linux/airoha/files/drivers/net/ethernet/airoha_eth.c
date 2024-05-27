@@ -180,6 +180,45 @@ static void airoha_fe_oq_rsv_init(struct airoha_eth *eth)
 	airoha_fe_set(eth, REG_FE_PSE_BUF_SET, BIT(9));
 }
 
+static int airoha_fe_mc_vlan_clear(struct airoha_eth *eth)
+{
+	int i;
+
+	for (i = 0; i < AIROHA_FE_MC_MAX_VLAN_TABLE; i++) {
+		int err, j;
+		u32 val;
+
+		airoha_fe_wr(eth, REG_MC_VLAN_DATA, 0x0);
+
+		val = FIELD_PREP(MC_VLAN_CFG_TABLE_ID_MASK, i) |
+		      MC_VLAN_CFG_TABLE_SEL_MASK | MC_VLAN_CFG_RW_MASK;
+		airoha_fe_wr(eth, REG_MC_VLAN_CFG, val);
+		err = read_poll_timeout(airoha_fe_rr, val,
+					val & MC_VLAN_CFG_CMD_DONE_MASK,
+					USEC_PER_MSEC, 5 * USEC_PER_MSEC,
+					false, eth, REG_MC_VLAN_CFG);
+		if (err)
+			return err;
+
+		for (j = 0; j < AIROHA_FE_MC_MAX_VLAN_PORT; j++) {
+			airoha_fe_wr(eth, REG_MC_VLAN_DATA, 0x0);
+
+			val = FIELD_PREP(MC_VLAN_CFG_TABLE_ID_MASK, i) |
+			      FIELD_PREP(MC_VLAN_CFG_PORT_ID_MASK, j) |
+			      MC_VLAN_CFG_RW_MASK;
+			airoha_fe_wr(eth, REG_MC_VLAN_CFG, val);
+			err = read_poll_timeout(airoha_fe_rr, val,
+						val & MC_VLAN_CFG_CMD_DONE_MASK,
+						USEC_PER_MSEC, 5 * USEC_PER_MSEC,
+						false, eth, REG_MC_VLAN_CFG);
+			if (err)
+				return err;
+		}
+	}
+
+	return 0;
+}
+
 static int airoha_fe_init(struct airoha_eth *eth)
 {
 	airoha_fe_maccr_init(eth);
@@ -232,8 +271,24 @@ static int airoha_fe_init(struct airoha_eth *eth)
 	airoha_fe_set(eth, REG_GDM_MISC_CFG,
 		      GDM2_RDM_ACK_WAIT_PREF_MASK |
 		      GDM2_CHN_VLD_MODE_MASK);
+	airoha_fe_rmw(eth, REG_CDM2_FWD_CFG, CDM2_OAM_QSEL_MASK, 15);
 
-	return 0;
+	airoha_fe_clear(eth, REG_FE_CPORT_CFG, FE_CPORT_QUEUE_XFC_MASK);
+	airoha_fe_set(eth, REG_FE_CPORT_CFG, FE_CPORT_PORT_XFC_MASK);
+
+	/* default aging mode for mbi unlock issue */
+	airoha_fe_rmw(eth, REG_GDM2_CHN_RLS,
+		      MBI_RX_AGE_SEL_MASK | MBI_TX_AGE_SEL_MASK,
+		      FIELD_PREP(MBI_RX_AGE_SEL_MASK, 3) |
+		      FIELD_PREP(MBI_TX_AGE_SEL_MASK, 3));
+
+	/* disable IFC by default */
+	airoha_fe_clear(eth, REG_FE_CSR_IFC_CFG, FE_IFC_EN_MASK);
+
+	/* enable 1:N vlan action, init vlan table */
+	airoha_fe_set(eth, REG_MC_VLAN_EN, MC_VLAN_EN_MASK);
+
+	return airoha_fe_mc_vlan_clear(eth);
 }
 
 static int airoha_qdma_fill_rx_queue(struct airoha_queue *q)
