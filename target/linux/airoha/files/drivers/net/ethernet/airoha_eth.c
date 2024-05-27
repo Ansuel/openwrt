@@ -154,7 +154,7 @@ static int airoha_set_gdma_ports(struct airoha_eth *eth, bool enable)
 	return 0;
 }
 
-static void airoha_maccr_init(struct airoha_eth *eth)
+static void airoha_fe_maccr_init(struct airoha_eth *eth)
 {
 	airoha_fe_set(eth, REG_GDM1_FWD_CFG,
 		      GDM1_TCP_CKSUM | GDM1_UDP_CKSUM | GDM1_IP4_CKSUM |
@@ -168,6 +168,45 @@ static void airoha_maccr_init(struct airoha_eth *eth)
 		      GDM1_SHORT_LEN_MASK | GDM1_LONG_LEN_MASK,
 		      FIELD_PREP(GDM1_SHORT_LEN_MASK, 60) |
 		      FIELD_PREP(GDM1_LONG_LEN_MASK, 4004));
+}
+
+static int airoha_fe_init(struct airoha_eth *eth)
+{
+	airoha_fe_maccr_init(eth);
+
+	/* PSE IQ reserve */
+	airoha_fe_rmw(eth, REG_PSE_IQ_REV1, PSE_IQ_RES1_P2_MASK,
+		      FIELD_PREP(PSE_IQ_RES1_P2_MASK, 0x10));
+	airoha_fe_rmw(eth, REG_PSE_IQ_REV2,
+		      PSE_IQ_RES2_P5_MASK | PSE_IQ_RES2_P4_MASK,
+		      FIELD_PREP(PSE_IQ_RES2_P5_MASK, 0x40) |
+		      FIELD_PREP(PSE_IQ_RES2_P4_MASK, 0x34));
+
+	/* enable FE copy engine for MC/KA/DPI */
+	airoha_fe_wr(eth, REG_FE_PCE_CFG, PCE_DPI_EN | PCE_KA_EN | PCE_MC_EN);
+	/* set vip queue selection to ring 1 */
+	airoha_fe_rmw(eth, REG_CDM1_FWD_CFG, CDM1_VIP_QSEL_MASK,
+		      FIELD_PREP(CDM1_VIP_QSEL_MASK, 0x4));
+	airoha_fe_rmw(eth, REG_CDM2_FWD_CFG, CDM2_VIP_QSEL_MASK,
+		      FIELD_PREP(CDM2_VIP_QSEL_MASK, 0x4));
+	/* set GDM4 source interface offset to 8 */
+	airoha_fe_rmw(eth, REG_GDM4_SRC_PORT_SET,
+		      GDM4_SPORT_OFF2_MASK |
+		      GDM4_SPORT_OFF1_MASK |
+		      GDM4_SPORT_OFF0_MASK,
+		      FIELD_PREP(GDM4_SPORT_OFF2_MASK, 8) |
+		      FIELD_PREP(GDM4_SPORT_OFF1_MASK, 8) |
+		      FIELD_PREP(GDM4_SPORT_OFF0_MASK, 8));
+
+	/* connect RxRing1 and RxRing15 to PSE Port0 OQ-1
+	 * connect other rings to PSE Port0 OQ-0
+	 */
+	airoha_fe_wr(eth, REG_FE_CDM1_OQ_MAP0, BIT(4));
+	airoha_fe_wr(eth, REG_FE_CDM1_OQ_MAP1, BIT(28));
+	airoha_fe_wr(eth, REG_FE_CDM1_OQ_MAP2, BIT(4));
+	airoha_fe_wr(eth, REG_FE_CDM1_OQ_MAP3, BIT(28));
+
+	return 0;
 }
 
 static int airoha_qdma_fill_rx_queue(struct airoha_queue *q)
@@ -792,6 +831,8 @@ static int airoha_qdma_init(struct airoha_eth *eth)
 
 static int airoha_hw_init(struct airoha_eth *eth)
 {
+	int err;
+
 	/* disable xsi */
 	reset_control_bulk_assert(AIROHA_MAX_NUM_XSI_RSTS, eth->xsi_rsts);
 
@@ -800,7 +841,9 @@ static int airoha_hw_init(struct airoha_eth *eth)
 	reset_control_bulk_deassert(AIROHA_MAX_NUM_RSTS, eth->rsts);
 	msleep(20);
 
-	airoha_maccr_init(eth);
+	err = airoha_fe_init(eth);
+	if (err)
+		return err;
 
 	return airoha_qdma_init(eth);
 }
