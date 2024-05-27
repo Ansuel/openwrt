@@ -174,10 +174,122 @@ static void airoha_fe_vip_setup(struct airoha_eth *eth)
 {
 }
 
+static u32 airoha_fe_get_oq_rsv(struct airoha_eth *eth,
+				u32 port, u32 queue)
+{
+	u32 val;
+
+	airoha_fe_rmw(eth, REG_FE_PSE_QUEUE_CFG_WR,
+		      PSE_CFG_PORT_ID_MASK | PSE_CFG_QUEUE_ID_MASK,
+		      FIELD_PREP(PSE_CFG_PORT_ID_MASK, port) |
+		      FIELD_PREP(PSE_CFG_QUEUE_ID_MASK, queue));
+	val = airoha_fe_rr(eth, REG_FE_PSE_QUEUE_CFG_VAL);
+
+	return FIELD_GET(PSE_CFG_OQ_RSV_MASK, val);
+}
+
+static void airoha_fe_set_oq_rsv(struct airoha_eth *eth,
+				 u32 port, u32 queue, u32 val)
+{
+	airoha_fe_rmw(eth, REG_FE_PSE_QUEUE_CFG_VAL, PSE_CFG_OQ_RSV_MASK,
+		      FIELD_PREP(PSE_CFG_OQ_RSV_MASK, val));
+	airoha_fe_rmw(eth, REG_FE_PSE_QUEUE_CFG_WR,
+		      PSE_CFG_PORT_ID_MASK | PSE_CFG_QUEUE_ID_MASK |
+		      PSE_CFG_WR_EN_MASK | PSE_CFG_OQRSV_SEL_MASK,
+		      FIELD_PREP(PSE_CFG_PORT_ID_MASK, port) |
+		      FIELD_PREP(PSE_CFG_QUEUE_ID_MASK, queue) |
+		      PSE_CFG_WR_EN_MASK | PSE_CFG_OQRSV_SEL_MASK);
+}
+
+static int airoha_fe_set_pse_oq_rsv(struct airoha_eth *eth,
+				    u32 port, u32 queue, u32 val)
+{
+	u32 orig_val, tmp, all_rsv, fq_limit;
+	const u32 pse_port_oq_id[] = {
+		PSE_PORT0_QUEUE, PSE_PORT1_QUEUE,
+		PSE_PORT2_QUEUE, PSE_PORT3_QUEUE,
+		PSE_PORT4_QUEUE, PSE_PORT5_QUEUE,
+		PSE_PORT6_QUEUE, PSE_PORT7_QUEUE,
+		PSE_PORT8_QUEUE, PSE_PORT9_QUEUE,
+		PSE_PORT10_QUEUE
+	};
+
+	if (port >= ARRAY_SIZE(pse_port_oq_id))
+		return -EINVAL;
+
+	if (queue >= pse_port_oq_id[port])
+		return -EINVAL;
+
+	airoha_fe_set_oq_rsv(eth, port, queue, val);
+
+	/* modify all rsv */
+	orig_val = airoha_fe_get_oq_rsv(eth, port, queue);
+	tmp = airoha_fe_rr(eth, REG_FE_PSE_BUF_SET);
+	all_rsv = FIELD_GET(PSE_ALLRSV_MASK, tmp);
+	all_rsv += (val - orig_val);
+	airoha_fe_rmw(eth, REG_FE_PSE_BUF_SET, PSE_ALLRSV_MASK,
+		      FIELD_PREP(PSE_ALLRSV_MASK, all_rsv));
+
+	/* modify hthd */
+	tmp = airoha_fe_rr(eth, PSE_FQ_CFG);
+	fq_limit = FIELD_GET(PSE_FQ_LIMIT_MASK, tmp);
+	tmp = fq_limit - all_rsv - 0x20;
+	airoha_fe_rmw(eth, REG_PSE_SHARE_USED_THD,
+		      PSE_SHARE_USED_HTHD_MASK,
+		      FIELD_PREP(PSE_SHARE_USED_HTHD_MASK, tmp));
+
+	tmp = fq_limit - all_rsv - 0x100;
+	airoha_fe_rmw(eth, REG_PSE_SHARE_USED_THD,
+		      PSE_SHARE_USED_MTHD_MASK,
+		      FIELD_PREP(PSE_SHARE_USED_MTHD_MASK, tmp));
+	tmp = (3 * tmp) >> 2;
+	airoha_fe_rmw(eth, REG_FE_PSE_BUF_SET,
+		      PSE_SHARE_USED_LTHD_MASK,
+		      FIELD_PREP(PSE_SHARE_USED_LTHD_MASK, tmp));
+
+	return 0;
+}
+
 static void airoha_fe_oq_rsv_init(struct airoha_eth *eth)
 {
+	int i;
+
 	/* hw misses PPE2 oq rsv */
 	airoha_fe_set(eth, REG_FE_PSE_BUF_SET, BIT(9));
+
+	for (i = 0; i < PSE_PORT0_QUEUE; i++)
+		airoha_fe_set_pse_oq_rsv(eth, 0, i, 0x40);
+	for (i = 0; i < PSE_PORT1_QUEUE; i++)
+		airoha_fe_set_pse_oq_rsv(eth, 1, i, 0x40);
+
+	for (i = 6; i < PSE_PORT2_QUEUE; i++)
+		airoha_fe_set_pse_oq_rsv(eth, 2, i, 0);
+
+	for (i = 0; i < PSE_PORT3_QUEUE; i++)
+		airoha_fe_set_pse_oq_rsv(eth, 3, i, 0x40);
+
+	airoha_fe_set_pse_oq_rsv(eth, 4, 0, 0x40);
+	airoha_fe_set_pse_oq_rsv(eth, 4, 1, 0x40);
+	airoha_fe_set_pse_oq_rsv(eth, 4, 2, 0);
+	airoha_fe_set_pse_oq_rsv(eth, 4, 3, 0);
+	airoha_fe_set_pse_oq_rsv(eth, 8, 0, 0x40);
+	airoha_fe_set_pse_oq_rsv(eth, 8, 1, 0x40);
+	airoha_fe_set_pse_oq_rsv(eth, 8, 2, 0);
+	airoha_fe_set_pse_oq_rsv(eth, 8, 3, 0);
+
+	for (i = 0; i < PSE_PORT5_QUEUE; i++)
+		airoha_fe_set_pse_oq_rsv(eth, 5, i, 0x40);
+
+	for(i = 0; i < PSE_PORT6_QUEUE - 1; i++)
+		airoha_fe_set_pse_oq_rsv(eth, 6, i, 0);
+
+	for(i = 4; i < PSE_PORT7_QUEUE; i++)
+		airoha_fe_set_pse_oq_rsv(eth, 7, i, 0x40);
+
+	airoha_fe_set_pse_oq_rsv(eth, 9, 0, 0x40);
+	airoha_fe_set_pse_oq_rsv(eth, 9, 1, 0x40);
+	airoha_fe_set_pse_oq_rsv(eth, 10, 0, 0x40);
+	airoha_fe_set_pse_oq_rsv(eth, 10, 1, 0x40);
 }
 
 static int airoha_fe_mc_vlan_clear(struct airoha_eth *eth)
