@@ -84,9 +84,17 @@
 #define REG_CDM1_FWD_CFG		(CDM1_BASE + 0x08)
 #define CDM1_VIP_QSEL_MASK		GENMASK(24, 20)
 
+#define REG_CDM1_CRSN_QSEL(_n)		(CDM1_BASE + 0x10 + ((_n) << 2))
+#define CDM1_CRSN_QSEL_REASON_MASK(_n)	\
+	GENMASK(4 + (((_n) % 4) << 3), (((_n) % 4 ) << 3))
+
 #define REG_CDM2_FWD_CFG		(CDM2_BASE + 0x08)
 #define CDM2_OAM_QSEL_MASK		GENMASK(31, 27)
 #define CDM2_VIP_QSEL_MASK		GENMASK(24, 20)
+
+#define REG_CDM2_CRSN_QSEL(_n)		(CDM2_BASE + 0x10 + ((_n) << 2))
+#define CDM2_CRSN_QSEL_REASON_MASK(_n)	\
+	GENMASK(4 + (((_n) % 4) << 3), (((_n) % 4 ) << 3))
 
 #define REG_GDM1_FWD_CFG		GDM1_BASE
 #define GDM1_DROP_CRC_ERR		BIT(23)
@@ -547,6 +555,21 @@ enum {
 	FE_DP_DISCARD,
 	FE_DP_PPE2 = 8,
 	FE_DP_DROP = 15,
+};
+
+enum {
+	CDM_CRSN_QSEL_Q1 = 1,
+	CDM_CRSN_QSEL_Q5 = 5,
+	CDM_CRSN_QSEL_Q6 = 6,
+	CDM_CRSN_QSEL_Q15 = 15,
+};
+
+enum {
+	CRSN_08 = 0x8,
+	CRSN_21 = 0x15, /* KA */
+	CRSN_22 = 0x16, /* hit bind and force route to CPU */
+	CRSN_24 = 0x18,
+	CRSN_25 = 0x19,
 };
 
 enum {

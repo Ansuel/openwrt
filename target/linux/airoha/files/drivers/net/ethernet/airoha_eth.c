@@ -219,6 +219,52 @@ static int airoha_fe_mc_vlan_clear(struct airoha_eth *eth)
 	return 0;
 }
 
+static void airoha_fe_crsn_qsel_init(struct airoha_eth *eth)
+{
+	/* CDM1_CRSN_QSEL */
+	airoha_fe_rmw(eth, REG_CDM1_CRSN_QSEL(CRSN_22 >> 2),
+		      CDM1_CRSN_QSEL_REASON_MASK(CRSN_22),
+		      FIELD_PREP(CDM1_CRSN_QSEL_REASON_MASK(CRSN_22),
+				 CDM_CRSN_QSEL_Q1));
+	airoha_fe_rmw(eth, REG_CDM1_CRSN_QSEL(CRSN_08 >> 2),
+		      CDM1_CRSN_QSEL_REASON_MASK(CRSN_08),
+		      FIELD_PREP(CDM1_CRSN_QSEL_REASON_MASK(CRSN_08),
+				 CDM_CRSN_QSEL_Q1));
+	airoha_fe_rmw(eth, REG_CDM1_CRSN_QSEL(CRSN_21 >> 2),
+		      CDM1_CRSN_QSEL_REASON_MASK(CRSN_21),
+		      FIELD_PREP(CDM1_CRSN_QSEL_REASON_MASK(CRSN_21),
+				 CDM_CRSN_QSEL_Q1));
+	airoha_fe_rmw(eth, REG_CDM1_CRSN_QSEL(CRSN_24 >> 2),
+	      CDM1_CRSN_QSEL_REASON_MASK(CRSN_24),
+	      FIELD_PREP(CDM1_CRSN_QSEL_REASON_MASK(CRSN_24),
+			 CDM_CRSN_QSEL_Q6));
+	airoha_fe_rmw(eth, REG_CDM1_CRSN_QSEL(CRSN_25 >> 2),
+		      CDM1_CRSN_QSEL_REASON_MASK(CRSN_25),
+		      FIELD_PREP(CDM1_CRSN_QSEL_REASON_MASK(CRSN_25),
+				 CDM_CRSN_QSEL_Q1));
+	/* CDM2_CRSN_QSEL */
+	airoha_fe_rmw(eth, REG_CDM2_CRSN_QSEL(CRSN_08 >> 2),
+		      CDM2_CRSN_QSEL_REASON_MASK(CRSN_08),
+		      FIELD_PREP(CDM2_CRSN_QSEL_REASON_MASK(CRSN_08),
+				 CDM_CRSN_QSEL_Q1));
+	airoha_fe_rmw(eth, REG_CDM2_CRSN_QSEL(CRSN_21 >> 2),
+		      CDM2_CRSN_QSEL_REASON_MASK(CRSN_21),
+		      FIELD_PREP(CDM2_CRSN_QSEL_REASON_MASK(CRSN_21),
+				 CDM_CRSN_QSEL_Q1));
+	airoha_fe_rmw(eth, REG_CDM2_CRSN_QSEL(CRSN_22 >> 2),
+		      CDM2_CRSN_QSEL_REASON_MASK(CRSN_22),
+		      FIELD_PREP(CDM2_CRSN_QSEL_REASON_MASK(CRSN_22),
+				 CDM_CRSN_QSEL_Q1));
+	airoha_fe_rmw(eth, REG_CDM2_CRSN_QSEL(CRSN_24 >> 2),
+		      CDM2_CRSN_QSEL_REASON_MASK(CRSN_24),
+		      FIELD_PREP(CDM2_CRSN_QSEL_REASON_MASK(CRSN_24),
+				 CDM_CRSN_QSEL_Q6));
+	airoha_fe_rmw(eth, REG_CDM2_CRSN_QSEL(CRSN_25 >> 2),
+		      CDM2_CRSN_QSEL_REASON_MASK(CRSN_25),
+		      FIELD_PREP(CDM2_CRSN_QSEL_REASON_MASK(CRSN_25),
+				 CDM_CRSN_QSEL_Q1));
+}
+
 static int airoha_fe_init(struct airoha_eth *eth)
 {
 	airoha_fe_maccr_init(eth);
@@ -287,6 +333,8 @@ static int airoha_fe_init(struct airoha_eth *eth)
 
 	airoha_fe_set(eth, REG_GDM3_FWD_CFG, GDM3_PAD_EN_MASK);
 	airoha_fe_set(eth, REG_GDM4_FWD_CFG, GDM4_PAD_EN_MASK);
+
+	airoha_fe_crsn_qsel_init(eth);
 
 	airoha_fe_clear(eth, REG_FE_CPORT_CFG, FE_CPORT_QUEUE_XFC_MASK);
 	airoha_fe_set(eth, REG_FE_CPORT_CFG, FE_CPORT_PORT_XFC_MASK);
