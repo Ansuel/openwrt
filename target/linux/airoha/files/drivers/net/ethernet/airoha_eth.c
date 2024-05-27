@@ -273,6 +273,21 @@ static int airoha_fe_init(struct airoha_eth *eth)
 		      GDM2_CHN_VLD_MODE_MASK);
 	airoha_fe_rmw(eth, REG_CDM2_FWD_CFG, CDM2_OAM_QSEL_MASK, 15);
 
+	/* init fragment and assemble Force Port */
+	/* NPU Core-3, NPU Bridge Channel-3 */
+	airoha_fe_rmw(eth, REG_IP_FRAG_FP,
+		      IP_FRAGMENT_PORT_MASK | IP_FRAGMENT_NBQ_MASK,
+		      FIELD_PREP(IP_FRAGMENT_PORT_MASK, 6) |
+		      FIELD_PREP(IP_FRAGMENT_NBQ_MASK, 3));
+	/* QDMA LAN, RX Ring-22 */
+	airoha_fe_rmw(eth, REG_IP_FRAG_FP,
+		      IP_ASSEMBLE_PORT_MASK | IP_ASSEMBLE_NBQ_MASK,
+		      FIELD_PREP(IP_ASSEMBLE_PORT_MASK, 0) |
+		      FIELD_PREP(IP_ASSEMBLE_NBQ_MASK, 22));
+
+	airoha_fe_set(eth, REG_GDM3_FWD_CFG, GDM3_PAD_EN_MASK);
+	airoha_fe_set(eth, REG_GDM4_FWD_CFG, GDM4_PAD_EN_MASK);
+
 	airoha_fe_clear(eth, REG_FE_CPORT_CFG, FE_CPORT_QUEUE_XFC_MASK);
 	airoha_fe_set(eth, REG_FE_CPORT_CFG, FE_CPORT_PORT_XFC_MASK);
 
