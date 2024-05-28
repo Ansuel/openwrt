@@ -111,6 +111,18 @@
 #define PSE_IQ_RES2_P5_MASK		GENMASK(15, 8)
 #define PSE_IQ_RES2_P4_MASK		GENMASK(7, 0)
 
+#define REG_FE_VIP_EN(_n)		(0x0300 + ((_n) << 3))
+#define PATN_FCPU_EN_MASK		BIT(7)
+#define PATN_SWP_EN_MASK		BIT(6)
+#define PATN_DP_EN_MASK			BIT(5)
+#define PATN_SP_EN_MASK			BIT(4)
+#define PATN_TYPE_MASK			GENMASK(3, 1)
+#define PATN_EN_MASK			BIT(0)
+
+#define REG_FE_VIP_PATN(_n)		(0x0304 + ((_n) << 3))
+#define PATN_DP_MASK			GENMASK(31, 16)
+#define PATN_SP_MASK			GENMASK(15, 0)
+
 #define REG_CDM1_VLAN_CTRL		CDM1_BASE
 #define CDM1_VLAN_MASK			GENMASK(31, 16)
 
@@ -449,8 +461,8 @@
 #define REG_TXQ_DIS_CFG(_n, _m)		(REG_TXQ_DIS_CFG_BASE((_n)) + (_m) << 2)
 
 #define REG_LMGR_INIT_CFG		0x1000
-#define LGMR_INIT_START			BIT(31)
-#define LGMR_SRAM_MODE_MASK		BIT(30)
+#define LMGR_INIT_START			BIT(31)
+#define LMGR_SRAM_MODE_MASK		BIT(30)
 #define HW_FWD_PKTSIZE_OVERHEAD_MASK	GENMASK(27, 20)
 #define HW_FWD_DESC_NUM_MASK		GENMASK(16, 0)
 

@@ -901,13 +901,13 @@ static int airoha_qdma_init_hfwd_queues(struct airoha_eth *eth)
 	airoha_qdma_rmw(eth, REG_FWD_DSCP_LOW_THR, FWD_DSCP_LOW_THR_MASK,
 			FIELD_PREP(FWD_DSCP_LOW_THR_MASK, 128));
 	airoha_qdma_rmw(eth, REG_LMGR_INIT_CFG,
-			LGMR_INIT_START | LGMR_SRAM_MODE_MASK |
+			LMGR_INIT_START | LMGR_SRAM_MODE_MASK |
 			HW_FWD_DESC_NUM_MASK,
 			FIELD_PREP(HW_FWD_DESC_NUM_MASK, HW_DSCP_NUM) |
-			LGMR_INIT_START);
+			LMGR_INIT_START);
 
 	return read_poll_timeout(airoha_qdma_rr, status,
-				 !(status & LGMR_INIT_START), USEC_PER_MSEC,
+				 !(status & LMGR_INIT_START), USEC_PER_MSEC,
 				 30 * USEC_PER_MSEC, true, eth,
 				 REG_LMGR_INIT_CFG);
 }
@@ -1205,6 +1205,8 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 		if (unlikely(dma_mapping_error(dev->dev.parent, addr)))
 			goto error_unmap;
 
+		index = (index + 1) % q->ndesc;
+
 		val = FIELD_PREP(QDMA_DESC_LEN_MASK, len);
 		if (i < nr_frags - 1)
 			val |= FIELD_PREP(QDMA_DESC_MORE_MASK, 1);
@@ -1226,7 +1228,6 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 		airoha_qdma_rmw(eth, REG_TX_CPU_IDX(qid), TX_RING_CPU_IDX_MASK,
 				FIELD_PREP(TX_RING_CPU_IDX_MASK, index));
 
-		index = (index + 1) % q->ndesc;
 		data = skb_frag_address(frag);
 		len = skb_frag_size(frag);
 	}
