@@ -11,15 +11,15 @@
 #define AIROHA_NUM_RX_RING		32
 #define AIROHA_FE_MC_MAX_VLAN_TABLE	64
 #define AIROHA_FE_MC_MAX_VLAN_PORT	16
-#define TX_DSCP_NUM(_n)		((_n) ? 128 : 1536)
-#define AIROHA_NUM_TX_IRQ	2
-#define RX_DSCP_NUM(_n)		\
-	((_n) ==  2 ? 128 :	\
-	 (_n) == 11 ? 128 :	\
-	 (_n) == 15 ? 128 :	\
+#define AIROHA_NUM_TX_IRQ		2
+#define HW_DSCP_NUM			2048
+#define IRQ_QUEUE_LEN(_n)		((_n) ? 1024 : 2048)
+#define TX_DSCP_NUM(_n)			((_n) ? 128 : 1536)
+#define RX_DSCP_NUM(_n)			\
+	((_n) ==  2 ? 128 :		\
+	 (_n) == 11 ? 128 :		\
+	 (_n) == 15 ? 128 :		\
 	 (_n) ==  0 ? 1024 : 16)
-#define HW_DSCP_NUM		2048
-#define IRQ_QUEUE_LEN(_n)	((_n) ? 1024 : 2048)
 
 /* FE */
 #define PSE_BASE			0x0100
