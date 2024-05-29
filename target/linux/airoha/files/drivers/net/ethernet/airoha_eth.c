@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/reset.h>
 #include <linux/tcp.h>
+#include <net/dsa.h>
 #include <net/page_pool.h>
 #include "airoha_eth.h"
 
@@ -559,6 +560,7 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 		skb_mark_for_recycle(skb);
 		skb->dev = eth->net_dev;
 		skb->protocol = eth_type_trans(skb, eth->net_dev);
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
 		skb_record_rx_queue(skb, qid);
 		napi_gro_receive(&q->napi, skb);
 
@@ -1109,6 +1111,11 @@ static int airoha_dev_open(struct net_device *dev)
 {
 	struct airoha_eth *eth = netdev_priv(dev);
 	int err;
+
+	if (netdev_uses_dsa(dev))
+		airoha_fe_set(eth, REG_GDM1_INGRESS_CFG, GDM1_STAG_EN_MASK);
+	else
+		airoha_fe_clear(eth, REG_GDM1_INGRESS_CFG, GDM1_STAG_EN_MASK);
 
 	netif_tx_start_all_queues(dev);
 	err = airoha_set_gdma_ports(eth, true);
