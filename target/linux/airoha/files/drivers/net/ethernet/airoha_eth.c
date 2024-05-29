@@ -486,6 +486,10 @@ static int airoha_qdma_fill_rx_queue(struct airoha_queue *q)
 		if (!page)
 			break;
 
+		q->head = (q->head + 1) % q->ndesc;
+		q->queued++;
+		nframes++;
+
 		e->buf = page_address(page) + offset;
 		e->dma_addr = page_pool_get_dma_addr(page) + offset;
 		e->dma_len = SKB_WITH_OVERHEAD(q->buf_size);
@@ -506,10 +510,6 @@ static int airoha_qdma_fill_rx_queue(struct airoha_queue *q)
 		wmb();
 		airoha_qdma_rmw(eth, REG_RX_CPU_IDX(qid), RX_RING_CPU_IDX_MASK,
 				FIELD_PREP(RX_RING_CPU_IDX_MASK, q->head));
-
-		q->head = (q->head + 1) % q->ndesc;
-		q->queued++;
-		nframes++;
 	}
 	spin_unlock_bh(&q->lock);
 
