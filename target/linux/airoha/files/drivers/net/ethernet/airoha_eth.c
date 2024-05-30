@@ -1240,7 +1240,7 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 				   struct net_device *dev)
 {
 	struct skb_shared_info *sinfo = skb_shinfo(skb);
-	u32 nr_frags = 1 + sinfo->nr_frags, msg1 = 0;
+	u32 nr_frags = 1 + sinfo->nr_frags, msg0 = 0, msg1;
 	struct airoha_eth *eth = netdev_priv(dev);
 	int i, qid = 0; /* FIXME */
 	struct airoha_queue *q = &eth->q_tx[qid];
@@ -1248,18 +1248,24 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 	void *data = skb->data;
 	u16 index;
 
+	if (skb->ip_summed == CHECKSUM_PARTIAL)
+		msg0 |= FIELD_PREP(QDMA_ETH_TXMSG_TCO_MASK, 1) |
+			FIELD_PREP(QDMA_ETH_TXMSG_UCO_MASK, 1) |
+			FIELD_PREP(QDMA_ETH_TXMSG_ICO_MASK, 1);
+
 	/* TSO: fill MSS info in tcp checksum field */
 	if (skb_is_gso(skb)) {
 		if (skb_cow_head(skb, 0))
 			goto error;
 
-		msg1 = FIELD_PREP(QDMA_ETH_TXMSG_TCO_MASK, 1) |
-		       FIELD_PREP(QDMA_ETH_TXMSG_ICO_MASK, 1);
 		if (sinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)) {
 			tcp_hdr(skb)->check = cpu_to_be16(sinfo->gso_size);
-			msg1 |= FIELD_PREP(QDMA_ETH_TXMSG_TSO_MASK, 1);
+			msg0 |= FIELD_PREP(QDMA_ETH_TXMSG_TSO_MASK, 1);
 		}
 	}
+
+	msg1 = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, DPORT_GDM1) |
+	       FIELD_PREP(QDMA_ETH_TXMSG_METER_MASK, 0x7f);
 
 	spin_lock_bh(&q->lock);
 
@@ -1290,9 +1296,7 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 		WRITE_ONCE(desc->addr, cpu_to_le32(addr));
 		val = FIELD_PREP(QDMA_DESC_NEXT_ID_MASK, index);
 		WRITE_ONCE(desc->data, cpu_to_le32(val));
-		WRITE_ONCE(desc->msg0, 0);
-		msg1 |= FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, DPORT_GDM1) |
-			FIELD_PREP(QDMA_ETH_TXMSG_METER_MASK, 0x7f);
+		WRITE_ONCE(desc->msg0, cpu_to_le32(msg0));
 		WRITE_ONCE(desc->msg1, cpu_to_le32(msg1));
 		WRITE_ONCE(desc->msg2, cpu_to_le32(0xffff));
 
@@ -1479,7 +1483,7 @@ static int airoha_probe(struct platform_device *pdev)
 	eth->rsts[1].id = "pdma";
 	eth->rsts[2].id = "qdma";
 	err = devm_reset_control_bulk_get_exclusive(&pdev->dev,
-						    AIROHA_MAX_NUM_RSTS,
+						    ARRAY_SIZE(eth->rsts),
 						    eth->rsts);
 	if (err) {
 		dev_err(&pdev->dev, "failed to get bulk reset lines\n");
@@ -1491,7 +1495,7 @@ static int airoha_probe(struct platform_device *pdev)
 	eth->xsi_rsts[2].id = "hsi1-mac";
 	eth->xsi_rsts[3].id = "hsi-mac";
 	err = devm_reset_control_bulk_get_exclusive(&pdev->dev,
-						    AIROHA_MAX_NUM_XSI_RSTS,
+						    ARRAY_SIZE(eth->xsi_rsts),
 						    eth->xsi_rsts);
 	if (err) {
 		dev_err(&pdev->dev, "failed to get bulk xsi reset lines\n");
