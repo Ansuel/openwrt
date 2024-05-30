@@ -14,7 +14,7 @@
 #define AIROHA_NUM_TX_IRQ		2
 #define HW_DSCP_NUM			2048
 #define IRQ_QUEUE_LEN(_n)		((_n) ? 1024 : 2048)
-#define TX_DSCP_NUM(_n)			((_n) ? 128 : 1536)
+#define TX_DSCP_NUM			1024
 #define RX_DSCP_NUM(_n)			\
 	((_n) ==  2 ? 128 :		\
 	 (_n) == 11 ? 128 :		\
@@ -645,6 +645,7 @@ struct airoha_queue {
 
 	int queued;
 	int ndesc;
+	int free_thr;
 	int buf_size;
 
 	struct napi_struct napi;

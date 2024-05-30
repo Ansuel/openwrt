@@ -818,6 +818,10 @@ static int airoha_qdma_tx_napi_poll(struct napi_struct *napi, int budget)
 				break;
 		}
 
+		if (__netif_subqueue_stopped(eth->net_dev, qid) &&
+		    q->queued + q->free_thr < q->ndesc)
+			netif_wake_subqueue(eth->net_dev, qid);
+
 		spin_unlock_bh(&q->lock);
 	}
 
@@ -848,6 +852,7 @@ static int airoha_qdma_init_tx_queue(struct airoha_eth *eth,
 	spin_lock_init(&q->lock);
 	q->ndesc = size;
 	q->eth = eth;
+	q->free_thr = MAX_SKB_FRAGS;
 
 	q->entry = devm_kzalloc(dev, q->ndesc * sizeof(*q->entry),
 				GFP_KERNEL);
@@ -915,7 +920,7 @@ static int airoha_qdma_init_tx(struct airoha_eth *eth)
 
 	for (i = 0; i < ARRAY_SIZE(eth->q_tx); i++) {
 		err = airoha_qdma_init_tx_queue(eth, &eth->q_tx[i],
-						TX_DSCP_NUM(i));
+						TX_DSCP_NUM);
 		if (err)
 			return err;
 	}
@@ -1242,9 +1247,9 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 	struct skb_shared_info *sinfo = skb_shinfo(skb);
 	u32 nr_frags = 1 + sinfo->nr_frags, msg0 = 0, msg1;
 	struct airoha_eth *eth = netdev_priv(dev);
-	int i, qid = 0; /* FIXME */
-	struct airoha_queue *q = &eth->q_tx[qid];
+	int i, qid = skb_get_queue_mapping(skb);
 	u32 len = skb_headlen(skb);
+	struct airoha_queue *q;
 	void *data = skb->data;
 	u16 index;
 
@@ -1267,11 +1272,16 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 	msg1 = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, DPORT_GDM1) |
 	       FIELD_PREP(QDMA_ETH_TXMSG_METER_MASK, 0x7f);
 
+	if (WARN_ON_ONCE(qid >= ARRAY_SIZE(eth->q_tx)))
+		qid = 0;
+
+	q = &eth->q_tx[qid];
 	spin_lock_bh(&q->lock);
 
 	if (q->queued + nr_frags > q->ndesc) {
 		/* not enough space in the queue */
-		goto error_unlock;
+		spin_unlock_bh(&q->lock);
+		return NETDEV_TX_BUSY;
 	}
 
 	index = q->head;
@@ -1315,6 +1325,9 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 	q->head = index;
 	q->queued += i;
 
+	if (q->queued + q->free_thr >= q->ndesc)
+		netif_stop_subqueue(dev, qid);
+
 	spin_unlock_bh(&q->lock);
 
 	return NETDEV_TX_OK;
@@ -1323,7 +1336,7 @@ error_unmap:
 	for (; i >= 0; i++)
 		dma_unmap_single(dev->dev.parent, q->entry[i].dma_addr,
 				 q->entry[i].dma_len, DMA_TO_DEVICE);
-error_unlock:
+
 	spin_unlock_bh(&q->lock);
 error:
 	dev_kfree_skb_any(skb);
@@ -1405,7 +1418,6 @@ static int airoha_rx_queues_show(struct seq_file *s, void *data)
 
 	return 0;
 }
-
 DEFINE_SHOW_ATTRIBUTE(airoha_rx_queues);
 
 static int airoha_xmit_queues_show(struct seq_file *s, void *data)
@@ -1423,7 +1435,6 @@ static int airoha_xmit_queues_show(struct seq_file *s, void *data)
 
 	return 0;
 }
-
 DEFINE_SHOW_ATTRIBUTE(airoha_xmit_queues);
 
 static int airoha_register_debugfs(struct airoha_eth *eth)
@@ -1514,8 +1525,7 @@ static int airoha_probe(struct platform_device *pdev)
 	dev->watchdog_timeo = 5 * HZ;
 	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
 			   NETIF_F_TSO6 | NETIF_F_IPV6_CSUM |
-			   NETIF_F_SG | NETIF_F_TSO |
-			   NETIF_F_HW_VLAN_CTAG_TX;
+			   NETIF_F_SG | NETIF_F_TSO;
 	dev->features |= dev->hw_features;
 	dev->dev.of_node = np;
 	dev->irq = eth->irq;
