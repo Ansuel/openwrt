@@ -957,16 +957,16 @@ static int airoha_qdma_init_hfwd_queues(struct airoha_eth *eth)
 	int size;
 
 	size = HW_DSCP_NUM * sizeof(struct airoha_qdma_fwd_desc);
-	eth->hfwd_desc = dmam_alloc_coherent(dev, size, &dma_addr,
+	eth->hfwd.desc = dmam_alloc_coherent(dev, size, &dma_addr,
 					     GFP_KERNEL);
-	if (!eth->hfwd_desc)
+	if (!eth->hfwd.desc)
 		return -ENOMEM;
 
 	airoha_qdma_wr(eth, REG_FWD_DSCP_BASE, dma_addr);
 
 	size = AIROHA_MAX_PACKET_SIZE * HW_DSCP_NUM;
-	eth->hfwd_q = dmam_alloc_coherent(dev, size, &dma_addr, GFP_KERNEL);
-	if (!eth->hfwd_q)
+	eth->hfwd.q = dmam_alloc_coherent(dev, size, &dma_addr, GFP_KERNEL);
+	if (!eth->hfwd.q)
 		return -ENOMEM;
 
 	airoha_qdma_wr(eth, REG_FWD_BUF_BASE, dma_addr);
@@ -1167,11 +1167,11 @@ static int airoha_hw_init(struct airoha_eth *eth)
 	int err;
 
 	/* disable xsi */
-	reset_control_bulk_assert(AIROHA_MAX_NUM_XSI_RSTS, eth->xsi_rsts);
+	reset_control_bulk_assert(ARRAY_SIZE(eth->xsi_rsts), eth->xsi_rsts);
 
-	reset_control_bulk_assert(AIROHA_MAX_NUM_RSTS, eth->rsts);
+	reset_control_bulk_assert(ARRAY_SIZE(eth->rsts), eth->rsts);
 	msleep(20);
-	reset_control_bulk_deassert(AIROHA_MAX_NUM_RSTS, eth->rsts);
+	reset_control_bulk_deassert(ARRAY_SIZE(eth->rsts), eth->rsts);
 	msleep(20);
 
 	err = airoha_fe_init(eth);
@@ -1480,12 +1480,12 @@ static int airoha_probe(struct platform_device *pdev)
 		return err;
 	}
 
-	eth->fe_regs = devm_platform_ioremap_resource(pdev, 0);
+	eth->fe_regs = devm_platform_ioremap_resource_byname(pdev, "fe");
 	if (IS_ERR(eth->fe_regs))
 		return dev_err_probe(&pdev->dev, PTR_ERR(eth->fe_regs),
 				     "failed to iomap fe regs\n");
 
-	eth->qdma_regs = devm_platform_ioremap_resource(pdev, 1);
+	eth->qdma_regs = devm_platform_ioremap_resource_byname(pdev, "qdma0");
 	if (IS_ERR(eth->qdma_regs))
 		return dev_err_probe(&pdev->dev, PTR_ERR(eth->qdma_regs),
 				     "failed to iomap qdma regs\n");

@@ -683,8 +683,11 @@ struct airoha_eth {
 
 	struct airoha_tx_irq_queue q_tx_irq[AIROHA_NUM_TX_IRQ];
 
-	void *hfwd_desc;
-	void *hfwd_q;
+	/* descriptor and packet buffers for qdma hw forward */
+	struct {
+		void *desc;
+		void *q;
+	} hfwd;
 
 	struct dentry *debugfs_dir;
 	u32 debugfs_reg;
