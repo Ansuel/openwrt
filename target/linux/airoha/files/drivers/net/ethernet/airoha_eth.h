@@ -241,16 +241,16 @@
 #define HW_FWD_DSCP_MIN_SCATTER_LEN_MASK	GENMASK(15, 0)
 
 #define REG_INT_STATUS(_n)		\
-	((_n) == 4) ? 0x0730 :		\
-	((_n) == 3) ? 0x0724 :		\
-	((_n) == 2) ? 0x0720 :		\
-	((_n) == 1) ? 0x0024 : 0x0020
+	(((_n) == 4) ? 0x0730 :		\
+	 ((_n) == 3) ? 0x0724 :		\
+	 ((_n) == 2) ? 0x0720 :		\
+	 ((_n) == 1) ? 0x0024 : 0x0020)
 
 #define REG_INT_ENABLE(_n)		\
-	((_n) == 4) ? 0x0750 :		\
-	((_n) == 3) ? 0x0744 :		\
-	((_n) == 2) ? 0x0740 :		\
-	((_n) == 1) ? 0x002c : 0x0028
+	(((_n) == 4) ? 0x0750 :		\
+	 ((_n) == 3) ? 0x0744 :		\
+	 ((_n) == 2) ? 0x0740 :		\
+	 ((_n) == 1) ? 0x002c : 0x0028)
 
 /* QDMA_CSR_INT_ENABLE1 */
 #define RX15_COHERENT_INT_MASK		BIT(31)

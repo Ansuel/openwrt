@@ -142,17 +142,21 @@ static int airoha_set_gdma_port(struct airoha_eth *eth, int port, bool enable)
 static int airoha_set_gdma_ports(struct airoha_eth *eth, bool enable)
 {
 	const int port_list[] = { 0, 1, 2, 4 };
-	int i;
+	int i, err;
 
 	for (i = 0; i < ARRAY_SIZE(port_list); i++) {
-		int err;
-
 		err = airoha_set_gdma_port(eth, port_list[i], enable);
 		if (err)
-			return err;
+			goto error;
 	}
 
 	return 0;
+
+error:
+	for (i--; i >= 0; i++)
+		airoha_set_gdma_port(eth, port_list[i], false);
+
+	return err;
 }
 
 static void airoha_fe_maccr_init(struct airoha_eth *eth)
@@ -350,10 +354,10 @@ static void airoha_fe_oq_rsv_init(struct airoha_eth *eth)
 	for (i = 0; i < PSE_PORT5_QUEUE; i++)
 		airoha_fe_set_pse_oq_rsv(eth, 5, i, 0x40);
 
-	for(i = 0; i < PSE_PORT6_QUEUE - 1; i++)
+	for (i = 0; i < PSE_PORT6_QUEUE - 1; i++)
 		airoha_fe_set_pse_oq_rsv(eth, 6, i, 0);
 
-	for(i = 4; i < PSE_PORT7_QUEUE; i++)
+	for (i = 4; i < PSE_PORT7_QUEUE; i++)
 		airoha_fe_set_pse_oq_rsv(eth, 7, i, 0x40);
 
 	airoha_fe_set_pse_oq_rsv(eth, 9, 0, 0x40);
@@ -417,9 +421,9 @@ static void airoha_fe_crsn_qsel_init(struct airoha_eth *eth)
 		      FIELD_PREP(CDM1_CRSN_QSEL_REASON_MASK(CRSN_21),
 				 CDM_CRSN_QSEL_Q1));
 	airoha_fe_rmw(eth, REG_CDM1_CRSN_QSEL(CRSN_24 >> 2),
-	      CDM1_CRSN_QSEL_REASON_MASK(CRSN_24),
-	      FIELD_PREP(CDM1_CRSN_QSEL_REASON_MASK(CRSN_24),
-			 CDM_CRSN_QSEL_Q6));
+		      CDM1_CRSN_QSEL_REASON_MASK(CRSN_24),
+		      FIELD_PREP(CDM1_CRSN_QSEL_REASON_MASK(CRSN_24),
+				 CDM_CRSN_QSEL_Q6));
 	airoha_fe_rmw(eth, REG_CDM1_CRSN_QSEL(CRSN_25 >> 2),
 		      CDM1_CRSN_QSEL_REASON_MASK(CRSN_25),
 		      FIELD_PREP(CDM1_CRSN_QSEL_REASON_MASK(CRSN_25),
@@ -1333,7 +1337,7 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 	return NETDEV_TX_OK;
 
 error_unmap:
-	for (; i >= 0; i++)
+	for (i--; i >= 0; i++)
 		dma_unmap_single(dev->dev.parent, q->entry[i].dma_addr,
 				 q->entry[i].dma_len, DMA_TO_DEVICE);
 
