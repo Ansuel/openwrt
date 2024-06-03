@@ -163,6 +163,48 @@
 			#reset-cells = <1>;
 		};
 
+		i2cclock: i2cclock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+
+			/* 20 MHz */
+			clock-frequency = <20000000>;
+		};
+
+		i2c0: i2c0@1fbf8000 {
+			compatible = "mediatek,mt7621-i2c";
+			reg = <0x0 0x1fbf8000 0x0 0x100>;
+
+			clocks = <&i2cclock>;
+
+			/* 400 kHz */
+			clock-frequency = <400000>;
+			resets = <&scuclk EN7581_I2C_MASTER_RST>;
+			reset-names = "i2c0";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "disable";
+		};
+
+		i2c1: i2c1@1fbf8100 {
+			compatible = "mediatek,mt7621-i2c";
+			reg = <0x0 0x1fbf8100 0x0 0x100>;
+
+			clocks = <&i2cclock>;
+
+			/* 400 kHz */
+			clock-frequency = <400000>;
+			resets = <&scuclk EN7581_I2C2_RST>;
+			reset-names = "i2c1";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			status = "disable";
+		};
+
 		snfi: spi@1fa10000 {
 			compatible = "airoha,en7581-snand";
 			reg = <0x0 0x1fa10000 0x0 0x140>,
