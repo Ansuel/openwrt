@@ -2389,7 +2389,7 @@ CONFIG_PACKAGE_kmod-e1000e=y
 # CONFIG_PACKAGE_kmod-sched-bpf is not set
 # CONFIG_PACKAGE_kmod-sched-cake is not set
 # CONFIG_PACKAGE_kmod-sched-connmark is not set
-# CONFIG_PACKAGE_kmod-sched-core is not set
+CONFIG_PACKAGE_kmod-sched-core=y
 # CONFIG_PACKAGE_kmod-sched-ctinfo is not set
 # CONFIG_PACKAGE_kmod-sched-drr is not set
 # CONFIG_PACKAGE_kmod-sched-flower is not set
@@ -3466,7 +3466,7 @@ CONFIG_WPA_MBO_SUPPORT=y
 # CONFIG_PACKAGE_chat is not set
 # CONFIG_PACKAGE_ds-lite is not set
 # CONFIG_PACKAGE_etherwake is not set
-CONFIG_PACKAGE_ethtool=y
+# CONFIG_PACKAGE_ethtool is not set
 # CONFIG_PACKAGE_ethtool-full is not set
 # CONFIG_PACKAGE_gre is not set
 # CONFIG_PACKAGE_iperf is not set
@@ -3498,8 +3498,8 @@ CONFIG_PACKAGE_iw=y
 # CONFIG_PACKAGE_snmptrapd is not set
 # CONFIG_PACKAGE_soloscli is not set
 # CONFIG_PACKAGE_tcpdump is not set
-CONFIG_PACKAGE_tcpdump-mini=y
-CONFIG_PACKAGE_uclient-fetch=y
+# CONFIG_PACKAGE_tcpdump-mini is not set
+# CONFIG_PACKAGE_uclient-fetch is not set
 # CONFIG_PACKAGE_umdns is not set
 # CONFIG_PACKAGE_unet-cli is not set
 # CONFIG_PACKAGE_unetd is not set
