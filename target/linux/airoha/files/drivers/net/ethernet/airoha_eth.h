@@ -57,6 +57,8 @@
 #define PCE_KA_EN			BIT(1)
 #define PCE_MC_EN			BIT(0)
 
+#define PSE_DEF_RSV_PAGE		0x80
+
 #define PSE_PORT0_QUEUE			6
 #define PSE_PORT1_QUEUE			6
 #define PSE_PORT2_QUEUE			32
@@ -622,6 +624,21 @@ enum {
 };
 
 enum {
+	XSI_PCIE0_PORT,
+	XSI_PCIE1_PORT,
+	XSI_USB_PORT,
+	XSI_AE_PORT,
+	XSI_ETH_PORT,
+};
+
+enum {
+	XSI_PCIE0_VIP_PORT_MASK	= BIT(22),
+	XSI_PCIE1_VIP_PORT_MASK	= BIT(23),
+	XSI_USB_VIP_PORT_MASK	= BIT(25),
+	XSI_ETH_VIP_PORT_MASK	= BIT(24),
+};
+
+enum {
 	DEV_STATE_INITIALIZED,
 };
 
@@ -696,25 +713,6 @@ struct airoha_eth {
 #define airoha_qdma_for_each_q_rx(eth, i)		\
 	for (i = 0; i < ARRAY_SIZE((eth)->q_rx); i++)	\
 		if ((eth)->q_rx[i].ndesc)
-
-static inline void airoha_qdma_start_napi(struct airoha_eth *eth)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(eth->q_tx_irq); i++)
-		napi_enable(&eth->q_tx_irq[i].napi);
-
-	airoha_qdma_for_each_q_rx(eth, i)
-		napi_enable(&eth->q_rx[i].napi);
-}
-
-static inline void airoha_qdma_stop_napi(struct airoha_eth *eth)
-{
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(eth->q_tx_irq); i++)
-		napi_disable(&eth->q_tx_irq[i].napi);
-
-	airoha_qdma_for_each_q_rx(eth, i)
-		napi_disable(&eth->q_rx[i].napi);
-}
+#define airoha_qdma_for_each_q_tx(eth, i)		\
+	for (i = 0; i < ARRAY_SIZE((eth)->q_tx); i++)	\
+		if ((eth)->q_tx[i].ndesc)
