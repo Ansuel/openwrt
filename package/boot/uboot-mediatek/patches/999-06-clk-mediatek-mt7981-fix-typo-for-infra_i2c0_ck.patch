@@ -1,0 +1,56 @@
+From 50b6d5abb08231f5e124b007e9119b36a82feb2a Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 30 May 2024 17:27:27 +0200
+Subject: [PATCH 06/42] clk: mediatek: mt7981: fix typo for infra_i2c0_ck
+
+Fix a typo for infra_i2c0_ck where 0 was misspelled as O.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ arch/arm/dts/mt7981.dtsi               | 2 +-
+ drivers/clk/mediatek/clk-mt7981.c      | 2 +-
+ include/dt-bindings/clock/mt7981-clk.h | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm/dts/mt7981.dtsi b/arch/arm/dts/mt7981.dtsi
+index 686e0e94f08..31530010e07 100644
+--- a/arch/arm/dts/mt7981.dtsi
++++ b/arch/arm/dts/mt7981.dtsi
+@@ -159,7 +159,7 @@
+ 		      <0x10217080 0x80>;
+ 		interrupts = <GIC_SPI 136 IRQ_TYPE_LEVEL_HIGH>;
+ 		clock-div = <1>;
+-		clocks = <&infracfg_ao CK_INFRA_I2CO_CK>,
++		clocks = <&infracfg_ao CK_INFRA_I2C0_CK>,
+ 			 <&infracfg_ao CK_INFRA_AP_DMA_CK>;
+ 		clock-names = "main", "dma";
+ 		#address-cells = <1>;
+diff --git a/drivers/clk/mediatek/clk-mt7981.c b/drivers/clk/mediatek/clk-mt7981.c
+index 93dce19a9fc..55f471c74f1 100644
+--- a/drivers/clk/mediatek/clk-mt7981.c
++++ b/drivers/clk/mediatek/clk-mt7981.c
+@@ -474,7 +474,7 @@ static const struct mtk_gate infracfg_ao_gates[] = {
+ 	GATE_INFRA0(CK_INFRA_SEJ_CK, "infra_sej", CK_INFRA_66M_MCK, 24),
+ 	GATE_INFRA0(CK_INFRA_SEJ_13M_CK, "infra_sej_13m", CK_INFRA_CK_F26M, 25),
+ 	GATE_INFRA1(CK_INFRA_THERM_CK, "infra_therm", CK_INFRA_CK_F26M, 0),
+-	GATE_INFRA1(CK_INFRA_I2CO_CK, "infra_i2co", CK_INFRA_I2CS_CK, 1),
++	GATE_INFRA1(CK_INFRA_I2C0_CK, "infra_i2c0", CK_INFRA_I2CS_CK, 1),
+ 	GATE_INFRA1(CK_INFRA_UART0_CK, "infra_uart0", CK_INFRA_MUX_UART0, 2),
+ 	GATE_INFRA1(CK_INFRA_UART1_CK, "infra_uart1", CK_INFRA_MUX_UART1, 3),
+ 	GATE_INFRA1(CK_INFRA_UART2_CK, "infra_uart2", CK_INFRA_MUX_UART2, 4),
+diff --git a/include/dt-bindings/clock/mt7981-clk.h b/include/dt-bindings/clock/mt7981-clk.h
+index 1c2781cd765..2dae6766ac3 100644
+--- a/include/dt-bindings/clock/mt7981-clk.h
++++ b/include/dt-bindings/clock/mt7981-clk.h
+@@ -196,7 +196,7 @@
+ #define CK_INFRA_SEJ_CK			(24 - INFRACFG_AO_OFFSET)
+ #define CK_INFRA_SEJ_13M_CK		(25 - INFRACFG_AO_OFFSET)
+ #define CK_INFRA_THERM_CK		(26 - INFRACFG_AO_OFFSET)
+-#define CK_INFRA_I2CO_CK		(27 - INFRACFG_AO_OFFSET)
++#define CK_INFRA_I2C0_CK		(27 - INFRACFG_AO_OFFSET)
+ #define CK_INFRA_UART0_CK		(28 - INFRACFG_AO_OFFSET)
+ #define CK_INFRA_UART1_CK		(29 - INFRACFG_AO_OFFSET)
+ #define CK_INFRA_UART2_CK		(30 - INFRACFG_AO_OFFSET)
+-- 
+2.43.0
+

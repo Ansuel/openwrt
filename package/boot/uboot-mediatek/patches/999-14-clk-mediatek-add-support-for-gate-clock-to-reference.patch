@@ -1,0 +1,52 @@
+From 7e8942a323a3ca9448048821a350c3e71e662d0a Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 30 May 2024 19:49:37 +0200
+Subject: [PATCH 14/42] clk: mediatek: add support for gate clock to reference
+ topckgen clock
+
+Add support for gate clock get_rate to reference topckgen clock.
+
+We assume a infracfg-ao implementation where the topckgen is the parent
+of the parent.
+
+Due to all the dependency, parent tree must be filled before a gate is
+used, hence is safe to assume it will be there.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/mediatek/clk-mtk.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/clk/mediatek/clk-mtk.c b/drivers/clk/mediatek/clk-mtk.c
+index 813cdc6a4cd..0d226ae905e 100644
+--- a/drivers/clk/mediatek/clk-mtk.c
++++ b/drivers/clk/mediatek/clk-mtk.c
+@@ -618,13 +618,24 @@ static int mtk_clk_infrasys_disable(struct clk *clk)
+ static ulong mtk_clk_gate_get_rate(struct clk *clk)
+ {
+ 	struct mtk_cg_priv *priv = dev_get_priv(clk->dev);
++	struct udevice *parent = priv->parent;
+ 	const struct mtk_gate *gate;
+ 
+ 	if (clk->id < priv->tree->gates_offs)
+ 		return -EINVAL;
+ 
+ 	gate = &priv->gates[clk->id - priv->tree->gates_offs];
+-	return mtk_clk_find_parent_rate(clk, gate->parent, priv->parent);
++	/*
++	 * Assume a infracfg-ao where:
++	 * parent = infracfg
++	 * parent->parent = topcfggen
++	 */
++	if (gate->flags & CLK_PARENT_TOPCKGEN) {
++		priv = dev_get_priv(parent);
++		parent = priv->parent;
++	}
++
++	return mtk_clk_find_parent_rate(clk, gate->parent, parent);
+ }
+ 
+ const struct clk_ops mtk_clk_apmixedsys_ops = {
+-- 
+2.43.0
+

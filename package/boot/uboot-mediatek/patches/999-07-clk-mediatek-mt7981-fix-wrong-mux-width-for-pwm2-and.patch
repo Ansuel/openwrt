@@ -1,0 +1,33 @@
+From 6af4cbdc1ec180a6df47f1332d4ddce4fa013e8e Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 30 May 2024 17:44:26 +0200
+Subject: [PATCH 07/42] clk: mediatek: mt7981: fix wrong mux width for pwm2 and
+ pwm1 clock
+
+Fix wrong mux width for pwm2 and pwm1. Upstream have width 1 but U-Boot
+have width set to 2. Change the value to follow upstream implementation.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/mediatek/clk-mt7981.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mt7981.c b/drivers/clk/mediatek/clk-mt7981.c
+index 55f471c74f1..a8d4c15bd0d 100644
+--- a/drivers/clk/mediatek/clk-mt7981.c
++++ b/drivers/clk/mediatek/clk-mt7981.c
+@@ -404,9 +404,9 @@ static const struct mtk_composite infra_muxes[] = {
+ 	INFRA_MUX(CK_INFRA_SPI2_SEL, "infra_spi2_sel", infra_spi0_parents, 0x10,
+ 		  6, 1),
+ 	INFRA_MUX(CK_INFRA_PWM1_SEL, "infra_pwm1_sel", infra_pwm1_parents, 0x10,
+-		  9, 2),
++		  9, 1),
+ 	INFRA_MUX(CK_INFRA_PWM2_SEL, "infra_pwm2_sel", infra_pwm1_parents, 0x10,
+-		  11, 2),
++		  11, 1),
+ 	INFRA_MUX(CK_INFRA_PWM_BSEL, "infra_pwm_bsel", infra_pwm_bsel_parents,
+ 		  0x10, 13, 2),
+ 	INFRA_MUX(CK_INFRA_PCIE_SEL, "infra_pcie_sel", infra_pcie_parents, 0x20,
+-- 
+2.43.0
+

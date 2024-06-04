@@ -1,0 +1,48 @@
+From 8f1328899ed2d75f7773d6a16e25a117bad3e1da Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 30 May 2024 18:44:05 +0200
+Subject: [PATCH 10/42] clk: mediatek: mt7981: swap wrong clock-names for spi
+ nodes
+
+Swap wrong clock-names for spi nodes as they were wrong and the spi-clk
+was referencing the sel-clk and the sel-clk was referencing the spi-clk.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ arch/arm/dts/mt7981.dtsi | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm/dts/mt7981.dtsi b/arch/arm/dts/mt7981.dtsi
+index e0bb1f62059..181ada05baf 100644
+--- a/arch/arm/dts/mt7981.dtsi
++++ b/arch/arm/dts/mt7981.dtsi
+@@ -272,7 +272,7 @@
+ 				  <&infracfg CK_INFRA_SPI0_SEL>;
+ 		assigned-clock-parents = <&topckgen CK_TOP_CB_M_D2>,
+ 					 <&topckgen CK_INFRA_ISPI0>;
+-		clock-names = "sel-clk", "spi-clk";
++		clock-names = "spi-clk", "sel-clk";
+ 		interrupts = <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>;
+ 		status = "disabled";
+ 	};
+@@ -287,7 +287,7 @@
+ 				  <&infracfg CK_INFRA_SPI1_SEL>;
+ 		assigned-clock-parents = <&topckgen CK_TOP_CB_M_D2>,
+ 					 <&topckgen CK_INFRA_ISPI1>;
+-		clock-names = "sel-clk", "spi-clk";
++		clock-names = "spi-clk", "sel-clk";
+ 		status = "disabled";
+ 	};
+ 
+@@ -300,7 +300,7 @@
+ 				  <&infracfg CK_INFRA_SPI2_SEL>;
+ 		assigned-clock-parents = <&topckgen CK_TOP_CB_M_D2>,
+ 					 <&topckgen CK_INFRA_ISPI0>;
+-		clock-names = "sel-clk", "spi-clk";
++		clock-names = "spi-clk", "sel-clk";
+ 		interrupts = <GIC_SPI 142 IRQ_TYPE_LEVEL_HIGH>;
+ 		status = "disabled";
+ 	};
+-- 
+2.43.0
+

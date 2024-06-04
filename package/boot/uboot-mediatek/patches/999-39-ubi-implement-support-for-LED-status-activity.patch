@@ -1,0 +1,49 @@
+From f832f81d7e9a21a59525f019f33f0dbc4bf6be25 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sun, 2 Jun 2024 19:34:37 +0200
+Subject: [PATCH 39/42] ubi: implement support for LED status activity
+
+Implement support for LED status activity. If the feature is enabled,
+make the defined ACTIVITY LED to signal ubi write operation.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ cmd/ubi.c | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/cmd/ubi.c b/cmd/ubi.c
+index 0a6a80bdd10..26f365f0366 100644
+--- a/cmd/ubi.c
++++ b/cmd/ubi.c
+@@ -20,6 +20,7 @@
+ #include <mtd.h>
+ #include <nand.h>
+ #include <onenand_uboot.h>
++#include <status_led.h>
+ #include <dm/devres.h>
+ #include <linux/mtd/mtd.h>
+ #include <linux/mtd/partitions.h>
+@@ -417,7 +418,19 @@ int ubi_volume_begin_write(char *volume, void *buf, size_t size,
+ 
+ int ubi_volume_write(char *volume, void *buf, size_t size)
+ {
+-	return ubi_volume_begin_write(volume, buf, size, size);
++	int ret;
++
++	if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++		status_led_set(CONFIG_LED_STATUS_ACTIVITY,
++			       CONFIG_LED_STATUS_BLINKING);
++
++	ret = ubi_volume_begin_write(volume, buf, size, size);
++
++	if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++		status_led_set(CONFIG_LED_STATUS_ACTIVITY,
++			       CONFIG_LED_STATUS_OFF);
++
++	return ret;
+ }
+ 
+ int ubi_volume_read(char *volume, char *buf, size_t size)
+-- 
+2.43.0
+

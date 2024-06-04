@@ -1,0 +1,122 @@
+From f071f478d2c1dd50a7022d463b84f14b27613cc9 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sun, 2 Jun 2024 15:33:23 +0200
+Subject: [PATCH 33/42] misc: gpio_led: fix broken coloured LED status
+ functions
+
+The GPIO LED driver is a backend to provide LED status functions via the
+GPIO common functions.
+
+The coloured LED functions are currently broken and deviates from what
+is written in README.LED
+
+Quoting the README.LED:
+
+CONFIG_STATUS_LED_RED is the red LED. It is used to signal errors.
+This must be a valid LED number (0-5). Other similar color LED's macros
+are CONFIG_STATUS_LED_GREEN, CONFIG_STATUS_LED_YELLOW and
+CONFIG_STATUS_LED_BLUE.
+
+Hence the value of the config must refer to the ID.
+
+Currently this is not the case and the driver expect the GPIO ID to be
+put in these config. On top of this to actually have these functions, a
+never define in Kconfig config must be declared to actually compile
+them. (CONFIG_GPIO_LED_STUBS)
+
+To fix this and the GPIO problem, introduce some define that reference
+the LED_STATUS_BIT<n> config to have the ID->BIT connection (as
+described in Docs) and drop the never defined config.
+
+The gpio_led already provide a wrapper to the functions and should not
+be enabled if the board provide their custom function hence it's ok to
+also provide the wrapper for the colour functions.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/misc/gpio_led.c | 31 +++++++++++++++++++------------
+ 1 file changed, 19 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/misc/gpio_led.c b/drivers/misc/gpio_led.c
+index 30679f80cf1..0f3682e1465 100644
+--- a/drivers/misc/gpio_led.c
++++ b/drivers/misc/gpio_led.c
+@@ -52,56 +52,63 @@ void __led_toggle(led_id_t mask)
+ 	gpio_set_value(mask, !gpio_get_value(mask));
+ }
+ 
+-#ifdef CONFIG_GPIO_LED_STUBS
+-
+ /* 'generic' override of colored LED stubs, to use GPIO functions instead */
+ 
++/* We support up to 6 LEDs, LED 0 STATUS BIT doesn't have the number suffix */
++#define GPIO_BIT0	CONFIG_LED_STATUS_BIT
++#define GPIO_BIT1	CONFIG_LED_STATUS_BIT1
++#define GPIO_BIT2	CONFIG_LED_STATUS_BIT2
++#define GPIO_BIT3	CONFIG_LED_STATUS_BIT3
++#define GPIO_BIT4	CONFIG_LED_STATUS_BIT4
++#define GPIO_BIT5	CONFIG_LED_STATUS_BIT5
++/* C preprocessor magic way to generate a GPIO_LED<id> reference */
++#define GPIO_BIT(id)	___PASTE(GPIO_BIT, id)
++
+ #ifdef CONFIG_LED_STATUS_RED
++
+ void red_led_on(void)
+ {
+-	__led_set(CONFIG_LED_STATUS_RED, CONFIG_LED_STATUS_ON);
++	__led_set(GPIO_BIT(CONFIG_LED_STATUS_RED), CONFIG_LED_STATUS_ON);
+ }
+ 
+ void red_led_off(void)
+ {
+-	__led_set(CONFIG_LED_STATUS_RED, CONFIG_LED_STATUS_OFF);
++	__led_set(GPIO_BIT(CONFIG_LED_STATUS_RED), CONFIG_LED_STATUS_OFF);
+ }
+ #endif
+ 
+ #ifdef CONFIG_LED_STATUS_GREEN
+ void green_led_on(void)
+ {
+-	__led_set(CONFIG_LED_STATUS_GREEN, CONFIG_LED_STATUS_ON);
++	__led_set(GPIO_BIT(CONFIG_LED_STATUS_GREEN), CONFIG_LED_STATUS_ON);
+ }
+ 
+ void green_led_off(void)
+ {
+-	__led_set(CONFIG_LED_STATUS_GREEN, CONFIG_LED_STATUS_OFF);
++	__led_set(GPIO_BIT(CONFIG_LED_STATUS_GREEN), CONFIG_LED_STATUS_OFF);
+ }
+ #endif
+ 
+ #ifdef CONFIG_LED_STATUS_YELLOW
+ void yellow_led_on(void)
+ {
+-	__led_set(CONFIG_LED_STATUS_YELLOW, CONFIG_LED_STATUS_ON);
++	__led_set(GPIO_BIT(CONFIG_LED_STATUS_YELLOW), CONFIG_LED_STATUS_ON);
+ }
+ 
+ void yellow_led_off(void)
+ {
+-	__led_set(CONFIG_LED_STATUS_YELLOW, CONFIG_LED_STATUS_OFF);
++	__led_set(GPIO_BIT(CONFIG_LED_STATUS_YELLOW), CONFIG_LED_STATUS_OFF);
+ }
+ #endif
+ 
+ #ifdef CONFIG_LED_STATUS_BLUE
+ void blue_led_on(void)
+ {
+-	__led_set(CONFIG_LED_STATUS_BLUE, CONFIG_LED_STATUS_ON);
++	__led_set(GPIO_BIT(CONFIG_LED_STATUS_BLUE), CONFIG_LED_STATUS_ON);
+ }
+ 
+ void blue_led_off(void)
+ {
+-	__led_set(CONFIG_LED_STATUS_BLUE, CONFIG_LED_STATUS_OFF);
++	__led_set(GPIO_BIT(CONFIG_LED_STATUS_BLUE), CONFIG_LED_STATUS_OFF);
+ }
+ #endif
+-
+-#endif /* CONFIG_GPIO_LED_STUBS */
+-- 
+2.43.0
+

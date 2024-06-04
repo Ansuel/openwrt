@@ -1,0 +1,67 @@
+From e185f27c89d20062f0790756a3e29b4441ef991a Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sun, 2 Jun 2024 17:52:44 +0200
+Subject: [PATCH 37/42] tftp: implement support for LED status activity
+
+Implement support for LED status activity. If the feature is enabled,
+make the defined ACTIVITY LED to signal traffic.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ net/tftp.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/net/tftp.c b/net/tftp.c
+index 2e335413492..2fae5a0d76a 100644
+--- a/net/tftp.c
++++ b/net/tftp.c
+@@ -19,6 +19,7 @@
+ #include <asm/global_data.h>
+ #include <net/tftp.h>
+ #include "bootp.h"
++#include <status_led.h>
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+@@ -193,6 +194,9 @@ static void new_transfer(void)
+ #ifdef CONFIG_CMD_TFTPPUT
+ 	tftp_put_final_block_sent = 0;
+ #endif
++	if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++		status_led_set(CONFIG_LED_STATUS_ACTIVITY,
++			       CONFIG_LED_STATUS_BLINKING);
+ }
+ 
+ #ifdef CONFIG_CMD_TFTPPUT
+@@ -228,6 +232,9 @@ static void show_block_marker(void)
+ {
+ 	ulong pos;
+ 
++	if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++		status_led_activity(CONFIG_LED_STATUS_ACTIVITY);
++
+ #ifdef CONFIG_TFTP_TSIZE
+ 	if (tftp_tsize) {
+ 		pos = tftp_cur_block * tftp_block_size +
+@@ -290,6 +297,8 @@ static void tftp_complete(void)
+ 	/* Print hash marks for the last packet received */
+ 	while (tftp_tsize && tftp_tsize_num_hash < 49) {
+ 		putc('#');
++		if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++			status_led_activity(CONFIG_LED_STATUS_ACTIVITY);
+ 		tftp_tsize_num_hash++;
+ 	}
+ 	puts("  ");
+@@ -302,6 +311,9 @@ static void tftp_complete(void)
+ 			time_start * 1000, "/s");
+ 	}
+ 	puts("\ndone\n");
++	if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++		status_led_set(CONFIG_LED_STATUS_ACTIVITY,
++			       CONFIG_LED_STATUS_OFF);
+ 	if (!tftp_put_active)
+ 		efi_set_bootdev("Net", "", tftp_filename,
+ 				map_sysmem(tftp_load_addr, 0),
+-- 
+2.43.0
+

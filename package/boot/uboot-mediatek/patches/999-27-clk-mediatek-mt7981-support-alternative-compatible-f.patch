@@ -1,0 +1,29 @@
+From 62e6b88a623aa425cd30454ab7819919b0d7e2a1 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 31 May 2024 19:34:03 +0200
+Subject: [PATCH 27/42] clk: mediatek: mt7981: support alternative compatible
+ for fixed-plls
+
+Support alternative compatible for fixed-plls clocks used upstream with
+the compatible mediatek,mt7981-apmixedsys.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/mediatek/clk-mt7981.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/clk/mediatek/clk-mt7981.c b/drivers/clk/mediatek/clk-mt7981.c
+index 162fbab727c..07d8090e1bd 100644
+--- a/drivers/clk/mediatek/clk-mt7981.c
++++ b/drivers/clk/mediatek/clk-mt7981.c
+@@ -536,6 +536,7 @@ static const struct mtk_clk_tree mt7981_infracfg_clk_tree = {
+ 
+ static const struct udevice_id mt7981_fixed_pll_compat[] = {
+ 	{ .compatible = "mediatek,mt7981-fixed-plls" },
++	{ .compatible = "mediatek,mt7981-apmixedsys" },
+ 	{}
+ };
+ 
+-- 
+2.43.0
+

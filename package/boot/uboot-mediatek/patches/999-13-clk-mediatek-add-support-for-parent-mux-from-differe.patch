@@ -1,0 +1,168 @@
+From f076a331c006426d431c330b2dd6a415e79aeda9 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 30 May 2024 16:55:26 +0200
+Subject: [PATCH 13/42] clk: mediatek: add support for parent mux from
+ different source
+
+There is a current limitation where parents for a mux can be all declared
+as they are from a common source. This is not true as there are some MUX
+that can have parent from both infracfg or from topckgen.
+
+To handle this, implement a new flag for the mux, CLK_PARENT_MIXED, and
+a new entry for the mux parent_flags.
+
+To use this, CLK_PARENT_MIXED must be used and parent_flags will be used
+instead of the parent variable.
+
+Entry in parent_flags are just a struct of ID and flags where it will be
+defined where that parent comes from with the usage of
+CLK_PARENT_INFRASYS or CLK_PARENT_TOPCKGEN.
+
+This permits to have MUX with parents from infracfg or topckgen.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/mediatek/clk-mtk.c | 53 +++++++++++++++++++++++-----------
+ drivers/clk/mediatek/clk-mtk.h | 28 ++++++++++++++++--
+ 2 files changed, 62 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mtk.c b/drivers/clk/mediatek/clk-mtk.c
+index 6434df254f4..813cdc6a4cd 100644
+--- a/drivers/clk/mediatek/clk-mtk.c
++++ b/drivers/clk/mediatek/clk-mtk.c
+@@ -59,9 +59,15 @@ static int mtk_clk_mux_set_parent(void __iomem *base, u32 parent,
+ {
+ 	u32 val, index = 0;
+ 
+-	while (mux->parent[index] != parent)
+-		if (++index == mux->num_parents)
+-			return -EINVAL;
++	if (mux->flags & CLK_PARENT_MIXED) {
++		while (mux->parent_flags[index].id != parent)
++			if (++index == mux->num_parents)
++				return -EINVAL;
++	} else {
++		while (mux->parent[index] != parent)
++			if (++index == mux->num_parents)
++				return -EINVAL;
++	}
+ 
+ 	if (mux->flags & CLK_MUX_SETCLR_UPD) {
+ 		val = (mux->mux_mask << mux->mux_shift);
+@@ -353,6 +359,23 @@ static ulong mtk_topckgen_get_mux_rate(struct clk *clk, u32 off)
+ 	return priv->tree->xtal_rate;
+ }
+ 
++static ulong mtk_find_parent_rate(struct mtk_clk_priv *priv, struct clk *clk,
++				  const int parent, u16 flags)
++{
++	if (parent > 0 ||
++	    (parent == CLK_XTAL &&
++	    priv->tree->flags & CLK_BYPASS_XTAL)) {
++		switch (flags & CLK_PARENT_MASK) {
++		case CLK_PARENT_TOPCKGEN:
++			return mtk_clk_find_parent_rate(clk, parent, priv->parent);
++		default:
++			return mtk_clk_find_parent_rate(clk, parent, NULL);
++		}
++	}
++
++	return 0;
++}
++
+ static ulong mtk_infrasys_get_mux_rate(struct clk *clk, u32 off)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
+@@ -363,21 +386,17 @@ static ulong mtk_infrasys_get_mux_rate(struct clk *clk, u32 off)
+ 	index &= mux->mux_mask << mux->mux_shift;
+ 	index = index >> mux->mux_shift;
+ 
+-	if (mux->parent[index] > 0 ||
+-	    (mux->parent[index] == CLK_XTAL &&
+-	     priv->tree->flags & CLK_BYPASS_XTAL)) {
+-		switch (mux->flags & CLK_PARENT_MASK) {
+-		case CLK_PARENT_TOPCKGEN:
+-			return mtk_clk_find_parent_rate(clk, mux->parent[index],
+-							priv->parent);
+-			break;
+-		default:
+-			return mtk_clk_find_parent_rate(clk, mux->parent[index],
+-							NULL);
+-			break;
+-		}
++	/*
++	 * Parents can be either from TOPCKGEN or INFRACFG,
++	 * inspect the mtk_parent struct to check the source
++	 */
++	if (mux->flags & CLK_PARENT_MIXED) {
++		const struct mtk_parent *parent = &mux->parent_flags[index];
++
++		return mtk_find_parent_rate(priv, clk, parent->id, parent->flags);
+ 	}
+-	return 0;
++
++	return mtk_find_parent_rate(priv, clk, mux->parent[index], mux->flags);
+ }
+ 
+ static ulong mtk_topckgen_get_rate(struct clk *clk)
+diff --git a/drivers/clk/mediatek/clk-mtk.h b/drivers/clk/mediatek/clk-mtk.h
+index 8dde9e56e81..f376ba8562b 100644
+--- a/drivers/clk/mediatek/clk-mtk.h
++++ b/drivers/clk/mediatek/clk-mtk.h
+@@ -30,7 +30,8 @@
+ #define CLK_PARENT_TOPCKGEN		BIT(5)
+ #define CLK_PARENT_INFRASYS		BIT(6)
+ #define CLK_PARENT_XTAL			BIT(7)
+-#define CLK_PARENT_MASK			GENMASK(7, 4)
++#define CLK_PARENT_MIXED		BIT(8)
++#define CLK_PARENT_MASK			GENMASK(8, 4)
+ 
+ #define ETHSYS_HIFSYS_RST_CTRL_OFS	0x34
+ 
+@@ -97,11 +98,31 @@ struct mtk_fixed_factor {
+ 		.flags = _flags,			\
+ 	}
+ 
++/**
++ * struct mtk_parent -  clock parent with flags. Needed for MUX that
++ *			parent with mixed infracfg and topckgen.
++ *
++ * @id:			index of parent clocks
++ * @flags:		hardware-specific flags (parent location,
++ *			infracfg, topckgen, APMIXED, xtal ...)
++ */
++struct mtk_parent {
++	const int id;
++	u16 flags;
++};
++
++#define PARENT(_id, _flags) {				\
++		.id = _id,				\
++		.flags = _flags,			\
++	}
++
+ /**
+  * struct mtk_composite - aggregate clock of mux, divider and gate clocks
+  *
+  * @id:			index of clocks
+  * @parent:		index of parnet clocks
++ * @parent:		index of parnet clocks
++ * @parent_flags:	table of parent clocks with flags
+  * @mux_reg:		hardware-specific mux register
+  * @gate_reg:		hardware-specific gate register
+  * @mux_mask:		mask to the mux bit field
+@@ -112,7 +133,10 @@ struct mtk_fixed_factor {
+  */
+ struct mtk_composite {
+ 	const int id;
+-	const int *parent;
++	union {
++		const int *parent;
++		const struct mtk_parent *parent_flags;
++	};
+ 	u32 mux_reg;
+ 	u32 mux_set_reg;
+ 	u32 mux_clr_reg;
+-- 
+2.43.0
+

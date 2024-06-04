@@ -1,0 +1,79 @@
+From 1994061404dc0731e1594fc61af296fbbc66507f Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 31 May 2024 17:23:17 +0200
+Subject: [PATCH 23/42] i2c: mediatek: add support for optional arb and pmic
+ clock
+
+Add support for optional arb and pmic clock for i2c provided in upstream
+linux DTSI.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/i2c/mtk_i2c.c | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/drivers/i2c/mtk_i2c.c b/drivers/i2c/mtk_i2c.c
+index 5592fe91817..3450177741a 100644
+--- a/drivers/i2c/mtk_i2c.c
++++ b/drivers/i2c/mtk_i2c.c
+@@ -221,6 +221,8 @@ struct mtk_i2c_priv {
+ 	void __iomem *pdmabase;		/* dma base address*/
+ 	struct clk clk_main;		/* main clock for i2c bus */
+ 	struct clk clk_dma;		/* DMA clock for i2c via DMA */
++	struct clk clk_arb;		/* DMA clock for i2c ARB */
++	struct clk clk_pmic;		/* DMA clock for i2c PMIC */
+ 	const struct mtk_i2c_soc_data *soc_data; /* Compatible data for different IC */
+ 	int op;				/* operation mode */
+ 	bool zero_len;			/* Only transfer slave address, no data */
+@@ -255,6 +257,18 @@ static int mtk_i2c_clk_enable(struct mtk_i2c_priv *priv)
+ 	if (ret)
+ 		return log_msg_ret("enable clk_dma", ret);
+ 
++	if (priv->clk_arb.dev) {
++		ret = clk_enable(&priv->clk_arb);
++		if (ret)
++			return log_msg_ret("enable clk_arb", ret);
++	}
++
++	if (priv->clk_pmic.dev) {
++		ret = clk_enable(&priv->clk_pmic);
++		if (ret)
++			return log_msg_ret("enable clk_pmic", ret);
++	}
++
+ 	return 0;
+ }
+ 
+@@ -262,6 +276,18 @@ static int mtk_i2c_clk_disable(struct mtk_i2c_priv *priv)
+ {
+ 	int ret;
+ 
++	if (priv->clk_pmic.dev) {
++		ret = clk_disable(&priv->clk_pmic);
++		if (ret)
++			return log_msg_ret("disable clk_pmic", ret);
++	}
++
++	if (priv->clk_arb.dev) {
++		ret = clk_disable(&priv->clk_arb);
++		if (ret)
++			return log_msg_ret("disable clk_arb", ret);
++	}
++
+ 	ret = clk_disable(&priv->clk_dma);
+ 	if (ret)
+ 		return log_msg_ret("disable clk_dma", ret);
+@@ -748,6 +774,10 @@ static int mtk_i2c_of_to_plat(struct udevice *dev)
+ 
+ 	ret = clk_get_by_index(dev, 1, &priv->clk_dma);
+ 
++	/* optional i2c clock */
++	clk_get_by_name(dev, "arb", &priv->clk_arb);
++	clk_get_by_name(dev, "pmic", &priv->clk_pmic);
++
+ 	return ret;
+ }
+ 
+-- 
+2.43.0
+

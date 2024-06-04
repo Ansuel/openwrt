@@ -1,0 +1,46 @@
+From d9e93f2dd200032d1b98122a300951d5eafa7172 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 31 May 2024 21:17:42 +0200
+Subject: [PATCH 29/42] pinctrl: mediatek: add support for gpio-controller
+ property in root node
+
+Add support for gpio-controller property in root pinctrl node.
+This is to follow upstream linux DTSI that doesn't define the
+gpio-controller and cells in dedicated nodes.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/pinctrl/mediatek/pinctrl-mtk-common.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/drivers/pinctrl/mediatek/pinctrl-mtk-common.c b/drivers/pinctrl/mediatek/pinctrl-mtk-common.c
+index 0baef57c1c2..7465e236bc8 100644
+--- a/drivers/pinctrl/mediatek/pinctrl-mtk-common.c
++++ b/drivers/pinctrl/mediatek/pinctrl-mtk-common.c
+@@ -762,6 +762,15 @@ static int mtk_gpiochip_register(struct udevice *parent)
+ 	if (!drv)
+ 		return -ENOENT;
+ 
++	/*
++	 * Support upstream linux DTSI that define gpio-controller
++	 * in the root node (instead of a dedicated subnode)
++	 */
++	if (dev_read_bool(dev, "gpio-controller")) {
++		node = dev_ofnode(parent);
++		goto bind;
++	}
++
+ 	ret = -ENOENT;
+ 	dev_for_each_subnode(node, parent)
+ 		if (ofnode_read_bool(node, "gpio-controller")) {
+@@ -772,6 +781,7 @@ static int mtk_gpiochip_register(struct udevice *parent)
+ 	if (ret)
+ 		return ret;
+ 
++bind:
+ 	ret = device_bind_with_driver_data(parent, &mtk_gpio_driver,
+ 					   "mediatek_gpio", 0, node,
+ 					   &dev);
+-- 
+2.43.0
+

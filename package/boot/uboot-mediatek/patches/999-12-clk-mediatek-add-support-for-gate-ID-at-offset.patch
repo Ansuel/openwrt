@@ -1,0 +1,66 @@
+From 7fda3a4ce7957f9c22f9cb4fee97c5b6486838aa Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 30 May 2024 21:38:11 +0200
+Subject: [PATCH 12/42] clk: mediatek: add support for gate ID at offset
+
+Add support to clk_gate ops to reference the clk ID at an offset by
+using the just introduced gates_offs value from the unified muxes +
+gates implementation.
+
+Gate clock that doesn't have gates_offs set won't be affected as the
+offset will simply be 0 and won't be offset of any value.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/mediatek/clk-mtk.c | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mtk.c b/drivers/clk/mediatek/clk-mtk.c
+index 0914e3a59f7..6434df254f4 100644
+--- a/drivers/clk/mediatek/clk-mtk.c
++++ b/drivers/clk/mediatek/clk-mtk.c
+@@ -524,8 +524,12 @@ static int mtk_gate_enable(struct mtk_cg_priv *priv, const struct mtk_gate *gate
+ static int mtk_clk_gate_enable(struct clk *clk)
+ {
+ 	struct mtk_cg_priv *priv = dev_get_priv(clk->dev);
+-	const struct mtk_gate *gate = &priv->gates[clk->id];
++	const struct mtk_gate *gate;
++
++	if (clk->id < priv->tree->gates_offs)
++		return -EINVAL;
+ 
++	gate = &priv->gates[clk->id - priv->tree->gates_offs];
+ 	return mtk_gate_enable(priv, gate);
+ }
+ 
+@@ -570,8 +574,12 @@ static int mtk_gate_disable(struct mtk_cg_priv *priv, const struct mtk_gate *gat
+ static int mtk_clk_gate_disable(struct clk *clk)
+ {
+ 	struct mtk_cg_priv *priv = dev_get_priv(clk->dev);
+-	const struct mtk_gate *gate = &priv->gates[clk->id];
++	const struct mtk_gate *gate;
+ 
++	if (clk->id < priv->tree->gates_offs)
++		return -EINVAL;
++
++	gate = &priv->gates[clk->id - priv->tree->gates_offs];
+ 	return mtk_gate_disable(priv, gate);
+ }
+ 
+@@ -591,8 +599,12 @@ static int mtk_clk_infrasys_disable(struct clk *clk)
+ static ulong mtk_clk_gate_get_rate(struct clk *clk)
+ {
+ 	struct mtk_cg_priv *priv = dev_get_priv(clk->dev);
+-	const struct mtk_gate *gate = &priv->gates[clk->id];
++	const struct mtk_gate *gate;
++
++	if (clk->id < priv->tree->gates_offs)
++		return -EINVAL;
+ 
++	gate = &priv->gates[clk->id - priv->tree->gates_offs];
+ 	return mtk_clk_find_parent_rate(clk, gate->parent, priv->parent);
+ }
+ 
+-- 
+2.43.0
+

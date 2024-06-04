@@ -1,0 +1,340 @@
+From bc1ac47598cf8e4bdd99d625b82725e520d685b1 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Mon, 3 Jun 2024 18:31:36 +0200
+Subject: [PATCH 43/44] clk: mediatek: add support for remapping clock ID
+
+Upstream kernel linux might have a different clock ID order in their
+<soc>-clk.h header. This is the case of some clock ID for mt7623 that
+upstream use the shared header clk-mt7601.h
+
+This header doesn't have a well distincted order and have factor or mux
+in the middle of the CLK ID list. This is problematic with the mtk clock
+driver that expect everything well organized in block and apply offset
+to reference the clk in the different array.
+
+To solve this problem, implement in the mtk_clk_tree an additional
+option .id_offs_map, an array where each CLK ID can be remapped to what
+the driver expect permitting to reorganize the clock following the
+expected logic of fixed, factor, mux and gates.
+
+Each clock function is updated to tranparently handle this by first
+converting the clk ID to the remapped one.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/mediatek/clk-mtk.c | 118 +++++++++++++++++++++++----------
+ drivers/clk/mediatek/clk-mtk.h |   8 +++
+ 2 files changed, 90 insertions(+), 36 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mtk.c b/drivers/clk/mediatek/clk-mtk.c
+index d711669a5a8..e4278a91e28 100644
+--- a/drivers/clk/mediatek/clk-mtk.c
++++ b/drivers/clk/mediatek/clk-mtk.c
+@@ -36,6 +36,18 @@
+ 
+ /* shared functions */
+ 
++static int mtk_clk_get_id(struct clk *clk)
++{
++	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
++	int id = clk->id;
++
++	/* Remap the clk ID to the one expected by driver */
++	if (priv->tree->id_offs_map)
++		id = priv->tree->id_offs_map[id];
++
++	return id;
++}
++
+ /*
+  * In case the rate change propagation to parent clocks is undesirable,
+  * this function is recursively called to find the parent to calculate
+@@ -127,9 +139,12 @@ static unsigned long __mtk_pll_recalc_rate(const struct mtk_pll_data *pll,
+ static void mtk_pll_set_rate_regs(struct clk *clk, u32 pcw, int postdiv)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
+-	const struct mtk_pll_data *pll = &priv->tree->plls[clk->id];
++	const struct mtk_pll_data *pll;
++	int id = mtk_clk_get_id(clk);
+ 	u32 val, chg;
+ 
++	pll = &priv->tree->plls[id];
++
+ 	/* set postdiv */
+ 	val = readl(priv->base + pll->pd_reg);
+ 	val &= ~(POSTDIV_MASK << pll->pd_shift);
+@@ -169,12 +184,16 @@ static void mtk_pll_calc_values(struct clk *clk, u32 *pcw, u32 *postdiv,
+ 				u32 freq)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
+-	const struct mtk_pll_data *pll = &priv->tree->plls[clk->id];
+-	unsigned long fmin = pll->fmin ? pll->fmin : 1000 * MHZ;
++	const struct mtk_pll_data *pll;
++	int id = mtk_clk_get_id(clk);
++	unsigned long fmin;
+ 	u64 _pcw;
+ 	int ibits;
+ 	u32 val;
+ 
++	pll = &priv->tree->plls[id];
++	fmin = pll->fmin ? pll->fmin : 1000 * MHZ;
++
+ 	if (freq > pll->fmax)
+ 		freq = pll->fmax;
+ 
+@@ -206,10 +225,13 @@ static ulong mtk_apmixedsys_set_rate(struct clk *clk, ulong rate)
+ static ulong mtk_apmixedsys_get_rate(struct clk *clk)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
+-	const struct mtk_pll_data *pll = &priv->tree->plls[clk->id];
++	const struct mtk_pll_data *pll;
++	int id = mtk_clk_get_id(clk);
+ 	u32 postdiv;
+ 	u32 pcw;
+ 
++	pll = &priv->tree->plls[id];
++
+ 	postdiv = (readl(priv->base + pll->pd_reg) >> pll->pd_shift) &
+ 		   POSTDIV_MASK;
+ 	postdiv = 1 << postdiv;
+@@ -224,9 +246,12 @@ static ulong mtk_apmixedsys_get_rate(struct clk *clk)
+ static int mtk_apmixedsys_enable(struct clk *clk)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
+-	const struct mtk_pll_data *pll = &priv->tree->plls[clk->id];
++	const struct mtk_pll_data *pll;
++	int id = mtk_clk_get_id(clk);
+ 	u32 r;
+ 
++	pll = &priv->tree->plls[id];
++
+ 	r = readl(priv->base + pll->pwr_reg) | CON0_PWR_ON;
+ 	writel(r, priv->base + pll->pwr_reg);
+ 	udelay(1);
+@@ -253,9 +278,12 @@ static int mtk_apmixedsys_enable(struct clk *clk)
+ static int mtk_apmixedsys_disable(struct clk *clk)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
+-	const struct mtk_pll_data *pll = &priv->tree->plls[clk->id];
++	const struct mtk_pll_data *pll;
++	int id = mtk_clk_get_id(clk);
+ 	u32 r;
+ 
++	pll = &priv->tree->plls[id];
++
+ 	if (pll->flags & HAVE_RST_BAR) {
+ 		r = readl(priv->base + pll->reg + REG_CON0);
+ 		r &= ~pll->rst_bar_mask;
+@@ -402,38 +430,39 @@ static ulong mtk_infrasys_get_mux_rate(struct clk *clk, u32 off)
+ static ulong mtk_topckgen_get_rate(struct clk *clk)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
++	int id = mtk_clk_get_id(clk);
+ 
+-	if (clk->id < priv->tree->fdivs_offs)
+-		return priv->tree->fclks[clk->id].rate;
+-	else if (clk->id < priv->tree->muxes_offs)
+-		return mtk_topckgen_get_factor_rate(clk, clk->id -
++	if (id < priv->tree->fdivs_offs)
++		return priv->tree->fclks[id].rate;
++	else if (id < priv->tree->muxes_offs)
++		return mtk_topckgen_get_factor_rate(clk, id -
+ 						    priv->tree->fdivs_offs);
+ 	else
+-		return mtk_topckgen_get_mux_rate(clk, clk->id -
++		return mtk_topckgen_get_mux_rate(clk, id -
+ 						 priv->tree->muxes_offs);
+ }
+ 
+ static ulong mtk_infrasys_get_rate(struct clk *clk)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
+-
++	int id = mtk_clk_get_id(clk);
+ 	ulong rate;
+ 
+-	if (clk->id < priv->tree->fdivs_offs) {
+-		rate = priv->tree->fclks[clk->id].rate;
+-	} else if (clk->id < priv->tree->muxes_offs) {
+-		rate = mtk_infrasys_get_factor_rate(clk, clk->id -
++	if (id < priv->tree->fdivs_offs) {
++		rate = priv->tree->fclks[id].rate;
++	} else if (id < priv->tree->muxes_offs) {
++		rate = mtk_infrasys_get_factor_rate(clk, id -
+ 						    priv->tree->fdivs_offs);
+ 	/* No gates defined or ID is a MUX */
+-	} else if (!priv->tree->gates || clk->id < priv->tree->gates_offs) {
+-		rate = mtk_infrasys_get_mux_rate(clk, clk->id -
++	} else if (!priv->tree->gates || id < priv->tree->gates_offs) {
++		rate = mtk_infrasys_get_mux_rate(clk, id -
+ 						 priv->tree->muxes_offs);
+ 	/* Only valid with muxes + gates implementation */
+ 	} else {
+ 		struct udevice *parent = NULL;
+ 		const struct mtk_gate *gate;
+ 
+-		gate = &priv->tree->gates[clk->id - priv->tree->gates_offs];
++		gate = &priv->tree->gates[id - priv->tree->gates_offs];
+ 		if (gate->flags & CLK_PARENT_TOPCKGEN)
+ 			parent = priv->parent;
+ 
+@@ -447,12 +476,13 @@ static int mtk_clk_mux_enable(struct clk *clk)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
+ 	const struct mtk_composite *mux;
++	int id = mtk_clk_get_id(clk);
+ 	u32 val;
+ 
+-	if (clk->id < priv->tree->muxes_offs)
++	if (id < priv->tree->muxes_offs)
+ 		return 0;
+ 
+-	mux = &priv->tree->muxes[clk->id - priv->tree->muxes_offs];
++	mux = &priv->tree->muxes[id - priv->tree->muxes_offs];
+ 	if (mux->gate_shift < 0)
+ 		return 0;
+ 
+@@ -480,12 +510,13 @@ static int mtk_clk_mux_disable(struct clk *clk)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
+ 	const struct mtk_composite *mux;
++	int id = mtk_clk_get_id(clk);
+ 	u32 val;
+ 
+-	if (clk->id < priv->tree->muxes_offs)
++	if (id < priv->tree->muxes_offs)
+ 		return 0;
+ 
+-	mux = &priv->tree->muxes[clk->id - priv->tree->muxes_offs];
++	mux = &priv->tree->muxes[id - priv->tree->muxes_offs];
+ 	if (mux->gate_shift < 0)
+ 		return 0;
+ 
+@@ -505,12 +536,22 @@ static int mtk_clk_mux_disable(struct clk *clk)
+ static int mtk_common_clk_set_parent(struct clk *clk, struct clk *parent)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(clk->dev);
++	int parent_id, id;
++
++	id = mtk_clk_get_id(clk);
++	parent_id = mtk_clk_get_id(parent);
++
++	/* Remap the clk ID to the one expected by driver */
++	if (priv->tree->id_offs_map) {
++		id = priv->tree->id_offs_map[id];
++		parent_id = priv->tree->id_offs_map[parent_id];
++	}
+ 
+-	if (clk->id < priv->tree->muxes_offs)
++	if (id < priv->tree->muxes_offs)
+ 		return 0;
+ 
+-	return mtk_clk_mux_set_parent(priv->base, parent->id,
+-			&priv->tree->muxes[clk->id - priv->tree->muxes_offs]);
++	return mtk_clk_mux_set_parent(priv->base, parent_id,
++			&priv->tree->muxes[id - priv->tree->muxes_offs]);
+ }
+ 
+ /* CG functions */
+@@ -543,25 +584,27 @@ static int mtk_gate_enable(struct mtk_cg_priv *priv, const struct mtk_gate *gate
+ static int mtk_clk_gate_enable(struct clk *clk)
+ {
+ 	struct mtk_cg_priv *priv = dev_get_priv(clk->dev);
++	int id = mtk_clk_get_id(clk);
+ 	const struct mtk_gate *gate;
+ 
+-	if (clk->id < priv->tree->gates_offs)
++	if (id < priv->tree->gates_offs)
+ 		return -EINVAL;
+ 
+-	gate = &priv->gates[clk->id - priv->tree->gates_offs];
++	gate = &priv->gates[id - priv->tree->gates_offs];
+ 	return mtk_gate_enable(priv, gate);
+ }
+ 
+ static int mtk_clk_infrasys_enable(struct clk *clk)
+ {
+ 	struct mtk_cg_priv *priv = dev_get_priv(clk->dev);
++	int id = mtk_clk_get_id(clk);
+ 	const struct mtk_gate *gate;
+ 
+ 	/* MUX handling */
+-	if (!priv->tree->gates || clk->id < priv->tree->gates_offs)
++	if (!priv->tree->gates || id < priv->tree->gates_offs)
+ 		return mtk_clk_mux_enable(clk);
+ 
+-	gate = &priv->tree->gates[clk->id - priv->tree->gates_offs];
++	gate = &priv->tree->gates[id - priv->tree->gates_offs];
+ 	return mtk_gate_enable(priv, gate);
+ }
+ 
+@@ -593,25 +636,27 @@ static int mtk_gate_disable(struct mtk_cg_priv *priv, const struct mtk_gate *gat
+ static int mtk_clk_gate_disable(struct clk *clk)
+ {
+ 	struct mtk_cg_priv *priv = dev_get_priv(clk->dev);
++	int id = mtk_clk_get_id(clk);
+ 	const struct mtk_gate *gate;
+ 
+-	if (clk->id < priv->tree->gates_offs)
++	if (id < priv->tree->gates_offs)
+ 		return -EINVAL;
+ 
+-	gate = &priv->gates[clk->id - priv->tree->gates_offs];
++	gate = &priv->gates[id - priv->tree->gates_offs];
+ 	return mtk_gate_disable(priv, gate);
+ }
+ 
+ static int mtk_clk_infrasys_disable(struct clk *clk)
+ {
+ 	struct mtk_cg_priv *priv = dev_get_priv(clk->dev);
++	int id = mtk_clk_get_id(clk);
+ 	const struct mtk_gate *gate;
+ 
+ 	/* MUX handling */
+-	if (!priv->tree->gates || clk->id < priv->tree->gates_offs)
++	if (!priv->tree->gates || id < priv->tree->gates_offs)
+ 		return mtk_clk_mux_disable(clk);
+ 
+-	gate = &priv->tree->gates[clk->id - priv->tree->gates_offs];
++	gate = &priv->tree->gates[id - priv->tree->gates_offs];
+ 	return mtk_gate_disable(priv, gate);
+ }
+ 
+@@ -619,12 +664,13 @@ static ulong mtk_clk_gate_get_rate(struct clk *clk)
+ {
+ 	struct mtk_cg_priv *priv = dev_get_priv(clk->dev);
+ 	struct udevice *parent = priv->parent;
++	int id = mtk_clk_get_id(clk);
+ 	const struct mtk_gate *gate;
+ 
+-	if (clk->id < priv->tree->gates_offs)
++	if (id < priv->tree->gates_offs)
+ 		return -EINVAL;
+ 
+-	gate = &priv->gates[clk->id - priv->tree->gates_offs];
++	gate = &priv->gates[id - priv->tree->gates_offs];
+ 	/*
+ 	 * Assume a infracfg-ao where:
+ 	 * parent = infracfg
+diff --git a/drivers/clk/mediatek/clk-mtk.h b/drivers/clk/mediatek/clk-mtk.h
+index 4cbf32f09bb..a96612d12f7 100644
+--- a/drivers/clk/mediatek/clk-mtk.h
++++ b/drivers/clk/mediatek/clk-mtk.h
+@@ -222,6 +222,14 @@ struct mtk_gate {
+ struct mtk_clk_tree {
+ 	unsigned long xtal_rate;
+ 	unsigned long xtal2_rate;
++	/*
++	 * Clock ID offset are remapped with an auxiliary table.
++	 * Enable this by defining .id_offs_map.
++	 * This is needed for upstream linux kernel <soc>-clk.h that
++	 * have mixed clk ID and doesn't have clear distinction between
++	 * ID for factor, mux and gates.
++	 */
++	const int *id_offs_map; /* optional, table clk.h to driver ID */
+ 	const int fdivs_offs;
+ 	const int muxes_offs;
+ 	const int gates_offs;
+-- 
+2.43.0
+

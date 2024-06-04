@@ -1,0 +1,150 @@
+From bee866bac44376ae1efb4f09c3a639caad0b28e8 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sun, 2 Jun 2024 18:11:15 +0200
+Subject: [PATCH 38/42] mtd: implement support for LED status activity
+
+Implement support for LED status activity. If the feature is enabled,
+make the defined ACTIVITY LED to signal mtd write or erase operations.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ cmd/mtd.c                      | 17 +++++++++++++++++
+ drivers/mtd/nand/core.c        |  3 +++
+ drivers/mtd/nand/spi/core.c    |  4 ++++
+ drivers/mtd/spi/spi-nor-core.c |  7 +++++++
+ 4 files changed, 31 insertions(+)
+
+diff --git a/cmd/mtd.c b/cmd/mtd.c
+index 9189f45cabd..3865e10f714 100644
+--- a/cmd/mtd.c
++++ b/cmd/mtd.c
+@@ -11,6 +11,7 @@
+ #include <command.h>
+ #include <common.h>
+ #include <console.h>
++#include <status_led.h>
+ #if CONFIG_IS_ENABLED(CMD_MTD_OTP)
+ #include <hexdump.h>
+ #endif
+@@ -559,6 +560,10 @@ static int do_mtd_io(struct cmd_tbl *cmdtp, int flag, int argc,
+ 	while (mtd_block_isbad(mtd, off))
+ 		off += mtd->erasesize;
+ 
++	if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE) && !read)
++		status_led_set(CONFIG_LED_STATUS_ACTIVITY,
++			       CONFIG_LED_STATUS_BLINKING);
++
+ 	/* Loop over the pages to do the actual read/write */
+ 	while (remaining) {
+ 		/* Skip the block if it is bad */
+@@ -586,6 +591,10 @@ static int do_mtd_io(struct cmd_tbl *cmdtp, int flag, int argc,
+ 		io_op.oobbuf += io_op.oobretlen;
+ 	}
+ 
++	if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE) && !read)
++		status_led_set(CONFIG_LED_STATUS_ACTIVITY,
++			       CONFIG_LED_STATUS_OFF);
++
+ 	if (!ret && dump)
+ 		mtd_dump_device_buf(mtd, start_off, buf, len, woob);
+ 
+@@ -653,6 +662,10 @@ static int do_mtd_erase(struct cmd_tbl *cmdtp, int flag, int argc,
+ 	erase_op.addr = off;
+ 	erase_op.len = mtd->erasesize;
+ 
++	if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++		status_led_set(CONFIG_LED_STATUS_ACTIVITY,
++			       CONFIG_LED_STATUS_ON);
++
+ 	while (len) {
+ 		if (!scrub) {
+ 			ret = mtd_block_isbad(mtd, erase_op.addr);
+@@ -681,6 +694,10 @@ static int do_mtd_erase(struct cmd_tbl *cmdtp, int flag, int argc,
+ 		erase_op.addr += mtd->erasesize;
+ 	}
+ 
++	if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++		status_led_set(CONFIG_LED_STATUS_ACTIVITY,
++			       CONFIG_LED_STATUS_OFF);
++
+ 	if (ret && ret != -EIO)
+ 		ret = CMD_RET_FAILURE;
+ 	else
+diff --git a/drivers/mtd/nand/core.c b/drivers/mtd/nand/core.c
+index f6d9c584f78..c36b761fda4 100644
+--- a/drivers/mtd/nand/core.c
++++ b/drivers/mtd/nand/core.c
+@@ -18,6 +18,7 @@
+ #include <linux/bitops.h>
+ #include <linux/mtd/nand.h>
+ #include <linux/printk.h>
++#include <status_led.h>
+ 
+ /**
+  * nanddev_isbad() - Check if a block is bad
+@@ -182,6 +183,8 @@ int nanddev_mtd_erase(struct mtd_info *mtd, struct erase_info *einfo)
+ 		}
+ 
+ 		nanddev_pos_next_eraseblock(nand, &pos);
++		if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++			status_led_activity(CONFIG_LED_STATUS_ACTIVITY);
+ 	}
+ 
+ 	return 0;
+diff --git a/drivers/mtd/nand/spi/core.c b/drivers/mtd/nand/spi/core.c
+index 62c28aa422d..b5f363889a9 100644
+--- a/drivers/mtd/nand/spi/core.c
++++ b/drivers/mtd/nand/spi/core.c
+@@ -32,6 +32,7 @@
+ #include <linux/bug.h>
+ #include <linux/mtd/spinand.h>
+ #include <linux/printk.h>
++#include <status_led.h>
+ #endif
+ 
+ /* SPI NAND index visible in MTD names */
+@@ -657,6 +658,9 @@ static int spinand_mtd_write(struct mtd_info *mtd, loff_t to,
+ 
+ 		ops->retlen += iter.req.datalen;
+ 		ops->oobretlen += iter.req.ooblen;
++
++		if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++			status_led_activity(CONFIG_LED_STATUS_ACTIVITY);
+ 	}
+ 
+ #ifndef __UBOOT__
+diff --git a/drivers/mtd/spi/spi-nor-core.c b/drivers/mtd/spi/spi-nor-core.c
+index f86003ca8c0..c53dc0e8898 100644
+--- a/drivers/mtd/spi/spi-nor-core.c
++++ b/drivers/mtd/spi/spi-nor-core.c
+@@ -32,6 +32,8 @@
+ #include <spi-mem.h>
+ #include <spi.h>
+ 
++#include <status_led.h>
++
+ #include "sf_internal.h"
+ 
+ /* Define max times to check status register before we give up. */
+@@ -1039,6 +1041,9 @@ static int spi_nor_erase(struct mtd_info *mtd, struct erase_info *instr)
+ 		ret = spi_nor_wait_till_ready(nor);
+ 		if (ret)
+ 			goto erase_err;
++
++		if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++			status_led_activity(CONFIG_LED_STATUS_ACTIVITY);
+ 	}
+ 
+ 	addr_known = false;
+@@ -1816,6 +1821,8 @@ static int spi_nor_write(struct mtd_info *mtd, loff_t to, size_t len,
+ 			goto write_err;
+ 		*retlen += written;
+ 		i += written;
++		if (IS_ENABLED(CONFIG_LED_STATUS_ACTIVITY_ENABLE))
++			status_led_activity(CONFIG_LED_STATUS_ACTIVITY);
+ 	}
+ 
+ write_err:
+-- 
+2.43.0
+

@@ -1,0 +1,115 @@
+From 5cf376760dd0f40125d0cc33b39bfbf8272afae2 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 31 May 2024 21:37:58 +0200
+Subject: [PATCH 31/42] mediatek: mt7981: move gpio-controller up and rename
+ pinctrl to pio
+
+Move gpio-controller up to pinctrl node and rename label to "pio" to
+match the label used in upstream kernel linux.
+
+Update any DTS that reference the pinctrl to follow the new naming and
+structure.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ arch/arm/dts/mt7981-emmc-rfb.dts | 4 ++--
+ arch/arm/dts/mt7981-rfb.dts      | 4 ++--
+ arch/arm/dts/mt7981-sd-rfb.dts   | 4 ++--
+ arch/arm/dts/mt7981.dtsi         | 8 +++-----
+ 4 files changed, 9 insertions(+), 11 deletions(-)
+
+diff --git a/arch/arm/dts/mt7981-emmc-rfb.dts b/arch/arm/dts/mt7981-emmc-rfb.dts
+index 9aa7cd8f6e5..8ae350f4fd7 100644
+--- a/arch/arm/dts/mt7981-emmc-rfb.dts
++++ b/arch/arm/dts/mt7981-emmc-rfb.dts
+@@ -48,7 +48,7 @@
+ 	mediatek,gmac-id = <0>;
+ 	phy-mode = "2500base-x";
+ 	mediatek,switch = "mt7531";
+-	reset-gpios = <&gpio 39 GPIO_ACTIVE_HIGH>;
++	reset-gpios = <&pio 39 GPIO_ACTIVE_HIGH>;
+ 
+ 	fixed-link {
+ 		speed = <2500>;
+@@ -56,7 +56,7 @@
+ 	};
+ };
+ 
+-&pinctrl {
++&pio {
+ 	spic_pins: spi1-pins-func-1 {
+ 		mux {
+ 			function = "spi";
+diff --git a/arch/arm/dts/mt7981-rfb.dts b/arch/arm/dts/mt7981-rfb.dts
+index 22a022acb62..7c4d5662b39 100644
+--- a/arch/arm/dts/mt7981-rfb.dts
++++ b/arch/arm/dts/mt7981-rfb.dts
+@@ -39,7 +39,7 @@
+ 	mediatek,gmac-id = <0>;
+ 	phy-mode = "2500base-x";
+ 	mediatek,switch = "mt7531";
+-	reset-gpios = <&gpio 39 GPIO_ACTIVE_HIGH>;
++	reset-gpios = <&pio 39 GPIO_ACTIVE_HIGH>;
+ 
+ 	fixed-link {
+ 		speed = <2500>;
+@@ -47,7 +47,7 @@
+ 	};
+ };
+ 
+-&pinctrl {
++&pio {
+ 	spi_flash_pins: spi0-pins-func-1 {
+ 		mux {
+ 			function = "flash";
+diff --git a/arch/arm/dts/mt7981-sd-rfb.dts b/arch/arm/dts/mt7981-sd-rfb.dts
+index 7d708084042..e0a957acb8b 100644
+--- a/arch/arm/dts/mt7981-sd-rfb.dts
++++ b/arch/arm/dts/mt7981-sd-rfb.dts
+@@ -48,7 +48,7 @@
+ 	mediatek,gmac-id = <0>;
+ 	phy-mode = "2500base-x";
+ 	mediatek,switch = "mt7531";
+-	reset-gpios = <&gpio 39 GPIO_ACTIVE_HIGH>;
++	reset-gpios = <&pio 39 GPIO_ACTIVE_HIGH>;
+ 
+ 	fixed-link {
+ 		speed = <2500>;
+@@ -56,7 +56,7 @@
+ 	};
+ };
+ 
+-&pinctrl {
++&pio {
+ 	spic_pins: spi1-pins-func-1 {
+ 		mux {
+ 			function = "spi";
+diff --git a/arch/arm/dts/mt7981.dtsi b/arch/arm/dts/mt7981.dtsi
+index 531eaeec9f3..ac770c5268c 100644
+--- a/arch/arm/dts/mt7981.dtsi
++++ b/arch/arm/dts/mt7981.dtsi
+@@ -107,7 +107,7 @@
+ 		bootph-all;
+ 	};
+ 
+-	pinctrl: pinctrl@11d00000 {
++	pio: pinctrl@11d00000 {
+ 		compatible = "mediatek,mt7981-pinctrl";
+ 		reg = <0x11d00000 0x1000>,
+ 		      <0x11c00000 0x1000>,
+@@ -121,10 +121,8 @@
+ 		reg-names = "gpio", "iocfg_rt", "iocfg_rm",
+ 			    "iocfg_rb", "iocfg_lb", "iocfg_bl",
+ 			    "iocfg_tm", "iocfg_tl", "eint";
+-		gpio: gpio-controller {
+-			gpio-controller;
+-			#gpio-cells = <2>;
+-		};
++		gpio-controller;
++		#gpio-cells = <2>;
+ 	};
+ 
+ 	pwm: pwm@10048000 {
+-- 
+2.43.0
+

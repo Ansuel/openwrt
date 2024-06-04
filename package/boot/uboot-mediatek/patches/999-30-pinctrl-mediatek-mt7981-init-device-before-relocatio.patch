@@ -1,0 +1,28 @@
+From fb1a79027f952bf48ca4c046c84c20ac5a56e9fa Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sun, 2 Jun 2024 15:23:53 +0200
+Subject: [PATCH 30/42] pinctrl: mediatek: mt7981: init device before
+ relocation
+
+Upstream kernel linux define pinctrl for uart0, hence this pin group
+and pinctrl driver is needed before relocation. Add DM_FLAG_PRE_RELOC
+flag to init and mute mtk_serial error on early serial init.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/pinctrl/mediatek/pinctrl-mt7981.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/pinctrl/mediatek/pinctrl-mt7981.c b/drivers/pinctrl/mediatek/pinctrl-mt7981.c
+index 6e0ab20c3ba..bb0b528c5de 100644
+--- a/drivers/pinctrl/mediatek/pinctrl-mt7981.c
++++ b/drivers/pinctrl/mediatek/pinctrl-mt7981.c
+@@ -1051,4 +1051,5 @@ U_BOOT_DRIVER(mt7981_pinctrl) = {
+ 	.ops = &mtk_pinctrl_ops,
+ 	.probe = mtk_pinctrl_mt7981_probe,
+ 	.priv_auto = sizeof(struct mtk_pinctrl_priv),
++	.flags = DM_FLAG_PRE_RELOC,
+ };
+-- 
+2.43.0
+

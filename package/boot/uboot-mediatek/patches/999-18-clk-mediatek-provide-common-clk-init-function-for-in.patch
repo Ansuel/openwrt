@@ -1,0 +1,82 @@
+From 22a8dcaca5c8b018c3dba512876d9c4af730d52d Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 30 May 2024 18:09:09 +0200
+Subject: [PATCH 18/42] clk: mediatek: provide common clk init function for
+ infrasys
+
+Provide common clk init function for infrasys that defaults to topckgen
+driver if clock-parent is not defined. This is the case for upstream
+DTSI that doesn't provide this entry.
+
+This is needed for infracfg driver that will make use of the unified
+gates + muxes implementation.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/mediatek/clk-mtk.c | 22 ++++++++++++++++++----
+ drivers/clk/mediatek/clk-mtk.h |  2 ++
+ 2 files changed, 20 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/clk/mediatek/clk-mtk.c b/drivers/clk/mediatek/clk-mtk.c
+index 0d226ae905e..d711669a5a8 100644
+--- a/drivers/clk/mediatek/clk-mtk.c
++++ b/drivers/clk/mediatek/clk-mtk.c
+@@ -665,8 +665,9 @@ const struct clk_ops mtk_clk_gate_ops = {
+ 	.get_rate = mtk_clk_gate_get_rate,
+ };
+ 
+-int mtk_common_clk_init(struct udevice *dev,
+-			const struct mtk_clk_tree *tree)
++static int mtk_common_clk_init_drv(struct udevice *dev,
++				   const struct mtk_clk_tree *tree,
++				   const struct driver *drv)
+ {
+ 	struct mtk_clk_priv *priv = dev_get_priv(dev);
+ 	struct udevice *parent;
+@@ -678,8 +679,7 @@ int mtk_common_clk_init(struct udevice *dev,
+ 
+ 	ret = uclass_get_device_by_phandle(UCLASS_CLK, dev, "clock-parent", &parent);
+ 	if (ret || !parent) {
+-		ret = uclass_get_device_by_driver(UCLASS_CLK,
+-				DM_DRIVER_GET(mtk_clk_apmixedsys), &parent);
++		ret = uclass_get_device_by_driver(UCLASS_CLK, drv, &parent);
+ 		if (ret || !parent)
+ 			return -ENOENT;
+ 	}
+@@ -690,6 +690,20 @@ int mtk_common_clk_init(struct udevice *dev,
+ 	return 0;
+ }
+ 
++int mtk_common_clk_init(struct udevice *dev,
++			const struct mtk_clk_tree *tree)
++{
++	return mtk_common_clk_init_drv(dev, tree,
++				       DM_DRIVER_GET(mtk_clk_apmixedsys));
++}
++
++int mtk_common_clk_infrasys_init(struct udevice *dev,
++				 const struct mtk_clk_tree *tree)
++{
++	return mtk_common_clk_init_drv(dev, tree,
++				       DM_DRIVER_GET(mtk_clk_topckgen));
++}
++
+ int mtk_common_clk_gate_init(struct udevice *dev,
+ 			     const struct mtk_clk_tree *tree,
+ 			     const struct mtk_gate *gates)
+diff --git a/drivers/clk/mediatek/clk-mtk.h b/drivers/clk/mediatek/clk-mtk.h
+index f376ba8562b..4cbf32f09bb 100644
+--- a/drivers/clk/mediatek/clk-mtk.h
++++ b/drivers/clk/mediatek/clk-mtk.h
+@@ -253,6 +253,8 @@ extern const struct clk_ops mtk_clk_gate_ops;
+ 
+ int mtk_common_clk_init(struct udevice *dev,
+ 			const struct mtk_clk_tree *tree);
++int mtk_common_clk_infrasys_init(struct udevice *dev,
++				 const struct mtk_clk_tree *tree);
+ int mtk_common_clk_gate_init(struct udevice *dev,
+ 			     const struct mtk_clk_tree *tree,
+ 			     const struct mtk_gate *gates);
+-- 
+2.43.0
+

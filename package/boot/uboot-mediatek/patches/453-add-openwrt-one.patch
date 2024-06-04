@@ -1,5 +1,5 @@
 --- /dev/null
-+++ b/arch/arm/dts/openwrt-one.dts
++++ b/dts/upstream/src/arm64/mediatek/mt7981b-openwrt-one.dts
 @@ -0,0 +1,220 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
@@ -31,13 +31,13 @@
 +
 +		user {
 +			label = "front";
-+			gpios = <&gpio 0 GPIO_ACTIVE_LOW>;
++			gpios = <&pio 0 GPIO_ACTIVE_LOW>;
 +			linux,code = <BTN_0>;
 +		};
 +
 +		reset {
 +			label = "back";
-+			gpios = <&gpio 1 GPIO_ACTIVE_LOW>;
++			gpios = <&pio 1 GPIO_ACTIVE_LOW>;
 +			linux,code = <BTN_1>;
 +		};
 +	};
@@ -47,17 +47,17 @@
 +
 +		red {
 +			label = "red";
-+			gpios = <&gpio 9 GPIO_ACTIVE_HIGH>;
++			gpios = <&pio 9 GPIO_ACTIVE_HIGH>;
 +		};
 +
 +		white {
 +			label = "white";
-+			gpios = <&gpio 13 GPIO_ACTIVE_HIGH>;
++			gpios = <&pio 13 GPIO_ACTIVE_HIGH>;
 +		};
 +
 +		green {
 +			label = "green";
-+			gpios = <&gpio 15 GPIO_ACTIVE_HIGH>;
++			gpios = <&pio 15 GPIO_ACTIVE_HIGH>;
 +		};
 +	};
 +};
@@ -78,7 +78,7 @@
 +	};
 +};
 +
-+&pinctrl {
++&pio {
 +	spi_flash_pins: spi0-pins-func-1 {
 +		mux {
 +			function = "flash";
@@ -223,7 +223,7 @@
 +};
 --- /dev/null
 +++ b/configs/mt7981_openwrt-one-nor_defconfig
-@@ -0,0 +1,1845 @@
+@@ -0,0 +1,1883 @@
 +#
 +# Automatically generated file; DO NOT EDIT.
 +# U-Boot 2024.01 Configuration
@@ -410,7 +410,7 @@
 +CONFIG_SF_DEFAULT_MODE=0x0
 +CONFIG_ENV_SIZE=0x8000
 +CONFIG_DM_GPIO=y
-+CONFIG_DEFAULT_DEVICE_TREE="openwrt-one"
++CONFIG_DEFAULT_DEVICE_TREE="mediatek/mt7981b-openwrt-one"
 +CONFIG_OF_LIBFDT_OVERLAY=y
 +CONFIG_MULTI_DTB_FIT_UNCOMPRESS_SZ=0x8000
 +CONFIG_DM_RESET=y
@@ -607,7 +607,7 @@
 +# CONFIG_BOOTARGS_SUBST is not set
 +# CONFIG_USE_BOOTCOMMAND is not set
 +CONFIG_USE_PREBOOT=y
-+CONFIG_DEFAULT_FDT_FILE="openwrt-one"
++CONFIG_DEFAULT_FDT_FILE="mediatek/mt7981b-openwrt-one"
 +# CONFIG_SAVE_PREV_BL_FDT_ADDR is not set
 +# CONFIG_SAVE_PREV_BL_INITRAMFS_START_ADDR is not set
 +
@@ -936,7 +936,7 @@
 +# CONFIG_CMD_EFIDEBUG is not set
 +CONFIG_CMD_EFICONFIG=y
 +# CONFIG_CMD_EXCEPTION is not set
-+CONFIG_CMD_LED=y
++# CONFIG_CMD_LED is not set
 +# CONFIG_CMD_INI is not set
 +# CONFIG_CMD_DATE is not set
 +# CONFIG_CMD_TIME is not set
@@ -1023,6 +1023,7 @@
 +# Device Tree Control
 +#
 +CONFIG_OF_CONTROL=y
++CONFIG_OF_UPSTREAM=y
 +CONFIG_OF_REAL=y
 +# CONFIG_OF_LIVE is not set
 +CONFIG_OF_SEPARATE=y
@@ -1326,7 +1327,44 @@
 +# CONFIG_LED_PWM is not set
 +CONFIG_LED_BLINK=y
 +CONFIG_LED_GPIO=y
-+# CONFIG_LED_STATUS is not set
++CONFIG_LED_STATUS=y
++CONFIG_LED_STATUS_OFF=0
++CONFIG_LED_STATUS_BLINKING=1
++CONFIG_LED_STATUS_ON=2
++CONFIG_LED_STATUS_GPIO=y
++CONFIG_LED_STATUS_BOARD_SPECIFIC=y
++
++#
++# LEDs parameters
++#
++CONFIG_LED_STATUS0=y
++CONFIG_LED_STATUS_BIT=9
++CONFIG_LED_STATUS_STATE=0
++CONFIG_LED_STATUS_FREQ=2
++CONFIG_LED_STATUS1=y
++CONFIG_LED_STATUS_BIT1=13
++CONFIG_LED_STATUS_STATE1=0
++CONFIG_LED_STATUS_FREQ1=2
++CONFIG_LED_STATUS2=y
++CONFIG_LED_STATUS_BIT2=15
++CONFIG_LED_STATUS_STATE2=0
++CONFIG_LED_STATUS_FREQ2=2
++# CONFIG_LED_STATUS3 is not set
++# CONFIG_LED_STATUS4 is not set
++# CONFIG_LED_STATUS5 is not set
++CONFIG_LED_STATUS_BOOT_ENABLE=y
++CONFIG_LED_STATUS_BOOT=1
++CONFIG_LED_STATUS_ACTIVITY_ENABLE=y
++CONFIG_LED_STATUS_ACTIVITY=2
++CONFIG_LED_STATUS_RED_ENABLE=y
++CONFIG_LED_STATUS_RED=0
++# CONFIG_LED_STATUS_YELLOW_ENABLE is not set
++# CONFIG_LED_STATUS_BLUE_ENABLE is not set
++CONFIG_LED_STATUS_GREEN_ENABLE=y
++CONFIG_LED_STATUS_GREEN=2
++CONFIG_LED_STATUS_WHITE_ENABLE=y
++CONFIG_LED_STATUS_WHITE=1
++CONFIG_LED_STATUS_CMD=y
 +
 +#
 +# Mailbox Controller Support
@@ -2071,7 +2109,7 @@
 +# CONFIG_TOOLS_MKFWUMDATA is not set
 --- /dev/null
 +++ b/configs/mt7981_openwrt-one-spi-nand_defconfig
-@@ -0,0 +1,1849 @@
+@@ -0,0 +1,1887 @@
 +#
 +# Automatically generated file; DO NOT EDIT.
 +# U-Boot 2024.01 Configuration
@@ -2258,7 +2296,7 @@
 +CONFIG_SF_DEFAULT_MODE=0x0
 +CONFIG_ENV_SIZE=0x1f000
 +CONFIG_DM_GPIO=y
-+CONFIG_DEFAULT_DEVICE_TREE="openwrt-one"
++CONFIG_DEFAULT_DEVICE_TREE="mediatek/mt7981b-openwrt-one"
 +CONFIG_OF_LIBFDT_OVERLAY=y
 +CONFIG_MULTI_DTB_FIT_UNCOMPRESS_SZ=0x8000
 +CONFIG_DM_RESET=y
@@ -2455,7 +2493,7 @@
 +# CONFIG_BOOTARGS_SUBST is not set
 +# CONFIG_USE_BOOTCOMMAND is not set
 +CONFIG_USE_PREBOOT=y
-+CONFIG_DEFAULT_FDT_FILE="openwrt-one"
++CONFIG_DEFAULT_FDT_FILE="mediatek/mt7981b-openwrt-one"
 +# CONFIG_SAVE_PREV_BL_FDT_ADDR is not set
 +# CONFIG_SAVE_PREV_BL_INITRAMFS_START_ADDR is not set
 +
@@ -2784,7 +2822,7 @@
 +# CONFIG_CMD_EFIDEBUG is not set
 +CONFIG_CMD_EFICONFIG=y
 +# CONFIG_CMD_EXCEPTION is not set
-+CONFIG_CMD_LED=y
++# CONFIG_CMD_LED is not set
 +# CONFIG_CMD_INI is not set
 +# CONFIG_CMD_DATE is not set
 +# CONFIG_CMD_TIME is not set
@@ -2871,6 +2909,7 @@
 +# Device Tree Control
 +#
 +CONFIG_OF_CONTROL=y
++CONFIG_OF_UPSTREAM=y
 +CONFIG_OF_REAL=y
 +# CONFIG_OF_LIVE is not set
 +CONFIG_OF_SEPARATE=y
@@ -3178,7 +3217,44 @@
 +# CONFIG_LED_PWM is not set
 +CONFIG_LED_BLINK=y
 +CONFIG_LED_GPIO=y
-+# CONFIG_LED_STATUS is not set
++CONFIG_LED_STATUS=y
++CONFIG_LED_STATUS_OFF=0
++CONFIG_LED_STATUS_BLINKING=1
++CONFIG_LED_STATUS_ON=2
++CONFIG_LED_STATUS_GPIO=y
++CONFIG_LED_STATUS_BOARD_SPECIFIC=y
++
++#
++# LEDs parameters
++#
++CONFIG_LED_STATUS0=y
++CONFIG_LED_STATUS_BIT=9
++CONFIG_LED_STATUS_STATE=0
++CONFIG_LED_STATUS_FREQ=2
++CONFIG_LED_STATUS1=y
++CONFIG_LED_STATUS_BIT1=13
++CONFIG_LED_STATUS_STATE1=0
++CONFIG_LED_STATUS_FREQ1=2
++CONFIG_LED_STATUS2=y
++CONFIG_LED_STATUS_BIT2=15
++CONFIG_LED_STATUS_STATE2=0
++CONFIG_LED_STATUS_FREQ2=2
++# CONFIG_LED_STATUS3 is not set
++# CONFIG_LED_STATUS4 is not set
++# CONFIG_LED_STATUS5 is not set
++CONFIG_LED_STATUS_BOOT_ENABLE=y
++CONFIG_LED_STATUS_BOOT=1
++CONFIG_LED_STATUS_ACTIVITY_ENABLE=y
++CONFIG_LED_STATUS_ACTIVITY=2
++CONFIG_LED_STATUS_RED_ENABLE=y
++CONFIG_LED_STATUS_RED=0
++# CONFIG_LED_STATUS_YELLOW_ENABLE is not set
++# CONFIG_LED_STATUS_BLUE_ENABLE is not set
++CONFIG_LED_STATUS_GREEN_ENABLE=y
++CONFIG_LED_STATUS_GREEN=2
++CONFIG_LED_STATUS_WHITE_ENABLE=y
++CONFIG_LED_STATUS_WHITE=1
++CONFIG_LED_STATUS_CMD=y
 +
 +#
 +# Mailbox Controller Support
@@ -3923,7 +3999,7 @@
 +# CONFIG_TOOLS_MKFWUMDATA is not set
 --- /dev/null
 +++ b/openwrt-one-nor_env
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,44 @@
 +bl2_mtd_write=mtd erase bl2-nor &&  mtd write bl2-nor $loadaddr 0x0 0x40000
 +bl2_tftp_write=tftpboot $loadaddr $bootfile_bl2_nor && run bl2_mtd_write
 +bootcmd=run check_button ; run led_start ; mtd read recovery ${loadaddr} ; bootm ; run led_loop_error
@@ -3952,10 +4028,8 @@
 +led_done=led green off ; led white on
 +led_loop_done=led white off ; led green on ; echo done ; while true ; do  sleep 1 ; done
 +led_loop_error=led white off ; led green off ; while true ; do led red on ; sleep 1 ; led red off ; sleep 1 ; done
-+led_boot=led green on ; led white on ; led red on
 +led_start=led green off ; led red off; led white on
 +loadaddr=0x46000000
-+preboot=run led_boot
 +recoverfile_bl2=openwrt-mediatek-filogic-openwrt_one-snand-preloader.bin
 +recoverfile_ubi=openwrt-mediatek-filogic-openwrt_one-factory.ubi
 +recovery_write_bl2=mtd erase bl2 && for offset in 0x0 0x40000 0x80000; do mtd write bl2 $loadaddr $offset 0x40000 ; done
@@ -3972,7 +4046,7 @@
 +_switch_to_menu=setenv _switch_to_menu ; setenv bootdelay 3 ; setenv bootmenu_delay 3 ; setenv bootmenu_0 $bootmenu_0d ; setenv bootmenu_0d ; run _bootmenu_update_title
 --- /dev/null
 +++ b/openwrt-one-spi-nand_env
-@@ -0,0 +1,59 @@
+@@ -0,0 +1,57 @@
 +ipaddr=192.168.11.11
 +serverip=192.168.11.23
 +loadaddr=0x46000000
@@ -3984,7 +4058,7 @@
 +bootfile_bl2=openwrt-mediatek-filogic-openwrt_one-snand-preloader.bin
 +bootfile_fip=openwrt-mediatek-filogic-openwrt_one-snand-bl31-uboot.fip
 +bootfile_upg=openwrt-mediatek-filogic-openwrt_one-squashfs-sysupgrade.itb
-+bootmenu_confirm_return=askenv - Press ENTER to return to menu ; run led_boot ; bootmenu 60
++bootmenu_confirm_return=askenv - Press ENTER to return to menu ; bootmenu 60
 +bootmenu_default=0
 +bootmenu_delay=0
 +bootmenu_title=      [0;34m( ( ( [1;39mOpenWrt[0;34m ) ) )  [0;36m[SPI-NAND][0m
@@ -4011,11 +4085,9 @@
 +boot_tftp_write_fip=tftpboot $loadaddr $bootfile_fip && run ubi_write_fip && run reset_factory
 +boot_tftp_write_bl2=tftpboot $loadaddr $bootfile_bl2 && run snand_write_bl2
 +check_buttons=if button front ; then run boot_recovery ; run boot_tftp ; run led_loop_error ; else if button back ; then ; run usb_recover ; run led_loop_error ; fi ; fi
-+led_boot=led green on ; led white on ; led red on
 +led_done=led green on ; led white off ; led red off
 +led_loop_error=led white off ; led green off ; while true ; do led red on ; sleep 1 ; led red off ; sleep 1 ; done
 +led_start=led white on ; led green off ; led red off
-+preboot=run led_boot
 +reset_factory=mw $loadaddr 0xff 0x1f000 ; ubi write $loadaddr ubootenv 0x1f000 ; ubi write $loadaddr ubootenv2 0x1f000 ; ubi remove rootfs_data
 +snand_write_bl2=mtd erase bl2 && for offset in 0x0 0x40000 0x80000 0xc0000 ; do mtd write bl2 $loadaddr $offset 0x40000 ; done
 +ubi_create_env=ubi check ubootenv || ubi create ubootenv 0x1f000 dynamic ; ubi check ubootenv2 || ubi create ubootenv2 0x1f000 dynamic

@@ -1,0 +1,34 @@
+From dbb67ba36ce60a94f2bc17e4ddf6bf13d0e68c58 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 30 May 2024 18:42:22 +0200
+Subject: [PATCH 09/42] clk: mediatek: mt7981: add missing clock for spi1 node
+
+Add missing clock for spi1 node. Clocks taken from upstream clock
+definition and clock mux.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ arch/arm/dts/mt7981.dtsi | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/arch/arm/dts/mt7981.dtsi b/arch/arm/dts/mt7981.dtsi
+index e79f066f872..e0bb1f62059 100644
+--- a/arch/arm/dts/mt7981.dtsi
++++ b/arch/arm/dts/mt7981.dtsi
+@@ -281,6 +281,13 @@
+ 		compatible = "mediatek,ipm-spi";
+ 		reg = <0x1100b000 0x100>;
+ 		interrupts = <GIC_SPI 141 IRQ_TYPE_LEVEL_HIGH>;
++		clocks = <&infracfg_ao CK_INFRA_SPI1_CK>,
++			 <&topckgen CK_TOP_SPIM_MST_SEL>;
++		assigned-clocks = <&topckgen CK_TOP_SPIM_MST_SEL>,
++				  <&infracfg CK_INFRA_SPI1_SEL>;
++		assigned-clock-parents = <&topckgen CK_TOP_CB_M_D2>,
++					 <&topckgen CK_INFRA_ISPI1>;
++		clock-names = "sel-clk", "spi-clk";
+ 		status = "disabled";
+ 	};
+ 
+-- 
+2.43.0
+

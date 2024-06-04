@@ -69,7 +69,7 @@
 +	unmap_sysmem(buf);
 +
 +	/* Continue calling setenv code */
-+	return _do_env_set(flag, 3, local_args, H_INTERACTIVE);
++	return env_do_env_set(flag, 3, local_args, H_INTERACTIVE);
 +}
 +#endif
 +

@@ -1,0 +1,90 @@
+From 81814094755acafa80275caf700496d8964e13cc Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 31 May 2024 18:35:48 +0200
+Subject: [PATCH 25/42] serial: mediatek: add special handling for highspeed
+ and linux compat
+
+Upstream linux serial driver use a different logic to setup serial regs.
+
+They have 2 interval:
+- < 115200 we use lowspeed regs and 16 * baud
+- >= 115200 we use highspeed
+
+We currently use force_highspeed property to force usage of highspeed
+regs even with low baud rate.
+
+Add special handling if the upstream compatible is used where we just
+apply the same interval with anything >= 115200 in highspeed simulating
+force_highspeed.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/serial/serial_mtk.c | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/serial/serial_mtk.c b/drivers/serial/serial_mtk.c
+index d34a31c9cf0..14be095653a 100644
+--- a/drivers/serial/serial_mtk.c
++++ b/drivers/serial/serial_mtk.c
+@@ -89,8 +89,8 @@ struct mtk_serial_priv {
+ 	bool force_highspeed;
+ };
+ 
+-static void _mtk_serial_setbrg(struct mtk_serial_priv *priv, int baud,
+-			       uint clk_rate)
++static void _mtk_serial_setbrg(struct udevice *dev, struct mtk_serial_priv *priv,
++			       int baud, uint clk_rate)
+ {
+ 	u32 quot, realbaud, samplecount = 1;
+ 
+@@ -113,7 +113,12 @@ static void _mtk_serial_setbrg(struct mtk_serial_priv *priv, int baud,
+ 		goto set_baud;
+ 	}
+ 
+-	if (priv->force_highspeed)
++	/*
++	 * Upstream linux use highspeed for anything >= 115200 and lowspeed
++	 * for < 115200. Simulate this if we are using the upstream compatible.
++	 */
++	if (priv->force_highspeed ||
++	    (device_is_compatible(dev, "mediatek,mt6577-uart") && baud >= 115200))
+ 		goto use_hs3;
+ 
+ 	if (baud <= 115200) {
+@@ -186,7 +191,7 @@ static int mtk_serial_setbrg(struct udevice *dev, int baudrate)
+ 	if (IS_ERR_VALUE(clk_rate) || clk_rate == 0)
+ 		clk_rate = priv->fixed_clk_rate;
+ 
+-	_mtk_serial_setbrg(priv, baudrate, clk_rate);
++	_mtk_serial_setbrg(dev, priv, baudrate, clk_rate);
+ 
+ 	return 0;
+ }
+@@ -302,13 +307,13 @@ DECLARE_GLOBAL_DATA_PTR;
+ 		writel(0, &mtk_hsuart##port.regs->ier); \
+ 		writel(UART_MCRVAL, &mtk_hsuart##port.regs->mcr); \
+ 		writel(UART_FCRVAL, &mtk_hsuart##port.regs->fcr); \
+-		_mtk_serial_setbrg(&mtk_hsuart##port, gd->baudrate, \
++		_mtk_serial_setbrg(NULL, &mtk_hsuart##port, gd->baudrate, \
+ 				   mtk_hsuart##port.fixed_clk_rate); \
+ 		return 0 ; \
+ 	} \
+ 	static void mtk_serial##port##_setbrg(void) \
+ 	{ \
+-		_mtk_serial_setbrg(&mtk_hsuart##port, gd->baudrate, \
++		_mtk_serial_setbrg(NULL, &mtk_hsuart##port, gd->baudrate, \
+ 				   mtk_hsuart##port.fixed_clk_rate); \
+ 	} \
+ 	static int mtk_serial##port##_getc(void) \
+@@ -456,7 +461,7 @@ static inline void _debug_uart_init(void)
+ 	writel(UART_MCRVAL, &priv.regs->mcr);
+ 	writel(UART_FCRVAL, &priv.regs->fcr);
+ 
+-	_mtk_serial_setbrg(&priv, CONFIG_BAUDRATE, priv.fixed_clk_rate);
++	_mtk_serial_setbrg(NULL, &priv, CONFIG_BAUDRATE, priv.fixed_clk_rate);
+ }
+ 
+ static inline void _debug_uart_putc(int ch)
+-- 
+2.43.0
+

@@ -1,0 +1,123 @@
+From 9b2b683d229f98ceedea35764c476876297594d5 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sun, 2 Jun 2024 17:34:53 +0200
+Subject: [PATCH 34/42] led: status_led: add support for white LED colour
+
+Add support for white LED colour present on many devices.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ cmd/legacy_led.c        |  6 ++++++
+ common/board_f.c        |  2 ++
+ drivers/led/Kconfig     | 14 ++++++++++++++
+ drivers/misc/gpio_led.c | 12 ++++++++++++
+ include/status_led.h    |  4 ++++
+ 5 files changed, 38 insertions(+)
+
+diff --git a/cmd/legacy_led.c b/cmd/legacy_led.c
+index 5256255f052..40dbc05a651 100644
+--- a/cmd/legacy_led.c
++++ b/cmd/legacy_led.c
+@@ -57,6 +57,9 @@ static const led_tbl_t led_commands[] = {
+ #endif
+ #ifdef CONFIG_LED_STATUS_BLUE
+ 	{ "blue", CONFIG_LED_STATUS_BLUE, blue_led_off, blue_led_on, NULL },
++#endif
++#ifdef CONFIG_LED_STATUS_WHITE
++	{ "white", CONFIG_LED_STATUS_WHITE, white_led_off, white_led_on, NULL },
+ #endif
+ 	{ NULL, 0, NULL, NULL, NULL }
+ };
+@@ -180,6 +183,9 @@ U_BOOT_CMD(
+ #endif
+ #ifdef CONFIG_LED_STATUS_BLUE
+ 	"blue|"
++#endif
++#ifdef CONFIG_LED_STATUS_WHITE
++	"white|"
+ #endif
+ 	"all] [on|off|toggle|blink] [blink-freq in ms]",
+ 	"[led_name] [on|off|toggle|blink] sets or clears led(s)"
+diff --git a/common/board_f.c b/common/board_f.c
+index 039d6d712d0..54e2009339e 100644
+--- a/common/board_f.c
++++ b/common/board_f.c
+@@ -72,6 +72,8 @@ __weak void yellow_led_on(void) {}
+ __weak void yellow_led_off(void) {}
+ __weak void blue_led_on(void) {}
+ __weak void blue_led_off(void) {}
++__weak void white_led_on(void) {}
++__weak void white_led_off(void) {}
+ 
+ /*
+  * Why is gd allocated a register? Prior to reloc it might be better to
+diff --git a/drivers/led/Kconfig b/drivers/led/Kconfig
+index 9837960198d..6c4f02d71f2 100644
+--- a/drivers/led/Kconfig
++++ b/drivers/led/Kconfig
+@@ -415,6 +415,20 @@ config LED_STATUS_GREEN
+ 
+ endif # LED_STATUS_GREEN_ENABLE
+ 
++config LED_STATUS_WHITE_ENABLE
++	bool "Enable white LED"
++	help
++	  Enable white status LED.
++
++if LED_STATUS_WHITE_ENABLE
++
++config LED_STATUS_WHITE
++	int "White LED identification"
++	help
++	  Valid enabled LED device number (0-5).
++
++endif # LED_STATUS_WHITE_ENABLE
++
+ config LED_STATUS_CMD
+ 	bool "Enable status LED commands"
+ 
+diff --git a/drivers/misc/gpio_led.c b/drivers/misc/gpio_led.c
+index 0f3682e1465..de84c206b6b 100644
+--- a/drivers/misc/gpio_led.c
++++ b/drivers/misc/gpio_led.c
+@@ -112,3 +112,15 @@ void blue_led_off(void)
+ 	__led_set(GPIO_BIT(CONFIG_LED_STATUS_BLUE), CONFIG_LED_STATUS_OFF);
+ }
+ #endif
++
++#ifdef CONFIG_LED_STATUS_WHITE
++void white_led_on(void)
++{
++	__led_set(GPIO_BIT(CONFIG_LED_STATUS_WHITE), CONFIG_LED_STATUS_ON);
++}
++
++void white_led_off(void)
++{
++	__led_set(GPIO_BIT(CONFIG_LED_STATUS_WHITE), CONFIG_LED_STATUS_OFF);
++}
++#endif
+diff --git a/include/status_led.h b/include/status_led.h
+index 6707ab1d29d..5ce4522b029 100644
+--- a/include/status_led.h
++++ b/include/status_led.h
+@@ -87,6 +87,8 @@ void yellow_led_on(void);
+ void yellow_led_off(void);
+ void blue_led_on(void);
+ void blue_led_off(void);
++void white_led_on(void);
++void white_led_off(void);
+ #else
+ 	.extern LED_init
+ 	.extern red_led_on
+@@ -97,6 +99,8 @@ void blue_led_off(void);
+ 	.extern green_led_off
+ 	.extern blue_led_on
+ 	.extern blue_led_off
++	.extern white_led_on
++	.extern white_led_off
+ #endif
+ 
+ #endif	/* _STATUS_LED_H_	*/
+-- 
+2.43.0
+

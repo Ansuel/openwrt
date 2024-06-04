@@ -1,0 +1,32 @@
+From f0833811348ac4bff04442a940129febd1733eb0 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 31 May 2024 17:11:04 +0200
+Subject: [PATCH 22/42] net: mediatek: handle alternative name for pn_swap
+ property
+
+Handle alternative name for pn_swap property as upstream linux use
+mediatek,pnswap.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/mtk_eth.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/mtk_eth.c b/drivers/net/mtk_eth.c
+index 75e7bcf83b7..87e2e1d9cda 100644
+--- a/drivers/net/mtk_eth.c
++++ b/drivers/net/mtk_eth.c
+@@ -1965,7 +1965,9 @@ static int mtk_eth_of_to_plat(struct udevice *dev)
+ 			return -ENODEV;
+ 		}
+ 
+-		priv->pn_swap = ofnode_read_bool(args.node, "pn_swap");
++		/* Upstream linux use mediatek,pnswap instead of pn_swap */
++		priv->pn_swap = ofnode_read_bool(args.node, "pn_swap") ||
++				ofnode_read_bool(args.node, "mediatek,pnswap");
+ 	} else if (priv->phy_interface == PHY_INTERFACE_MODE_USXGMII) {
+ 		/* get corresponding usxgmii phandle */
+ 		ret = dev_read_phandle_with_args(dev, "mediatek,usxgmiisys",
+-- 
+2.43.0
+

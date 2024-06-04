@@ -1,0 +1,39 @@
+From 666e3f90e5bbca1fe0ae30249487a96ead55728f Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Mon, 3 Jun 2024 14:42:44 +0200
+Subject: [PATCH 42/42] Makefile.lib: also parse SYS_BOARD in DTSI include
+
+Some Vendor (Mediatek) hardcode the SYS_SOC to a default value
+(Mediatek) and set the SYS_BOARD value to the actual SoC value.
+
+To improve usage of OF_UPSTREAM for these Vendor, also parse
+CONFIG_SYS_BOARD in u-boot.dtsi include.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ scripts/Makefile.lib | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/scripts/Makefile.lib b/scripts/Makefile.lib
+index 62f87517c09..146293420c2 100644
+--- a/scripts/Makefile.lib
++++ b/scripts/Makefile.lib
+@@ -165,6 +165,7 @@ u_boot_dtsi_options = $(strip $(wildcard $(u_boot_dtsi_loc)$(basename $(notdir $
+ 	$(wildcard $(u_boot_dtsi_loc)$(subst $\",,$(CONFIG_SYS_SOC))-u-boot.dtsi) \
+ 	$(wildcard $(u_boot_dtsi_loc)$(subst $\",,$(CONFIG_SYS_CPU))-u-boot.dtsi) \
+ 	$(wildcard $(u_boot_dtsi_loc)$(subst $\",,$(CONFIG_SYS_VENDOR))-u-boot.dtsi) \
++	$(wildcard $(u_boot_dtsi_loc)$(subst $\",,$(CONFIG_SYS_BOARD))-u-boot.dtsi) \
+ 	$(wildcard $(u_boot_dtsi_loc)u-boot.dtsi))
+ 
+ u_boot_dtsi_options_raw = $(warning Automatic .dtsi inclusion: options: \
+@@ -172,6 +173,7 @@ u_boot_dtsi_options_raw = $(warning Automatic .dtsi inclusion: options: \
+ 	$(u_boot_dtsi_loc)$(subst $\",,$(CONFIG_SYS_SOC))-u-boot.dtsi \
+ 	$(u_boot_dtsi_loc)$(subst $\",,$(CONFIG_SYS_CPU))-u-boot.dtsi \
+ 	$(u_boot_dtsi_loc)$(subst $\",,$(CONFIG_SYS_VENDOR))-u-boot.dtsi \
++	$(u_boot_dtsi_loc)$(subst $\",,$(CONFIG_SYS_BOARD))-u-boot.dtsi \
+ 	$(u_boot_dtsi_loc)u-boot.dtsi ... \
+ 	found: $(if $(u_boot_dtsi_options),"$(u_boot_dtsi_options)",nothing!))
+ 
+-- 
+2.43.0
+

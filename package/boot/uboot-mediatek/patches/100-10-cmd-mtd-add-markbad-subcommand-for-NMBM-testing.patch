@@ -68,9 +68,9 @@ Signed-off-by: SkyLake.Huang <skylake.huang@mediatek.com>
  	"Specific functions:\n"
  	"mtd bad                               <name>\n"
 +	"mtd markbad                           <name> <off>\n"
- 	"\n"
- 	"With:\n"
- 	"\t<name>: NAND partition/chip name (or corresponding DM device name or OF path)\n"
+ #if CONFIG_IS_ENABLED(CMD_MTD_OTP)
+ 	"mtd otpread                           <name> [u|f] <off> <size>\n"
+ 	"mtd otpwrite                          <name> <off> <hex string>\n"
 @@ -575,4 +612,6 @@ U_BOOT_CMD_WITH_SUBCMDS(mtd, "MTD utils"
  		U_BOOT_SUBCMD_MKENT_COMPLETE(erase, 4, 0, do_mtd_erase,
  					     mtd_name_complete),

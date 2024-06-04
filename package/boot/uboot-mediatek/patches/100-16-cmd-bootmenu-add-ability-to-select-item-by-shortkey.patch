@@ -96,8 +96,8 @@ Signed-off-by: Weijie Gao <weijie.gao@mediatek.com>
  
  		/* Add Quit entry if entering U-Boot console is disabled */
  		if (!IS_ENABLED(CONFIG_BOOTMENU_DISABLE_UBOOT_CONSOLE))
--			entry->title = strdup("U-Boot console");
-+			entry->title = strdup("0. U-Boot console");
+-			entry->title = strdup("Exit");
++			entry->title = strdup("0. Exit");
  		else
 -			entry->title = strdup("Quit");
 +			entry->title = strdup("0. Quit");
