@@ -1,7 +1,6 @@
 #!/bin/sh
 
 DIR_ETH=/sys/kernel/debug/airoha_eth
-DIR_SWITCH=/sys/kernel/debug/mt7530
 
 # ETH QDMA
 echo 0x4 > $DIR_ETH/regidx
@@ -72,77 +71,3 @@ echo 0x58 > $DIR_ETH/regidx
 echo -e "CDM1_OQ_MAP_2\t\t: $(cat $DIR_ETH/fe_regval)"
 echo 0x5c > $DIR_ETH/regidx
 echo -e "CDM1_OQ_MAP_3\t\t: $(cat $DIR_ETH/fe_regval)"
-
-# DSA SWITCH
-echo 0x7ffc > $DIR_SWITCH/regidx
-echo -e "CREV\t\t\t: $(cat $DIR_SWITCH/regval)"
-
-echo 0x30f4 > $DIR_SWITCH/regidx
-echo -e "GPINT_EN\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x3110 > $DIR_SWITCH/regidx
-echo -e "PINT_EN_P1\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x3610 > $DIR_SWITCH/regidx
-echo -e "PINT_EN_P6\t\t: $(cat $DIR_SWITCH/regval)"
-
-echo 0x30f8 > $DIR_SWITCH/regidx
-echo -e "GPINT_STS\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x3114 > $DIR_SWITCH/regidx
-echo -e "PINT_STS_P1\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x3614 > $DIR_SWITCH/regidx
-echo -e "PINT_STS_P6\t\t: $(cat $DIR_SWITCH/regval)"
-
-echo 0x4108 > $DIR_SWITCH/regidx
-echo -e "TUPC_P1\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4100 > $DIR_SWITCH/regidx
-echo -e "TDPC_P1\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4104 > $DIR_SWITCH/regidx
-echo -e "TFPC_P1\t\t\t: $(cat $DIR_SWITCH/regval)"
-
-echo 0x4168 > $DIR_SWITCH/regidx
-echo -e "RUPC_P1\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4160 > $DIR_SWITCH/regidx
-echo -e "RDPC_P1\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4164 > $DIR_SWITCH/regidx
-echo -e "RFPC_P1\t\t\t: $(cat $DIR_SWITCH/regval)"
-
-echo 0x4208 > $DIR_SWITCH/regidx
-echo -e "TUPC_P2\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4200 > $DIR_SWITCH/regidx
-echo -e "TDPC_P2\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4204 > $DIR_SWITCH/regidx
-echo -e "TFPC_P2\t\t\t: $(cat $DIR_SWITCH/regval)"
-
-echo 0x4308 > $DIR_SWITCH/regidx
-echo -e "TUPC_P3\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4300 > $DIR_SWITCH/regidx
-echo -e "TDPC_P3\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4304 > $DIR_SWITCH/regidx
-echo -e "TFPC_P3\t\t\t: $(cat $DIR_SWITCH/regval)"
-
-echo 0x4408 > $DIR_SWITCH/regidx
-echo -e "TUPC_P4\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4400 > $DIR_SWITCH/regidx
-echo -e "TDPC_P4\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4404 > $DIR_SWITCH/regidx
-echo -e "TFPC_P4\t\t\t: $(cat $DIR_SWITCH/regval)"
-
-echo 0x4508 > $DIR_SWITCH/regidx
-echo -e "TUPC_P5\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4500 > $DIR_SWITCH/regidx
-echo -e "TDPC_P5\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4504 > $DIR_SWITCH/regidx
-echo -e "TFPC_P5\t\t\t: $(cat $DIR_SWITCH/regval)"
-
-echo 0x4608 > $DIR_SWITCH/regidx
-echo -e "TUPC_P6\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4600 > $DIR_SWITCH/regidx
-echo -e "TDPC_P6\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4604 > $DIR_SWITCH/regidx
-echo -e "TFPC_P6\t\t\t: $(cat $DIR_SWITCH/regval)"
-
-echo 0x4668 > $DIR_SWITCH/regidx
-echo -e "RUPC_P6\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4660 > $DIR_SWITCH/regidx
-echo -e "RDPC_P6\t\t\t: $(cat $DIR_SWITCH/regval)"
-echo 0x4664 > $DIR_SWITCH/regidx
-echo -e "RFPC_P6\t\t\t: $(cat $DIR_SWITCH/regval)"
