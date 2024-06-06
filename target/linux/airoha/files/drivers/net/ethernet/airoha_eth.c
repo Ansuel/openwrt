@@ -19,6 +19,48 @@
 #include <uapi/linux/ppp_defs.h>
 #include "airoha_eth.h"
 
+static const struct airoha_ethtool_stats airoha_hw_stats[] = {
+	{
+		"tx_eth_pkt_cnt",
+		REG_FE_GDM1_TX_ETH_PKT_CNT_L,
+		REG_FE_GDM1_TX_ETH_PKT_CNT_H,
+	}, {
+		"tx_eth_byte_cnt",
+		REG_FE_GDM1_TX_ETH_BYTE_CNT_L,
+		REG_FE_GDM1_TX_ETH_BYTE_CNT_H,
+	}, {
+		"tx_ok_pkt_cnt",
+		REG_FE_GDM1_TX_OK_PKT_CNT_L,
+		REG_FE_GDM1_TX_OK_PKT_CNT_H,
+	}, {
+		"tx_ok_byte_cnt",
+		REG_FE_GDM1_TX_OK_BYTE_CNT_L,
+		REG_FE_GDM1_TX_OK_BYTE_CNT_H,
+	}, {
+		"tx_eth_drop_cnt",
+		REG_FE_GDM1_TX_ETH_DROP_CNT,
+	}, {
+		"rx_eth_pkt_cnt",
+		REG_FE_GDM1_RX_ETH_PKT_CNT_L,
+		REG_FE_GDM1_RX_ETH_PKT_CNT_H,
+	}, {
+		"rx_eth_byte_cnt",
+		REG_FE_GDM1_RX_ETH_BYTE_CNT_L,
+		REG_FE_GDM1_RX_ETH_BYTE_CNT_H,
+	}, {
+		"rx_ok_pkt_cnt",
+		REG_FE_GDM1_RX_OK_PKT_CNT_L,
+		REG_FE_GDM1_RX_OK_PKT_CNT_H,
+	}, {
+		"rx_ok_byte_cnt",
+		REG_FE_GDM1_RX_OK_BYTE_CNT_L,
+		REG_FE_GDM1_RX_OK_BYTE_CNT_H,
+	}, {
+		"rx_eth_drop_cnt",
+		REG_FE_GDM1_RX_ETH_DROP_CNT,
+	},
+};
+
 static u32 airoha_rr(void __iomem *base, u32 offset)
 {
 	return readl(base + offset);
@@ -1421,6 +1463,62 @@ static int airoha_dev_change_mtu(struct net_device *dev, int new_mtu)
 	return 0;
 }
 
+static void airoha_ethtool_get_strings(struct net_device *dev, u32 sset,
+				       u8 *data)
+{
+	int i;
+
+	if (sset != ETH_SS_STATS)
+		return;
+
+
+	for (i = 0; i < ARRAY_SIZE(airoha_hw_stats); i++) {
+		memcpy(data + i * ETH_GSTRING_LEN,
+		       airoha_hw_stats[i].name, ETH_GSTRING_LEN);
+	}
+
+	data += ETH_GSTRING_LEN * ARRAY_SIZE(airoha_hw_stats);
+	page_pool_ethtool_stats_get_strings(data);
+}
+
+static int airoha_ethtool_get_sset_count(struct net_device *dev, int sset)
+{
+	if (sset != ETH_SS_STATS)
+		return -EOPNOTSUPP;
+
+	return ARRAY_SIZE(airoha_hw_stats) +
+	       page_pool_ethtool_stats_get_count();
+}
+
+static void airoha_ethtool_get_stats(struct net_device *dev,
+				     struct ethtool_stats *stats, u64 *data)
+{
+	struct airoha_eth *eth = netdev_priv(dev);
+	struct page_pool_stats pp_stats = {};
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(airoha_hw_stats); i++) {
+		u32 val;
+
+		if (airoha_hw_stats[i].h_offset) {
+			val = airoha_fe_rr(eth, airoha_hw_stats[i].h_offset);
+			eth->hw_stats[i] += ((u64)val << 32);
+		}
+		val = airoha_fe_rr(eth, airoha_hw_stats[i].l_offset);
+		eth->hw_stats[i] += val;
+
+		*data++ = eth->hw_stats[i];
+	}
+
+	airoha_qdma_for_each_q_rx(eth, i)
+		page_pool_get_stats(eth->q_rx[i].page_pool, &pp_stats);
+	page_pool_ethtool_stats_get(data, &pp_stats);
+
+	/* reset mib counters */
+	airoha_fe_set(eth, REG_FE_GDM1_MIB_CLEAR,
+		      FE_GDM1_MIB_RX_CLEAR | FE_GDM1_MIB_TX_CLEAR);
+}
+
 static const struct net_device_ops airoha_netdev_ops = {
 	.ndo_init		= airoha_dev_init,
 	.ndo_open		= airoha_dev_open,
@@ -1428,6 +1526,12 @@ static const struct net_device_ops airoha_netdev_ops = {
 	.ndo_start_xmit		= airoha_dev_xmit,
 	.ndo_change_mtu		= airoha_dev_change_mtu,
 	.ndo_set_mac_address	= airoha_dev_set_macaddr,
+};
+
+static const struct ethtool_ops airoha_ethtool_ops = {
+	.get_strings		= airoha_ethtool_get_strings,
+	.get_sset_count		= airoha_ethtool_get_sset_count,
+	.get_ethtool_stats	= airoha_ethtool_get_stats,
 };
 
 static int airoha_fe_reg_set(void *data, u64 val)
@@ -1585,6 +1689,7 @@ static int airoha_probe(struct platform_device *pdev)
 	}
 
 	dev->netdev_ops = &airoha_netdev_ops;
+	dev->ethtool_ops = &airoha_ethtool_ops;
 	dev->max_mtu = AIROHA_MAX_MTU;
 	dev->watchdog_timeo = 5 * HZ;
 	dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_RXCSUM |
@@ -1604,6 +1709,12 @@ static int airoha_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "generated random MAC address %pM\n",
 			 dev->dev_addr);
 	}
+
+	eth->hw_stats = devm_kzalloc(&pdev->dev,
+				     ARRAY_SIZE(airoha_hw_stats) * sizeof(u64),
+				     GFP_KERNEL);
+	if (!eth->hw_stats)
+		return -ENOMEM;
 
 	err = airoha_hw_init(eth);
 	if (err)

@@ -166,11 +166,37 @@
 #define FE_CPORT_PORT_XFC_MASK		BIT(25)
 #define FE_CPORT_QUEUE_XFC_MASK		BIT(24)
 
+#define REG_FE_GDM1_MIB_CLEAR		(GDM1_BASE + 0xf0)
+#define FE_GDM1_MIB_RX_CLEAR		BIT(1)
+#define FE_GDM1_MIB_TX_CLEAR		BIT(0)
+
+#define REG_FE_GDM1_TX_OK_PKT_CNT_L	(GDM1_BASE + 0x104)
+#define REG_FE_GDM1_TX_OK_BYTE_CNT_L	(GDM1_BASE + 0x10c)
+#define REG_FE_GDM1_TX_ETH_PKT_CNT_L	(GDM1_BASE + 0x110)
+#define REG_FE_GDM1_TX_ETH_BYTE_CNT_L	(GDM1_BASE + 0x114)
+#define REG_FE_GDM1_TX_ETH_DROP_CNT	(GDM1_BASE + 0x118)
+
+#define REG_FE_GDM1_RX_OK_PKT_CNT_L	(GDM1_BASE + 0x148)
+#define REG_FE_GDM1_RX_OK_BYTE_CNT_L	(GDM1_BASE + 0x15c)
+#define REG_FE_GDM1_RX_ETH_PKT_CNT_L	(GDM1_BASE + 0x160)
+#define REG_FE_GDM1_RX_ETH_BYTE_CNT_L	(GDM1_BASE + 0x164)
+#define REG_FE_GDM1_RX_ETH_DROP_CNT	(GDM1_BASE + 0x168)
+
 #define REG_PPE1_TB_HASH_CFG		(PPE1_BASE + 0x250)
 #define PPE1_SRAM_TABLE_EN_MASK		BIT(0)
 #define PPE1_SRAM_HASH1_EN_MASK		BIT(8)
 #define PPE1_DRAM_TABLE_EN_MASK		BIT(16)
 #define PPE1_DRAM_HASH1_EN_MASK		BIT(24)
+
+#define REG_FE_GDM1_TX_OK_PKT_CNT_H	(GDM1_BASE + 0x280)
+#define REG_FE_GDM1_TX_OK_BYTE_CNT_H	(GDM1_BASE + 0x284)
+#define REG_FE_GDM1_TX_ETH_PKT_CNT_H	(GDM1_BASE + 0x288)
+#define REG_FE_GDM1_TX_ETH_BYTE_CNT_H	(GDM1_BASE + 0x28c)
+
+#define REG_FE_GDM1_RX_OK_PKT_CNT_H	(GDM1_BASE + 0x290)
+#define REG_FE_GDM1_RX_OK_BYTE_CNT_H	(GDM1_BASE + 0x294)
+#define REG_FE_GDM1_RX_ETH_PKT_CNT_H	(GDM1_BASE + 0x298)
+#define REG_FE_GDM1_RX_ETH_BYTE_CNT_H	(GDM1_BASE + 0x29c)
 
 #define REG_GDM2_CHN_RLS		(GDM2_BASE + 0x20)
 #define MBI_RX_AGE_SEL_MASK		GENMASK(18, 17)
@@ -651,6 +677,12 @@ struct airoha_queue_entry {
 	u16 dma_len;
 };
 
+struct airoha_ethtool_stats {
+	const char name[ETH_GSTRING_LEN];
+	u32 l_offset;
+	u32 h_offset;
+};
+
 struct airoha_queue {
 	struct airoha_eth *eth;
 
@@ -705,6 +737,8 @@ struct airoha_eth {
 		void *desc;
 		void *q;
 	} hfwd;
+
+	u64 *hw_stats;
 
 	struct dentry *debugfs_dir;
 	u32 debugfs_reg;
