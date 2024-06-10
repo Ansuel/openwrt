@@ -10,7 +10,6 @@
 #include <linux/netdevice.h>
 #include <linux/of.h>
 #include <linux/of_net.h>
-#include <linux/phylink.h>
 #include <linux/platform_device.h>
 #include <linux/reset.h>
 #include <linux/tcp.h>
@@ -18,48 +17,6 @@
 #include <net/page_pool.h>
 #include <uapi/linux/ppp_defs.h>
 #include "airoha_eth.h"
-
-static const struct airoha_ethtool_stats airoha_hw_stats[] = {
-	{
-		"tx_eth_pkt_cnt",
-		REG_FE_GDM1_TX_ETH_PKT_CNT_L,
-		REG_FE_GDM1_TX_ETH_PKT_CNT_H,
-	}, {
-		"tx_eth_byte_cnt",
-		REG_FE_GDM1_TX_ETH_BYTE_CNT_L,
-		REG_FE_GDM1_TX_ETH_BYTE_CNT_H,
-	}, {
-		"tx_ok_pkt_cnt",
-		REG_FE_GDM1_TX_OK_PKT_CNT_L,
-		REG_FE_GDM1_TX_OK_PKT_CNT_H,
-	}, {
-		"tx_ok_byte_cnt",
-		REG_FE_GDM1_TX_OK_BYTE_CNT_L,
-		REG_FE_GDM1_TX_OK_BYTE_CNT_H,
-	}, {
-		"tx_eth_drop_cnt",
-		REG_FE_GDM1_TX_ETH_DROP_CNT,
-	}, {
-		"rx_eth_pkt_cnt",
-		REG_FE_GDM1_RX_ETH_PKT_CNT_L,
-		REG_FE_GDM1_RX_ETH_PKT_CNT_H,
-	}, {
-		"rx_eth_byte_cnt",
-		REG_FE_GDM1_RX_ETH_BYTE_CNT_L,
-		REG_FE_GDM1_RX_ETH_BYTE_CNT_H,
-	}, {
-		"rx_ok_pkt_cnt",
-		REG_FE_GDM1_RX_OK_PKT_CNT_L,
-		REG_FE_GDM1_RX_OK_PKT_CNT_H,
-	}, {
-		"rx_ok_byte_cnt",
-		REG_FE_GDM1_RX_OK_BYTE_CNT_L,
-		REG_FE_GDM1_RX_OK_BYTE_CNT_H,
-	}, {
-		"rx_eth_drop_cnt",
-		REG_FE_GDM1_RX_ETH_DROP_CNT,
-	},
-};
 
 static u32 airoha_rr(void __iomem *base, u32 offset)
 {
@@ -1462,6 +1419,48 @@ static int airoha_dev_change_mtu(struct net_device *dev, int new_mtu)
 
 	return 0;
 }
+
+static const struct airoha_ethtool_stats airoha_hw_stats[] = {
+	{
+		"tx_eth_pkt_cnt",
+		REG_FE_GDM1_TX_ETH_PKT_CNT_L,
+		REG_FE_GDM1_TX_ETH_PKT_CNT_H,
+	}, {
+		"tx_eth_byte_cnt",
+		REG_FE_GDM1_TX_ETH_BYTE_CNT_L,
+		REG_FE_GDM1_TX_ETH_BYTE_CNT_H,
+	}, {
+		"tx_ok_pkt_cnt",
+		REG_FE_GDM1_TX_OK_PKT_CNT_L,
+		REG_FE_GDM1_TX_OK_PKT_CNT_H,
+	}, {
+		"tx_ok_byte_cnt",
+		REG_FE_GDM1_TX_OK_BYTE_CNT_L,
+		REG_FE_GDM1_TX_OK_BYTE_CNT_H,
+	}, {
+		"tx_eth_drop_cnt",
+		REG_FE_GDM1_TX_ETH_DROP_CNT,
+	}, {
+		"rx_eth_pkt_cnt",
+		REG_FE_GDM1_RX_ETH_PKT_CNT_L,
+		REG_FE_GDM1_RX_ETH_PKT_CNT_H,
+	}, {
+		"rx_eth_byte_cnt",
+		REG_FE_GDM1_RX_ETH_BYTE_CNT_L,
+		REG_FE_GDM1_RX_ETH_BYTE_CNT_H,
+	}, {
+		"rx_ok_pkt_cnt",
+		REG_FE_GDM1_RX_OK_PKT_CNT_L,
+		REG_FE_GDM1_RX_OK_PKT_CNT_H,
+	}, {
+		"rx_ok_byte_cnt",
+		REG_FE_GDM1_RX_OK_BYTE_CNT_L,
+		REG_FE_GDM1_RX_OK_BYTE_CNT_H,
+	}, {
+		"rx_eth_drop_cnt",
+		REG_FE_GDM1_RX_ETH_DROP_CNT,
+	},
+};
 
 static void airoha_ethtool_get_strings(struct net_device *dev, u32 sset,
 				       u8 *data)
