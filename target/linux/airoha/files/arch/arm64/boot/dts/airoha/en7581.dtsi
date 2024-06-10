@@ -207,6 +207,13 @@
 			#reset-cells = <1>;
 		};
 
+		pio: pinctrl {
+			compatible = "airoha,en7581-pinctrl";
+			reg = <0x0 0x1fa20214 0x0 0x1c>,
+			      <0x0 0x1fa2001c 0x0 0x50>;
+			reg-names = "mux", "conf";
+		};
+
 		i2cclock: i2cclock@0 {
 			#clock-cells = <0>;
 			compatible = "fixed-clock";
