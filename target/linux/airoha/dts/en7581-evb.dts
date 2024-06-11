@@ -4,6 +4,7 @@
 /* Bootloader installs ATF here */
 /memreserve/ 0x80000000 0x200000;
 
+#include <dt-bindings/leds/common.h>
 #include "en7581.dtsi"
 
 / {
@@ -84,7 +85,42 @@
 	status = "okay";
 };
 
-&i2c0 {
+&gsw_phy1 {
+	pinctrl-names = "gsw-led";
+	pinctrl-0 = <&gswp1_led0_pins>;
 	status = "okay";
 };
 
+&gsw_phy1_led0 {
+	status = "okay";
+};
+
+&gsw_phy2 {
+	pinctrl-names = "gsw-led";
+	pinctrl-0 = <&gswp2_led0_pins>;
+	status = "okay";
+};
+
+&gsw_phy2_led0 {
+	status = "okay";
+};
+
+&gsw_phy3 {
+	pinctrl-names = "gsw-led";
+	pinctrl-0 = <&gswp3_led0_pins>;
+	status = "okay";
+};
+
+&gsw_phy3_led0 {
+	status = "okay";
+};
+
+&gsw_phy4 {
+	pinctrl-names = "gsw-led";
+	pinctrl-0 = <&gswp4_led0_pins>;
+	status = "okay";
+};
+
+&gsw_phy4_led0 {
+	status = "okay";
+};
