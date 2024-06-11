@@ -28,7 +28,10 @@
 
 /* MUX */
 #define REG_GPIO_2ND_I2C_MODE			0x00
+#define GPIO_MDC_IO_MASTER_MODE_MODE	BIT(14)
+#define GPIO_I2C_MASTER_MODE_MODE	BIT(13)
 #define GPIO_I2S_MODE_MASK			BIT(12)
+#define GPIO_I2C_SLAVE_MODE_MODE		BIT(11)
 #define GPIO_PORT3_LED1_MODE_MASK		BIT(10)
 #define GPIO_PORT3_LED0_MODE_MASK		BIT(9)
 #define GPIO_PORT2_LED1_MODE_MASK		BIT(8)
@@ -53,9 +56,13 @@
 #define GPIO_PCM_INT_MODE_MASK			BIT(9)
 #define GPIO_PCM_RESET_MODE_MASK		BIT(8)
 #define GPIO_SPI_QUAD_MODE_MASK			BIT(4)
+#define GPIO_SPI_CS4_MODE_MASK			BIT(3)
+#define GPIO_SPI_CS3_MODE_MASK			BIT(2)
+#define GPIO_SPI_CS2_MODE_MASK			BIT(1)
 #define GPIO_SPI_CS1_MODE_MASK			BIT(0)
 
 #define REG_GPIO_PON_MODE			0x08
+#define GPIO_PARALLEL_NAND_MODE_MASK		BIT(14)
 #define GPIO_SGMII_MDIO_MODE_MASK		BIT(13)
 #define GPIO_PCIE_RESET2_MASK			BIT(12)
 #define SIPO_RCLK_MODE_MASK			BIT(11)
@@ -68,7 +75,7 @@
 #define GPIO_UART2_CTS_RTS_MODE_MASK		BIT(4)
 #define GPIO_UART2_MODE_MASK			BIT(3)
 #define GPIO_SIPO_MODE_MASK			BIT(2)
-#define GPIO_MMC_MODE_MASK			BIT(1)
+#define GPIO_EMMC_MODE_MASK			BIT(1)
 #define GPIO_PON_MODE_MASK			BIT(0)
 
 #define REG_NPU_UART_EN				0x10
@@ -186,7 +193,7 @@ static const int pcm_spi_reset_pins[] = { 16 };
 static const int pcm_spi_cs1_pins[] = { 44 };
 static const int pcm_spi_cs2_pins[] = { 41 };
 static const int pcm_spi_cs3_pins[] = { 42 };
-static const int pcm_spi_cs4_pins[] = { 23 };
+static const int pcm_spi_cs4_pins[] = { 43 };
 static const int emmc_pins[] = { 5, 6, 7, 31, 32, 33, 34, 35, 36, 37, 38 };
 static const int pnand_pins[] = { 5, 6, 7, 8, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43 };
 static const int gpio47_pins[] = { 62 };
@@ -274,6 +281,8 @@ static const char *const pcm_spi_cs2_p128_groups[] = { "pcm_spi_cs2_p128" };
 static const char *const pcm_spi_cs3_groups[] = { "pcm_spi_cs3" };
 static const char *const pcm_spi_cs4_groups[] = { "pcm_spi_cs4" };
 static const char *const i2s0_groups[] = { "i2s0" };
+static const char *const emmc_groups[] = { "emmc" };
+static const char *const pnand_groups[] = { "pnand" };
 static const char *const gpio47_groups[] = { "gpio47" };
 static const char *const gpio48_groups[] = { "gpio48" };
 static const char *const gpio49_groups[] = { "gpio49" };
@@ -309,12 +318,14 @@ static const struct airoha_pinctrl_func_reg uart2_func_regmap[] = {
 	{ REG_GPIO_PON_MODE, GPIO_UART2_MODE_MASK },
 };
 static const struct airoha_pinctrl_func_reg uart2_cts_rts_func_regmap[] = {
+	{ REG_GPIO_PON_MODE, GPIO_UART2_MODE_MASK },
 	{ REG_GPIO_PON_MODE, GPIO_UART2_CTS_RTS_MODE_MASK },
 };
 static const struct airoha_pinctrl_func_reg hsuart3_func_regmap[] = {
 	{ REG_GPIO_PON_MODE, GPIO_HSUART3_MODE_MASK },
 };
 static const struct airoha_pinctrl_func_reg hsuart3_cts_rts_func_regmap[] = {
+	{ REG_GPIO_PON_MODE, GPIO_HSUART3_MODE_MASK },
 	{ REG_GPIO_PON_MODE, GPIO_HSUART3_CTS_RTS_MODE_MASK },
 };
 static const struct airoha_pinctrl_func_reg uart4_func_regmap[] = {
@@ -340,6 +351,15 @@ static const struct airoha_pinctrl_func_reg pcm2_func_regmap[] = {
 };
 static const struct airoha_pinctrl_func_reg spi_quad_func_regmap[] = {
 	{ REG_GPIO_SPI_CS1_MODE, GPIO_SPI_QUAD_MODE_MASK },
+};
+static const struct airoha_pinctrl_func_reg spi_cs4_func_regmap[] = {
+	{ REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS4_MODE_MASK },
+};
+static const struct airoha_pinctrl_func_reg spi_cs3_func_regmap[] = {
+	{ REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS3_MODE_MASK },
+};
+static const struct airoha_pinctrl_func_reg spi_cs2_func_regmap[] = {
+	{ REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS2_MODE_MASK },
 };
 static const struct airoha_pinctrl_func_reg spi_cs1_func_regmap[] = {
 	{ REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS1_MODE_MASK },
@@ -370,6 +390,12 @@ static const struct airoha_pinctrl_func_reg pcm_spi_cs4_func_regmap[] = {
 };
 static const struct airoha_pinctrl_func_reg i2s0_func_regmap[] = {
 	{ REG_GPIO_2ND_I2C_MODE, GPIO_I2S_MODE_MASK },
+};
+static const struct airoha_pinctrl_func_reg emmc_func_regmap[] = {
+	{ REG_GPIO_PON_MODE, GPIO_EMMC_MODE_MASK },
+};
+static const struct airoha_pinctrl_func_reg pnand_func_regmap[] = {
+	{ REG_GPIO_PON_MODE, GPIO_PARALLEL_NAND_MODE_MASK },
 };
 static const struct airoha_pinctrl_func_reg gpio47_func_regmap[] = {
 	{ REG_GPIO_PON_MODE, GPIO_PCIE_RESET0_MASK },
@@ -434,6 +460,8 @@ static const struct airoha_pinctrl_func airoha_pinctrl_funcs[] = {
 	PINCTRL_FUNC_DESC("pcm_spi_cs3", pcm_spi_cs3),
 	PINCTRL_FUNC_DESC("pcm_spi_cs4", pcm_spi_cs4),
 	PINCTRL_FUNC_DESC("i2s0", i2s0),
+	PINCTRL_FUNC_DESC("emmc", emmc),
+	PINCTRL_FUNC_DESC("pnand", pnand),
 	PINCTRL_FUNC_DESC("gpio47", gpio47),
 	PINCTRL_FUNC_DESC("gpio48", gpio48),
 	PINCTRL_FUNC_DESC("gpio49", gpio49),
