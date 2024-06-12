@@ -1441,6 +1441,42 @@ static const struct airoha_ethtool_stats airoha_hw_stats[] = {
 		"tx_eth_drop_cnt",
 		REG_FE_GDM1_TX_ETH_DROP_CNT,
 	}, {
+		"tx_eth_broadcast_cnt",
+		REG_FE_GDM1_TX_ETH_BC_CNT,
+	}, {
+		"tx_eth_multicast_cnt",
+		REG_FE_GDM1_TX_ETH_MC_CNT,
+	}, {
+		"tx_eth_lt64_cnt",
+		REG_FE_GDM1_TX_ETH_RUNT_CNT,
+	}, {
+		"tx_eth_mt1518_cnt",
+		REG_FE_GDM1_TX_ETH_LONG_CNT,
+	}, {
+		"tx_eth_eq64_cnt",
+		REG_FE_GDM1_TX_ETH_E64_CNT_L,
+		REG_FE_GDM1_TX_ETH_E64_CNT_H,
+	}, {
+		"tx_eth_65_127_cnt",
+		REG_FE_GDM1_TX_ETH_L64_CNT_L,
+		REG_FE_GDM1_TX_ETH_L64_CNT_H,
+	}, {
+		"tx_eth_128_255_cnt",
+		REG_FE_GDM1_TX_ETH_L127_CNT_L,
+		REG_FE_GDM1_TX_ETH_L127_CNT_H,
+	}, {
+		"tx_eth_256_511_cnt",
+		REG_FE_GDM1_TX_ETH_L255_CNT_L,
+		REG_FE_GDM1_TX_ETH_L255_CNT_H,
+	}, {
+		"tx_eth_512_1023_cnt",
+		REG_FE_GDM1_TX_ETH_L511_CNT_L,
+		REG_FE_GDM1_TX_ETH_L511_CNT_H,
+	}, {
+		"tx_eth_1024_1518_cnt",
+		REG_FE_GDM1_TX_ETH_L1023_CNT_L,
+		REG_FE_GDM1_TX_ETH_L1023_CNT_H,
+	}, {
 		"rx_eth_pkt_cnt",
 		REG_FE_GDM1_RX_ETH_PKT_CNT_L,
 		REG_FE_GDM1_RX_ETH_PKT_CNT_H,
@@ -1459,7 +1495,53 @@ static const struct airoha_ethtool_stats airoha_hw_stats[] = {
 	}, {
 		"rx_eth_drop_cnt",
 		REG_FE_GDM1_RX_ETH_DROP_CNT,
+	}, {
+		"rx_eth_broadcast_cnt",
+		REG_FE_GDM1_RX_ETH_BC_CNT,
+	}, {
+		"rx_eth_multicast_cnt",
+		REG_FE_GDM1_RX_ETH_MC_CNT,
+	}, {
+		"rx_eth_crc_cnt",
+		REG_FE_GDM1_RX_ETH_CRCE_CNT,
+	}, {
+		"rx_eth_fragment_cnt",
+		REG_FE_GDM1_RX_ETH_FRAG_CNT,
+	}, {
+		"rx_eth_jabber_cnt",
+		REG_FE_GDM1_RX_ETH_JABBER_CNT,
+	}, {
+		"rx_eth_lt64_cnt",
+		REG_FE_GDM1_RX_ETH_RUNT_CNT,
+	}, {
+		"rx_eth_mt1518_cnt",
+		REG_FE_GDM1_RX_ETH_LONG_CNT,
+	}, {
+		"rx_eth_eq64_cnt",
+		REG_FE_GDM1_RX_ETH_E64_CNT_L,
+		REG_FE_GDM1_RX_ETH_E64_CNT_H,
+	}, {
+		"rx_eth_65_127_cnt",
+		REG_FE_GDM1_RX_ETH_L64_CNT_L,
+		REG_FE_GDM1_RX_ETH_L64_CNT_H,
+	}, {
+		"rx_eth_128_255_cnt",
+		REG_FE_GDM1_RX_ETH_L127_CNT_L,
+		REG_FE_GDM1_RX_ETH_L127_CNT_H,
+	}, {
+		"rx_eth_256_511_cnt",
+		REG_FE_GDM1_RX_ETH_L255_CNT_L,
+		REG_FE_GDM1_RX_ETH_L255_CNT_H,
+	}, {
+		"rx_eth_512_1023_cnt",
+		REG_FE_GDM1_RX_ETH_L511_CNT_L,
+		REG_FE_GDM1_RX_ETH_L511_CNT_H,
+	}, {
+		"rx_eth_1024_1518_cnt",
+		REG_FE_GDM1_RX_ETH_L1023_CNT_L,
+		REG_FE_GDM1_RX_ETH_L1023_CNT_H,
 	},
+
 };
 
 static void airoha_ethtool_get_strings(struct net_device *dev, u32 sset,
