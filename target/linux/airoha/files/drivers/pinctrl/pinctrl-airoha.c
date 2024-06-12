@@ -288,6 +288,22 @@ static const int port2_led0_pins[] = { 49 };
 static const int port2_led1_pins[] = { 59 };
 static const int port3_led0_pins[] = { 56 };
 static const int port3_led1_pins[] = { 60 };
+static const int pwm0_pins[] = { 14 };
+static const int pwm1_pins[] = { 15 };
+static const int pwm2_pins[] = { 16 };
+static const int pwm3_pins[] = { 17 };
+static const int pwm4_pins[] = { 18 };
+static const int pwm5_pins[] = { 19 };
+static const int pwm6_pins[] = { 20 };
+static const int pwm7_pins[] = { 21 };
+static const int pwm8_pins[] = { 22 };
+static const int pwm9_pins[] = { 23 };
+static const int pwm10_pins[] = { 24 };
+static const int pwm11_pins[] = { 25 };
+static const int pwm12_pins[] = { 26 };
+static const int pwm13_pins[] = { 27 };
+static const int pwm14_pins[] = { 28 };
+static const int pwm15_pins[] = { 29 };
 
 static const struct pingroup airoha_pinctrl_groups[] = {
 	PINCTRL_PIN_GROUP("pon0", pon0),
@@ -332,6 +348,22 @@ static const struct pingroup airoha_pinctrl_groups[] = {
 	PINCTRL_PIN_GROUP("port2_led1", port2_led1),
 	PINCTRL_PIN_GROUP("port3_led0", port3_led0),
 	PINCTRL_PIN_GROUP("port3_led1", port3_led1),
+	PINCTRL_PIN_GROUP("pwm0", pwm0),
+	PINCTRL_PIN_GROUP("pwm1", pwm1),
+	PINCTRL_PIN_GROUP("pwm2", pwm2),
+	PINCTRL_PIN_GROUP("pwm3", pwm3),
+	PINCTRL_PIN_GROUP("pwm4", pwm4),
+	PINCTRL_PIN_GROUP("pwm5", pwm5),
+	PINCTRL_PIN_GROUP("pwm6", pwm6),
+	PINCTRL_PIN_GROUP("pwm7", pwm7),
+	PINCTRL_PIN_GROUP("pwm8", pwm8),
+	PINCTRL_PIN_GROUP("pwm9", pwm9),
+	PINCTRL_PIN_GROUP("pwm10", pwm10),
+	PINCTRL_PIN_GROUP("pwm11", pwm11),
+	PINCTRL_PIN_GROUP("pwm12", pwm12),
+	PINCTRL_PIN_GROUP("pwm13", pwm13),
+	PINCTRL_PIN_GROUP("pwm14", pwm14),
+	PINCTRL_PIN_GROUP("pwm15", pwm15),
 };
 
 static const char *const pon0_groups[] = { "pon0" };
