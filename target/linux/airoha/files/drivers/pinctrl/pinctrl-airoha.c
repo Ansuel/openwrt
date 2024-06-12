@@ -179,7 +179,7 @@ struct airoha_pinctrl {
 	struct mutex mutex;
 	void __iomem *mux_regs;
 	void __iomem *conf_regs;
-	void __iomem *pcie_rst_od_regs;
+	void __iomem *pcie_rst_regs;
 };
 
 static struct pinctrl_pin_desc airoha_pinctrl_pins[] = {
@@ -895,7 +895,8 @@ static int airoha_pinctrl_set_conf(struct airoha_pinctrl *pinctrl,
 	if (!reg)
 		return -EINVAL;
 
-	airoha_pinctrl_rmw(pinctrl, base, reg->offset, reg->mask, val);
+	airoha_pinctrl_rmw(pinctrl, base, reg->offset, reg->mask,
+			   val << __bf_shf(reg->mask));
 
 	return 0;
 }
@@ -921,7 +922,7 @@ static int airoha_pinctrl_set_conf(struct airoha_pinctrl *pinctrl,
 				ARRAY_SIZE(airoha_pinctrl_drive_e4_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_get_pcie_rst_od_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_get_conf(((pinctrl)->pcie_rst_od_regs),			\
+	airoha_pinctrl_get_conf(((pinctrl)->pcie_rst_regs),			\
 				airoha_pinctrl_pcie_rst_od_conf,		\
 				ARRAY_SIZE(airoha_pinctrl_pcie_rst_od_conf),	\
 				(pin), (val))
@@ -946,7 +947,7 @@ static int airoha_pinctrl_set_conf(struct airoha_pinctrl *pinctrl,
 				ARRAY_SIZE(airoha_pinctrl_drive_e4_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_set_pcie_rst_od_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->pcie_rst_od_regs),	\
+	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->pcie_rst_regs),	\
 				airoha_pinctrl_pcie_rst_od_conf,		\
 				ARRAY_SIZE(airoha_pinctrl_pcie_rst_od_conf),	\
 				(pin), (val))
@@ -1161,17 +1162,17 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev, PTR_ERR(pinctrl->mux_regs),
 				     "failed to iomap mux regs\n");
 
-	pinctrl->conf_regs = devm_platform_ioremap_resource_byname(pdev,
-								   "conf");
+	pinctrl->conf_regs =
+		devm_platform_ioremap_resource_byname(pdev, "conf");
 	if (IS_ERR(pinctrl->conf_regs))
 		return dev_err_probe(&pdev->dev, PTR_ERR(pinctrl->conf_regs),
 				     "failed to iomap conf regs\n");
 
-	pinctrl->pcie_rst_od_regs =
-		devm_platform_ioremap_resource_byname(pdev, "pcie-rst-od");
-	if (IS_ERR(pinctrl->pcie_rst_od_regs))
+	pinctrl->pcie_rst_regs =
+		devm_platform_ioremap_resource_byname(pdev, "pcie-rst");
+	if (IS_ERR(pinctrl->pcie_rst_regs))
 		return dev_err_probe(&pdev->dev,
-				     PTR_ERR(pinctrl->pcie_rst_od_regs),
+				     PTR_ERR(pinctrl->pcie_rst_regs),
 				     "failed to iomap pcie rst od regs\n");
 
 	err = devm_pinctrl_register_and_init(&pdev->dev, &airoha_pinctrl_desc,
