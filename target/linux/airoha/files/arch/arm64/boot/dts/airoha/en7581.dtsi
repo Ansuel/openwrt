@@ -211,8 +211,23 @@
 		pio: pinctrl {
 			compatible = "airoha,en7581-pinctrl";
 			reg = <0x0 0x1fa20214 0x0 0x1c>,
-			      <0x0 0x1fa2001c 0x0 0x50>;
-			reg-names = "mux", "conf";
+			      <0x0 0x1fa2001c 0x0 0x50>,
+			      <0x0 0x1fa2018c 0x0 0x4>;
+			reg-names = "mux", "conf", "pcie-rst-od";
+
+			pcie0_rst_od_pins: pcie0-rst-od-pins {
+				conf {
+					pins = "PCIE_RESET0";
+					drive-open-drain;
+				};
+			};
+
+			pcie1_rst_od_pins: pcie1-rst-od-pins {
+				conf {
+					pins = "PCIE_RESET1";
+					drive-open-drain;
+				};
+			};
 
 			gswp1_led0_pins: gswp1-led0-pins {
 				mux {
