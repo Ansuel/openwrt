@@ -475,7 +475,8 @@ static int airoha_fe_init(struct airoha_eth *eth)
 		      FIELD_PREP(PSE_IQ_RES2_P4_MASK, 0x34));
 
 	/* enable FE copy engine for MC/KA/DPI */
-	airoha_fe_wr(eth, REG_FE_PCE_CFG, PCE_DPI_EN | PCE_KA_EN | PCE_MC_EN);
+	airoha_fe_wr(eth, REG_FE_PCE_CFG,
+		     PCE_DPI_EN_MASK | PCE_KA_EN_MASK | PCE_MC_EN_MASK);
 	/* set vip queue selection to ring 1 */
 	airoha_fe_rmw(eth, REG_CDM1_FWD_CFG, CDM1_VIP_QSEL_MASK,
 		      FIELD_PREP(CDM1_VIP_QSEL_MASK, 0x4));
@@ -1089,14 +1090,14 @@ static int airoha_qdma_hw_init(struct airoha_eth *eth)
 	}
 
 	airoha_qdma_wr(eth, REG_QDMA_GLOBAL_CFG,
-		       GLOBAL_CFG_RX_2B_OFFSET |
+		       GLOBAL_CFG_RX_2B_OFFSET_MASK |
 		       FIELD_PREP(GLOBAL_CFG_DMA_PREFERENCE_MASK, 3) |
-		       GLOBAL_CFG_CPU_TXR_ROUND_ROBIN |
-		       GLOBAL_CFG_PAYLOAD_BYTE_SWAP |
-		       GLOBAL_CFG_MULTICAST_MODIFY_FP |
+		       GLOBAL_CFG_CPU_TXR_RR_MASK |
+		       GLOBAL_CFG_PAYLOAD_BYTE_SWAP_MASK |
+		       GLOBAL_CFG_MULTICAST_MODIFY_FP_MASK |
 		       GLOBAL_CFG_MULTICAST_EN_MASK |
-		       GLOBAL_CFG_IRQ0_EN | GLOBAL_CFG_IRQ1_EN |
-		       GLOBAL_CFG_TX_WB_DONE |
+		       GLOBAL_CFG_IRQ0_EN_MASK | GLOBAL_CFG_IRQ1_EN_MASK |
+		       GLOBAL_CFG_TX_WB_DONE_MASK |
 		       FIELD_PREP(GLOBAL_CFG_MAX_ISSUE_NUM_MASK, 2));
 
 	airoha_qdma_init_qos(eth);
@@ -1255,8 +1256,8 @@ static int airoha_dev_open(struct net_device *dev)
 	if (err)
 		return err;
 
-	airoha_qdma_set(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_TX_DMA_EN);
-	airoha_qdma_set(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_RX_DMA_EN);
+	airoha_qdma_set(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_TX_DMA_EN_MASK);
+	airoha_qdma_set(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_RX_DMA_EN_MASK);
 
 	return 0;
 }
@@ -1271,8 +1272,8 @@ static int airoha_dev_stop(struct net_device *dev)
 	if (err)
 		return err;
 
-	airoha_qdma_clear(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_TX_DMA_EN);
-	airoha_qdma_clear(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_RX_DMA_EN);
+	airoha_qdma_clear(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_TX_DMA_EN_MASK);
+	airoha_qdma_clear(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_RX_DMA_EN_MASK);
 
 	return 0;
 }
@@ -1441,17 +1442,14 @@ static const struct airoha_ethtool_stats airoha_hw_stats[] = {
 		"tx_eth_drop_cnt",
 		REG_FE_GDM1_TX_ETH_DROP_CNT,
 	}, {
-		"tx_eth_broadcast_cnt",
+		"tx_eth_bc_cnt",
 		REG_FE_GDM1_TX_ETH_BC_CNT,
 	}, {
-		"tx_eth_multicast_cnt",
+		"tx_eth_mc_cnt",
 		REG_FE_GDM1_TX_ETH_MC_CNT,
 	}, {
 		"tx_eth_lt64_cnt",
 		REG_FE_GDM1_TX_ETH_RUNT_CNT,
-	}, {
-		"tx_eth_mt1518_cnt",
-		REG_FE_GDM1_TX_ETH_LONG_CNT,
 	}, {
 		"tx_eth_eq64_cnt",
 		REG_FE_GDM1_TX_ETH_E64_CNT_L,
@@ -1477,6 +1475,9 @@ static const struct airoha_ethtool_stats airoha_hw_stats[] = {
 		REG_FE_GDM1_TX_ETH_L1023_CNT_L,
 		REG_FE_GDM1_TX_ETH_L1023_CNT_H,
 	}, {
+		"tx_eth_gt1518_cnt",
+		REG_FE_GDM1_TX_ETH_LONG_CNT,
+	}, {
 		"rx_eth_pkt_cnt",
 		REG_FE_GDM1_RX_ETH_PKT_CNT_L,
 		REG_FE_GDM1_RX_ETH_PKT_CNT_H,
@@ -1496,16 +1497,16 @@ static const struct airoha_ethtool_stats airoha_hw_stats[] = {
 		"rx_eth_drop_cnt",
 		REG_FE_GDM1_RX_ETH_DROP_CNT,
 	}, {
-		"rx_eth_broadcast_cnt",
+		"rx_eth_bc_cnt",
 		REG_FE_GDM1_RX_ETH_BC_CNT,
 	}, {
-		"rx_eth_multicast_cnt",
+		"rx_eth_mc_cnt",
 		REG_FE_GDM1_RX_ETH_MC_CNT,
 	}, {
-		"rx_eth_crc_cnt",
-		REG_FE_GDM1_RX_ETH_CRCE_CNT,
+		"rx_eth_crc_drop_cnt",
+		REG_FE_GDM1_RX_ETH_CRC_ERR_CNT,
 	}, {
-		"rx_eth_fragment_cnt",
+		"rx_eth_frag_cnt",
 		REG_FE_GDM1_RX_ETH_FRAG_CNT,
 	}, {
 		"rx_eth_jabber_cnt",
@@ -1513,9 +1514,6 @@ static const struct airoha_ethtool_stats airoha_hw_stats[] = {
 	}, {
 		"rx_eth_lt64_cnt",
 		REG_FE_GDM1_RX_ETH_RUNT_CNT,
-	}, {
-		"rx_eth_mt1518_cnt",
-		REG_FE_GDM1_RX_ETH_LONG_CNT,
 	}, {
 		"rx_eth_eq64_cnt",
 		REG_FE_GDM1_RX_ETH_E64_CNT_L,
@@ -1540,8 +1538,10 @@ static const struct airoha_ethtool_stats airoha_hw_stats[] = {
 		"rx_eth_1024_1518_cnt",
 		REG_FE_GDM1_RX_ETH_L1023_CNT_L,
 		REG_FE_GDM1_RX_ETH_L1023_CNT_H,
+	}, {
+		"rx_eth_gt1518_cnt",
+		REG_FE_GDM1_RX_ETH_LONG_CNT,
 	},
-
 };
 
 static void airoha_ethtool_get_strings(struct net_device *dev, u32 sset,
@@ -1597,7 +1597,7 @@ static void airoha_ethtool_get_stats(struct net_device *dev,
 
 	/* reset mib counters */
 	airoha_fe_set(eth, REG_FE_GDM1_MIB_CLEAR,
-		      FE_GDM1_MIB_RX_CLEAR | FE_GDM1_MIB_TX_CLEAR);
+		      FE_GDM1_MIB_RX_CLEAR_MASK | FE_GDM1_MIB_TX_CLEAR_MASK);
 }
 
 static const struct net_device_ops airoha_netdev_ops = {
