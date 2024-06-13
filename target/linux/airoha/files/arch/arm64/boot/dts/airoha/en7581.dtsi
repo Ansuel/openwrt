@@ -147,7 +147,7 @@
 		};
 
 		uart1: serial@1fbf0000 {
-			compatible = "airoha,en7523-uart";
+			compatible = "ns16550";
 			reg = <0x0 0x1fbf0000 0x0 0x30>;
 			reg-io-width = <4>;
 			reg-shift = <2>;
