@@ -9,7 +9,7 @@
 
 / {
 	model = "Airoha EN7581 Evaluation Board";
-	compatible = "airoha,en7581-evb", "airoha,en7581", "airoha,en7581_evb";
+	compatible = "airoha,en7581-evb", "airoha,en7581";
 
 	aliases {
 		serial0 = &uart1;
@@ -71,13 +71,13 @@
 
 &pcie0 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pcie0_rst_od_pins>;
+	pinctrl-0 = <&pcie0_rst_pins>;
 	status = "okay";
 };
 
 &pcie1 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pcie1_rst_od_pins>;
+	pinctrl-0 = <&pcie1_rst_pins>;
 	status = "okay";
 };
 

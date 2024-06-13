@@ -51,6 +51,9 @@
 #define REG_PCIE_XSI0_SEL_MASK		GENMASK(14, 13)
 #define REG_PCIE_XSI1_SEL_MASK		GENMASK(12, 11)
 
+#define REG_RST_CTRL2			0x00
+#define REG_RST_CTRL1			0x04
+
 struct en_clk_desc {
 	int id;
 	const char *name;
@@ -300,8 +303,8 @@ static const struct en_clk_desc en7581_base_clks[] = {
 };
 
 static const u16 en7581_rst_ofs[] = {
-	REG_RESET_CONTROL2,
-	REG_RESET_CONTROL1,
+	REG_RST_CTRL2,
+	REG_RST_CTRL1,
 };
 
 static const u16 en7581_rst_map[] = {
@@ -527,7 +530,7 @@ static int en7581_clk_hw_init(struct platform_device *pdev,
 	void __iomem *pb_base;
 	u32 val;
 
-	pb_base = devm_platform_ioremap_resource(pdev, 2);
+	pb_base = devm_platform_ioremap_resource(pdev, 3);
 	if (IS_ERR(pb_base))
 		return PTR_ERR(pb_base);
 
@@ -639,14 +642,20 @@ static const struct reset_control_ops en7523_reset_ops = {
 	.status = en7523_reset_status,
 };
 
-static int en7523_reset_register(struct device *dev, void __iomem *base,
+static int en7523_reset_register(struct platform_device *pdev,
 				 const struct en_clk_soc_data *soc_data)
 {
+	struct device *dev = &pdev->dev;
 	struct en_rst_data *rst_data;
+	void __iomem *base;
 
 	/* no reset lines available */
 	if (!soc_data->reset.idx_map_nr)
 		return 0;
+
+	base = devm_platform_ioremap_resource(pdev, 2);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
 
 	rst_data = devm_kzalloc(dev, sizeof(*rst_data), GFP_KERNEL);
 	if (!rst_data)
@@ -706,7 +715,7 @@ static int en7523_clk_probe(struct platform_device *pdev)
 		return r;
 	}
 
-	r = en7523_reset_register(&pdev->dev, np_base, soc_data);
+	r = en7523_reset_register(pdev, soc_data);
 	if (r) {
 		dev_err(&pdev->dev,
 			"could not register reset controller: %s: %d\n",

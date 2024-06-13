@@ -202,7 +202,8 @@
 		scuclk: clock-controller@1fa20000 {
 			compatible = "airoha,en7581-scu";
 			reg = <0x0 0x1fa201b4 0x0 0x5c>,
-			      <0x0 0x1fb00000 0x0 0x1000>,
+			      <0x0 0x1fb00000 0x0 0x90>,
+			      <0x0 0x1fb00830 0x0 0x8>,
 			      <0x0 0x1fbe3400 0x0 0xfc>;
 			#clock-cells = <1>;
 			#reset-cells = <1>;
@@ -213,16 +214,16 @@
 			reg = <0x0 0x1fa20214 0x0 0x1c>,
 			      <0x0 0x1fa2001c 0x0 0x50>,
 			      <0x0 0x1fa2018c 0x0 0x4>;
-			reg-names = "mux", "conf", "pcie-rst-od";
+			reg-names = "mux", "conf", "pcie-rst";
 
-			pcie0_rst_od_pins: pcie0-rst-od-pins {
+			pcie0_rst_pins: pcie0-rst-pins {
 				conf {
 					pins = "PCIE_RESET0";
 					drive-open-drain;
 				};
 			};
 
-			pcie1_rst_od_pins: pcie1-rst-od-pins {
+			pcie1_rst_pins: pcie1-rst-pins {
 				conf {
 					pins = "PCIE_RESET1";
 					drive-open-drain;
@@ -411,6 +412,9 @@
 					<0 0 0 2 &pcie_intc0 2>,
 					<0 0 0 3 &pcie_intc0 3>,
 					<0 0 0 4 &pcie_intc0 4>;
+
+			status = "disabled";
+
 			pcie_intc0: interrupt-controller {
 				interrupt-controller;
 				#address-cells = <0>;
@@ -448,6 +452,9 @@
 					<0 0 0 2 &pcie_intc1 2>,
 					<0 0 0 3 &pcie_intc1 3>,
 					<0 0 0 4 &pcie_intc1 4>;
+
+			status = "disabled";
+
 			pcie_intc1: interrupt-controller {
 				interrupt-controller;
 				#address-cells = <0>;
