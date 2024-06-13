@@ -3458,7 +3458,7 @@ CONFIG_WPA_MBO_SUPPORT=y
 # CONFIG_PACKAGE_chat is not set
 # CONFIG_PACKAGE_ds-lite is not set
 # CONFIG_PACKAGE_etherwake is not set
-# CONFIG_PACKAGE_ethtool is not set
+CONFIG_PACKAGE_ethtool=y
 # CONFIG_PACKAGE_ethtool-full is not set
 # CONFIG_PACKAGE_gre is not set
 # CONFIG_PACKAGE_iperf is not set
