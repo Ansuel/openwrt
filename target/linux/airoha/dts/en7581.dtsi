@@ -232,56 +232,56 @@
 
 			gswp1_led0_pins: gswp1-led0-pins {
 				mux {
-					function = "port0_led0";
+					function = "led";
 					groups = "port0_led0";
 				};
 			};
 
 			gswp1_led1_pins: gswp1-led1-pins {
 				mux {
-					function = "port0_led1";
+					function = "led";
 					groups = "port0_led1";
 				};
 			};
 
 			gswp2_led0_pins: gswp2-led0-pins {
 				mux {
-					function = "port1_led0";
+					function = "led";
 					groups = "port1_led0";
 				};
 			};
 
 			gswp2_led1_pins: gswp2-led1-pins {
 				mux {
-					function = "port1_led1";
+					function = "led";
 					groups = "port1_led1";
 				};
 			};
 
 			gswp3_led0_pins: gswp3-led0-pins {
 				mux {
-					function = "port2_led0";
+					function = "led";
 					groups = "port2_led0";
 				};
 			};
 
 			gswp3_led1_pins: gswp3-led1-pins {
 				mux {
-					function = "port2_led1";
+					function = "led";
 					groups = "port2_led1";
 				};
 			};
 
 			gswp4_led0_pins: gswp4-led0-pins {
 				mux {
-					function = "port3_led0";
+					function = "led";
 					groups = "port3_led0";
 				};
 			};
 
 			gswp4_led1_pins: gswp4-led1-pins {
 				mux {
-					function = "port3_led1";
+					function = "led";
 					groups = "port3_led1";
 				};
 			};
