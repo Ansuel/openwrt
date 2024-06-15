@@ -69,6 +69,78 @@
 	};
 };
 
+&pio {
+	pcie0_rst_pins: pcie0-rst-pins {
+		conf {
+			pins = "PCIE_RESET0";
+			drive-open-drain = <1>;
+		};
+	};
+
+	pcie1_rst_pins: pcie1-rst-pins {
+		conf {
+			pins = "PCIE_RESET1";
+			drive-open-drain = <1>;
+		};
+	};
+
+	gswp1_led0_pins: gswp1-led0-pins {
+		mux {
+			function = "led";
+			groups = "lan0_led0";
+		};
+	};
+
+	gswp1_led1_pins: gswp1-led1-pins {
+		mux {
+			function = "led";
+			groups = "lan0_led1";
+		};
+	};
+
+	gswp2_led0_pins: gswp2-led0-pins {
+		mux {
+			function = "led";
+			groups = "lan1_led0";
+		};
+	};
+
+	gswp2_led1_pins: gswp2-led1-pins {
+		mux {
+			function = "led";
+			groups = "lan1_led1";
+		};
+	};
+
+	gswp3_led0_pins: gswp3-led0-pins {
+		mux {
+			function = "led";
+			groups = "lan2_led0";
+		};
+	};
+
+	gswp3_led1_pins: gswp3-led1-pins {
+		mux {
+			function = "led";
+			groups = "lan2_led1";
+		};
+	};
+
+	gswp4_led0_pins: gswp4-led0-pins {
+		mux {
+			function = "led";
+			groups = "lan3_led0";
+		};
+	};
+
+	gswp4_led1_pins: gswp4-led1-pins {
+		mux {
+			function = "led";
+			groups = "lan3_led1";
+		};
+	};
+};
+
 &pcie0 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie0_rst_pins>;

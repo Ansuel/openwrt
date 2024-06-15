@@ -2,7 +2,6 @@
 
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
-#include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/clock/en7523-clk.h>
 #include <dt-bindings/reset/airoha,en7581-reset.h>
 #include <dt-bindings/leds/common.h>
@@ -216,75 +215,9 @@
 			      <0x0 0x1fa2018c 0x0 0x4>;
 			reg-names = "mux", "conf", "pcie-rst";
 
-			pcie0_rst_pins: pcie0-rst-pins {
-				conf {
-					pins = "PCIE_RESET0";
-					drive-open-drain;
-				};
-			};
-
-			pcie1_rst_pins: pcie1-rst-pins {
-				conf {
-					pins = "PCIE_RESET1";
-					drive-open-drain;
-				};
-			};
-
-			gswp1_led0_pins: gswp1-led0-pins {
-				mux {
-					function = "led";
-					groups = "port0_led0";
-				};
-			};
-
-			gswp1_led1_pins: gswp1-led1-pins {
-				mux {
-					function = "led";
-					groups = "port0_led1";
-				};
-			};
-
-			gswp2_led0_pins: gswp2-led0-pins {
-				mux {
-					function = "led";
-					groups = "port1_led0";
-				};
-			};
-
-			gswp2_led1_pins: gswp2-led1-pins {
-				mux {
-					function = "led";
-					groups = "port1_led1";
-				};
-			};
-
-			gswp3_led0_pins: gswp3-led0-pins {
-				mux {
-					function = "led";
-					groups = "port2_led0";
-				};
-			};
-
-			gswp3_led1_pins: gswp3-led1-pins {
-				mux {
-					function = "led";
-					groups = "port2_led1";
-				};
-			};
-
-			gswp4_led0_pins: gswp4-led0-pins {
-				mux {
-					function = "led";
-					groups = "port3_led0";
-				};
-			};
-
-			gswp4_led1_pins: gswp4-led1-pins {
-				mux {
-					function = "led";
-					groups = "port3_led1";
-				};
-			};
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pio 0 1 60>, <&pio 61 62 5>;
 		};
 
 		i2cclock: i2cclock@0 {
@@ -351,26 +284,6 @@
 						"airoha,airoha-partitions";
 				};
 			};
-		};
-
-		gpio0: gpio@1fbf0200 {
-			compatible = "airoha,en7523-gpio";
-			reg = <0 0x1fbf0204 0 0x4>,
-			      <0 0x1fbf0200 0 0x4>,
-			      <0 0x1fbf0220 0 0x4>,
-			      <0 0x1fbf0214 0 0x4>;
-			gpio-controller;
-			#gpio-cells = <2>;
-		};
-
-		gpio1: gpio@1fbf0270 {
-			compatible = "airoha,en7523-gpio";
-			reg = <0 0x1fbf0270 0 0x4>,
-			      <0 0x1fbf0260 0 0x4>,
-			      <0 0x1fbf0264 0 0x4>,
-			      <0 0x1fbf0278 0 0x4>;
-			gpio-controller;
-			#gpio-cells = <2>;
 		};
 
 		pciephy: phy@1fa5a000 {
@@ -490,6 +403,8 @@
 				     <GIC_SPI 49 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;
 
+			status = "disabled";
+
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -510,6 +425,8 @@
 			#interrupt-cells = <1>;
 			interrupt-parent = <&gic>;
 			interrupts = <GIC_SPI 209 IRQ_TYPE_LEVEL_HIGH>;
+
+			status = "disabled";
 
 			#address-cells = <1>;
 			#size-cells = <1>;
