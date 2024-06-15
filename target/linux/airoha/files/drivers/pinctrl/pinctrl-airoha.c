@@ -25,8 +25,8 @@
 #define PINCTRL_FUNC_DESC(name, id)						\
 	{									\
 		.desc = { name, id##_groups, ARRAY_SIZE(id##_groups) },		\
-		.regmap = id##_func_regmap,					\
-		.regmap_size = ARRAY_SIZE(id##_func_regmap),			\
+		.groups = id##_func_group,					\
+		.group_size = ARRAY_SIZE(id##_func_group),			\
 	}
 
 #define PINCTRL_CONF_DESC(p, offset, mask)					\
@@ -50,7 +50,7 @@
 #define GPIO_LAN0_LED1_MODE_MASK		BIT(4)
 #define GPIO_LAN0_LED0_MODE_MASK		BIT(3)
 #define PON_TOD_1PPS_MODE_MASK			BIT(2)
-#define PON_SW_TOD_1PPS_MODE_MASK		BIT(1)
+#define GSW_TOD_1PPS_MODE_MASK			BIT(1)
 #define GPIO_2ND_I2C_MODE_MASK			BIT(0)
 
 #define REG_GPIO_SPI_CS1_MODE			0x04
@@ -79,8 +79,8 @@
 #define GPIO_PCIE_RESET0_MASK			BIT(9)
 #define GPIO_UART5_MODE_MASK			BIT(8)
 #define GPIO_UART4_MODE_MASK			BIT(7)
-#define GPIO_HSUART3_CTS_RTS_MODE_MASK		BIT(6)
-#define GPIO_HSUART3_MODE_MASK			BIT(5)
+#define GPIO_HSUART_CTS_RTS_MODE_MASK		BIT(6)
+#define GPIO_HSUART_MODE_MASK			BIT(5)
 #define GPIO_UART2_CTS_RTS_MODE_MASK		BIT(4)
 #define GPIO_UART2_MODE_MASK			BIT(3)
 #define GPIO_SIPO_MODE_MASK			BIT(2)
@@ -164,10 +164,15 @@ struct airoha_pinctrl_reg {
 	u32 mask;
 };
 
+struct airoha_pinctrl_func_group {
+	const char *name;
+	struct airoha_pinctrl_reg regmap;
+};
+
 struct airoha_pinctrl_func {
 	const struct function_desc desc;
-	const struct airoha_pinctrl_reg *regmap;
-	u8 regmap_size;
+	const struct airoha_pinctrl_func_group *groups;
+	u8 group_size;
 };
 
 struct airoha_pinctrl_conf {
@@ -253,27 +258,31 @@ static struct pinctrl_pin_desc airoha_pinctrl_pins[] = {
 	PINCTRL_PIN(66, "MDIO0"),
 };
 
-static const int pon0_pins[] = { 50, 51, 52, 53, 54, 55 };
-static const int tod_pins[] = { 47 };
+static const int pon_pins[] = { 50, 51, 52, 53, 54, 55 };
+static const int tod_1pps_pins[] = { 47 };
 static const int sipo_pins[] = { 17, 18 };
 static const int sipo_rclk_pins[] = { 17, 18, 44 };
-static const int sgmii_mdio_pins[] = { 15, 16 };
+static const int mdio0_pins[] = { 65, 66 };
+static const int mdio1_pins[] = { 15, 16 };
+static const int uart1_pins[] = { 1, 2 };
 static const int uart2_pins[] = { 49, 56 };
 static const int uart2_cts_rts_pins[] = { 47, 48 };
-static const int hsuart3_pins[] = { 29, 30 };
-static const int hsuart3_cts_rts_pins[] = { 27, 28 };
+static const int hsuart_pins[] = { 29, 30 };
+static const int hsuart_cts_rts_pins[] = { 27, 28 };
 static const int uart4_pins[] = { 39, 40 };
 static const int uart5_pins[] = { 19, 20 };
+static const int i2c0_pins[] = { 3, 4 };
 static const int i2c1_pins[] = { 15, 16 };
 static const int jtag_pins[] = { 17, 18, 19, 20, 21 };
-static const int i2s0_pins[] = { 27, 28, 29, 30 };
+static const int i2s_pins[] = { 27, 28, 29, 30 };
 static const int pcm1_pins[] = { 23, 24, 25, 26 };
 static const int pcm2_pins[] = { 19, 20, 21, 22 };
 static const int spi_quad_pins[] = { 33, 34 };
+static const int spi_pins[] = { 5, 6, 7, 8 };
 static const int spi_cs1_pins[] = { 35 };
 static const int pcm_spi_pins[] = { 19, 20, 21, 22, 23, 24, 25, 26 };
 static const int pcm_spi_int_pins[] = { 15 };
-static const int pcm_spi_reset_pins[] = { 16 };
+static const int pcm_spi_rst_pins[] = { 16 };
 static const int pcm_spi_cs1_pins[] = { 44 };
 static const int pcm_spi_cs2_pins[] = { 41 };
 static const int pcm_spi_cs3_pins[] = { 42 };
@@ -293,29 +302,33 @@ static const int lan3_led0_pins[] = { 56 };
 static const int lan3_led1_pins[] = { 60 };
 
 static const struct pingroup airoha_pinctrl_groups[] = {
-	PINCTRL_PIN_GROUP("pon0", pon0),
-	PINCTRL_PIN_GROUP("tod_pon", tod),
-	PINCTRL_PIN_GROUP("tod_sw_pon", tod),
+	PINCTRL_PIN_GROUP("pon", pon),
+	PINCTRL_PIN_GROUP("pon_tod_1pps", tod_1pps),
+	PINCTRL_PIN_GROUP("gsw_tod_1pps", tod_1pps),
 	PINCTRL_PIN_GROUP("sipo", sipo),
 	PINCTRL_PIN_GROUP("sipo_rclk", sipo_rclk),
-	PINCTRL_PIN_GROUP("mdio", sgmii_mdio),
+	PINCTRL_PIN_GROUP("mdio0", mdio0),
+	PINCTRL_PIN_GROUP("mdio1", mdio1),
+	PINCTRL_PIN_GROUP("uart1", uart1),
 	PINCTRL_PIN_GROUP("uart2", uart2),
 	PINCTRL_PIN_GROUP("uart2_cts_rts", uart2_cts_rts),
-	PINCTRL_PIN_GROUP("hsuart3", hsuart3),
-	PINCTRL_PIN_GROUP("hsuart3_cts_rts", hsuart3_cts_rts),
+	PINCTRL_PIN_GROUP("hsuart", hsuart),
+	PINCTRL_PIN_GROUP("hsuart_cts_rts", hsuart_cts_rts),
 	PINCTRL_PIN_GROUP("uart4", uart4),
 	PINCTRL_PIN_GROUP("uart5", uart5),
+	PINCTRL_PIN_GROUP("i2c0", i2c0),
 	PINCTRL_PIN_GROUP("i2c1", i2c1),
 	PINCTRL_PIN_GROUP("jtag_udi", jtag),
 	PINCTRL_PIN_GROUP("jtag_dfd", jtag),
-	PINCTRL_PIN_GROUP("i2s0", i2s0),
+	PINCTRL_PIN_GROUP("i2s", i2s),
 	PINCTRL_PIN_GROUP("pcm1", pcm1),
 	PINCTRL_PIN_GROUP("pcm2", pcm2),
+	PINCTRL_PIN_GROUP("spi", spi),
 	PINCTRL_PIN_GROUP("spi_quad", spi_quad),
 	PINCTRL_PIN_GROUP("spi_cs1", spi_cs1),
 	PINCTRL_PIN_GROUP("pcm_spi", pcm_spi),
 	PINCTRL_PIN_GROUP("pcm_spi_int", pcm_spi_int),
-	PINCTRL_PIN_GROUP("pcm_spi_reset", pcm_spi_reset),
+	PINCTRL_PIN_GROUP("pcm_spi_rst", pcm_spi_rst),
 	PINCTRL_PIN_GROUP("pcm_spi_cs1", pcm_spi_cs1),
 	PINCTRL_PIN_GROUP("pcm_spi_cs2_p128", pcm_spi_cs2),
 	PINCTRL_PIN_GROUP("pcm_spi_cs2_p156", pcm_spi_cs2),
@@ -337,226 +350,137 @@ static const struct pingroup airoha_pinctrl_groups[] = {
 	PINCTRL_PIN_GROUP("lan3_led1", lan3_led1),
 };
 
-static const char *const pon0_groups[] = { "pon0" };
-static const char *const tod_pon_groups[] = { "tod_pon" };
-static const char *const tod_sw_pon_groups[] = { "tod_sw_pon" };
-static const char *const sipo_groups[] = { "sipo" };
-static const char *const sipo_rclk_groups[] = { "sipo_rclk" };
-static const char *const mdio_groups[] = { "mdio" };
-static const char *const uart2_groups[] = { "uart2" };
-static const char *const uart2_cts_rts_groups[] = { "uart2_cts_rts" };
-static const char *const hsuart3_groups[] = { "hsuart3" };
-static const char *const hsuart3_cts_rts_groups[] = { "hsuart3_cts_rts" };
-static const char *const uart4_groups[] = { "uart4" };
-static const char *const uart5_groups[] = { "uart5" };
-static const char *const i2c1_groups[] = { "i2c1" };
-static const char *const jtag_udi_groups[] = { "jtag_udi" };
-static const char *const jtag_dfd_groups[] = { "jtag_dfd" };
-static const char *const pcm1_groups[] = { "pcm1" };
-static const char *const pcm2_groups[] = { "pcm2" };
-static const char *const spi_quad_groups[] = { "spi_quad" };
-static const char *const spi_cs1_groups[] = { "spi_cs1" };
-static const char *const pcm_spi_groups[] = { "pcm_spi" };
-static const char *const pcm_spi_int_groups[] = { "pcm_spi_int" };
-static const char *const pcm_spi_reset_groups[] = { "pcm_spi_reset" };
-static const char *const pcm_spi_cs1_groups[] = { "pcm_spi_cs1" };
-static const char *const pcm_spi_cs2_p156_groups[] = { "pcm_spi_cs2_p156" };
-static const char *const pcm_spi_cs2_p128_groups[] = { "pcm_spi_cs2_p128" };
-static const char *const pcm_spi_cs3_groups[] = { "pcm_spi_cs3" };
-static const char *const pcm_spi_cs4_groups[] = { "pcm_spi_cs4" };
-static const char *const i2s0_groups[] = { "i2s0" };
+static const char *const pon_groups[] = { "pon" };
+static const char *const tod_1pps_groups[] = { "pon_tod_1pps", "gsw_tod_1pps" };
+static const char *const sipo_groups[] = { "sipo", "sipo_rclk" };
+static const char *const mdio_groups[] = { "mdio0", "mdio1" };
+static const char *const uart_groups[] = { "uart1", "uart2", "uart2_cts_rts",
+					   "hsuart", "hsuart_cts_rts",
+					   "uart4", "uart5" };
+static const char *const i2c_groups[] = { "i2c0", "i2c1" };
+static const char *const jtag_groups[] = { "jtag_udi", "jtag_dfd" };
+static const char *const pcm_groups[] = { "pcm1", "pcm2" };
+static const char *const spi_groups[] = { "spi", "spi_quad", "spi_cs1",
+					  "spi_cs2", "spi_cs3", "spi_cs4" };
+static const char *const pcm_spi_groups[] = { "pcm_spi", "pcm_spi_int",
+					      "pcm_spi_rst", "pcm_spi_cs1",
+					      "pcm_spi_cs2_p156",
+					      "pcm_spi_cs2_p128" ,
+					      "pcm_spi_cs3", "pcm_spi_cs4" };
+static const char *const i2s_groups[] = { "i2s" };
 static const char *const emmc_groups[] = { "emmc" };
 static const char *const pnand_groups[] = { "pnand" };
-static const char *const gpio47_groups[] = { "gpio47" };
-static const char *const gpio48_groups[] = { "gpio48" };
-static const char *const gpio49_groups[] = { "gpio49" };
-static const char *const lan0_led0_groups[] = { "lan0_led0" };
-static const char *const lan0_led1_groups[] = { "lan0_led1" };
-static const char *const lan1_led0_groups[] = { "lan1_led0" };
-static const char *const lan1_led1_groups[] = { "lan1_led1" };
-static const char *const lan2_led0_groups[] = { "lan2_led0" };
-static const char *const lan2_led1_groups[] = { "lan2_led1" };
-static const char *const lan3_led0_groups[] = { "lan3_led0" };
-static const char *const lan3_led1_groups[] = { "lan3_led1" };
+static const char *const gpio_groups[] = { "gpio47", "gpio48", "gpio49" };
+static const char *const led_groups[] = { "lan0_led0", "lan0_led1",
+					  "lan1_led0", "lan1_led1",
+					  "lan2_led0", "lan2_led1",
+					  "lan3_led0", "lan3_led1" };
 
-static const struct airoha_pinctrl_reg pon0_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_PON_MODE_MASK },
+static const struct airoha_pinctrl_func_group pon_func_group[] = {
+	{ "pon", { REG_GPIO_PON_MODE, GPIO_PON_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg tod_pon_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, PON_TOD_1PPS_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group tod_1pps_func_group[] = {
+	{ "pon_tod_1pps", { REG_GPIO_2ND_I2C_MODE, PON_TOD_1PPS_MODE_MASK }},
+	{ "gsw_tod_1pps", { REG_GPIO_2ND_I2C_MODE, GSW_TOD_1PPS_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg tod_sw_pon_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, PON_SW_TOD_1PPS_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group sipo_func_group[] = {
+	{ "sipo", { REG_GPIO_PON_MODE, GPIO_SIPO_MODE_MASK }},
+	{ "sipo_rclk", { REG_GPIO_PON_MODE, GPIO_SIPO_MODE_MASK | SIPO_RCLK_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg sipo_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_SIPO_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group mdio_func_group[] = {
+	{ "mdio1", { REG_GPIO_PON_MODE, GPIO_SGMII_MDIO_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg sipo_rclk_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_SIPO_MODE_MASK },
-	{ REG_GPIO_PON_MODE, SIPO_RCLK_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group uart_func_group[] = {
+	{ "uart2", { REG_GPIO_PON_MODE, GPIO_UART2_MODE_MASK }},
+	{ "uart2_cts_rts", { REG_GPIO_PON_MODE, GPIO_UART2_MODE_MASK | GPIO_UART2_CTS_RTS_MODE_MASK }},
+	{ "hsuart", { REG_GPIO_PON_MODE, GPIO_HSUART_MODE_MASK }},
+	{ "hsuart_cts_rts", { REG_GPIO_PON_MODE, GPIO_HSUART_MODE_MASK | GPIO_HSUART_CTS_RTS_MODE_MASK }},
+	{ "uart4", { REG_GPIO_PON_MODE, GPIO_UART4_MODE_MASK }},
+	{ "uart5", { REG_GPIO_PON_MODE, GPIO_UART5_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg mdio_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_SGMII_MDIO_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group i2c_func_group[] = {
+	{ "i2c1", { REG_GPIO_2ND_I2C_MODE, GPIO_2ND_I2C_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg uart2_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_UART2_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group jtag_func_group[] = {
+	{ "jtag_udi", { REG_NPU_UART_EN, JTAG_UDI_EN_MASK }},
+	{ "jtag_dfd", { REG_NPU_UART_EN, JTAG_DFD_EN_MASK }},
 };
-static const struct airoha_pinctrl_reg uart2_cts_rts_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_UART2_MODE_MASK },
-	{ REG_GPIO_PON_MODE, GPIO_UART2_CTS_RTS_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group pcm_func_group[] = {
+	{ "pcm1", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM1_MODE_MASK }},
+	{ "pcm2", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM2_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg hsuart3_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_HSUART3_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group spi_func_group[] = {
+	{ "spi_quad", { REG_GPIO_SPI_CS1_MODE, GPIO_SPI_QUAD_MODE_MASK }},
+	{ "spi_cs1", { REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS1_MODE_MASK }},
+	{ "spi_cs2", { REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS2_MODE_MASK }},
+	{ "spi_cs3", { REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS3_MODE_MASK }},
+	{ "spi_cs4", { REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS4_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg hsuart3_cts_rts_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_HSUART3_MODE_MASK },
-	{ REG_GPIO_PON_MODE, GPIO_HSUART3_CTS_RTS_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group pcm_spi_func_group[] = {
+	{ "pcm_spi", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_MODE_MASK }},
+	{ "pcm_spi_int", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_INT_MODE_MASK }},
+	{ "pcm_spi_rst", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_RESET_MODE_MASK }},
+	{ "pcm_spi_cs1", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS1_MODE_MASK }},
+	{ "pcm_spi_cs2_p128", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS2_MODE_P128_MASK }},
+	{ "pcm_spi_cs2_p156", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS2_MODE_P156_MASK }},
+	{ "pcm_spi_cs3", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS3_MODE_MASK }},
+	{ "pcm_spi_cs4", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS4_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg uart4_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_UART4_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group i2s_func_group[] = {
+	{ "i2s", { REG_GPIO_2ND_I2C_MODE, GPIO_I2S_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg uart5_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_UART5_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group emmc_func_group[] = {
+	{ "emmc", { REG_GPIO_PON_MODE, GPIO_EMMC_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg i2c1_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, GPIO_2ND_I2C_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group pnand_func_group[] = {
+	{ "pnand", { REG_GPIO_PON_MODE, GPIO_PARALLEL_NAND_MODE_MASK }},
 };
-static const struct airoha_pinctrl_reg jtag_udi_func_regmap[] = {
-	{ REG_NPU_UART_EN, JTAG_UDI_EN_MASK },
+
+static const struct airoha_pinctrl_func_group gpio_func_group[] = {
+	{ "gpio47", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET0_MASK }},
+	{ "gpio48", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET1_MASK }},
+	{ "gpio49", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET2_MASK }},
 };
-static const struct airoha_pinctrl_reg jtag_dfd_func_regmap[] = {
-	{ REG_NPU_UART_EN, JTAG_DFD_EN_MASK },
-};
-static const struct airoha_pinctrl_reg pcm1_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_PCM1_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg pcm2_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_PCM2_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg spi_quad_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_SPI_QUAD_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg spi_cs4_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS4_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg spi_cs3_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS3_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg spi_cs2_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS2_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg spi_cs1_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS1_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg pcm_spi_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg pcm_spi_int_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_PCM_INT_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg pcm_spi_reset_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_PCM_RESET_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg pcm_spi_cs1_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS1_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg pcm_spi_cs2_p128_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS2_MODE_P128_MASK },
-};
-static const struct airoha_pinctrl_reg pcm_spi_cs2_p156_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS2_MODE_P156_MASK },
-};
-static const struct airoha_pinctrl_reg pcm_spi_cs3_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS3_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg pcm_spi_cs4_func_regmap[] = {
-	{ REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS4_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg i2s0_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, GPIO_I2S_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg emmc_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_EMMC_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg pnand_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_PARALLEL_NAND_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg gpio47_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_PCIE_RESET0_MASK },
-};
-static const struct airoha_pinctrl_reg gpio48_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_PCIE_RESET1_MASK },
-};
-static const struct airoha_pinctrl_reg gpio49_func_regmap[] = {
-	{ REG_GPIO_PON_MODE, GPIO_PCIE_RESET2_MASK },
-};
-static const struct airoha_pinctrl_reg lan0_led0_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, GPIO_LAN0_LED0_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg lan0_led1_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, GPIO_LAN0_LED1_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg lan1_led0_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, GPIO_LAN1_LED0_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg lan1_led1_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, GPIO_LAN1_LED1_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg lan2_led0_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, GPIO_LAN2_LED0_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg lan2_led1_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, GPIO_LAN2_LED1_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg lan3_led0_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, GPIO_LAN3_LED0_MODE_MASK },
-};
-static const struct airoha_pinctrl_reg lan3_led1_func_regmap[] = {
-	{ REG_GPIO_2ND_I2C_MODE, GPIO_LAN3_LED1_MODE_MASK },
+
+static const struct airoha_pinctrl_func_group led_func_group[] = {
+	{ "lan0_led0", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN0_LED0_MODE_MASK }},
+	{ "lan0_led1", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN0_LED1_MODE_MASK }},
+	{ "lan1_led0", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN1_LED0_MODE_MASK }},
+	{ "lan1_led1", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN1_LED1_MODE_MASK }},
+	{ "lan2_led0", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN2_LED0_MODE_MASK }},
+	{ "lan2_led1", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN2_LED1_MODE_MASK }},
+	{ "lan3_led0", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN3_LED0_MODE_MASK }},
+	{ "lan3_led1", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN3_LED1_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func airoha_pinctrl_funcs[] = {
-	PINCTRL_FUNC_DESC("pon0", pon0),
-	PINCTRL_FUNC_DESC("tod_pon", tod_pon),
-	PINCTRL_FUNC_DESC("tod_sw_pon", tod_sw_pon),
+	PINCTRL_FUNC_DESC("pon", pon),
+	PINCTRL_FUNC_DESC("tod_1pps", tod_1pps),
 	PINCTRL_FUNC_DESC("sipo", sipo),
-	PINCTRL_FUNC_DESC("sipo_rclk", sipo_rclk),
 	PINCTRL_FUNC_DESC("mdio", mdio),
-	PINCTRL_FUNC_DESC("uart2", uart2),
-	PINCTRL_FUNC_DESC("uart2_cts_rts", uart2_cts_rts),
-	PINCTRL_FUNC_DESC("hsuart3", hsuart3),
-	PINCTRL_FUNC_DESC("hsuart3_cts_rts", hsuart3_cts_rts),
-	PINCTRL_FUNC_DESC("uart4", uart4),
-	PINCTRL_FUNC_DESC("uart5", uart5),
-	PINCTRL_FUNC_DESC("i2c1", i2c1),
-	PINCTRL_FUNC_DESC("jtag_udi", jtag_udi),
-	PINCTRL_FUNC_DESC("jtag_dfd", jtag_dfd),
-	PINCTRL_FUNC_DESC("pcm1", pcm1),
-	PINCTRL_FUNC_DESC("pcm2", pcm2),
-	PINCTRL_FUNC_DESC("spi_quad", spi_quad),
-	PINCTRL_FUNC_DESC("spi_cs1", spi_cs1),
+	PINCTRL_FUNC_DESC("uart", uart),
+	PINCTRL_FUNC_DESC("i2c", i2c),
+	PINCTRL_FUNC_DESC("jtag", jtag),
+	PINCTRL_FUNC_DESC("pcm", pcm),
+	PINCTRL_FUNC_DESC("spi", spi),
 	PINCTRL_FUNC_DESC("pcm_spi", pcm_spi),
-	PINCTRL_FUNC_DESC("pcm_spi_int", pcm_spi_int),
-	PINCTRL_FUNC_DESC("pcm_spi_reset", pcm_spi_reset),
-	PINCTRL_FUNC_DESC("pcm_spi_cs1", pcm_spi_cs1),
-	PINCTRL_FUNC_DESC("pcm_spi_cs2_p128", pcm_spi_cs2_p128),
-	PINCTRL_FUNC_DESC("pcm_spi_cs2_p156", pcm_spi_cs2_p156),
-	PINCTRL_FUNC_DESC("pcm_spi_cs3", pcm_spi_cs3),
-	PINCTRL_FUNC_DESC("pcm_spi_cs4", pcm_spi_cs4),
-	PINCTRL_FUNC_DESC("i2s0", i2s0),
+	PINCTRL_FUNC_DESC("i2s", i2s),
 	PINCTRL_FUNC_DESC("emmc", emmc),
 	PINCTRL_FUNC_DESC("pnand", pnand),
-	PINCTRL_FUNC_DESC("gpio47", gpio47),
-	PINCTRL_FUNC_DESC("gpio48", gpio48),
-	PINCTRL_FUNC_DESC("gpio49", gpio49),
-	PINCTRL_FUNC_DESC("lan0_led0", lan0_led0),
-	PINCTRL_FUNC_DESC("lan0_led1", lan0_led1),
-	PINCTRL_FUNC_DESC("lan1_led0", lan1_led0),
-	PINCTRL_FUNC_DESC("lan1_led1", lan1_led1),
-	PINCTRL_FUNC_DESC("lan2_led0", lan2_led0),
-	PINCTRL_FUNC_DESC("lan2_led1", lan2_led1),
-	PINCTRL_FUNC_DESC("lan3_led0", lan3_led0),
-	PINCTRL_FUNC_DESC("lan3_led1", lan3_led1),
+	PINCTRL_FUNC_DESC("gpio", gpio),
+	PINCTRL_FUNC_DESC("led", led),
 };
 
 static const struct airoha_pinctrl_conf airoha_pinctrl_pullup_conf[] = {
@@ -839,22 +763,31 @@ static int airoha_pinmux_set_mux(struct pinctrl_dev *pctrl_dev,
 	struct airoha_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
 	const struct airoha_pinctrl_func *func;
 	struct function_desc *desc;
+	struct group_desc *grp;
 	int i;
 
 	desc = pinmux_generic_get_function(pctrl_dev, selector);
 	if (!desc)
 		return -EINVAL;
 
-	dev_dbg(pctrl_dev->dev, "enable function %s\n", desc->name);
+	grp = pinctrl_generic_get_group(pctrl_dev, group);
+	if (!grp)
+		return -EINVAL;
+
+	dev_err(pctrl_dev->dev, "enable function %s group %s\n",
+		desc->name, grp->name);
 
 	func = desc->data;
-	for (i = 0; i < func->regmap_size; i++) {
-		const struct airoha_pinctrl_reg *reg = &func->regmap[i];
-
-		airoha_pinctrl_mux_set(pinctrl, reg->offset, reg->mask);
+	for (i = 0; i < func->group_size; i++) {
+		if (!strcmp(func->groups[i].name, grp->name)) {
+			airoha_pinctrl_mux_set(pinctrl,
+					       func->groups[i].regmap.offset,
+					       func->groups[i].regmap.mask);
+			return 0;
+		}
 	}
 
-	return 0;
+	return -EINVAL;
 }
 
 static const struct airoha_pinctrl_reg *
