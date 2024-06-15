@@ -1,0 +1,26 @@
+--- a/drivers/net/phy/phy_device.c
++++ b/drivers/net/phy/phy_device.c
+@@ -9,6 +9,7 @@
+ 
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 
++#include <linux/pinctrl/consumer.h>
+ #include <linux/acpi.h>
+ #include <linux/bitmap.h>
+ #include <linux/delay.h>
+@@ -3295,8 +3296,14 @@ static int phy_probe(struct device *dev)
+ 	/* Get the LEDs from the device tree, and instantiate standard
+ 	 * LEDs for them.
+ 	 */
+-	if (IS_ENABLED(CONFIG_PHYLIB_LEDS))
++	if (IS_ENABLED(CONFIG_PHYLIB_LEDS)) {
+ 		err = of_phy_leds(phydev);
++		if (err)
++			goto out;
++
++		if (!devm_pinctrl_get_select(dev, "led"))
++			printk("[%s-%d]: LED not found!!\n", __func__, __LINE__);
++	}
+ 
+ out:
+ 	/* Re-assert the reset signal on error */
