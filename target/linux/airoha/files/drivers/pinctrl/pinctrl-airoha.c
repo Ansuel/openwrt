@@ -9,9 +9,10 @@
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/pinctrl/pinctrl.h>
-#include <linux/pinctrl/pinconf-generic.h>
 #include <linux/pinctrl/pinconf.h>
+#include <linux/pinctrl/pinconf-generic.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/platform_device.h>
 
@@ -32,7 +33,7 @@
 #define PINCTRL_CONF_DESC(p, offset, mask)					\
 	{									\
 		.pin = p,							\
-		.regmap = { offset, mask },					\
+		.reg = { offset, mask },					\
 	}
 
 /* MUX */
@@ -159,6 +160,9 @@
 #define PCIE1_RESET_OD_MASK			BIT(1)
 #define PCIE0_RESET_OD_MASK			BIT(0)
 
+#define AIROHA_GPIO_BANK_SIZE			32
+#define AIROHA_REG_GPIOCTRL_NUM_GPIO		(AIROHA_GPIO_BANK_SIZE / 2)
+
 struct airoha_pinctrl_reg {
 	u32 offset;
 	u32 mask;
@@ -166,7 +170,7 @@ struct airoha_pinctrl_reg {
 
 struct airoha_pinctrl_func_group {
 	const char *name;
-	struct airoha_pinctrl_reg regmap;
+	struct airoha_pinctrl_reg reg;
 };
 
 struct airoha_pinctrl_func {
@@ -177,129 +181,138 @@ struct airoha_pinctrl_func {
 
 struct airoha_pinctrl_conf {
 	u32 pin;
-	struct airoha_pinctrl_reg regmap;
+	struct airoha_pinctrl_reg reg;
 };
 
 struct airoha_pinctrl {
 	struct pinctrl_dev *ctrl;
-	struct gpio_chip gpio;
 
 	struct mutex mutex;
-	void __iomem *mux_regs;
-	void __iomem *conf_regs;
-	void __iomem *pcie_rst_regs;
+	struct {
+		void __iomem *mux;
+		void __iomem *conf;
+		void __iomem *pcie_rst;
+	} regs;
+
+	struct {
+		struct gpio_chip chip;
+
+		void __iomem *data[2];
+		void __iomem *dir[4];
+		void __iomem *out[2];
+	} gpiochip;
 };
 
 static struct pinctrl_pin_desc airoha_pinctrl_pins[] = {
-	PINCTRL_PIN(1, "UART1_TXD"),
-	PINCTRL_PIN(2, "UART1_RXD"),
-	PINCTRL_PIN(3, "I2C_SCL"),
-	PINCTRL_PIN(4, "I2C_SDA"),
-	PINCTRL_PIN(5, "SPI_CS0"),
-	PINCTRL_PIN(6, "SPI_CLK"),
-	PINCTRL_PIN(7, "SPI_MOSI"),
-	PINCTRL_PIN(8, "SPI_MISO"),
-	PINCTRL_PIN(9, "HW_RSTN"),
-	PINCTRL_PIN(10, "PKG_SEL0"),
-	PINCTRL_PIN(11, "PKG_SEL1"),
-	PINCTRL_PIN(12, "PKG_SEL2"),
-	PINCTRL_PIN(13, "PKG_SEL3"),
-	PINCTRL_PIN(14, "GPIO0"),
-	PINCTRL_PIN(15, "GPIO1"),
-	PINCTRL_PIN(16, "GPIO2"),
-	PINCTRL_PIN(17, "GPIO3"),
-	PINCTRL_PIN(18, "GPIO4"),
-	PINCTRL_PIN(19, "GPIO5"),
-	PINCTRL_PIN(20, "GPIO6"),
-	PINCTRL_PIN(21, "GPIO7"),
-	PINCTRL_PIN(22, "GPIO8"),
-	PINCTRL_PIN(23, "GPIO9"),
-	PINCTRL_PIN(24, "GPIO10"),
-	PINCTRL_PIN(25, "GPIO11"),
-	PINCTRL_PIN(26, "GPIO12"),
-	PINCTRL_PIN(27, "GPIO13"),
-	PINCTRL_PIN(28, "GPIO14"),
-	PINCTRL_PIN(29, "GPIO15"),
-	PINCTRL_PIN(30, "GPIO16"),
-	PINCTRL_PIN(31, "GPIO17"),
-	PINCTRL_PIN(32, "GPIO18"),
-	PINCTRL_PIN(33, "GPIO19"),
-	PINCTRL_PIN(34, "GPIO20"),
-	PINCTRL_PIN(35, "GPIO21"),
-	PINCTRL_PIN(36, "GPIO22"),
-	PINCTRL_PIN(37, "GPIO23"),
-	PINCTRL_PIN(38, "GPIO24"),
-	PINCTRL_PIN(39, "GPIO25"),
-	PINCTRL_PIN(40, "GPIO26"),
-	PINCTRL_PIN(41, "GPIO27"),
-	PINCTRL_PIN(42, "GPIO28"),
-	PINCTRL_PIN(43, "GPIO29"),
-	PINCTRL_PIN(44, "GPIO30"),
-	PINCTRL_PIN(45, "GPIO31"),
-	PINCTRL_PIN(46, "GPIO32"),
-	PINCTRL_PIN(47, "GPIO33"),
-	PINCTRL_PIN(48, "GPIO34"),
-	PINCTRL_PIN(49, "GPIO35"),
-	PINCTRL_PIN(50, "GPIO36"),
-	PINCTRL_PIN(51, "GPIO37"),
-	PINCTRL_PIN(52, "GPIO38"),
-	PINCTRL_PIN(53, "GPIO39"),
-	PINCTRL_PIN(54, "GPIO40"),
-	PINCTRL_PIN(55, "GPIO41"),
-	PINCTRL_PIN(56, "GPIO42"),
-	PINCTRL_PIN(57, "GPIO43"),
-	PINCTRL_PIN(58, "GPIO44"),
-	PINCTRL_PIN(59, "GPIO45"),
-	PINCTRL_PIN(60, "GPIO46"),
-	PINCTRL_PIN(62, "PCIE_RESET0"),
-	PINCTRL_PIN(63, "PCIE_RESET1"),
-	PINCTRL_PIN(64, "PCIE_RESET2"),
-	PINCTRL_PIN(65, "MDC0"),
-	PINCTRL_PIN(66, "MDIO0"),
+	PINCTRL_PIN(0, "UART1_TXD"),
+	PINCTRL_PIN(1, "UART1_RXD"),
+	PINCTRL_PIN(2, "I2C_SCL"),
+	PINCTRL_PIN(3, "I2C_SDA"),
+	PINCTRL_PIN(4, "SPI_CS0"),
+	PINCTRL_PIN(5, "SPI_CLK"),
+	PINCTRL_PIN(6, "SPI_MOSI"),
+	PINCTRL_PIN(7, "SPI_MISO"),
+	PINCTRL_PIN(8, "HW_RSTN"),
+	PINCTRL_PIN(9, "PKG_SEL0"),
+	PINCTRL_PIN(10, "PKG_SEL1"),
+	PINCTRL_PIN(11, "PKG_SEL2"),
+	PINCTRL_PIN(12, "PKG_SEL3"),
+	PINCTRL_PIN(13, "GPIO0"),
+	PINCTRL_PIN(14, "GPIO1"),
+	PINCTRL_PIN(15, "GPIO2"),
+	PINCTRL_PIN(16, "GPIO3"),
+	PINCTRL_PIN(17, "GPIO4"),
+	PINCTRL_PIN(18, "GPIO5"),
+	PINCTRL_PIN(19, "GPIO6"),
+	PINCTRL_PIN(20, "GPIO7"),
+	PINCTRL_PIN(21, "GPIO8"),
+	PINCTRL_PIN(22, "GPIO9"),
+	PINCTRL_PIN(23, "GPIO10"),
+	PINCTRL_PIN(24, "GPIO11"),
+	PINCTRL_PIN(25, "GPIO12"),
+	PINCTRL_PIN(26, "GPIO13"),
+	PINCTRL_PIN(27, "GPIO14"),
+	PINCTRL_PIN(28, "GPIO15"),
+	PINCTRL_PIN(29, "GPIO16"),
+	PINCTRL_PIN(30, "GPIO17"),
+	PINCTRL_PIN(31, "GPIO18"),
+	PINCTRL_PIN(32, "GPIO19"),
+	PINCTRL_PIN(33, "GPIO20"),
+	PINCTRL_PIN(34, "GPIO21"),
+	PINCTRL_PIN(35, "GPIO22"),
+	PINCTRL_PIN(36, "GPIO23"),
+	PINCTRL_PIN(37, "GPIO24"),
+	PINCTRL_PIN(38, "GPIO25"),
+	PINCTRL_PIN(39, "GPIO26"),
+	PINCTRL_PIN(40, "GPIO27"),
+	PINCTRL_PIN(41, "GPIO28"),
+	PINCTRL_PIN(42, "GPIO29"),
+	PINCTRL_PIN(43, "GPIO30"),
+	PINCTRL_PIN(44, "GPIO31"),
+	PINCTRL_PIN(45, "GPIO32"),
+	PINCTRL_PIN(46, "GPIO33"),
+	PINCTRL_PIN(47, "GPIO34"),
+	PINCTRL_PIN(48, "GPIO35"),
+	PINCTRL_PIN(49, "GPIO36"),
+	PINCTRL_PIN(50, "GPIO37"),
+	PINCTRL_PIN(51, "GPIO38"),
+	PINCTRL_PIN(52, "GPIO39"),
+	PINCTRL_PIN(53, "GPIO40"),
+	PINCTRL_PIN(54, "GPIO41"),
+	PINCTRL_PIN(55, "GPIO42"),
+	PINCTRL_PIN(56, "GPIO43"),
+	PINCTRL_PIN(57, "GPIO44"),
+	PINCTRL_PIN(58, "GPIO45"),
+	PINCTRL_PIN(59, "GPIO46"),
+	PINCTRL_PIN(61, "PCIE_RESET0"),
+	PINCTRL_PIN(62, "PCIE_RESET1"),
+	PINCTRL_PIN(63, "PCIE_RESET2"),
+	PINCTRL_PIN(64, "MDC0"),
+	PINCTRL_PIN(65, "MDIO0"),
 };
 
-static const int pon_pins[] = { 50, 51, 52, 53, 54, 55 };
-static const int tod_1pps_pins[] = { 47 };
-static const int sipo_pins[] = { 17, 18 };
-static const int sipo_rclk_pins[] = { 17, 18, 44 };
-static const int mdio0_pins[] = { 65, 66 };
-static const int mdio1_pins[] = { 15, 16 };
-static const int uart1_pins[] = { 1, 2 };
-static const int uart2_pins[] = { 49, 56 };
-static const int uart2_cts_rts_pins[] = { 47, 48 };
-static const int hsuart_pins[] = { 29, 30 };
-static const int hsuart_cts_rts_pins[] = { 27, 28 };
-static const int uart4_pins[] = { 39, 40 };
-static const int uart5_pins[] = { 19, 20 };
-static const int i2c0_pins[] = { 3, 4 };
-static const int i2c1_pins[] = { 15, 16 };
-static const int jtag_pins[] = { 17, 18, 19, 20, 21 };
-static const int i2s_pins[] = { 27, 28, 29, 30 };
-static const int pcm1_pins[] = { 23, 24, 25, 26 };
-static const int pcm2_pins[] = { 19, 20, 21, 22 };
-static const int spi_quad_pins[] = { 33, 34 };
-static const int spi_pins[] = { 5, 6, 7, 8 };
-static const int spi_cs1_pins[] = { 35 };
-static const int pcm_spi_pins[] = { 19, 20, 21, 22, 23, 24, 25, 26 };
-static const int pcm_spi_int_pins[] = { 15 };
-static const int pcm_spi_rst_pins[] = { 16 };
-static const int pcm_spi_cs1_pins[] = { 44 };
-static const int pcm_spi_cs2_pins[] = { 41 };
-static const int pcm_spi_cs3_pins[] = { 42 };
-static const int pcm_spi_cs4_pins[] = { 43 };
-static const int emmc_pins[] = { 5, 6, 7, 31, 32, 33, 34, 35, 36, 37, 38 };
-static const int pnand_pins[] = { 5, 6, 7, 8, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43 };
-static const int gpio47_pins[] = { 62 };
-static const int gpio48_pins[] = { 63 };
-static const int gpio49_pins[] = { 64 };
-static const int lan0_led0_pins[] = { 47 };
-static const int lan0_led1_pins[] = { 57 };
-static const int lan1_led0_pins[] = { 48 };
-static const int lan1_led1_pins[] = { 58 };
-static const int lan2_led0_pins[] = { 49 };
-static const int lan2_led1_pins[] = { 59 };
-static const int lan3_led0_pins[] = { 56 };
-static const int lan3_led1_pins[] = { 60 };
+static const int pon_pins[] = { 49, 50, 51, 52, 53, 54 };
+static const int tod_1pps_pins[] = { 46 };
+static const int sipo_pins[] = { 16, 17 };
+static const int sipo_rclk_pins[] = { 16, 17, 43 };
+static const int mdio0_pins[] = { 64, 65 };
+static const int mdio1_pins[] = { 14, 15 };
+static const int uart1_pins[] = { 0, 1 };
+static const int uart2_pins[] = { 48, 55 };
+static const int uart2_cts_rts_pins[] = { 46, 47 };
+static const int hsuart_pins[] = { 28, 29 };
+static const int hsuart_cts_rts_pins[] = { 26, 27 };
+static const int uart4_pins[] = { 38, 39 };
+static const int uart5_pins[] = { 18, 19 };
+static const int i2c0_pins[] = { 2, 3 };
+static const int i2c1_pins[] = { 14, 15 };
+static const int jtag_pins[] = { 16, 17, 18, 19, 20 };
+static const int i2s_pins[] = { 26, 27, 28, 29 };
+static const int pcm1_pins[] = { 22, 23, 24, 25 };
+static const int pcm2_pins[] = { 18, 19, 20, 21 };
+static const int spi_quad_pins[] = { 32, 33 };
+static const int spi_pins[] = { 4, 5, 6, 7 };
+static const int spi_cs1_pins[] = { 34 };
+static const int pcm_spi_pins[] = { 18, 19, 20, 21, 22, 23, 24, 25 };
+static const int pcm_spi_int_pins[] = { 14 };
+static const int pcm_spi_rst_pins[] = { 15 };
+static const int pcm_spi_cs1_pins[] = { 43 };
+static const int pcm_spi_cs2_pins[] = { 40 };
+static const int pcm_spi_cs3_pins[] = { 41 };
+static const int pcm_spi_cs4_pins[] = { 42 };
+static const int emmc_pins[] = { 4, 5, 6, 30, 31, 32, 33, 34, 35, 36, 37 };
+static const int pnand_pins[] = { 4, 5, 6, 7, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42 };
+static const int gpio47_pins[] = { 61 };
+static const int gpio48_pins[] = { 62 };
+static const int gpio49_pins[] = { 63 };
+static const int lan0_led0_pins[] = { 46 };
+static const int lan0_led1_pins[] = { 56 };
+static const int lan1_led0_pins[] = { 47 };
+static const int lan1_led1_pins[] = { 57 };
+static const int lan2_led0_pins[] = { 48 };
+static const int lan2_led1_pins[] = { 58 };
+static const int lan3_led0_pins[] = { 55 };
+static const int lan3_led1_pins[] = { 59 };
 
 static const struct pingroup airoha_pinctrl_groups[] = {
 	PINCTRL_PIN_GROUP("pon", pon),
@@ -484,276 +497,268 @@ static const struct airoha_pinctrl_func airoha_pinctrl_funcs[] = {
 };
 
 static const struct airoha_pinctrl_conf airoha_pinctrl_pullup_conf[] = {
-	PINCTRL_CONF_DESC(1, REG_I2C_SDA_PU, UART1_TXD_PU_MASK),
-	PINCTRL_CONF_DESC(2, REG_I2C_SDA_PU, UART1_RXD_PU_MASK),
-	PINCTRL_CONF_DESC(3, REG_I2C_SDA_PU, I2C_SDA_PU_MASK),
-	PINCTRL_CONF_DESC(4, REG_I2C_SDA_PU, I2C_SCL_PU_MASK),
-	PINCTRL_CONF_DESC(5, REG_I2C_SDA_PU, SPI_CS0_PU_MASK),
-	PINCTRL_CONF_DESC(6, REG_I2C_SDA_PU, SPI_CLK_PU_MASK),
-	PINCTRL_CONF_DESC(7, REG_I2C_SDA_PU, SPI_MOSI_PU_MASK),
-	PINCTRL_CONF_DESC(8, REG_I2C_SDA_PU, SPI_MISO_PU_MASK),
-	PINCTRL_CONF_DESC(14, REG_GPIO_L_PU, BIT(0)),
-	PINCTRL_CONF_DESC(15, REG_GPIO_L_PU, BIT(1)),
-	PINCTRL_CONF_DESC(16, REG_GPIO_L_PU, BIT(2)),
-	PINCTRL_CONF_DESC(17, REG_GPIO_L_PU, BIT(3)),
-	PINCTRL_CONF_DESC(18, REG_GPIO_L_PU, BIT(4)),
-	PINCTRL_CONF_DESC(19, REG_GPIO_L_PU, BIT(5)),
-	PINCTRL_CONF_DESC(20, REG_GPIO_L_PU, BIT(6)),
-	PINCTRL_CONF_DESC(21, REG_GPIO_L_PU, BIT(7)),
-	PINCTRL_CONF_DESC(22, REG_GPIO_L_PU, BIT(8)),
-	PINCTRL_CONF_DESC(23, REG_GPIO_L_PU, BIT(9)),
-	PINCTRL_CONF_DESC(24, REG_GPIO_L_PU, BIT(10)),
-	PINCTRL_CONF_DESC(25, REG_GPIO_L_PU, BIT(11)),
-	PINCTRL_CONF_DESC(26, REG_GPIO_L_PU, BIT(12)),
-	PINCTRL_CONF_DESC(27, REG_GPIO_L_PU, BIT(13)),
-	PINCTRL_CONF_DESC(28, REG_GPIO_L_PU, BIT(14)),
-	PINCTRL_CONF_DESC(29, REG_GPIO_L_PU, BIT(15)),
-	PINCTRL_CONF_DESC(30, REG_GPIO_L_PU, BIT(16)),
-	PINCTRL_CONF_DESC(31, REG_GPIO_L_PU, BIT(17)),
+	PINCTRL_CONF_DESC(0, REG_I2C_SDA_PU, UART1_TXD_PU_MASK),
+	PINCTRL_CONF_DESC(1, REG_I2C_SDA_PU, UART1_RXD_PU_MASK),
+	PINCTRL_CONF_DESC(2, REG_I2C_SDA_PU, I2C_SDA_PU_MASK),
+	PINCTRL_CONF_DESC(3, REG_I2C_SDA_PU, I2C_SCL_PU_MASK),
+	PINCTRL_CONF_DESC(4, REG_I2C_SDA_PU, SPI_CS0_PU_MASK),
+	PINCTRL_CONF_DESC(5, REG_I2C_SDA_PU, SPI_CLK_PU_MASK),
+	PINCTRL_CONF_DESC(6, REG_I2C_SDA_PU, SPI_MOSI_PU_MASK),
+	PINCTRL_CONF_DESC(7, REG_I2C_SDA_PU, SPI_MISO_PU_MASK),
+	PINCTRL_CONF_DESC(13, REG_GPIO_L_PU, BIT(0)),
+	PINCTRL_CONF_DESC(14, REG_GPIO_L_PU, BIT(1)),
+	PINCTRL_CONF_DESC(15, REG_GPIO_L_PU, BIT(2)),
+	PINCTRL_CONF_DESC(16, REG_GPIO_L_PU, BIT(3)),
+	PINCTRL_CONF_DESC(17, REG_GPIO_L_PU, BIT(4)),
+	PINCTRL_CONF_DESC(18, REG_GPIO_L_PU, BIT(5)),
+	PINCTRL_CONF_DESC(19, REG_GPIO_L_PU, BIT(6)),
+	PINCTRL_CONF_DESC(20, REG_GPIO_L_PU, BIT(7)),
+	PINCTRL_CONF_DESC(21, REG_GPIO_L_PU, BIT(8)),
+	PINCTRL_CONF_DESC(22, REG_GPIO_L_PU, BIT(9)),
+	PINCTRL_CONF_DESC(23, REG_GPIO_L_PU, BIT(10)),
+	PINCTRL_CONF_DESC(24, REG_GPIO_L_PU, BIT(11)),
+	PINCTRL_CONF_DESC(25, REG_GPIO_L_PU, BIT(12)),
+	PINCTRL_CONF_DESC(26, REG_GPIO_L_PU, BIT(13)),
+	PINCTRL_CONF_DESC(27, REG_GPIO_L_PU, BIT(14)),
+	PINCTRL_CONF_DESC(28, REG_GPIO_L_PU, BIT(15)),
+	PINCTRL_CONF_DESC(29, REG_GPIO_L_PU, BIT(16)),
+	PINCTRL_CONF_DESC(30, REG_GPIO_L_PU, BIT(17)),
+	PINCTRL_CONF_DESC(31, REG_GPIO_L_PU, BIT(18)),
 	PINCTRL_CONF_DESC(32, REG_GPIO_L_PU, BIT(18)),
-	PINCTRL_CONF_DESC(33, REG_GPIO_L_PU, BIT(18)),
-	PINCTRL_CONF_DESC(34, REG_GPIO_L_PU, BIT(20)),
-	PINCTRL_CONF_DESC(35, REG_GPIO_L_PU, BIT(21)),
-	PINCTRL_CONF_DESC(36, REG_GPIO_L_PU, BIT(22)),
-	PINCTRL_CONF_DESC(37, REG_GPIO_L_PU, BIT(23)),
-	PINCTRL_CONF_DESC(38, REG_GPIO_L_PU, BIT(24)),
-	PINCTRL_CONF_DESC(39, REG_GPIO_L_PU, BIT(25)),
-	PINCTRL_CONF_DESC(40, REG_GPIO_L_PU, BIT(26)),
-	PINCTRL_CONF_DESC(41, REG_GPIO_L_PU, BIT(27)),
-	PINCTRL_CONF_DESC(42, REG_GPIO_L_PU, BIT(28)),
-	PINCTRL_CONF_DESC(43, REG_GPIO_L_PU, BIT(29)),
-	PINCTRL_CONF_DESC(44, REG_GPIO_L_PU, BIT(30)),
-	PINCTRL_CONF_DESC(45, REG_GPIO_L_PU, BIT(31)),
-	PINCTRL_CONF_DESC(46, REG_GPIO_H_PU, BIT(0)),
-	PINCTRL_CONF_DESC(47, REG_GPIO_H_PU, BIT(1)),
-	PINCTRL_CONF_DESC(48, REG_GPIO_H_PU, BIT(2)),
-	PINCTRL_CONF_DESC(49, REG_GPIO_H_PU, BIT(3)),
-	PINCTRL_CONF_DESC(50, REG_GPIO_H_PU, BIT(4)),
-	PINCTRL_CONF_DESC(51, REG_GPIO_H_PU, BIT(5)),
-	PINCTRL_CONF_DESC(52, REG_GPIO_H_PU, BIT(6)),
-	PINCTRL_CONF_DESC(53, REG_GPIO_H_PU, BIT(7)),
-	PINCTRL_CONF_DESC(54, REG_GPIO_H_PU, BIT(8)),
-	PINCTRL_CONF_DESC(55, REG_GPIO_H_PU, BIT(9)),
-	PINCTRL_CONF_DESC(56, REG_GPIO_H_PU, BIT(10)),
-	PINCTRL_CONF_DESC(57, REG_GPIO_H_PU, BIT(11)),
-	PINCTRL_CONF_DESC(58, REG_GPIO_H_PU, BIT(12)),
-	PINCTRL_CONF_DESC(59, REG_GPIO_H_PU, BIT(13)),
-	PINCTRL_CONF_DESC(60, REG_GPIO_H_PU, BIT(14)),
-	PINCTRL_CONF_DESC(62, REG_I2C_SDA_PU, PCIE0_RESET_PU_MASK),
-	PINCTRL_CONF_DESC(63, REG_I2C_SDA_PU, PCIE1_RESET_PU_MASK),
-	PINCTRL_CONF_DESC(64, REG_I2C_SDA_PU, PCIE2_RESET_PU_MASK),
+	PINCTRL_CONF_DESC(33, REG_GPIO_L_PU, BIT(20)),
+	PINCTRL_CONF_DESC(34, REG_GPIO_L_PU, BIT(21)),
+	PINCTRL_CONF_DESC(35, REG_GPIO_L_PU, BIT(22)),
+	PINCTRL_CONF_DESC(36, REG_GPIO_L_PU, BIT(23)),
+	PINCTRL_CONF_DESC(37, REG_GPIO_L_PU, BIT(24)),
+	PINCTRL_CONF_DESC(38, REG_GPIO_L_PU, BIT(25)),
+	PINCTRL_CONF_DESC(39, REG_GPIO_L_PU, BIT(26)),
+	PINCTRL_CONF_DESC(40, REG_GPIO_L_PU, BIT(27)),
+	PINCTRL_CONF_DESC(41, REG_GPIO_L_PU, BIT(28)),
+	PINCTRL_CONF_DESC(42, REG_GPIO_L_PU, BIT(29)),
+	PINCTRL_CONF_DESC(43, REG_GPIO_L_PU, BIT(30)),
+	PINCTRL_CONF_DESC(44, REG_GPIO_L_PU, BIT(31)),
+	PINCTRL_CONF_DESC(45, REG_GPIO_H_PU, BIT(0)),
+	PINCTRL_CONF_DESC(46, REG_GPIO_H_PU, BIT(1)),
+	PINCTRL_CONF_DESC(47, REG_GPIO_H_PU, BIT(2)),
+	PINCTRL_CONF_DESC(48, REG_GPIO_H_PU, BIT(3)),
+	PINCTRL_CONF_DESC(49, REG_GPIO_H_PU, BIT(4)),
+	PINCTRL_CONF_DESC(50, REG_GPIO_H_PU, BIT(5)),
+	PINCTRL_CONF_DESC(51, REG_GPIO_H_PU, BIT(6)),
+	PINCTRL_CONF_DESC(52, REG_GPIO_H_PU, BIT(7)),
+	PINCTRL_CONF_DESC(53, REG_GPIO_H_PU, BIT(8)),
+	PINCTRL_CONF_DESC(54, REG_GPIO_H_PU, BIT(9)),
+	PINCTRL_CONF_DESC(55, REG_GPIO_H_PU, BIT(10)),
+	PINCTRL_CONF_DESC(56, REG_GPIO_H_PU, BIT(11)),
+	PINCTRL_CONF_DESC(57, REG_GPIO_H_PU, BIT(12)),
+	PINCTRL_CONF_DESC(58, REG_GPIO_H_PU, BIT(13)),
+	PINCTRL_CONF_DESC(59, REG_GPIO_H_PU, BIT(14)),
+	PINCTRL_CONF_DESC(61, REG_I2C_SDA_PU, PCIE0_RESET_PU_MASK),
+	PINCTRL_CONF_DESC(62, REG_I2C_SDA_PU, PCIE1_RESET_PU_MASK),
+	PINCTRL_CONF_DESC(63, REG_I2C_SDA_PU, PCIE2_RESET_PU_MASK),
 };
 
 static const struct airoha_pinctrl_conf airoha_pinctrl_pulldown_conf[] = {
-	PINCTRL_CONF_DESC(1, REG_I2C_SDA_PD, UART1_TXD_PD_MASK),
-	PINCTRL_CONF_DESC(2, REG_I2C_SDA_PD, UART1_RXD_PD_MASK),
-	PINCTRL_CONF_DESC(3, REG_I2C_SDA_PD, I2C_SDA_PD_MASK),
-	PINCTRL_CONF_DESC(4, REG_I2C_SDA_PD, I2C_SCL_PD_MASK),
-	PINCTRL_CONF_DESC(5, REG_I2C_SDA_PD, SPI_CS0_PD_MASK),
-	PINCTRL_CONF_DESC(6, REG_I2C_SDA_PD, SPI_CLK_PD_MASK),
-	PINCTRL_CONF_DESC(7, REG_I2C_SDA_PD, SPI_MOSI_PD_MASK),
-	PINCTRL_CONF_DESC(8, REG_I2C_SDA_PD, SPI_MISO_PD_MASK),
-	PINCTRL_CONF_DESC(14, REG_GPIO_L_PD, BIT(0)),
-	PINCTRL_CONF_DESC(15, REG_GPIO_L_PD, BIT(1)),
-	PINCTRL_CONF_DESC(16, REG_GPIO_L_PD, BIT(2)),
-	PINCTRL_CONF_DESC(17, REG_GPIO_L_PD, BIT(3)),
-	PINCTRL_CONF_DESC(18, REG_GPIO_L_PD, BIT(4)),
-	PINCTRL_CONF_DESC(19, REG_GPIO_L_PD, BIT(5)),
-	PINCTRL_CONF_DESC(20, REG_GPIO_L_PD, BIT(6)),
-	PINCTRL_CONF_DESC(21, REG_GPIO_L_PD, BIT(7)),
-	PINCTRL_CONF_DESC(22, REG_GPIO_L_PD, BIT(8)),
-	PINCTRL_CONF_DESC(23, REG_GPIO_L_PD, BIT(9)),
-	PINCTRL_CONF_DESC(24, REG_GPIO_L_PD, BIT(10)),
-	PINCTRL_CONF_DESC(25, REG_GPIO_L_PD, BIT(11)),
-	PINCTRL_CONF_DESC(26, REG_GPIO_L_PD, BIT(12)),
-	PINCTRL_CONF_DESC(27, REG_GPIO_L_PD, BIT(13)),
-	PINCTRL_CONF_DESC(28, REG_GPIO_L_PD, BIT(14)),
-	PINCTRL_CONF_DESC(29, REG_GPIO_L_PD, BIT(15)),
-	PINCTRL_CONF_DESC(30, REG_GPIO_L_PD, BIT(16)),
-	PINCTRL_CONF_DESC(31, REG_GPIO_L_PD, BIT(17)),
+	PINCTRL_CONF_DESC(0, REG_I2C_SDA_PD, UART1_TXD_PD_MASK),
+	PINCTRL_CONF_DESC(1, REG_I2C_SDA_PD, UART1_RXD_PD_MASK),
+	PINCTRL_CONF_DESC(2, REG_I2C_SDA_PD, I2C_SDA_PD_MASK),
+	PINCTRL_CONF_DESC(3, REG_I2C_SDA_PD, I2C_SCL_PD_MASK),
+	PINCTRL_CONF_DESC(4, REG_I2C_SDA_PD, SPI_CS0_PD_MASK),
+	PINCTRL_CONF_DESC(5, REG_I2C_SDA_PD, SPI_CLK_PD_MASK),
+	PINCTRL_CONF_DESC(6, REG_I2C_SDA_PD, SPI_MOSI_PD_MASK),
+	PINCTRL_CONF_DESC(7, REG_I2C_SDA_PD, SPI_MISO_PD_MASK),
+	PINCTRL_CONF_DESC(13, REG_GPIO_L_PD, BIT(0)),
+	PINCTRL_CONF_DESC(14, REG_GPIO_L_PD, BIT(1)),
+	PINCTRL_CONF_DESC(15, REG_GPIO_L_PD, BIT(2)),
+	PINCTRL_CONF_DESC(16, REG_GPIO_L_PD, BIT(3)),
+	PINCTRL_CONF_DESC(17, REG_GPIO_L_PD, BIT(4)),
+	PINCTRL_CONF_DESC(18, REG_GPIO_L_PD, BIT(5)),
+	PINCTRL_CONF_DESC(19, REG_GPIO_L_PD, BIT(6)),
+	PINCTRL_CONF_DESC(20, REG_GPIO_L_PD, BIT(7)),
+	PINCTRL_CONF_DESC(21, REG_GPIO_L_PD, BIT(8)),
+	PINCTRL_CONF_DESC(22, REG_GPIO_L_PD, BIT(9)),
+	PINCTRL_CONF_DESC(23, REG_GPIO_L_PD, BIT(10)),
+	PINCTRL_CONF_DESC(24, REG_GPIO_L_PD, BIT(11)),
+	PINCTRL_CONF_DESC(25, REG_GPIO_L_PD, BIT(12)),
+	PINCTRL_CONF_DESC(26, REG_GPIO_L_PD, BIT(13)),
+	PINCTRL_CONF_DESC(27, REG_GPIO_L_PD, BIT(14)),
+	PINCTRL_CONF_DESC(28, REG_GPIO_L_PD, BIT(15)),
+	PINCTRL_CONF_DESC(29, REG_GPIO_L_PD, BIT(16)),
+	PINCTRL_CONF_DESC(30, REG_GPIO_L_PD, BIT(17)),
+	PINCTRL_CONF_DESC(31, REG_GPIO_L_PD, BIT(18)),
 	PINCTRL_CONF_DESC(32, REG_GPIO_L_PD, BIT(18)),
-	PINCTRL_CONF_DESC(33, REG_GPIO_L_PD, BIT(18)),
-	PINCTRL_CONF_DESC(34, REG_GPIO_L_PD, BIT(20)),
-	PINCTRL_CONF_DESC(35, REG_GPIO_L_PD, BIT(21)),
-	PINCTRL_CONF_DESC(36, REG_GPIO_L_PD, BIT(22)),
-	PINCTRL_CONF_DESC(37, REG_GPIO_L_PD, BIT(23)),
-	PINCTRL_CONF_DESC(38, REG_GPIO_L_PD, BIT(24)),
-	PINCTRL_CONF_DESC(39, REG_GPIO_L_PD, BIT(25)),
-	PINCTRL_CONF_DESC(40, REG_GPIO_L_PD, BIT(26)),
-	PINCTRL_CONF_DESC(41, REG_GPIO_L_PD, BIT(27)),
-	PINCTRL_CONF_DESC(42, REG_GPIO_L_PD, BIT(28)),
-	PINCTRL_CONF_DESC(43, REG_GPIO_L_PD, BIT(29)),
-	PINCTRL_CONF_DESC(44, REG_GPIO_L_PD, BIT(30)),
-	PINCTRL_CONF_DESC(45, REG_GPIO_L_PD, BIT(31)),
-	PINCTRL_CONF_DESC(46, REG_GPIO_H_PD, BIT(0)),
-	PINCTRL_CONF_DESC(47, REG_GPIO_H_PD, BIT(1)),
-	PINCTRL_CONF_DESC(48, REG_GPIO_H_PD, BIT(2)),
-	PINCTRL_CONF_DESC(49, REG_GPIO_H_PD, BIT(3)),
-	PINCTRL_CONF_DESC(50, REG_GPIO_H_PD, BIT(4)),
-	PINCTRL_CONF_DESC(51, REG_GPIO_H_PD, BIT(5)),
-	PINCTRL_CONF_DESC(52, REG_GPIO_H_PD, BIT(6)),
-	PINCTRL_CONF_DESC(53, REG_GPIO_H_PD, BIT(7)),
-	PINCTRL_CONF_DESC(54, REG_GPIO_H_PD, BIT(8)),
-	PINCTRL_CONF_DESC(55, REG_GPIO_H_PD, BIT(9)),
-	PINCTRL_CONF_DESC(56, REG_GPIO_H_PD, BIT(10)),
-	PINCTRL_CONF_DESC(57, REG_GPIO_H_PD, BIT(11)),
-	PINCTRL_CONF_DESC(58, REG_GPIO_H_PD, BIT(12)),
-	PINCTRL_CONF_DESC(59, REG_GPIO_H_PD, BIT(13)),
-	PINCTRL_CONF_DESC(60, REG_GPIO_H_PD, BIT(14)),
-	PINCTRL_CONF_DESC(62, REG_I2C_SDA_PD, PCIE0_RESET_PD_MASK),
-	PINCTRL_CONF_DESC(63, REG_I2C_SDA_PD, PCIE1_RESET_PD_MASK),
-	PINCTRL_CONF_DESC(64, REG_I2C_SDA_PD, PCIE2_RESET_PD_MASK),
+	PINCTRL_CONF_DESC(33, REG_GPIO_L_PD, BIT(20)),
+	PINCTRL_CONF_DESC(34, REG_GPIO_L_PD, BIT(21)),
+	PINCTRL_CONF_DESC(35, REG_GPIO_L_PD, BIT(22)),
+	PINCTRL_CONF_DESC(36, REG_GPIO_L_PD, BIT(23)),
+	PINCTRL_CONF_DESC(37, REG_GPIO_L_PD, BIT(24)),
+	PINCTRL_CONF_DESC(38, REG_GPIO_L_PD, BIT(25)),
+	PINCTRL_CONF_DESC(39, REG_GPIO_L_PD, BIT(26)),
+	PINCTRL_CONF_DESC(40, REG_GPIO_L_PD, BIT(27)),
+	PINCTRL_CONF_DESC(41, REG_GPIO_L_PD, BIT(28)),
+	PINCTRL_CONF_DESC(42, REG_GPIO_L_PD, BIT(29)),
+	PINCTRL_CONF_DESC(43, REG_GPIO_L_PD, BIT(30)),
+	PINCTRL_CONF_DESC(44, REG_GPIO_L_PD, BIT(31)),
+	PINCTRL_CONF_DESC(45, REG_GPIO_H_PD, BIT(0)),
+	PINCTRL_CONF_DESC(46, REG_GPIO_H_PD, BIT(1)),
+	PINCTRL_CONF_DESC(47, REG_GPIO_H_PD, BIT(2)),
+	PINCTRL_CONF_DESC(48, REG_GPIO_H_PD, BIT(3)),
+	PINCTRL_CONF_DESC(49, REG_GPIO_H_PD, BIT(4)),
+	PINCTRL_CONF_DESC(50, REG_GPIO_H_PD, BIT(5)),
+	PINCTRL_CONF_DESC(51, REG_GPIO_H_PD, BIT(6)),
+	PINCTRL_CONF_DESC(52, REG_GPIO_H_PD, BIT(7)),
+	PINCTRL_CONF_DESC(53, REG_GPIO_H_PD, BIT(8)),
+	PINCTRL_CONF_DESC(54, REG_GPIO_H_PD, BIT(9)),
+	PINCTRL_CONF_DESC(55, REG_GPIO_H_PD, BIT(10)),
+	PINCTRL_CONF_DESC(56, REG_GPIO_H_PD, BIT(11)),
+	PINCTRL_CONF_DESC(57, REG_GPIO_H_PD, BIT(12)),
+	PINCTRL_CONF_DESC(58, REG_GPIO_H_PD, BIT(13)),
+	PINCTRL_CONF_DESC(59, REG_GPIO_H_PD, BIT(14)),
+	PINCTRL_CONF_DESC(61, REG_I2C_SDA_PD, PCIE0_RESET_PD_MASK),
+	PINCTRL_CONF_DESC(62, REG_I2C_SDA_PD, PCIE1_RESET_PD_MASK),
+	PINCTRL_CONF_DESC(63, REG_I2C_SDA_PD, PCIE2_RESET_PD_MASK),
 };
 
 static const struct airoha_pinctrl_conf airoha_pinctrl_drive_e2_conf[] = {
-	PINCTRL_CONF_DESC(1, REG_I2C_SDA_E2, UART1_TXD_E2_MASK),
-	PINCTRL_CONF_DESC(2, REG_I2C_SDA_E2, UART1_RXD_E2_MASK),
-	PINCTRL_CONF_DESC(3, REG_I2C_SDA_E2, I2C_SDA_E2_MASK),
-	PINCTRL_CONF_DESC(4, REG_I2C_SDA_E2, I2C_SCL_E2_MASK),
-	PINCTRL_CONF_DESC(5, REG_I2C_SDA_E2, SPI_CS0_E2_MASK),
-	PINCTRL_CONF_DESC(6, REG_I2C_SDA_E2, SPI_CLK_E2_MASK),
-	PINCTRL_CONF_DESC(7, REG_I2C_SDA_E2, SPI_MOSI_E2_MASK),
-	PINCTRL_CONF_DESC(8, REG_I2C_SDA_E2, SPI_MISO_E2_MASK),
-	PINCTRL_CONF_DESC(14, REG_GPIO_L_E2, BIT(0)),
-	PINCTRL_CONF_DESC(15, REG_GPIO_L_E2, BIT(1)),
-	PINCTRL_CONF_DESC(16, REG_GPIO_L_E2, BIT(2)),
-	PINCTRL_CONF_DESC(17, REG_GPIO_L_E2, BIT(3)),
-	PINCTRL_CONF_DESC(18, REG_GPIO_L_E2, BIT(4)),
-	PINCTRL_CONF_DESC(19, REG_GPIO_L_E2, BIT(5)),
-	PINCTRL_CONF_DESC(20, REG_GPIO_L_E2, BIT(6)),
-	PINCTRL_CONF_DESC(21, REG_GPIO_L_E2, BIT(7)),
-	PINCTRL_CONF_DESC(22, REG_GPIO_L_E2, BIT(8)),
-	PINCTRL_CONF_DESC(23, REG_GPIO_L_E2, BIT(9)),
-	PINCTRL_CONF_DESC(24, REG_GPIO_L_E2, BIT(10)),
-	PINCTRL_CONF_DESC(25, REG_GPIO_L_E2, BIT(11)),
-	PINCTRL_CONF_DESC(26, REG_GPIO_L_E2, BIT(12)),
-	PINCTRL_CONF_DESC(27, REG_GPIO_L_E2, BIT(13)),
-	PINCTRL_CONF_DESC(28, REG_GPIO_L_E2, BIT(14)),
-	PINCTRL_CONF_DESC(29, REG_GPIO_L_E2, BIT(15)),
-	PINCTRL_CONF_DESC(30, REG_GPIO_L_E2, BIT(16)),
-	PINCTRL_CONF_DESC(31, REG_GPIO_L_E2, BIT(17)),
+	PINCTRL_CONF_DESC(0, REG_I2C_SDA_E2, UART1_TXD_E2_MASK),
+	PINCTRL_CONF_DESC(1, REG_I2C_SDA_E2, UART1_RXD_E2_MASK),
+	PINCTRL_CONF_DESC(2, REG_I2C_SDA_E2, I2C_SDA_E2_MASK),
+	PINCTRL_CONF_DESC(3, REG_I2C_SDA_E2, I2C_SCL_E2_MASK),
+	PINCTRL_CONF_DESC(4, REG_I2C_SDA_E2, SPI_CS0_E2_MASK),
+	PINCTRL_CONF_DESC(5, REG_I2C_SDA_E2, SPI_CLK_E2_MASK),
+	PINCTRL_CONF_DESC(6, REG_I2C_SDA_E2, SPI_MOSI_E2_MASK),
+	PINCTRL_CONF_DESC(7, REG_I2C_SDA_E2, SPI_MISO_E2_MASK),
+	PINCTRL_CONF_DESC(13, REG_GPIO_L_E2, BIT(0)),
+	PINCTRL_CONF_DESC(14, REG_GPIO_L_E2, BIT(1)),
+	PINCTRL_CONF_DESC(15, REG_GPIO_L_E2, BIT(2)),
+	PINCTRL_CONF_DESC(16, REG_GPIO_L_E2, BIT(3)),
+	PINCTRL_CONF_DESC(17, REG_GPIO_L_E2, BIT(4)),
+	PINCTRL_CONF_DESC(18, REG_GPIO_L_E2, BIT(5)),
+	PINCTRL_CONF_DESC(19, REG_GPIO_L_E2, BIT(6)),
+	PINCTRL_CONF_DESC(20, REG_GPIO_L_E2, BIT(7)),
+	PINCTRL_CONF_DESC(21, REG_GPIO_L_E2, BIT(8)),
+	PINCTRL_CONF_DESC(22, REG_GPIO_L_E2, BIT(9)),
+	PINCTRL_CONF_DESC(23, REG_GPIO_L_E2, BIT(10)),
+	PINCTRL_CONF_DESC(24, REG_GPIO_L_E2, BIT(11)),
+	PINCTRL_CONF_DESC(25, REG_GPIO_L_E2, BIT(12)),
+	PINCTRL_CONF_DESC(26, REG_GPIO_L_E2, BIT(13)),
+	PINCTRL_CONF_DESC(27, REG_GPIO_L_E2, BIT(14)),
+	PINCTRL_CONF_DESC(28, REG_GPIO_L_E2, BIT(15)),
+	PINCTRL_CONF_DESC(29, REG_GPIO_L_E2, BIT(16)),
+	PINCTRL_CONF_DESC(30, REG_GPIO_L_E2, BIT(17)),
+	PINCTRL_CONF_DESC(31, REG_GPIO_L_E2, BIT(18)),
 	PINCTRL_CONF_DESC(32, REG_GPIO_L_E2, BIT(18)),
-	PINCTRL_CONF_DESC(33, REG_GPIO_L_E2, BIT(18)),
-	PINCTRL_CONF_DESC(34, REG_GPIO_L_E2, BIT(20)),
-	PINCTRL_CONF_DESC(35, REG_GPIO_L_E2, BIT(21)),
-	PINCTRL_CONF_DESC(36, REG_GPIO_L_E2, BIT(22)),
-	PINCTRL_CONF_DESC(37, REG_GPIO_L_E2, BIT(23)),
-	PINCTRL_CONF_DESC(38, REG_GPIO_L_E2, BIT(24)),
-	PINCTRL_CONF_DESC(39, REG_GPIO_L_E2, BIT(25)),
-	PINCTRL_CONF_DESC(40, REG_GPIO_L_E2, BIT(26)),
-	PINCTRL_CONF_DESC(41, REG_GPIO_L_E2, BIT(27)),
-	PINCTRL_CONF_DESC(42, REG_GPIO_L_E2, BIT(28)),
-	PINCTRL_CONF_DESC(43, REG_GPIO_L_E2, BIT(29)),
-	PINCTRL_CONF_DESC(44, REG_GPIO_L_E2, BIT(30)),
-	PINCTRL_CONF_DESC(45, REG_GPIO_L_E2, BIT(31)),
-	PINCTRL_CONF_DESC(46, REG_GPIO_H_E2, BIT(0)),
-	PINCTRL_CONF_DESC(47, REG_GPIO_H_E2, BIT(1)),
-	PINCTRL_CONF_DESC(48, REG_GPIO_H_E2, BIT(2)),
-	PINCTRL_CONF_DESC(49, REG_GPIO_H_E2, BIT(3)),
-	PINCTRL_CONF_DESC(50, REG_GPIO_H_E2, BIT(4)),
-	PINCTRL_CONF_DESC(51, REG_GPIO_H_E2, BIT(5)),
-	PINCTRL_CONF_DESC(52, REG_GPIO_H_E2, BIT(6)),
-	PINCTRL_CONF_DESC(53, REG_GPIO_H_E2, BIT(7)),
-	PINCTRL_CONF_DESC(54, REG_GPIO_H_E2, BIT(8)),
-	PINCTRL_CONF_DESC(55, REG_GPIO_H_E2, BIT(9)),
-	PINCTRL_CONF_DESC(56, REG_GPIO_H_E2, BIT(10)),
-	PINCTRL_CONF_DESC(57, REG_GPIO_H_E2, BIT(11)),
-	PINCTRL_CONF_DESC(58, REG_GPIO_H_E2, BIT(12)),
-	PINCTRL_CONF_DESC(59, REG_GPIO_H_E2, BIT(13)),
-	PINCTRL_CONF_DESC(60, REG_GPIO_H_E2, BIT(14)),
-	PINCTRL_CONF_DESC(62, REG_I2C_SDA_E2, PCIE0_RESET_E2_MASK),
-	PINCTRL_CONF_DESC(63, REG_I2C_SDA_E2, PCIE1_RESET_E2_MASK),
-	PINCTRL_CONF_DESC(64, REG_I2C_SDA_E2, PCIE2_RESET_E2_MASK),
+	PINCTRL_CONF_DESC(33, REG_GPIO_L_E2, BIT(20)),
+	PINCTRL_CONF_DESC(34, REG_GPIO_L_E2, BIT(21)),
+	PINCTRL_CONF_DESC(35, REG_GPIO_L_E2, BIT(22)),
+	PINCTRL_CONF_DESC(36, REG_GPIO_L_E2, BIT(23)),
+	PINCTRL_CONF_DESC(37, REG_GPIO_L_E2, BIT(24)),
+	PINCTRL_CONF_DESC(38, REG_GPIO_L_E2, BIT(25)),
+	PINCTRL_CONF_DESC(39, REG_GPIO_L_E2, BIT(26)),
+	PINCTRL_CONF_DESC(40, REG_GPIO_L_E2, BIT(27)),
+	PINCTRL_CONF_DESC(41, REG_GPIO_L_E2, BIT(28)),
+	PINCTRL_CONF_DESC(42, REG_GPIO_L_E2, BIT(29)),
+	PINCTRL_CONF_DESC(43, REG_GPIO_L_E2, BIT(30)),
+	PINCTRL_CONF_DESC(44, REG_GPIO_L_E2, BIT(31)),
+	PINCTRL_CONF_DESC(45, REG_GPIO_H_E2, BIT(0)),
+	PINCTRL_CONF_DESC(46, REG_GPIO_H_E2, BIT(1)),
+	PINCTRL_CONF_DESC(47, REG_GPIO_H_E2, BIT(2)),
+	PINCTRL_CONF_DESC(48, REG_GPIO_H_E2, BIT(3)),
+	PINCTRL_CONF_DESC(49, REG_GPIO_H_E2, BIT(4)),
+	PINCTRL_CONF_DESC(50, REG_GPIO_H_E2, BIT(5)),
+	PINCTRL_CONF_DESC(51, REG_GPIO_H_E2, BIT(6)),
+	PINCTRL_CONF_DESC(52, REG_GPIO_H_E2, BIT(7)),
+	PINCTRL_CONF_DESC(53, REG_GPIO_H_E2, BIT(8)),
+	PINCTRL_CONF_DESC(54, REG_GPIO_H_E2, BIT(9)),
+	PINCTRL_CONF_DESC(55, REG_GPIO_H_E2, BIT(10)),
+	PINCTRL_CONF_DESC(56, REG_GPIO_H_E2, BIT(11)),
+	PINCTRL_CONF_DESC(57, REG_GPIO_H_E2, BIT(12)),
+	PINCTRL_CONF_DESC(58, REG_GPIO_H_E2, BIT(13)),
+	PINCTRL_CONF_DESC(59, REG_GPIO_H_E2, BIT(14)),
+	PINCTRL_CONF_DESC(61, REG_I2C_SDA_E2, PCIE0_RESET_E2_MASK),
+	PINCTRL_CONF_DESC(62, REG_I2C_SDA_E2, PCIE1_RESET_E2_MASK),
+	PINCTRL_CONF_DESC(63, REG_I2C_SDA_E2, PCIE2_RESET_E2_MASK),
 };
 
 static const struct airoha_pinctrl_conf airoha_pinctrl_drive_e4_conf[] = {
-	PINCTRL_CONF_DESC(1, REG_I2C_SDA_E4, UART1_TXD_E4_MASK),
-	PINCTRL_CONF_DESC(2, REG_I2C_SDA_E4, UART1_RXD_E4_MASK),
-	PINCTRL_CONF_DESC(3, REG_I2C_SDA_E4, I2C_SDA_E4_MASK),
-	PINCTRL_CONF_DESC(4, REG_I2C_SDA_E4, I2C_SCL_E4_MASK),
-	PINCTRL_CONF_DESC(5, REG_I2C_SDA_E4, SPI_CS0_E4_MASK),
-	PINCTRL_CONF_DESC(6, REG_I2C_SDA_E4, SPI_CLK_E4_MASK),
-	PINCTRL_CONF_DESC(7, REG_I2C_SDA_E4, SPI_MOSI_E4_MASK),
-	PINCTRL_CONF_DESC(8, REG_I2C_SDA_E4, SPI_MISO_E4_MASK),
-	PINCTRL_CONF_DESC(14, REG_GPIO_L_E4, BIT(0)),
-	PINCTRL_CONF_DESC(15, REG_GPIO_L_E4, BIT(1)),
-	PINCTRL_CONF_DESC(16, REG_GPIO_L_E4, BIT(2)),
-	PINCTRL_CONF_DESC(17, REG_GPIO_L_E4, BIT(3)),
-	PINCTRL_CONF_DESC(18, REG_GPIO_L_E4, BIT(4)),
-	PINCTRL_CONF_DESC(19, REG_GPIO_L_E4, BIT(5)),
-	PINCTRL_CONF_DESC(20, REG_GPIO_L_E4, BIT(6)),
-	PINCTRL_CONF_DESC(21, REG_GPIO_L_E4, BIT(7)),
-	PINCTRL_CONF_DESC(22, REG_GPIO_L_E4, BIT(8)),
-	PINCTRL_CONF_DESC(23, REG_GPIO_L_E4, BIT(9)),
-	PINCTRL_CONF_DESC(24, REG_GPIO_L_E4, BIT(10)),
-	PINCTRL_CONF_DESC(25, REG_GPIO_L_E4, BIT(11)),
-	PINCTRL_CONF_DESC(26, REG_GPIO_L_E4, BIT(12)),
-	PINCTRL_CONF_DESC(27, REG_GPIO_L_E4, BIT(13)),
-	PINCTRL_CONF_DESC(28, REG_GPIO_L_E4, BIT(14)),
-	PINCTRL_CONF_DESC(29, REG_GPIO_L_E4, BIT(15)),
-	PINCTRL_CONF_DESC(30, REG_GPIO_L_E4, BIT(16)),
-	PINCTRL_CONF_DESC(31, REG_GPIO_L_E4, BIT(17)),
+	PINCTRL_CONF_DESC(0, REG_I2C_SDA_E4, UART1_TXD_E4_MASK),
+	PINCTRL_CONF_DESC(1, REG_I2C_SDA_E4, UART1_RXD_E4_MASK),
+	PINCTRL_CONF_DESC(2, REG_I2C_SDA_E4, I2C_SDA_E4_MASK),
+	PINCTRL_CONF_DESC(3, REG_I2C_SDA_E4, I2C_SCL_E4_MASK),
+	PINCTRL_CONF_DESC(4, REG_I2C_SDA_E4, SPI_CS0_E4_MASK),
+	PINCTRL_CONF_DESC(5, REG_I2C_SDA_E4, SPI_CLK_E4_MASK),
+	PINCTRL_CONF_DESC(6, REG_I2C_SDA_E4, SPI_MOSI_E4_MASK),
+	PINCTRL_CONF_DESC(7, REG_I2C_SDA_E4, SPI_MISO_E4_MASK),
+	PINCTRL_CONF_DESC(13, REG_GPIO_L_E4, BIT(0)),
+	PINCTRL_CONF_DESC(14, REG_GPIO_L_E4, BIT(1)),
+	PINCTRL_CONF_DESC(15, REG_GPIO_L_E4, BIT(2)),
+	PINCTRL_CONF_DESC(16, REG_GPIO_L_E4, BIT(3)),
+	PINCTRL_CONF_DESC(17, REG_GPIO_L_E4, BIT(4)),
+	PINCTRL_CONF_DESC(18, REG_GPIO_L_E4, BIT(5)),
+	PINCTRL_CONF_DESC(19, REG_GPIO_L_E4, BIT(6)),
+	PINCTRL_CONF_DESC(20, REG_GPIO_L_E4, BIT(7)),
+	PINCTRL_CONF_DESC(21, REG_GPIO_L_E4, BIT(8)),
+	PINCTRL_CONF_DESC(22, REG_GPIO_L_E4, BIT(9)),
+	PINCTRL_CONF_DESC(23, REG_GPIO_L_E4, BIT(10)),
+	PINCTRL_CONF_DESC(24, REG_GPIO_L_E4, BIT(11)),
+	PINCTRL_CONF_DESC(25, REG_GPIO_L_E4, BIT(12)),
+	PINCTRL_CONF_DESC(26, REG_GPIO_L_E4, BIT(13)),
+	PINCTRL_CONF_DESC(27, REG_GPIO_L_E4, BIT(14)),
+	PINCTRL_CONF_DESC(28, REG_GPIO_L_E4, BIT(15)),
+	PINCTRL_CONF_DESC(29, REG_GPIO_L_E4, BIT(16)),
+	PINCTRL_CONF_DESC(30, REG_GPIO_L_E4, BIT(17)),
+	PINCTRL_CONF_DESC(31, REG_GPIO_L_E4, BIT(18)),
 	PINCTRL_CONF_DESC(32, REG_GPIO_L_E4, BIT(18)),
-	PINCTRL_CONF_DESC(33, REG_GPIO_L_E4, BIT(18)),
-	PINCTRL_CONF_DESC(34, REG_GPIO_L_E4, BIT(20)),
-	PINCTRL_CONF_DESC(35, REG_GPIO_L_E4, BIT(21)),
-	PINCTRL_CONF_DESC(36, REG_GPIO_L_E4, BIT(22)),
-	PINCTRL_CONF_DESC(37, REG_GPIO_L_E4, BIT(23)),
-	PINCTRL_CONF_DESC(38, REG_GPIO_L_E4, BIT(24)),
-	PINCTRL_CONF_DESC(39, REG_GPIO_L_E4, BIT(25)),
-	PINCTRL_CONF_DESC(40, REG_GPIO_L_E4, BIT(26)),
-	PINCTRL_CONF_DESC(41, REG_GPIO_L_E4, BIT(27)),
-	PINCTRL_CONF_DESC(42, REG_GPIO_L_E4, BIT(28)),
-	PINCTRL_CONF_DESC(43, REG_GPIO_L_E4, BIT(29)),
-	PINCTRL_CONF_DESC(44, REG_GPIO_L_E4, BIT(30)),
-	PINCTRL_CONF_DESC(45, REG_GPIO_L_E4, BIT(31)),
-	PINCTRL_CONF_DESC(46, REG_GPIO_H_E4, BIT(0)),
-	PINCTRL_CONF_DESC(47, REG_GPIO_H_E4, BIT(1)),
-	PINCTRL_CONF_DESC(48, REG_GPIO_H_E4, BIT(2)),
-	PINCTRL_CONF_DESC(49, REG_GPIO_H_E4, BIT(3)),
-	PINCTRL_CONF_DESC(50, REG_GPIO_H_E4, BIT(4)),
-	PINCTRL_CONF_DESC(51, REG_GPIO_H_E4, BIT(5)),
-	PINCTRL_CONF_DESC(52, REG_GPIO_H_E4, BIT(6)),
-	PINCTRL_CONF_DESC(53, REG_GPIO_H_E4, BIT(7)),
-	PINCTRL_CONF_DESC(54, REG_GPIO_H_E4, BIT(8)),
-	PINCTRL_CONF_DESC(55, REG_GPIO_H_E4, BIT(9)),
-	PINCTRL_CONF_DESC(56, REG_GPIO_H_E4, BIT(10)),
-	PINCTRL_CONF_DESC(57, REG_GPIO_H_E4, BIT(11)),
-	PINCTRL_CONF_DESC(58, REG_GPIO_H_E4, BIT(12)),
-	PINCTRL_CONF_DESC(59, REG_GPIO_H_E4, BIT(13)),
-	PINCTRL_CONF_DESC(60, REG_GPIO_H_E4, BIT(14)),
-	PINCTRL_CONF_DESC(62, REG_I2C_SDA_E4, PCIE0_RESET_E4_MASK),
-	PINCTRL_CONF_DESC(63, REG_I2C_SDA_E4, PCIE1_RESET_E4_MASK),
-	PINCTRL_CONF_DESC(64, REG_I2C_SDA_E4, PCIE2_RESET_E4_MASK),
+	PINCTRL_CONF_DESC(33, REG_GPIO_L_E4, BIT(20)),
+	PINCTRL_CONF_DESC(34, REG_GPIO_L_E4, BIT(21)),
+	PINCTRL_CONF_DESC(35, REG_GPIO_L_E4, BIT(22)),
+	PINCTRL_CONF_DESC(36, REG_GPIO_L_E4, BIT(23)),
+	PINCTRL_CONF_DESC(37, REG_GPIO_L_E4, BIT(24)),
+	PINCTRL_CONF_DESC(38, REG_GPIO_L_E4, BIT(25)),
+	PINCTRL_CONF_DESC(39, REG_GPIO_L_E4, BIT(26)),
+	PINCTRL_CONF_DESC(40, REG_GPIO_L_E4, BIT(27)),
+	PINCTRL_CONF_DESC(41, REG_GPIO_L_E4, BIT(28)),
+	PINCTRL_CONF_DESC(42, REG_GPIO_L_E4, BIT(29)),
+	PINCTRL_CONF_DESC(43, REG_GPIO_L_E4, BIT(30)),
+	PINCTRL_CONF_DESC(44, REG_GPIO_L_E4, BIT(31)),
+	PINCTRL_CONF_DESC(45, REG_GPIO_H_E4, BIT(0)),
+	PINCTRL_CONF_DESC(46, REG_GPIO_H_E4, BIT(1)),
+	PINCTRL_CONF_DESC(47, REG_GPIO_H_E4, BIT(2)),
+	PINCTRL_CONF_DESC(48, REG_GPIO_H_E4, BIT(3)),
+	PINCTRL_CONF_DESC(49, REG_GPIO_H_E4, BIT(4)),
+	PINCTRL_CONF_DESC(50, REG_GPIO_H_E4, BIT(5)),
+	PINCTRL_CONF_DESC(51, REG_GPIO_H_E4, BIT(6)),
+	PINCTRL_CONF_DESC(52, REG_GPIO_H_E4, BIT(7)),
+	PINCTRL_CONF_DESC(53, REG_GPIO_H_E4, BIT(8)),
+	PINCTRL_CONF_DESC(54, REG_GPIO_H_E4, BIT(9)),
+	PINCTRL_CONF_DESC(55, REG_GPIO_H_E4, BIT(10)),
+	PINCTRL_CONF_DESC(56, REG_GPIO_H_E4, BIT(11)),
+	PINCTRL_CONF_DESC(57, REG_GPIO_H_E4, BIT(12)),
+	PINCTRL_CONF_DESC(58, REG_GPIO_H_E4, BIT(13)),
+	PINCTRL_CONF_DESC(59, REG_GPIO_H_E4, BIT(14)),
+	PINCTRL_CONF_DESC(61, REG_I2C_SDA_E4, PCIE0_RESET_E4_MASK),
+	PINCTRL_CONF_DESC(62, REG_I2C_SDA_E4, PCIE1_RESET_E4_MASK),
+	PINCTRL_CONF_DESC(63, REG_I2C_SDA_E4, PCIE2_RESET_E4_MASK),
 };
 
 static const struct airoha_pinctrl_conf airoha_pinctrl_pcie_rst_od_conf[] = {
-	PINCTRL_CONF_DESC(62, REG_PCIE_RESET_OD, PCIE0_RESET_OD_MASK),
-	PINCTRL_CONF_DESC(63, REG_PCIE_RESET_OD, PCIE1_RESET_OD_MASK),
-	PINCTRL_CONF_DESC(64, REG_PCIE_RESET_OD, PCIE2_RESET_OD_MASK),
+	PINCTRL_CONF_DESC(61, REG_PCIE_RESET_OD, PCIE0_RESET_OD_MASK),
+	PINCTRL_CONF_DESC(62, REG_PCIE_RESET_OD, PCIE1_RESET_OD_MASK),
+	PINCTRL_CONF_DESC(63, REG_PCIE_RESET_OD, PCIE2_RESET_OD_MASK),
 };
 
-static u32 airoha_pinctrl_rr(void __iomem *base, u32 offset)
-{
-	return readl(base + offset);
-}
-
 static u32 airoha_pinctrl_rmw(struct airoha_pinctrl *pinctrl,
-			      void __iomem *base, u32 offset,
-			      u32 mask, u32 val)
+			      void __iomem *addr, u32 mask, u32 val)
 {
 	mutex_lock(&pinctrl->mutex);
-
-	val |= (airoha_pinctrl_rr(base, offset) & ~mask);
-	writel(val, base + offset);
-
+	val |= (readl(addr) & ~mask);
+	writel(val, addr);
 	mutex_unlock(&pinctrl->mutex);
 
 	return val;
 }
 
 #define airoha_pinctrl_mux_set(pinctrl, offset, val)			\
-	airoha_pinctrl_rmw((pinctrl), ((pinctrl)->mux_regs), (offset),	\
+	airoha_pinctrl_rmw((pinctrl), ((pinctrl)->regs.mux) + (offset),	\
 			   0, (val));
 
 static int airoha_pinmux_set_mux(struct pinctrl_dev *pctrl_dev,
@@ -774,20 +779,38 @@ static int airoha_pinmux_set_mux(struct pinctrl_dev *pctrl_dev,
 	if (!grp)
 		return -EINVAL;
 
-	dev_err(pctrl_dev->dev, "enable function %s group %s\n",
+	dev_dbg(pctrl_dev->dev, "enable function %s group %s\n",
 		desc->name, grp->name);
 
 	func = desc->data;
 	for (i = 0; i < func->group_size; i++) {
 		if (!strcmp(func->groups[i].name, grp->name)) {
 			airoha_pinctrl_mux_set(pinctrl,
-					       func->groups[i].regmap.offset,
-					       func->groups[i].regmap.mask);
+					       func->groups[i].reg.offset,
+					       func->groups[i].reg.mask);
 			return 0;
 		}
 	}
 
 	return -EINVAL;
+}
+
+static int airoha_pinmux_gpio_set_direction(struct pinctrl_dev *pctrl_dev,
+					    struct pinctrl_gpio_range *range,
+					    unsigned int pin, bool input)
+{
+	struct airoha_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
+	u32 dir_mask = BIT(2 * (pin % AIROHA_REG_GPIOCTRL_NUM_GPIO));
+	u8 dir_index = pin / AIROHA_REG_GPIOCTRL_NUM_GPIO;
+	u32 out_mask = BIT(pin % AIROHA_GPIO_BANK_SIZE);
+	u8 out_index = pin / AIROHA_GPIO_BANK_SIZE;
+
+	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.dir[dir_index],
+			   dir_mask, !input ? dir_mask : 0);
+	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.out[out_index],
+			   out_mask, !input ? out_mask : 0);
+
+	return 0;
 }
 
 static const struct airoha_pinctrl_reg *
@@ -798,7 +821,7 @@ airoha_pinctrl_get_conf_reg(const struct airoha_pinctrl_conf *conf,
 
 	for (i = 0; i < conf_size; i++) {
 		if (conf[i].pin == pin)
-			return &conf[i].regmap;
+			return &conf[i].reg;
 	}
 
 	return NULL;
@@ -814,7 +837,7 @@ static int airoha_pinctrl_get_conf(void __iomem *base,
 	if (!reg)
 		return -EINVAL;
 
-	*val = airoha_pinctrl_rr(base, reg->offset);
+	*val = readl(base + reg->offset);
 	*val = (*val & reg->mask) >> __bf_shf(reg->mask);
 
 	return 0;
@@ -831,59 +854,59 @@ static int airoha_pinctrl_set_conf(struct airoha_pinctrl *pinctrl,
 	if (!reg)
 		return -EINVAL;
 
-	airoha_pinctrl_rmw(pinctrl, base, reg->offset, reg->mask,
+	airoha_pinctrl_rmw(pinctrl, base + reg->offset, reg->mask,
 			   val << __bf_shf(reg->mask));
 
 	return 0;
 }
 
 #define airoha_pinctrl_get_pullup_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_get_conf(((pinctrl)->conf_regs),				\
+	airoha_pinctrl_get_conf(((pinctrl)->regs.conf),				\
 				airoha_pinctrl_pullup_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_pullup_conf),		\
 				(pin), (val))
 #define airoha_pinctrl_get_pulldown_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_get_conf(((pinctrl)->conf_regs),				\
+	airoha_pinctrl_get_conf(((pinctrl)->regs.conf),				\
 				airoha_pinctrl_pulldown_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_pulldown_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_get_drive_e2_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_get_conf(((pinctrl)->conf_regs),				\
+	airoha_pinctrl_get_conf(((pinctrl)->regs.conf),				\
 				airoha_pinctrl_drive_e2_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_drive_e2_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_get_drive_e4_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_get_conf(((pinctrl)->conf_regs),				\
+	airoha_pinctrl_get_conf(((pinctrl)->regs.conf),				\
 				airoha_pinctrl_drive_e4_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_drive_e4_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_get_pcie_rst_od_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_get_conf(((pinctrl)->pcie_rst_regs),			\
+	airoha_pinctrl_get_conf(((pinctrl)->regs.pcie_rst),			\
 				airoha_pinctrl_pcie_rst_od_conf,		\
 				ARRAY_SIZE(airoha_pinctrl_pcie_rst_od_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_set_pullup_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->conf_regs),		\
+	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->regs.conf),		\
 				airoha_pinctrl_pullup_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_pullup_conf),		\
 				(pin), (val))
 #define airoha_pinctrl_set_pulldown_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->conf_regs),		\
+	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->regs.conf),		\
 				airoha_pinctrl_pulldown_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_pulldown_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_set_drive_e2_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->conf_regs),		\
+	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->regs.conf),		\
 				airoha_pinctrl_drive_e2_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_drive_e2_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_set_drive_e4_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->conf_regs),		\
+	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->regs.conf),		\
 				airoha_pinctrl_drive_e4_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_drive_e4_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_set_pcie_rst_od_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->pcie_rst_regs),	\
+	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->regs.pcie_rst),	\
 				airoha_pinctrl_pcie_rst_od_conf,		\
 				ARRAY_SIZE(airoha_pinctrl_pcie_rst_od_conf),	\
 				(pin), (val))
@@ -1042,6 +1065,38 @@ static int airoha_pinconf_group_set(struct pinctrl_dev *pctrl_dev,
 	return 0;
 }
 
+static void airoha_pinctrl_gpio_set(struct gpio_chip *chip, unsigned int gpio,
+				    int value)
+{
+	struct airoha_pinctrl *pinctrl = gpiochip_get_data(chip);
+	u8 index = gpio / AIROHA_GPIO_BANK_SIZE;
+
+	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.data[index],
+			   BIT(gpio), !!value ? BIT(gpio) : 0);
+}
+
+static int airoha_pinctrl_gpio_get(struct gpio_chip *chip, unsigned int gpio)
+{
+	struct airoha_pinctrl *pinctrl = gpiochip_get_data(chip);
+	u8 index = gpio / AIROHA_GPIO_BANK_SIZE;
+
+	return readl(pinctrl->gpiochip.data[index]) & BIT(gpio);
+}
+
+static int airoha_pinctrl_gpio_direction_input(struct gpio_chip *chip,
+					       unsigned int gpio)
+{
+	return pinctrl_gpio_direction_input(chip->base + gpio);
+}
+
+static int airoha_pinctrl_gpio_direction_output(struct gpio_chip *chip,
+						unsigned int gpio, int value)
+{
+	airoha_pinctrl_gpio_set(chip, gpio, value);
+
+	return pinctrl_gpio_direction_output(chip->base + gpio);
+}
+
 static const struct pinconf_ops airoha_confops = {
 	.is_generic = true,
 	.pin_config_get = airoha_pinconf_get,
@@ -1063,7 +1118,9 @@ static const struct pinmux_ops airoha_pmxops = {
 	.get_functions_count = pinmux_generic_get_function_count,
 	.get_function_name = pinmux_generic_get_function_name,
 	.get_function_groups = pinmux_generic_get_function_groups,
+	.gpio_set_direction = airoha_pinmux_gpio_set_direction,
 	.set_mux = airoha_pinmux_set_mux,
+	.strict = true,
 };
 
 static struct pinctrl_desc airoha_pinctrl_desc = {
@@ -1076,10 +1133,60 @@ static struct pinctrl_desc airoha_pinctrl_desc = {
 	.npins = ARRAY_SIZE(airoha_pinctrl_pins),
 };
 
+static int airoha_pinctrl_add_gpiochip(struct airoha_pinctrl *pinctrl,
+				       struct platform_device *pdev,
+				       int index)
+{
+	struct gpio_chip *chip = &pinctrl->gpiochip.chip;
+	struct device *dev = &pdev->dev;
+	void __iomem *ptr;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(pinctrl->gpiochip.data); i++) {
+		ptr = devm_platform_ioremap_resource(pdev, index++);
+		if (IS_ERR(ptr))
+			return dev_err_probe(dev, PTR_ERR(ptr),
+					     "failed to map gpio data regs\n");
+
+		pinctrl->gpiochip.data[i] = ptr;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(pinctrl->gpiochip.dir); i++) {
+		ptr = devm_platform_ioremap_resource(pdev, index++);
+		if (IS_ERR(ptr))
+			return dev_err_probe(dev, PTR_ERR(ptr),
+					     "failed to map gpio dir regs\n");
+
+		pinctrl->gpiochip.dir[i] = ptr;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(pinctrl->gpiochip.out); i++) {
+		ptr = devm_platform_ioremap_resource(pdev, index++);
+		if (IS_ERR(ptr))
+			return dev_err_probe(dev, PTR_ERR(ptr),
+					     "failed to map gpio out regs\n");
+
+		pinctrl->gpiochip.out[i] = ptr;
+	}
+
+	chip->parent = dev;
+	chip->label = dev_name(dev);
+	chip->request = gpiochip_generic_request;
+	chip->free = gpiochip_generic_free;
+	chip->direction_input = airoha_pinctrl_gpio_direction_input;
+	chip->direction_output = airoha_pinctrl_gpio_direction_output;
+	chip->set = airoha_pinctrl_gpio_set;
+	chip->get = airoha_pinctrl_gpio_get;
+	chip->base = -1;
+	chip->ngpio = ARRAY_SIZE(airoha_pinctrl_pins);
+
+	return devm_gpiochip_add_data(dev, chip, pinctrl);
+}
+
 static int airoha_pinctrl_probe(struct platform_device *pdev)
 {
 	struct airoha_pinctrl *pinctrl;
-	int err, i;
+	int err, i, index = 0;
 
 	pinctrl = devm_kzalloc(&pdev->dev, sizeof(*pinctrl), GFP_KERNEL);
 	if (!pinctrl)
@@ -1087,22 +1194,20 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
 
 	mutex_init(&pinctrl->mutex);
 
-	pinctrl->mux_regs = devm_platform_ioremap_resource_byname(pdev, "mux");
-	if (IS_ERR(pinctrl->mux_regs))
-		return dev_err_probe(&pdev->dev, PTR_ERR(pinctrl->mux_regs),
+	pinctrl->regs.mux = devm_platform_ioremap_resource(pdev, index++);
+	if (IS_ERR(pinctrl->regs.mux))
+		return dev_err_probe(&pdev->dev, PTR_ERR(pinctrl->regs.mux),
 				     "failed to iomap mux regs\n");
 
-	pinctrl->conf_regs =
-		devm_platform_ioremap_resource_byname(pdev, "conf");
-	if (IS_ERR(pinctrl->conf_regs))
-		return dev_err_probe(&pdev->dev, PTR_ERR(pinctrl->conf_regs),
+	pinctrl->regs.conf = devm_platform_ioremap_resource(pdev, index++);
+	if (IS_ERR(pinctrl->regs.conf))
+		return dev_err_probe(&pdev->dev, PTR_ERR(pinctrl->regs.conf),
 				     "failed to iomap conf regs\n");
 
-	pinctrl->pcie_rst_regs =
-		devm_platform_ioremap_resource_byname(pdev, "pcie-rst");
-	if (IS_ERR(pinctrl->pcie_rst_regs))
+	pinctrl->regs.pcie_rst = devm_platform_ioremap_resource(pdev, index++);
+	if (IS_ERR(pinctrl->regs.pcie_rst))
 		return dev_err_probe(&pdev->dev,
-				     PTR_ERR(pinctrl->pcie_rst_regs),
+				     PTR_ERR(pinctrl->regs.pcie_rst),
 				     "failed to iomap pcie rst od regs\n");
 
 	err = devm_pinctrl_register_and_init(&pdev->dev, &airoha_pinctrl_desc,
@@ -1141,25 +1246,12 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
 		}
 	}
 
-	platform_set_drvdata(pdev, pinctrl);
 	err = pinctrl_enable(pinctrl->ctrl);
 	if (err)
 		return err;
 
-	pinctrl->gpio.parent = &pdev->dev;
-	pinctrl->gpio.label = KBUILD_MODNAME;
-	pinctrl->gpio.request = gpiochip_generic_request;
-	pinctrl->gpio.free = gpiochip_generic_free;
-	pinctrl->gpio.base = -1;
-	pinctrl->gpio.ngpio = ARRAY_SIZE(airoha_pinctrl_pins);
-
-	err = devm_gpiochip_add_data(&pdev->dev, &pinctrl->gpio, pinctrl);
-	if (err) {
-		platform_set_drvdata(pdev, NULL);
-		return err;
-	}
-
-	return 0;
+	/* build gpio-chips */
+	return airoha_pinctrl_add_gpiochip(pinctrl, pdev, index);
 }
 
 const struct of_device_id of_airoha_pinctrl_match[] = {
