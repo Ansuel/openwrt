@@ -70,6 +70,9 @@
 };
 
 &pio {
+	gpio-ranges = <&pio 0 0 8>, <&pio 13 13 47>,
+		      <&pio 61 61 3>;
+
 	pcie0_rst_pins: pcie0-rst-pins {
 		conf {
 			pins = "PCIE_RESET0";

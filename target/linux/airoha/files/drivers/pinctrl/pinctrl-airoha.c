@@ -92,6 +92,10 @@
 #define JTAG_UDI_EN_MASK			BIT(4)
 #define JTAG_DFD_EN_MASK			BIT(3)
 
+#define REG_FORCE_GPIO0_EN			0x14
+#define REG_FORCE_GPIO32_EN			0x18
+#define REG_INIC_MDIO_SLV_MOD			0x1c
+
 /* CONF */
 #define REG_I2C_SDA_E2				0x00
 #define SPI_MISO_E2_MASK			BIT(14)
@@ -160,8 +164,9 @@
 #define PCIE1_RESET_OD_MASK			BIT(1)
 #define PCIE0_RESET_OD_MASK			BIT(0)
 
-#define AIROHA_GPIO_BANK_SIZE			32
-#define AIROHA_REG_GPIOCTRL_NUM_GPIO		(AIROHA_GPIO_BANK_SIZE / 2)
+#define AIROHA_NUM_GPIOS			64
+#define AIROHA_GPIO_BANK_SIZE			(AIROHA_NUM_GPIOS / 2)
+#define AIROHA_REG_GPIOCTRL_NUM_GPIO		(AIROHA_NUM_GPIOS / 4)
 
 struct airoha_pinctrl_reg {
 	u32 offset;
@@ -212,11 +217,6 @@ static struct pinctrl_pin_desc airoha_pinctrl_pins[] = {
 	PINCTRL_PIN(5, "SPI_CLK"),
 	PINCTRL_PIN(6, "SPI_MOSI"),
 	PINCTRL_PIN(7, "SPI_MISO"),
-	PINCTRL_PIN(8, "HW_RSTN"),
-	PINCTRL_PIN(9, "PKG_SEL0"),
-	PINCTRL_PIN(10, "PKG_SEL1"),
-	PINCTRL_PIN(11, "PKG_SEL2"),
-	PINCTRL_PIN(12, "PKG_SEL3"),
 	PINCTRL_PIN(13, "GPIO0"),
 	PINCTRL_PIN(14, "GPIO1"),
 	PINCTRL_PIN(15, "GPIO2"),
@@ -267,17 +267,13 @@ static struct pinctrl_pin_desc airoha_pinctrl_pins[] = {
 	PINCTRL_PIN(61, "PCIE_RESET0"),
 	PINCTRL_PIN(62, "PCIE_RESET1"),
 	PINCTRL_PIN(63, "PCIE_RESET2"),
-	PINCTRL_PIN(64, "MDC0"),
-	PINCTRL_PIN(65, "MDIO0"),
 };
 
 static const int pon_pins[] = { 49, 50, 51, 52, 53, 54 };
 static const int tod_1pps_pins[] = { 46 };
 static const int sipo_pins[] = { 16, 17 };
 static const int sipo_rclk_pins[] = { 16, 17, 43 };
-static const int mdio0_pins[] = { 64, 65 };
 static const int mdio1_pins[] = { 14, 15 };
-static const int uart1_pins[] = { 0, 1 };
 static const int uart2_pins[] = { 48, 55 };
 static const int uart2_cts_rts_pins[] = { 46, 47 };
 static const int hsuart_pins[] = { 28, 29 };
@@ -320,9 +316,7 @@ static const struct pingroup airoha_pinctrl_groups[] = {
 	PINCTRL_PIN_GROUP("gsw_tod_1pps", tod_1pps),
 	PINCTRL_PIN_GROUP("sipo", sipo),
 	PINCTRL_PIN_GROUP("sipo_rclk", sipo_rclk),
-	PINCTRL_PIN_GROUP("mdio0", mdio0),
 	PINCTRL_PIN_GROUP("mdio1", mdio1),
-	PINCTRL_PIN_GROUP("uart1", uart1),
 	PINCTRL_PIN_GROUP("uart2", uart2),
 	PINCTRL_PIN_GROUP("uart2_cts_rts", uart2_cts_rts),
 	PINCTRL_PIN_GROUP("hsuart", hsuart),
@@ -366,15 +360,15 @@ static const struct pingroup airoha_pinctrl_groups[] = {
 static const char *const pon_groups[] = { "pon" };
 static const char *const tod_1pps_groups[] = { "pon_tod_1pps", "gsw_tod_1pps" };
 static const char *const sipo_groups[] = { "sipo", "sipo_rclk" };
-static const char *const mdio_groups[] = { "mdio0", "mdio1" };
-static const char *const uart_groups[] = { "uart1", "uart2", "uart2_cts_rts",
-					   "hsuart", "hsuart_cts_rts",
-					   "uart4", "uart5" };
-static const char *const i2c_groups[] = { "i2c0", "i2c1" };
+static const char *const mdio_groups[] = { "mdio1" };
+static const char *const uart_groups[] = { "uart2", "uart2_cts_rts", "hsuart",
+					   "hsuart_cts_rts", "uart4",
+					   "uart5" };
+static const char *const i2c_groups[] = { "i2c1" };
 static const char *const jtag_groups[] = { "jtag_udi", "jtag_dfd" };
 static const char *const pcm_groups[] = { "pcm1", "pcm2" };
-static const char *const spi_groups[] = { "spi", "spi_quad", "spi_cs1",
-					  "spi_cs2", "spi_cs3", "spi_cs4" };
+static const char *const spi_groups[] = { "spi_quad", "spi_cs1", "spi_cs2",
+					  "spi_cs3", "spi_cs4" };
 static const char *const pcm_spi_groups[] = { "pcm_spi", "pcm_spi_int",
 					      "pcm_spi_rst", "pcm_spi_cs1",
 					      "pcm_spi_cs2_p156",
@@ -1213,7 +1207,7 @@ static int airoha_pinctrl_add_gpiochip(struct airoha_pinctrl *pinctrl,
 	chip->set = airoha_pinctrl_gpio_set;
 	chip->get = airoha_pinctrl_gpio_get;
 	chip->base = -1;
-	chip->ngpio = ARRAY_SIZE(airoha_pinctrl_pins);
+	chip->ngpio = AIROHA_NUM_GPIOS;
 
 	return devm_gpiochip_add_data(dev, chip, pinctrl);
 }
