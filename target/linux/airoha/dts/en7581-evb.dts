@@ -73,6 +73,13 @@
 	gpio-ranges = <&pio 0 0 8>, <&pio 13 13 47>,
 		      <&pio 61 61 3>;
 
+	i2c1_pins: i2c1-pins {
+		mux {
+			function = "i2c";
+			groups = "i2c1";
+		};
+	};
+
 	pcie0_rst_pins: pcie0-rst-pins {
 		conf {
 			pins = "PCIE_RESET0";
@@ -161,6 +168,16 @@
 };
 
 &switch {
+	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+};
+
+&i2c0 {
 	status = "okay";
 };
 
