@@ -1754,6 +1754,7 @@ static int airoha_probe(struct platform_device *pdev)
 	eth->xsi_rsts[1].id = "hsi0-mac";
 	eth->xsi_rsts[2].id = "hsi1-mac";
 	eth->xsi_rsts[3].id = "hsi-mac";
+	eth->xsi_rsts[4].id = "xfp-mac";
 	err = devm_reset_control_bulk_get_exclusive(&pdev->dev,
 						    ARRAY_SIZE(eth->xsi_rsts),
 						    eth->xsi_rsts);
