@@ -1552,7 +1552,6 @@ static void airoha_ethtool_get_strings(struct net_device *dev, u32 sset,
 	if (sset != ETH_SS_STATS)
 		return;
 
-
 	for (i = 0; i < ARRAY_SIZE(airoha_hw_stats); i++) {
 		memcpy(data + i * ETH_GSTRING_LEN,
 		       airoha_hw_stats[i].name, ETH_GSTRING_LEN);
