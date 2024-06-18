@@ -31,6 +31,7 @@ define Device/airoha_en7581-evb
   DEVICE_MODEL := EN7581 Evaluation Board
   DEVICE_DTS := en7581-evb
   DEVICE_DTS_DIR := ../dts
+  DEVICE_PACKAGES := kmod-i2c-en7581
 endef
 TARGET_DEVICES += airoha_en7581-evb
 
