@@ -101,7 +101,7 @@ static void airoha_set_port_fwd_cfg(struct airoha_eth *eth, u32 addr, u32 val)
 		      FIELD_PREP(GDM1_UCFQ_MASK, val));
 }
 
-static int airoha_set_gdma_port(struct airoha_eth *eth, int port, bool enable)
+static int airoha_set_gdm_port(struct airoha_eth *eth, int port, bool enable)
 {
 	u32 vip_port, cfg_addr, val = enable ? FE_DP_PPE : FE_DP_DROP;
 
@@ -139,7 +139,7 @@ static int airoha_set_gdma_port(struct airoha_eth *eth, int port, bool enable)
 	return 0;
 }
 
-static int airoha_set_gdma_ports(struct airoha_eth *eth, bool enable)
+static int airoha_set_gdm_ports(struct airoha_eth *eth, bool enable)
 {
 	const int port_list[] = {
 		XSI_PCIE0_PORT,
@@ -150,7 +150,7 @@ static int airoha_set_gdma_ports(struct airoha_eth *eth, bool enable)
 	int i, err;
 
 	for (i = 0; i < ARRAY_SIZE(port_list); i++) {
-		err = airoha_set_gdma_port(eth, port_list[i], enable);
+		err = airoha_set_gdm_port(eth, port_list[i], enable);
 		if (err)
 			goto error;
 	}
@@ -159,7 +159,7 @@ static int airoha_set_gdma_ports(struct airoha_eth *eth, bool enable)
 
 error:
 	for (i--; i >= 0; i++)
-		airoha_set_gdma_port(eth, port_list[i], false);
+		airoha_set_gdm_port(eth, port_list[i], false);
 
 	return err;
 }
@@ -1252,7 +1252,7 @@ static int airoha_dev_open(struct net_device *dev)
 		airoha_fe_clear(eth, REG_GDM1_INGRESS_CFG, GDM1_STAG_EN_MASK);
 
 	netif_tx_start_all_queues(dev);
-	err = airoha_set_gdma_ports(eth, true);
+	err = airoha_set_gdm_ports(eth, true);
 	if (err)
 		return err;
 
@@ -1268,7 +1268,7 @@ static int airoha_dev_stop(struct net_device *dev)
 	int err;
 
 	netif_tx_disable(dev);
-	err = airoha_set_gdma_ports(eth, false);
+	err = airoha_set_gdm_ports(eth, false);
 	if (err)
 		return err;
 
