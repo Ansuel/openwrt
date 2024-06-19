@@ -225,16 +225,6 @@ static void airoha_fe_vip_setup(struct airoha_eth *eth)
 		     PATN_FCPU_EN_MASK | PATN_DP_EN_MASK | PATN_SP_EN_MASK |
 		     FIELD_PREP(PATN_TYPE_MASK, 4) | PATN_EN_MASK);
 
-	airoha_fe_wr(eth, REG_FE_VIP_PATN(17), 0x1ae0);
-	airoha_fe_wr(eth, REG_FE_VIP_EN(17),
-		     PATN_FCPU_EN_MASK | PATN_SP_EN_MASK |
-		     FIELD_PREP(PATN_TYPE_MASK, 3) | PATN_EN_MASK);
-
-	airoha_fe_wr(eth, REG_FE_VIP_PATN(18), 0x1ae00000);
-	airoha_fe_wr(eth, REG_FE_VIP_EN(18),
-		     PATN_FCPU_EN_MASK | PATN_DP_EN_MASK |
-		     FIELD_PREP(PATN_TYPE_MASK, 3) | PATN_EN_MASK);
-
 	airoha_fe_wr(eth, REG_FE_VIP_PATN(19), PPP_PAP);
 	airoha_fe_wr(eth, REG_FE_VIP_EN(19),
 		     PATN_FCPU_EN_MASK | FIELD_PREP(PATN_TYPE_MASK, 1) |
@@ -246,10 +236,6 @@ static void airoha_fe_vip_setup(struct airoha_eth *eth)
 
 	airoha_fe_wr(eth, REG_FE_VIP_PATN(21), ETH_P_LLDP);
 	airoha_fe_wr(eth, REG_FE_VIP_EN(21),
-		     PATN_FCPU_EN_MASK | PATN_EN_MASK);
-
-	airoha_fe_wr(eth, REG_FE_VIP_PATN(22), 0xaaaa);
-	airoha_fe_wr(eth, REG_FE_VIP_EN(22),
 		     PATN_FCPU_EN_MASK | PATN_EN_MASK);
 }
 
