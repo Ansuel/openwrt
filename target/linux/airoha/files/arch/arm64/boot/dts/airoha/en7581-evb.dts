@@ -5,6 +5,7 @@
 /memreserve/ 0x80000000 0x200000;
 
 #include <dt-bindings/leds/common.h>
+#include <dt-bindings/gpio/gpio.h>
 #include "en7581.dtsi"
 
 / {
@@ -65,6 +66,59 @@
 		rootfs_data@5080000 {
 			label = "rootfs_data";
 			reg = <0x1980000 0x400000>;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		pwr_led: led-0 {
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_POWER;
+			gpios = <&pio 16 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		pon_led: led-1 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 17 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		los_led: led-2 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 18 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		internet_led: led-3 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 19 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		usb1_led: led-4 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 33 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		usb0_led: led-5 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 34 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		wps_led: led-6 {
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 41 GPIO_ACTIVE_LOW>;
+			default-state = "on";
 		};
 	};
 };
