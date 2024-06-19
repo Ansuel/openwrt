@@ -215,7 +215,7 @@ static void airoha_fe_vip_setup(struct airoha_eth *eth)
 		     PATN_FCPU_EN_MASK | PATN_DP_EN_MASK | PATN_SP_EN_MASK |
 		     FIELD_PREP(PATN_TYPE_MASK, 4) | PATN_EN_MASK);
 
-	airoha_fe_wr(eth, REG_FE_VIP_PATN(11), 0xc057); /* PPP->IPv6CP (0xc057) */
+	airoha_fe_wr(eth, REG_FE_VIP_PATN(11), PPP_IPV6CP);
 	airoha_fe_wr(eth, REG_FE_VIP_EN(11),
 		     PATN_FCPU_EN_MASK | FIELD_PREP(PATN_TYPE_MASK, 1) |
 		     PATN_EN_MASK);
@@ -1414,13 +1414,6 @@ error:
 	return NETDEV_TX_OK;
 }
 
-static int airoha_dev_change_mtu(struct net_device *dev, int new_mtu)
-{
-	dev->mtu = new_mtu;
-
-	return 0;
-}
-
 static const struct airoha_ethtool_stats airoha_hw_stats[] = {
 	{
 		"tx_eth_pkt_cnt",
@@ -1604,7 +1597,6 @@ static const struct net_device_ops airoha_netdev_ops = {
 	.ndo_open		= airoha_dev_open,
 	.ndo_stop		= airoha_dev_stop,
 	.ndo_start_xmit		= airoha_dev_xmit,
-	.ndo_change_mtu		= airoha_dev_change_mtu,
 	.ndo_set_mac_address	= airoha_dev_set_macaddr,
 };
 
