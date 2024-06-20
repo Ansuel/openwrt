@@ -760,16 +760,16 @@ static void airoha_pinctrl_gpio_set_direction(struct airoha_pinctrl *pinctrl,
 {
 	u32 mask, index;
 
-	/* set pin direction */
-	mask = BIT(2 * (pin % AIROHA_REG_GPIOCTRL_NUM_GPIO));
-	index = pin / AIROHA_REG_GPIOCTRL_NUM_GPIO;
-	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.dir[index],
-			   mask, !input ? mask : 0);
-
 	/* set output enable */
 	mask = BIT(pin % AIROHA_GPIO_BANK_SIZE);
 	index = pin / AIROHA_GPIO_BANK_SIZE;
 	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.out[index],
+			   mask, !input ? mask : 0);
+
+	/* set pin direction */
+	mask = BIT(2 * (pin % AIROHA_REG_GPIOCTRL_NUM_GPIO));
+	index = pin / AIROHA_REG_GPIOCTRL_NUM_GPIO;
+	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.dir[index],
 			   mask, !input ? mask : 0);
 }
 
@@ -1135,17 +1135,19 @@ static void airoha_pinctrl_gpio_set(struct gpio_chip *chip, unsigned int gpio,
 {
 	struct airoha_pinctrl *pinctrl = gpiochip_get_data(chip);
 	u8 index = gpio / AIROHA_GPIO_BANK_SIZE;
+	u32 pin = gpio % AIROHA_GPIO_BANK_SIZE;
 
 	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.data[index],
-			   BIT(gpio), !!value ? BIT(gpio) : 0);
+			   BIT(pin), value ? BIT(pin) : 0);
 }
 
 static int airoha_pinctrl_gpio_get(struct gpio_chip *chip, unsigned int gpio)
 {
 	struct airoha_pinctrl *pinctrl = gpiochip_get_data(chip);
 	u8 index = gpio / AIROHA_GPIO_BANK_SIZE;
+	u32 pin = gpio % AIROHA_GPIO_BANK_SIZE;
 
-	return readl(pinctrl->gpiochip.data[index]) & BIT(gpio);
+	return !!(readl(pinctrl->gpiochip.data[index]) & BIT(pin));
 }
 
 static int airoha_pinctrl_gpio_direction_input(struct gpio_chip *chip,
@@ -1157,9 +1159,15 @@ static int airoha_pinctrl_gpio_direction_input(struct gpio_chip *chip,
 static int airoha_pinctrl_gpio_direction_output(struct gpio_chip *chip,
 						unsigned int gpio, int value)
 {
+	int err;
+
+	err = pinctrl_gpio_direction_output(chip->base + gpio);
+	if (err)
+		return err;
+
 	airoha_pinctrl_gpio_set(chip, gpio, value);
 
-	return pinctrl_gpio_direction_output(chip->base + gpio);
+	return 0;
 }
 
 static int airoha_pinctrl_add_gpiochip(struct airoha_pinctrl *pinctrl,
@@ -1279,7 +1287,7 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
 	if (err)
 		return err;
 
-	/* build gpio-chips */
+	/* build gpio-chip */
 	return airoha_pinctrl_add_gpiochip(pinctrl, pdev, index);
 }
 
