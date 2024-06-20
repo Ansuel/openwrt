@@ -76,7 +76,7 @@
 			label = "pwr";
 			color = <LED_COLOR_ID_RED>;
 			function = LED_FUNCTION_POWER;
-			gpios = <&pio 16 GPIO_ACTIVE_LOW>;
+			gpios = <&pio 17 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
@@ -84,7 +84,7 @@
 			label = "pon";
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 17 GPIO_ACTIVE_LOW>;
+			gpios = <&pio 18 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
@@ -92,7 +92,7 @@
 			label = "los";
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 18 GPIO_ACTIVE_LOW>;
+			gpios = <&pio 19 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
@@ -100,7 +100,7 @@
 			label = "internet";
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 19 GPIO_ACTIVE_LOW>;
+			gpios = <&pio 20 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
@@ -124,7 +124,7 @@
 			label = "wps";
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 41 GPIO_ACTIVE_LOW>;
+			gpios = <&pio 42 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
@@ -132,7 +132,7 @@
 			label = "2g";
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 14 GPIO_ACTIVE_LOW>;
+			gpios = <&pio 15 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
@@ -140,7 +140,7 @@
 			label = "5g";
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 15 GPIO_ACTIVE_LOW>;
+			gpios = <&pio 16 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 	};
