@@ -787,8 +787,8 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
 {
 	struct device *dev = pcie->dev;
 	struct platform_device *pdev = to_platform_device(dev);
+	int i, ret, num_rsts = pcie->soc->phy_resets.num_rsts;
 	struct resource *regs;
-	int i, ret;
 
 	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pcie-mac");
 	if (!regs)
@@ -801,12 +801,11 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
 
 	pcie->reg_base = regs->start;
 
-	for (i = 0; i < pcie->soc->phy_resets.num_rsts; i++)
+	for (i = 0; i < num_rsts; i++)
 		pcie->phy_resets[i].id = pcie->soc->phy_resets.id[i];
 
-	ret = devm_reset_control_bulk_get_shared(dev,
-						 pcie->soc->phy_resets.num_rsts,
-						 pcie->phy_resets);
+	ret = devm_reset_control_bulk_get_optional_shared(dev, num_rsts,
+							  pcie->phy_resets);
 	if (ret) {
 		dev_err(dev, "failed to get PHY bulk reset\n");
 		return ret;
@@ -1179,9 +1178,9 @@ static const struct mtk_pcie_soc mtk_pcie_soc_mt8192 = {
 static const struct mtk_pcie_soc mtk_pcie_soc_en7581 = {
 	.power_up = mtk_pcie_en7581_power_up,
 	.phy_resets = {
-		.id[0] = "phy_lane0",
-		.id[1] = "phy_lane1",
-		.id[2] = "phy_lane2",
+		.id[0] = "phy-lane0",
+		.id[1] = "phy-lane1",
+		.id[2] = "phy-lane2",
 		.num_rsts = 3,
 	},
 };

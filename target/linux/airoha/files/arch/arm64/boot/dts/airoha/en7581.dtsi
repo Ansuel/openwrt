@@ -311,7 +311,7 @@
 			reg-names = "pcie-mac";
 
 			clocks = <&scuclk EN7523_CLK_PCIE>;
-			clock-names = "sys_ck0";
+			clock-names = "sys_ck";
 
 			phys = <&pciephy>;
 			phy-names = "pcie-phy";
@@ -351,7 +351,7 @@
 			reg-names = "pcie-mac";
 
 			clocks = <&scuclk EN7523_CLK_PCIE>;
-			clock-names = "sys_ck1";
+			clock-names = "sys_ck";
 
 			phys = <&pciephy>;
 			phy-names = "pcie-phy";
@@ -361,7 +361,7 @@
 			resets = <&scuclk EN7581_PCIE0_RST>,
 				 <&scuclk EN7581_PCIE1_RST>,
 				 <&scuclk EN7581_PCIE2_RST>;
-			reset-names = "phy_lane0", "phy_lane1", "phy_lane2";
+			reset-names = "phy-lane0", "phy-lane1", "phy-lane2";
 
 			interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 			bus-range = <0x00 0xff>;
