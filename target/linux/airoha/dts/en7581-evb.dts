@@ -127,22 +127,6 @@
 			gpios = <&pio 42 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
-
-		l2g_led: led-7 {
-			label = "2g";
-			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 15 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
-
-		l5g_led: led-8 {
-			label = "5g";
-			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 16 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
 	};
 };
 
@@ -226,6 +210,20 @@
 			groups = "lan3_led1";
 		};
 	};
+};
+
+&snfi {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
 };
 
 &pcie0 {

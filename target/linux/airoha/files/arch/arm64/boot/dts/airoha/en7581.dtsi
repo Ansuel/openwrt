@@ -278,6 +278,9 @@
 
 			#address-cells = <1>;
 			#size-cells = <0>;
+
+			status = "disabled";
+
 			spi_nand: nand@0 {
 				compatible = "spi-nand";
 				reg = <0>;
