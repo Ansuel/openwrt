@@ -13,7 +13,6 @@
 #include <linux/platform_device.h>
 #include <linux/reset.h>
 #include <linux/tcp.h>
-#include <net/dsa.h>
 #include <net/page_pool.h>
 #include <uapi/linux/ppp_defs.h>
 #include "airoha_eth.h"
@@ -239,8 +238,8 @@ static void airoha_fe_vip_setup(struct airoha_eth *eth)
 		     PATN_FCPU_EN_MASK | PATN_EN_MASK);
 }
 
-static u32 airoha_fe_get_oq_rsv(struct airoha_eth *eth,
-				u32 port, u32 queue)
+static u32 airoha_fe_get_pse_queue_rsv_pages(struct airoha_eth *eth,
+					     u32 port, u32 queue)
 {
 	u32 val;
 
@@ -253,8 +252,8 @@ static u32 airoha_fe_get_oq_rsv(struct airoha_eth *eth,
 	return FIELD_GET(PSE_CFG_OQ_RSV_MASK, val);
 }
 
-static void airoha_fe_set_oq_rsv(struct airoha_eth *eth,
-				 u32 port, u32 queue, u32 val)
+static void airoha_fe_set_pse_queue_rsv_pages(struct airoha_eth *eth,
+					      u32 port, u32 queue, u32 val)
 {
 	airoha_fe_rmw(eth, REG_FE_PSE_QUEUE_CFG_VAL, PSE_CFG_OQ_RSV_MASK,
 		      FIELD_PREP(PSE_CFG_OQ_RSV_MASK, val));
@@ -270,30 +269,11 @@ static int airoha_fe_set_pse_oq_rsv(struct airoha_eth *eth,
 				    u32 port, u32 queue, u32 val)
 {
 	u32 orig_val, tmp, all_rsv, fq_limit;
-	const u32 pse_port_oq_id[] = {
-		PSE_PORT0_QUEUE,
-		PSE_PORT1_QUEUE,
-		PSE_PORT2_QUEUE,
-		PSE_PORT3_QUEUE,
-		PSE_PORT4_QUEUE,
-		PSE_PORT5_QUEUE,
-		PSE_PORT6_QUEUE,
-		PSE_PORT7_QUEUE,
-		PSE_PORT8_QUEUE,
-		PSE_PORT9_QUEUE,
-		PSE_PORT10_QUEUE
-	};
 
-	if (port >= ARRAY_SIZE(pse_port_oq_id))
-		return -EINVAL;
-
-	if (queue >= pse_port_oq_id[port])
-		return -EINVAL;
-
-	airoha_fe_set_oq_rsv(eth, port, queue, val);
+	airoha_fe_set_pse_queue_rsv_pages(eth, port, queue, val);
 
 	/* modify all rsv */
-	orig_val = airoha_fe_get_oq_rsv(eth, port, queue);
+	orig_val = airoha_fe_get_pse_queue_rsv_pages(eth, port, queue);
 	tmp = airoha_fe_rr(eth, REG_FE_PSE_BUF_SET);
 	all_rsv = FIELD_GET(PSE_ALLRSV_MASK, tmp);
 	all_rsv += (val - orig_val);
@@ -320,47 +300,77 @@ static int airoha_fe_set_pse_oq_rsv(struct airoha_eth *eth,
 	return 0;
 }
 
-static void airoha_fe_oq_rsv_init(struct airoha_eth *eth)
+static void airoha_fe_pse_ports_init(struct airoha_eth *eth)
 {
-	int i;
+	const u32 pse_port_num_queues[] = {
+		[FE_PSE_PORT_CDM1] = 6,
+		[FE_PSE_PORT_GDM1] = 6,
+		[FE_PSE_PORT_GDM2] = 32,
+		[FE_PSE_PORT_GDM3] = 6,
+		[FE_PSE_PORT_PPE1] = 4,
+		[FE_PSE_PORT_CDM2] = 6,
+		[FE_PSE_PORT_CDM3] = 8,
+		[FE_PSE_PORT_CDM4] = 10,
+		[FE_PSE_PORT_PPE2] = 4,
+		[FE_PSE_PORT_GDM4] = 2,
+		[FE_PSE_PORT_CDM5] = 2,
+	};
+	int q;
 
 	/* hw misses PPE2 oq rsv */
 	airoha_fe_set(eth, REG_FE_PSE_BUF_SET,
-		      PSE_DEF_RSV_PAGE * PSE_PORT8_QUEUE);
+		      PSE_RSV_PAGES * pse_port_num_queues[FE_PSE_PORT_PPE2]);
 
-	for (i = 0; i < PSE_PORT0_QUEUE; i++)
-		airoha_fe_set_pse_oq_rsv(eth, 0, i, 0x40);
-	for (i = 0; i < PSE_PORT1_QUEUE; i++)
-		airoha_fe_set_pse_oq_rsv(eth, 1, i, 0x40);
-
-	for (i = 6; i < PSE_PORT2_QUEUE; i++)
-		airoha_fe_set_pse_oq_rsv(eth, 2, i, 0);
-
-	for (i = 0; i < PSE_PORT3_QUEUE; i++)
-		airoha_fe_set_pse_oq_rsv(eth, 3, i, 0x40);
-
-	airoha_fe_set_pse_oq_rsv(eth, 4, 0, 0x40);
-	airoha_fe_set_pse_oq_rsv(eth, 4, 1, 0x40);
-	airoha_fe_set_pse_oq_rsv(eth, 4, 2, 0);
-	airoha_fe_set_pse_oq_rsv(eth, 4, 3, 0);
-	airoha_fe_set_pse_oq_rsv(eth, 8, 0, 0x40);
-	airoha_fe_set_pse_oq_rsv(eth, 8, 1, 0x40);
-	airoha_fe_set_pse_oq_rsv(eth, 8, 2, 0);
-	airoha_fe_set_pse_oq_rsv(eth, 8, 3, 0);
-
-	for (i = 0; i < PSE_PORT5_QUEUE; i++)
-		airoha_fe_set_pse_oq_rsv(eth, 5, i, 0x40);
-
-	for (i = 0; i < PSE_PORT6_QUEUE - 1; i++)
-		airoha_fe_set_pse_oq_rsv(eth, 6, i, 0);
-
-	for (i = 4; i < PSE_PORT7_QUEUE; i++)
-		airoha_fe_set_pse_oq_rsv(eth, 7, i, 0x40);
-
-	airoha_fe_set_pse_oq_rsv(eth, 9, 0, 0x40);
-	airoha_fe_set_pse_oq_rsv(eth, 9, 1, 0x40);
-	airoha_fe_set_pse_oq_rsv(eth, 10, 0, 0x40);
-	airoha_fe_set_pse_oq_rsv(eth, 10, 1, 0x40);
+	/* CMD1 */
+	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_CDM1]; q++)
+		airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_CDM1, q,
+					 PSE_QUEUE_RSV_PAGES);
+	/* GMD1 */
+	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_GDM1]; q++)
+		airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_GDM1, q,
+					 PSE_QUEUE_RSV_PAGES);
+	/* GMD2 */
+	for (q = 6; q < pse_port_num_queues[FE_PSE_PORT_GDM2]; q++)
+		airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_GDM2, q, 0);
+	/* GMD3 */
+	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_GDM3]; q++)
+		airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_GDM3, q,
+					 PSE_QUEUE_RSV_PAGES);
+	/* PPE1 */
+	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_PPE1]; q++) {
+		if (q < pse_port_num_queues[FE_PSE_PORT_PPE1])
+			airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_PPE1, q,
+						 PSE_QUEUE_RSV_PAGES);
+		else
+			airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_PPE1, q, 0);
+	}
+	/* CDM2 */
+	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_CDM2]; q++)
+		airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_CDM2, q,
+					 PSE_QUEUE_RSV_PAGES);
+	/* CDM3 */
+	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_CDM3] - 1; q++)
+		airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_CDM3, q, 0);
+	/* CDM4 */
+	for (q = 4; q < pse_port_num_queues[FE_PSE_PORT_CDM4]; q++)
+		airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_CDM4, q,
+					 PSE_QUEUE_RSV_PAGES);
+	/* PPE2 */
+	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_PPE2]; q++) {
+		if (q < pse_port_num_queues[FE_PSE_PORT_PPE2] / 2)
+			airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_PPE2, q,
+						 PSE_QUEUE_RSV_PAGES);
+		else
+			airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_PPE2, q, 0);
+	}
+	/* GMD4 */
+	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_GDM4]; q++)
+		airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_GDM4, q,
+					 PSE_QUEUE_RSV_PAGES);
+	/* CDM5 */
+	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_CDM5]; q++)
+		airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_CDM5, q,
+					 PSE_QUEUE_RSV_PAGES);
 }
 
 static int airoha_fe_mc_vlan_clear(struct airoha_eth *eth)
@@ -450,6 +460,9 @@ static void airoha_fe_crsn_qsel_init(struct airoha_eth *eth)
 
 static int airoha_fe_init(struct airoha_eth *eth)
 {
+	/* Enable Rx DSA tagging */
+	airoha_fe_set(eth, REG_GDM1_INGRESS_CFG, GDM1_STAG_EN_MASK);
+
 	airoha_fe_maccr_init(eth);
 
 	/* PSE IQ reserve */
@@ -496,7 +509,7 @@ static int airoha_fe_init(struct airoha_eth *eth)
 	airoha_fe_wr(eth, REG_FE_CDM1_OQ_MAP3, BIT(28));
 
 	airoha_fe_vip_setup(eth);
-	airoha_fe_oq_rsv_init(eth);
+	airoha_fe_pse_ports_init(eth);
 
 	airoha_fe_set(eth, REG_GDM_MISC_CFG,
 		      GDM2_RDM_ACK_WAIT_PREF_MASK |
@@ -1231,11 +1244,6 @@ static int airoha_dev_open(struct net_device *dev)
 {
 	struct airoha_eth *eth = netdev_priv(dev);
 	int err;
-
-	if (netdev_uses_dsa(dev))
-		airoha_fe_set(eth, REG_GDM1_INGRESS_CFG, GDM1_STAG_EN_MASK);
-	else
-		airoha_fe_clear(eth, REG_GDM1_INGRESS_CFG, GDM1_STAG_EN_MASK);
 
 	netif_tx_start_all_queues(dev);
 	err = airoha_set_gdm_ports(eth, true);

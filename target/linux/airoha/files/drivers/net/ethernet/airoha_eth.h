@@ -21,6 +21,9 @@
 	 (_n) == 15 ? 128 :		\
 	 (_n) ==  0 ? 1024 : 16)
 
+#define PSE_RSV_PAGES			128
+#define PSE_QUEUE_RSV_PAGES		64
+
 /* FE */
 #define PSE_BASE			0x0100
 #define CSR_IFC_BASE			0x0200
@@ -56,25 +59,6 @@
 #define PCE_DPI_EN_MASK			BIT(2)
 #define PCE_KA_EN_MASK			BIT(1)
 #define PCE_MC_EN_MASK			BIT(0)
-
-#define PSE_DEF_RSV_PAGE		0x80
-
-#define PSE_PORT0_QUEUE			6
-#define PSE_PORT1_QUEUE			6
-#define PSE_PORT2_QUEUE			32
-#define PSE_PORT3_QUEUE			6
-#define PSE_PORT4_QUEUE			4
-#define PSE_PORT5_QUEUE			6
-#define PSE_PORT6_QUEUE			8
-#define PSE_PORT7_QUEUE			10
-#define PSE_PORT8_QUEUE			4
-#define PSE_PORT9_QUEUE			2
-#define PSE_PORT10_QUEUE		2
-#define PSE_PORT11_QUEUE		0
-#define PSE_PORT12_QUEUE		0
-#define PSE_PORT13_QUEUE		0
-#define PSE_PORT14_QUEUE		0
-#define PSE_PORT15_QUEUE		0
 
 #define REG_FE_PSE_QUEUE_CFG_WR		0x0080
 #define PSE_CFG_PORT_ID_MASK		GENMASK(27, 24)
@@ -689,6 +673,20 @@ enum {
 	CRSN_22 = 0x16, /* hit bind and force route to CPU */
 	CRSN_24 = 0x18,
 	CRSN_25 = 0x19,
+};
+
+enum {
+	FE_PSE_PORT_CDM1,
+	FE_PSE_PORT_GDM1,
+	FE_PSE_PORT_GDM2,
+	FE_PSE_PORT_GDM3,
+	FE_PSE_PORT_PPE1,
+	FE_PSE_PORT_CDM2,
+	FE_PSE_PORT_CDM3,
+	FE_PSE_PORT_CDM4,
+	FE_PSE_PORT_PPE2,
+	FE_PSE_PORT_GDM4,
+	FE_PSE_PORT_CDM5,
 };
 
 enum {
