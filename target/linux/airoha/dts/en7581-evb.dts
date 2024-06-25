@@ -69,6 +69,18 @@
 		};
 	};
 
+	pwmleds {
+		compatible = "pwm-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_status_led_green_pins>;
+		lan4_green {
+			label = "status:green";
+			pwms = <&pwm 10 4000000 0>;
+			max-brightness = <255>;
+		};
+	};
+
+
 	leds {
 		compatible = "gpio-leds";
 
@@ -80,13 +92,13 @@
 			default-state = "on";
 		};
 
-		pon_led: led-1 {
-			label = "pon";
-			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 18 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
+//		pon_led: led-1 {
+//			label = "pon";
+//			color = <LED_COLOR_ID_GREEN>;
+//			function = LED_FUNCTION_STATUS;
+//			gpios = <&pio 18 GPIO_ACTIVE_LOW>;
+//			default-state = "on";
+//		};
 
 		los_led: led-2 {
 			label = "los";
@@ -210,6 +222,13 @@
 			groups = "lan3_led1";
 		};
 	};
+
+	pwm_status_led_green_pins: pwm-status-led-green-pins {
+		mux {
+			function = "pwm";
+			groups = "pwm_gpio18_idx10";
+		};
+	};
 };
 
 &snfi {
@@ -223,6 +242,10 @@
 &i2c1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+};
+
+&pwm {
 	status = "okay";
 };
 

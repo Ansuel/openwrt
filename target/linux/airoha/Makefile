@@ -5,7 +5,7 @@ BOARD:=airoha
 BOARDNAME:=Airoha EN75xx
 SUBTARGETS:=en7581 en7523
 CPU_TYPE:=cortex-a53
-FEATURES:=dt squashfs nand ramdisk gpio source-only
+FEATURES:=dt squashfs nand ramdisk gpio source-only pwm
 
 KERNEL_PATCHVER:=6.6
 

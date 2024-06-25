@@ -29,6 +29,7 @@ endef
 define Device/airoha_en7581-evb
   DEVICE_VENDOR := Airoha
   DEVICE_MODEL := EN7581 Evaluation Board (SNAND)
+  DEVICE_PACKAGES := kmod-leds-pwm
   DEVICE_DTS := en7581-evb
   DEVICE_DTS_DIR := ../dts
   DEVICE_PACKAGES := kmod-i2c-en7581
