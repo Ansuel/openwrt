@@ -3,6 +3,7 @@
  * Copyright (C) 2024 Lorenzo Bianconi <lorenzo@kernel.org>
  */
 
+#define AIROHA_MAX_NUM_GDM_PORTS	1
 #define AIROHA_MAX_NUM_RSTS		3
 #define AIROHA_MAX_NUM_XSI_RSTS		5
 #define AIROHA_MAX_MTU			2000
@@ -35,7 +36,12 @@
 #define GDM2_BASE			0x1500
 
 #define GDM3_BASE			0x1100
-#define GDM4_BASE			0x2400
+#define GDM4_BASE			0x2500
+
+#define GDM_BASE(_n)			\
+	((_n) == 3 ? GDM4_BASE :	\
+	 (_n) == 2 ? GDM3_BASE :	\
+	 (_n) == 1 ? GDM2_BASE : GDM1_BASE)
 
 #define REG_FE_DMA_GLO_CFG		0x0000
 #define FE_DMA_GLO_L2_SPACE_MASK	GENMASK(7, 4)
@@ -127,32 +133,32 @@
 #define CDM2_CRSN_QSEL_REASON_MASK(_n)	\
 	GENMASK(4 + (((_n) % 4) << 3), (((_n) % 4 ) << 3))
 
-#define REG_GDM1_FWD_CFG		GDM1_BASE
-#define GDM1_DROP_CRC_ERR		BIT(23)
-#define GDM1_IP4_CKSUM			BIT(22)
-#define GDM1_TCP_CKSUM			BIT(21)
-#define GDM1_UDP_CKSUM			BIT(20)
-#define GDM1_UCFQ_MASK			GENMASK(15, 12)
-#define GDM1_BCFQ_MASK			GENMASK(11, 8)
-#define GDM1_MCFQ_MASK			GENMASK(7, 4)
-#define GDM1_OCFQ_MASK			GENMASK(3, 0)
+#define REG_GDM_FWD_CFG(_n)		GDM_BASE(_n)
+#define GDM_DROP_CRC_ERR		BIT(23)
+#define GDM_IP4_CKSUM			BIT(22)
+#define GDM_TCP_CKSUM			BIT(21)
+#define GDM_UDP_CKSUM			BIT(20)
+#define GDM_UCFQ_MASK			GENMASK(15, 12)
+#define GDM_BCFQ_MASK			GENMASK(11, 8)
+#define GDM_MCFQ_MASK			GENMASK(7, 4)
+#define GDM_OCFQ_MASK			GENMASK(3, 0)
 
-#define REG_GDM1_INGRESS_CFG		(GDM1_BASE + 0x10)
-#define GDM1_INGRESS_FC_EN_MASK		BIT(1)
-#define GDM1_STAG_EN_MASK		BIT(0)
+#define REG_GDM_INGRESS_CFG(_n)		(GDM_BASE(_n) + 0x10)
+#define GDM_INGRESS_FC_EN_MASK		BIT(1)
+#define GDM_STAG_EN_MASK		BIT(0)
 
-#define REG_GDM1_LEN_CFG		(GDM1_BASE + 0x14)
-#define GDM1_SHORT_LEN_MASK		GENMASK(13, 0)
-#define GDM1_LONG_LEN_MASK		GENMASK(29, 16)
+#define REG_GDM_LEN_CFG(_n)		(GDM_BASE(_n) + 0x14)
+#define GDM_SHORT_LEN_MASK		GENMASK(13, 0)
+#define GDM_LONG_LEN_MASK		GENMASK(29, 16)
 
 #define REG_FE_CPORT_CFG		(GDM1_BASE + 0x40)
 #define FE_CPORT_PAD			BIT(26)
 #define FE_CPORT_PORT_XFC_MASK		BIT(25)
 #define FE_CPORT_QUEUE_XFC_MASK		BIT(24)
 
-#define REG_FE_GDM1_MIB_CLEAR		(GDM1_BASE + 0xf0)
-#define FE_GDM1_MIB_RX_CLEAR_MASK	BIT(1)
-#define FE_GDM1_MIB_TX_CLEAR_MASK	BIT(1)
+#define REG_FE_GDM_MIB_CLEAR(_n)	(GDM_BASE(_n) + 0xf0)
+#define FE_GDM_MIB_RX_CLEAR_MASK	BIT(1)
+#define FE_GDM_MIB_TX_CLEAR_MASK	BIT(0)
 
 #define REG_FE_GDM1_MIB_CFG		(GDM1_BASE + 0xf4)
 #define FE_STRICT_RFC2819_MODE_MASK	BIT(31)
@@ -161,40 +167,40 @@
 #define FE_TX_MIB_ID_MASK		GENMASK(15, 8)
 #define FE_RX_MIB_ID_MASK		GENMASK(7, 0)
 
-#define REG_FE_GDM1_TX_OK_PKT_CNT_L	(GDM1_BASE + 0x104)
-#define REG_FE_GDM1_TX_OK_BYTE_CNT_L	(GDM1_BASE + 0x10c)
-#define REG_FE_GDM1_TX_ETH_PKT_CNT_L	(GDM1_BASE + 0x110)
-#define REG_FE_GDM1_TX_ETH_BYTE_CNT_L	(GDM1_BASE + 0x114)
-#define REG_FE_GDM1_TX_ETH_DROP_CNT	(GDM1_BASE + 0x118)
-#define REG_FE_GDM1_TX_ETH_BC_CNT	(GDM1_BASE + 0x11c)
-#define REG_FE_GDM1_TX_ETH_MC_CNT	(GDM1_BASE + 0x120)
-#define REG_FE_GDM1_TX_ETH_RUNT_CNT	(GDM1_BASE + 0x124)
-#define REG_FE_GDM1_TX_ETH_LONG_CNT	(GDM1_BASE + 0x128)
-#define REG_FE_GDM1_TX_ETH_E64_CNT_L	(GDM1_BASE + 0x12c)
-#define REG_FE_GDM1_TX_ETH_L64_CNT_L	(GDM1_BASE + 0x130)
-#define REG_FE_GDM1_TX_ETH_L127_CNT_L	(GDM1_BASE + 0x134)
-#define REG_FE_GDM1_TX_ETH_L255_CNT_L	(GDM1_BASE + 0x138)
-#define REG_FE_GDM1_TX_ETH_L511_CNT_L	(GDM1_BASE + 0x13c)
-#define REG_FE_GDM1_TX_ETH_L1023_CNT_L	(GDM1_BASE + 0x140)
+#define REG_FE_GDM_TX_OK_PKT_CNT_L(_n)		(GDM_BASE(_n) + 0x104)
+#define REG_FE_GDM_TX_OK_BYTE_CNT_L(_n)		(GDM_BASE(_n) + 0x10c)
+#define REG_FE_GDM_TX_ETH_PKT_CNT_L(_n)		(GDM_BASE(_n) + 0x110)
+#define REG_FE_GDM_TX_ETH_BYTE_CNT_L(_n)	(GDM_BASE(_n) + 0x114)
+#define REG_FE_GDM_TX_ETH_DROP_CNT(_n)		(GDM_BASE(_n) + 0x118)
+#define REG_FE_GDM_TX_ETH_BC_CNT(_n)		(GDM_BASE(_n) + 0x11c)
+#define REG_FE_GDM_TX_ETH_MC_CNT(_n)		(GDM_BASE(_n) + 0x120)
+#define REG_FE_GDM_TX_ETH_RUNT_CNT(_n)		(GDM_BASE(_n) + 0x124)
+#define REG_FE_GDM_TX_ETH_LONG_CNT(_n)		(GDM_BASE(_n) + 0x128)
+#define REG_FE_GDM_TX_ETH_E64_CNT_L(_n)		(GDM_BASE(_n) + 0x12c)
+#define REG_FE_GDM_TX_ETH_L64_CNT_L(_n)		(GDM_BASE(_n) + 0x130)
+#define REG_FE_GDM_TX_ETH_L127_CNT_L(_n)	(GDM_BASE(_n) + 0x134)
+#define REG_FE_GDM_TX_ETH_L255_CNT_L(_n)	(GDM_BASE(_n) + 0x138)
+#define REG_FE_GDM_TX_ETH_L511_CNT_L(_n)	(GDM_BASE(_n) + 0x13c)
+#define REG_FE_GDM_TX_ETH_L1023_CNT_L(_n)	(GDM_BASE(_n) + 0x140)
 
-#define REG_FE_GDM1_RX_OK_PKT_CNT_L	(GDM1_BASE + 0x148)
-#define REG_FE_GDM1_RX_OK_BYTE_CNT_L	(GDM1_BASE + 0x15c)
-#define REG_FE_GDM1_RX_ETH_PKT_CNT_L	(GDM1_BASE + 0x160)
-#define REG_FE_GDM1_RX_ETH_BYTE_CNT_L	(GDM1_BASE + 0x164)
-#define REG_FE_GDM1_RX_ETH_DROP_CNT	(GDM1_BASE + 0x168)
-#define REG_FE_GDM1_RX_ETH_BC_CNT	(GDM1_BASE + 0x16c)
-#define REG_FE_GDM1_RX_ETH_MC_CNT	(GDM1_BASE + 0x170)
-#define REG_FE_GDM1_RX_ETH_CRC_ERR_CNT	(GDM1_BASE + 0x174)
-#define REG_FE_GDM1_RX_ETH_FRAG_CNT	(GDM1_BASE + 0x178)
-#define REG_FE_GDM1_RX_ETH_JABBER_CNT	(GDM1_BASE + 0x17c)
-#define REG_FE_GDM1_RX_ETH_RUNT_CNT	(GDM1_BASE + 0x180)
-#define REG_FE_GDM1_RX_ETH_LONG_CNT	(GDM1_BASE + 0x184)
-#define REG_FE_GDM1_RX_ETH_E64_CNT_L	(GDM1_BASE + 0x188)
-#define REG_FE_GDM1_RX_ETH_L64_CNT_L	(GDM1_BASE + 0x18c)
-#define REG_FE_GDM1_RX_ETH_L127_CNT_L	(GDM1_BASE + 0x190)
-#define REG_FE_GDM1_RX_ETH_L255_CNT_L	(GDM1_BASE + 0x194)
-#define REG_FE_GDM1_RX_ETH_L511_CNT_L	(GDM1_BASE + 0x198)
-#define REG_FE_GDM1_RX_ETH_L1023_CNT_L	(GDM1_BASE + 0x19c)
+#define REG_FE_GDM_RX_OK_PKT_CNT_L(_n)		(GDM_BASE(_n) + 0x148)
+#define REG_FE_GDM_RX_OK_BYTE_CNT_L(_n)		(GDM_BASE(_n) + 0x15c)
+#define REG_FE_GDM_RX_ETH_PKT_CNT_L(_n)		(GDM_BASE(_n) + 0x160)
+#define REG_FE_GDM_RX_ETH_BYTE_CNT_L(_n)	(GDM_BASE(_n) + 0x164)
+#define REG_FE_GDM_RX_ETH_DROP_CNT(_n)		(GDM_BASE(_n) + 0x168)
+#define REG_FE_GDM_RX_ETH_BC_CNT(_n)		(GDM_BASE(_n) + 0x16c)
+#define REG_FE_GDM_RX_ETH_MC_CNT(_n)		(GDM_BASE(_n) + 0x170)
+#define REG_FE_GDM_RX_ETH_CRC_ERR_CNT(_n)	(GDM_BASE(_n) + 0x174)
+#define REG_FE_GDM_RX_ETH_FRAG_CNT(_n)		(GDM_BASE(_n) + 0x178)
+#define REG_FE_GDM_RX_ETH_JABBER_CNT(_n)	(GDM_BASE(_n) + 0x17c)
+#define REG_FE_GDM_RX_ETH_RUNT_CNT(_n)		(GDM_BASE(_n) + 0x180)
+#define REG_FE_GDM_RX_ETH_LONG_CNT(_n)		(GDM_BASE(_n) + 0x184)
+#define REG_FE_GDM_RX_ETH_E64_CNT_L(_n)		(GDM_BASE(_n) + 0x188)
+#define REG_FE_GDM_RX_ETH_L64_CNT_L(_n)		(GDM_BASE(_n) + 0x18c)
+#define REG_FE_GDM_RX_ETH_L127_CNT_L(_n)	(GDM_BASE(_n) + 0x190)
+#define REG_FE_GDM_RX_ETH_L255_CNT_L(_n)	(GDM_BASE(_n) + 0x194)
+#define REG_FE_GDM_RX_ETH_L511_CNT_L(_n)	(GDM_BASE(_n) + 0x198)
+#define REG_FE_GDM_RX_ETH_L1023_CNT_L(_n)	(GDM_BASE(_n) + 0x19c)
 
 #define REG_PPE1_TB_HASH_CFG		(PPE1_BASE + 0x250)
 #define PPE1_SRAM_TABLE_EN_MASK		BIT(0)
@@ -202,27 +208,27 @@
 #define PPE1_DRAM_TABLE_EN_MASK		BIT(16)
 #define PPE1_DRAM_HASH1_EN_MASK		BIT(24)
 
-#define REG_FE_GDM1_TX_OK_PKT_CNT_H	(GDM1_BASE + 0x280)
-#define REG_FE_GDM1_TX_OK_BYTE_CNT_H	(GDM1_BASE + 0x284)
-#define REG_FE_GDM1_TX_ETH_PKT_CNT_H	(GDM1_BASE + 0x288)
-#define REG_FE_GDM1_TX_ETH_BYTE_CNT_H	(GDM1_BASE + 0x28c)
+#define REG_FE_GDM_TX_OK_PKT_CNT_H(_n)		(GDM_BASE(_n) + 0x280)
+#define REG_FE_GDM_TX_OK_BYTE_CNT_H(_n)		(GDM_BASE(_n) + 0x284)
+#define REG_FE_GDM_TX_ETH_PKT_CNT_H(_n)		(GDM_BASE(_n) + 0x288)
+#define REG_FE_GDM_TX_ETH_BYTE_CNT_H(_n)	(GDM_BASE(_n) + 0x28c)
 
-#define REG_FE_GDM1_RX_OK_PKT_CNT_H	(GDM1_BASE + 0x290)
-#define REG_FE_GDM1_RX_OK_BYTE_CNT_H	(GDM1_BASE + 0x294)
-#define REG_FE_GDM1_RX_ETH_PKT_CNT_H	(GDM1_BASE + 0x298)
-#define REG_FE_GDM1_RX_ETH_BYTE_CNT_H	(GDM1_BASE + 0x29c)
-#define REG_FE_GDM1_TX_ETH_E64_CNT_H	(GDM1_BASE + 0x2B8)
-#define REG_FE_GDM1_TX_ETH_L64_CNT_H	(GDM1_BASE + 0x2Bc)
-#define REG_FE_GDM1_TX_ETH_L127_CNT_H	(GDM1_BASE + 0x2C0)
-#define REG_FE_GDM1_TX_ETH_L255_CNT_H	(GDM1_BASE + 0x2C4)
-#define REG_FE_GDM1_TX_ETH_L511_CNT_H	(GDM1_BASE + 0x2C8)
-#define REG_FE_GDM1_TX_ETH_L1023_CNT_H	(GDM1_BASE + 0x2CC)
-#define REG_FE_GDM1_RX_ETH_E64_CNT_H	(GDM1_BASE + 0x2E8)
-#define REG_FE_GDM1_RX_ETH_L64_CNT_H	(GDM1_BASE + 0x2EC)
-#define REG_FE_GDM1_RX_ETH_L127_CNT_H	(GDM1_BASE + 0x2F0)
-#define REG_FE_GDM1_RX_ETH_L255_CNT_H	(GDM1_BASE + 0x2F4)
-#define REG_FE_GDM1_RX_ETH_L511_CNT_H	(GDM1_BASE + 0x2F8)
-#define REG_FE_GDM1_RX_ETH_L1023_CNT_H	(GDM1_BASE + 0x2FC)
+#define REG_FE_GDM_RX_OK_PKT_CNT_H(_n)		(GDM_BASE(_n) + 0x290)
+#define REG_FE_GDM_RX_OK_BYTE_CNT_H(_n)		(GDM_BASE(_n) + 0x294)
+#define REG_FE_GDM_RX_ETH_PKT_CNT_H(_n)		(GDM_BASE(_n) + 0x298)
+#define REG_FE_GDM_RX_ETH_BYTE_CNT_H(_n)	(GDM_BASE(_n) + 0x29c)
+#define REG_FE_GDM_TX_ETH_E64_CNT_H(_n)		(GDM_BASE(_n) + 0x2b8)
+#define REG_FE_GDM_TX_ETH_L64_CNT_H(_n)		(GDM_BASE(_n) + 0x2bc)
+#define REG_FE_GDM_TX_ETH_L127_CNT_H(_n)	(GDM_BASE(_n) + 0x2c0)
+#define REG_FE_GDM_TX_ETH_L255_CNT_H(_n)	(GDM_BASE(_n) + 0x2c4)
+#define REG_FE_GDM_TX_ETH_L511_CNT_H(_n)	(GDM_BASE(_n) + 0x2c8)
+#define REG_FE_GDM_TX_ETH_L1023_CNT_H(_n)	(GDM_BASE(_n) + 0x2cc)
+#define REG_FE_GDM_RX_ETH_E64_CNT_H(_n)		(GDM_BASE(_n) + 0x2e8)
+#define REG_FE_GDM_RX_ETH_L64_CNT_H(_n)		(GDM_BASE(_n) + 0x2ec)
+#define REG_FE_GDM_RX_ETH_L127_CNT_H(_n)	(GDM_BASE(_n) + 0x2f0)
+#define REG_FE_GDM_RX_ETH_L255_CNT_H(_n)	(GDM_BASE(_n) + 0x2f4)
+#define REG_FE_GDM_RX_ETH_L511_CNT_H(_n)	(GDM_BASE(_n) + 0x2f8)
+#define REG_FE_GDM_RX_ETH_L1023_CNT_H(_n)	(GDM_BASE(_n) + 0x2fc)
 
 #define REG_GDM2_CHN_RLS		(GDM2_BASE + 0x20)
 #define MBI_RX_AGE_SEL_MASK		GENMASK(18, 17)
@@ -571,7 +577,7 @@
 #define QDMA_DESC_LEN_MASK		GENMASK(15, 0)
 /* DATA */
 #define QDMA_DESC_NEXT_ID_MASK		GENMASK(15, 0)
-/* MSG0 */
+/* TX MSG0 */
 #define QDMA_ETH_TXMSG_MIC_IDX_MASK	BIT(30)
 #define QDMA_ETH_TXMSG_SP_TAG_MASK	GENMASK(29, 14)
 #define QDMA_ETH_TXMSG_ICO_MASK		BIT(13)
@@ -582,7 +588,7 @@
 #define QDMA_ETH_TXMSG_OAM_MASK		BIT(8)
 #define QDMA_ETH_TXMSG_CHAN_MASK	GENMASK(7, 3)
 #define QDMA_ETH_TXMSG_QUEUE_MASK	GENMASK(2, 0)
-/* MSG1 */
+/* TX MSG1 */
 #define QDMA_ETH_TXMSG_NO_DROP		BIT(31)
 #define QDMA_ETH_TXMSG_METER_MASK	GENMASK(30, 24)	/* 0x7f means do not apply meters */
 #define QDMA_ETH_TXMSG_FPORT_MASK	GENMASK(23, 20)
@@ -592,6 +598,17 @@
 #define QDMA_ETH_TXMSG_PTP_MASK		BIT(12)
 #define QDMA_ETH_TXMSG_ACNT_G1_MASK	GENMASK(10, 6)	/* 0x1f means do not count */
 #define QDMA_ETH_TXMSG_ACNT_G0_MASK	GENMASK(5, 0)	/* 0x3f means do not count */
+
+/* RX MSG1 */
+#define QDMA_ETH_RXMSG_DEI_MASK		BIT(31)
+#define QDMA_ETH_RXMSG_IP6_MASK		BIT(30)
+#define QDMA_ETH_RXMSG_IP4_MASK		BIT(29)
+#define QDMA_ETH_RXMSG_IP4F_MASK	BIT(28)
+#define QDMA_ETH_RXMSG_L4_VALID_MASK	BIT(27)
+#define QDMA_ETH_RXMSG_L4F_MASK		BIT(26)
+#define QDMA_ETH_RXMSG_SPORT_MASK	GENMASK(25, 21)
+#define QDMA_ETH_RXMSG_CRSN_MASK	GENMASK(20, 16)
+#define QDMA_ETH_RXMSG_PPE_ENTRY_MASK	GENMASK(15, 0)
 
 struct airoha_qdma_desc {
 	__le32 rsv;
@@ -752,8 +769,16 @@ struct airoha_tx_irq_queue {
 	u16 head;
 };
 
+struct airoha_gdm_port {
+	struct net_device *dev;
+	struct airoha_eth *eth;
+	int id;
+
+	u64 *hw_stats;
+};
+
 struct airoha_eth {
-	struct net_device *net_dev;
+	struct device *dev;
 
 	unsigned long state;
 
@@ -767,6 +792,9 @@ struct airoha_eth {
 	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
 	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
 
+	struct airoha_gdm_port *ports[AIROHA_MAX_NUM_GDM_PORTS];
+
+	struct net_device napi_dev;
 	struct airoha_queue q_tx[AIROHA_NUM_TX_RING];
 	struct airoha_queue q_rx[AIROHA_NUM_RX_RING];
 
@@ -778,15 +806,13 @@ struct airoha_eth {
 		void *q;
 	} hfwd;
 
-	u64 *hw_stats;
-
 	struct dentry *debugfs_dir;
 	u32 debugfs_reg;
 };
 
-#define airoha_qdma_for_each_q_rx(eth, i)		\
-	for (i = 0; i < ARRAY_SIZE((eth)->q_rx); i++)	\
-		if ((eth)->q_rx[i].ndesc)
-#define airoha_qdma_for_each_q_tx(eth, i)		\
-	for (i = 0; i < ARRAY_SIZE((eth)->q_tx); i++)	\
-		if ((eth)->q_tx[i].ndesc)
+#define airoha_qdma_for_each_q_rx(eth, i)			\
+	for ((i) = 0; (i) < ARRAY_SIZE((eth)->q_rx); (i)++)	\
+		if ((eth)->q_rx[(i)].ndesc)
+#define airoha_qdma_for_each_q_tx(eth, i)			\
+	for ((i) = 0; (i) < ARRAY_SIZE((eth)->q_tx); (i)++)	\
+		if ((eth)->q_tx[(i)].ndesc)

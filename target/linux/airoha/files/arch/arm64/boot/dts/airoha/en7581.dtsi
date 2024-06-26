@@ -419,11 +419,17 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			phy-mode = "internal";
-			fixed-link {
-				speed = <1000>;
-				full-duplex;
-				pause;
+			gmac0: mac@0 {
+				compatible = "airoha,eth-mac";
+				reg = <0>;
+				phy-mode = "internal";
+				status = "disabled";
+
+				fixed-link {
+					speed = <1000>;
+					full-duplex;
+					pause;
+				};
 			};
 		};
 
@@ -477,7 +483,7 @@
 				port@6 {
 					reg = <6>;
 					label = "cpu";
-					ethernet = <&eth0>;
+					ethernet = <&gmac0>;
 					phy-mode = "internal";
 
 					fixed-link {
