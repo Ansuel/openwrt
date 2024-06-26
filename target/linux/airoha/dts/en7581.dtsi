@@ -242,9 +242,6 @@
 
 			/* 400 kHz */
 			clock-frequency = <400000>;
-			resets = <&scuclk EN7581_I2C_MASTER_RST>;
-			reset-names = "i2c0";
-
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -259,9 +256,6 @@
 
 			/* 400 kHz */
 			clock-frequency = <400000>;
-			resets = <&scuclk EN7581_I2C2_RST>;
-			reset-names = "i2c1";
-
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -293,6 +287,20 @@
 						"airoha,airoha-partitions";
 				};
 			};
+		};
+
+		mmc0: mmc@1fa0e000 {
+			compatible = "mediatek,mt7622-mmc";
+			reg = <0x0 0x1fa0e000 0x0 0x1000>,
+			      <0x0 0x1fa0c000 0x0 0x60>;
+			interrupts = <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>;
+			bus-width = <4>;
+			max-frequency = <52000000>;
+			disable-wp;
+			cap-mmc-highspeed;
+			non-removable;
+
+			status = "disabled";
 		};
 
 		pciephy: phy@1fa5a000 {

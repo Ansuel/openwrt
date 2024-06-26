@@ -1,0 +1,300 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/dts-v1/;
+
+/* Bootloader installs ATF here */
+/memreserve/ 0x80000000 0x200000;
+
+#include <dt-bindings/leds/common.h>
+#include <dt-bindings/gpio/gpio.h>
+#include "en7581.dtsi"
+
+/ {
+	model = "Airoha EN7581 Evaluation Board";
+	compatible = "airoha,en7581-evb", "airoha,en7581";
+
+	aliases {
+		serial0 = &uart1;
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,115200 earlycon";
+		stdout-path = "serial0:115200n8";
+		linux,usable-memory-range = <0x0 0x80200000 0x0 0x1fe00000>;
+	};
+
+	memory@80000000 {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x2 0x00000000>;
+	};
+
+	partition@1fa10000 {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		bootloader@0 {
+			label = "bootloader";
+			reg = <0x00000000 0x00080000>;
+		};
+		romfile@80000 {
+			label = "romfile";
+			reg = <0x00080000 0x00040000>;
+		};
+		tclinux@c0000 {
+			label = "tclinux";
+			reg = <0x000c0000 0x02500000>;
+		};
+		tclinux_slave@25c0000 {
+			label = "tclinux_slave";
+			reg = <0x025c0000 0x02500000>;
+		};
+	};
+
+	partition-nor@1fa10000 {
+		compatible = "fixed-partitions";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		bootloader@0 {
+			label = "bootloader";
+			reg = <0x00000000 0x00080000>;
+		};
+		tclinux@80000 {
+			label = "tclinux";
+			reg = <0x00080000 0x1980000>;
+		};
+		rootfs_data@5080000 {
+			label = "rootfs_data";
+			reg = <0x1980000 0x400000>;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		pwr_led: led-0 {
+			label = "pwr";
+			color = <LED_COLOR_ID_RED>;
+			function = LED_FUNCTION_POWER;
+			gpios = <&pio 17 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		pon_led: led-1 {
+			label = "pon";
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 18 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		los_led: led-2 {
+			label = "los";
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 19 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		internet_led: led-3 {
+			label = "internet";
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 20 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		usb1_led: led-4 {
+			label = "usb1";
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 34 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		usb0_led: led-5 {
+			label = "usb0";
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 35 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+
+		wps_led: led-6 {
+			label = "wps";
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_STATUS;
+			gpios = <&pio 42 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
+	};
+};
+
+&pio {
+	gpio-ranges = <&pio 0 0 8>, <&pio 13 13 47>,
+		      <&pio 61 61 3>;
+
+	i2c1_pins: i2c1-pins {
+		mux {
+			function = "i2c";
+			groups = "i2c1";
+		};
+	};
+
+	pcie0_rst_pins: pcie0-rst-pins {
+		conf {
+			pins = "PCIE_RESET0";
+			drive-open-drain = <1>;
+		};
+	};
+
+	pcie1_rst_pins: pcie1-rst-pins {
+		conf {
+			pins = "PCIE_RESET1";
+			drive-open-drain = <1>;
+		};
+	};
+
+	gswp1_led0_pins: gswp1-led0-pins {
+		mux {
+			function = "led";
+			groups = "lan0_led0";
+		};
+	};
+
+	gswp1_led1_pins: gswp1-led1-pins {
+		mux {
+			function = "led";
+			groups = "lan0_led1";
+		};
+	};
+
+	gswp2_led0_pins: gswp2-led0-pins {
+		mux {
+			function = "led";
+			groups = "lan1_led0";
+		};
+	};
+
+	gswp2_led1_pins: gswp2-led1-pins {
+		mux {
+			function = "led";
+			groups = "lan1_led1";
+		};
+	};
+
+	gswp3_led0_pins: gswp3-led0-pins {
+		mux {
+			function = "led";
+			groups = "lan2_led0";
+		};
+	};
+
+	gswp3_led1_pins: gswp3-led1-pins {
+		mux {
+			function = "led";
+			groups = "lan2_led1";
+		};
+	};
+
+	gswp4_led0_pins: gswp4-led0-pins {
+		mux {
+			function = "led";
+			groups = "lan3_led0";
+		};
+	};
+
+	gswp4_led1_pins: gswp4-led1-pins {
+		mux {
+			function = "led";
+			groups = "lan3_led1";
+		};
+	};
+
+	mmc_pins: mmc-pins {
+		mux {
+			function = "emmc";
+			groups = "emmc";
+		};
+	};
+};
+
+&mmc0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mmc_pins>;
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&i2c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+};
+
+&pcie0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie0_rst_pins>;
+	status = "okay";
+};
+
+&pcie1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pcie1_rst_pins>;
+	status = "okay";
+};
+
+&eth0 {
+	status = "okay";
+};
+
+&gmac0 {
+	status = "okay";
+};
+
+&switch {
+	status = "okay";
+};
+
+&gsw_phy1 {
+	pinctrl-names = "led";
+	pinctrl-0 = <&gswp1_led0_pins>;
+	status = "okay";
+};
+
+&gsw_phy1_led0 {
+	status = "okay";
+};
+
+&gsw_phy2 {
+	pinctrl-names = "led";
+	pinctrl-0 = <&gswp2_led0_pins>;
+	status = "okay";
+};
+
+&gsw_phy2_led0 {
+	status = "okay";
+};
+
+&gsw_phy3 {
+	pinctrl-names = "led";
+	pinctrl-0 = <&gswp3_led0_pins>;
+	status = "okay";
+};
+
+&gsw_phy3_led0 {
+	status = "okay";
+};
+
+&gsw_phy4 {
+	pinctrl-names = "led";
+	pinctrl-0 = <&gswp4_led0_pins>;
+	status = "okay";
+};
+
+&gsw_phy4_led0 {
+	status = "okay";
+};
