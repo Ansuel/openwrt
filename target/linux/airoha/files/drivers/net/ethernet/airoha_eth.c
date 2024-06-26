@@ -179,12 +179,10 @@ static void airoha_fe_maccr_init(struct airoha_eth *eth)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(eth->ports); i++) {
-		if (!eth->ports[i])
-			continue;
-
 		airoha_fe_set(eth, REG_GDM_FWD_CFG(i),
 			      GDM_TCP_CKSUM | GDM_UDP_CKSUM | GDM_IP4_CKSUM |
-			      GDM_DROP_CRC_ERR | FE_DP_CPU);
+			      GDM_DROP_CRC_ERR);
+		airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(i), FE_DP_CPU);
 		airoha_fe_rmw(eth, REG_GDM_LEN_CFG(i),
 			      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
 			      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
@@ -193,10 +191,10 @@ static void airoha_fe_maccr_init(struct airoha_eth *eth)
 
 	/* Enable Rx DSA tagging for GDM1 */
 	airoha_fe_set(eth, REG_GDM_INGRESS_CFG(0), GDM_STAG_EN_MASK);
-
-	airoha_fe_set(eth, REG_FE_CPORT_CFG, FE_CPORT_PAD);
 	airoha_fe_rmw(eth, REG_CDM1_VLAN_CTRL, CDM1_VLAN_MASK,
 		      FIELD_PREP(CDM1_VLAN_MASK, 0x8100));
+
+	airoha_fe_set(eth, REG_FE_CPORT_CFG, FE_CPORT_PAD);
 }
 
 static void airoha_fe_vip_setup(struct airoha_eth *eth)
