@@ -660,15 +660,19 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 		if (!len)
 			break;
 
-		p = airoha_qdma_get_gdm_port_id(eth, desc);
-		if (p < 0)
-			break;
-
 		q->tail = (q->tail + 1) % q->ndesc;
 		q->queued--;
 
 		dma_sync_single_for_cpu(eth->dev, dma_addr,
 					SKB_WITH_OVERHEAD(q->buf_size), dir);
+
+		p = airoha_qdma_get_gdm_port_id(eth, desc);
+		if (p < 0) {
+			page_pool_put_full_page(q->page_pool,
+						virt_to_head_page(e->buf),
+						true);
+			continue;
+		}
 
 		skb = napi_build_skb(e->buf, q->buf_size);
 		if (!skb) {
