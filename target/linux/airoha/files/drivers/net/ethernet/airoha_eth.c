@@ -614,6 +614,26 @@ static int airoha_qdma_fill_rx_queue(struct airoha_queue *q)
 	return nframes;
 }
 
+static int airoha_qdma_get_gdm_port_id(struct airoha_eth *eth,
+				       struct airoha_qdma_desc *desc)
+{
+	u32 port, sport, msg1 = le32_to_cpu(desc->msg1);
+
+	sport = FIELD_GET(QDMA_ETH_RXMSG_SPORT_MASK, msg1);
+	switch (sport) {
+	case 0x10 ... 0x13:
+		port = 0;
+		break;
+	case 0x2 ... 0x4:
+		port = sport - 1;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return port >= ARRAY_SIZE(eth->ports) ? -EINVAL : port;
+}
+
 static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 {
 	enum dma_data_direction dir = page_pool_get_dma_dir(q->page_pool);
@@ -628,7 +648,7 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 		u32 desc_ctrl = le32_to_cpu(desc->ctrl);
 		struct airoha_gdm_port *port;
 		struct sk_buff *skb;
-		int len, p = 0; /* FIXME */
+		int len, p;
 
 		if (!(desc_ctrl & QDMA_DESC_DONE_MASK))
 			break;
@@ -638,6 +658,10 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
 
 		len = FIELD_GET(QDMA_DESC_LEN_MASK, desc_ctrl);
 		if (!len)
+			break;
+
+		p = airoha_qdma_get_gdm_port_id(eth, desc);
+		if (p < 0)
 			break;
 
 		q->tail = (q->tail + 1) % q->ndesc;
