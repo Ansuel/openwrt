@@ -583,12 +583,9 @@ static void en7523_register_clocks(struct device *dev, struct clk_hw_onecell_dat
 static int en7523_reset_update(struct reset_controller_dev *rcdev,
 			       unsigned long id, bool assert)
 {
-	struct en_rst_data *rst_data;
-	void __iomem *addr;
+	struct en_rst_data *rst_data = container_of(rcdev, struct en_rst_data, rcdev);
+	void __iomem *addr = rst_data->base + rst_data->bank_ofs[id / RST_NR_PER_BANK];
 	u32 val;
-
-	rst_data = container_of(rcdev, struct en_rst_data, rcdev);
-	addr = rst_data->base + rst_data->bank_ofs[id / RST_NR_PER_BANK];
 
 	val = readl(addr);
 	if (assert)
@@ -615,11 +612,8 @@ static int en7523_reset_deassert(struct reset_controller_dev *rcdev,
 static int en7523_reset_status(struct reset_controller_dev *rcdev,
 			       unsigned long id)
 {
-	struct en_rst_data *rst_data;
-	void __iomem *addr;
-
-	rst_data = container_of(rcdev, struct en_rst_data, rcdev);
-	addr = rst_data->base + rst_data->bank_ofs[id / RST_NR_PER_BANK];
+	struct en_rst_data *rst_data = container_of(rcdev, struct en_rst_data, rcdev);
+	void __iomem *addr = rst_data->base + rst_data->bank_ofs[id / RST_NR_PER_BANK];
 
 	return !!(readl(addr) & BIT(id % RST_NR_PER_BANK));
 }
@@ -627,9 +621,8 @@ static int en7523_reset_status(struct reset_controller_dev *rcdev,
 static int en7523_reset_xlate(struct reset_controller_dev *rcdev,
 			      const struct of_phandle_args *reset_spec)
 {
-	struct en_rst_data *rst_data;
+	struct en_rst_data *rst_data = container_of(rcdev, struct en_rst_data, rcdev);
 
-	rst_data = container_of(rcdev, struct en_rst_data, rcdev);
 	if (reset_spec->args[0] >= rcdev->nr_resets)
 		return -EINVAL;
 
@@ -708,20 +701,15 @@ static int en7523_clk_probe(struct platform_device *pdev)
 	en7523_register_clocks(&pdev->dev, clk_data, base, np_base);
 
 	r = of_clk_add_hw_provider(node, of_clk_hw_onecell_get, clk_data);
-	if (r) {
-		dev_err(&pdev->dev,
-			"could not register clock provider: %s: %d\n",
-			pdev->name, r);
-		return r;
-	}
+	if (r)
+		return dev_err_probe(&pdev->dev, r, "Could not register clock provider: %s\n",
+				     pdev->name);
 
 	r = en7523_reset_register(pdev, soc_data);
 	if (r) {
-		dev_err(&pdev->dev,
-			"could not register reset controller: %s: %d\n",
-			pdev->name, r);
 		of_clk_del_provider(node);
-		return r;
+		return dev_err_probe(&pdev->dev, r, "Could not register reset controller: %s\n",
+				     pdev->name);
 	}
 
 	return 0;
