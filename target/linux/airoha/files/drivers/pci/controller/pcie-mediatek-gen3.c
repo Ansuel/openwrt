@@ -16,14 +16,14 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/msi.h>
+#include <linux/of_device.h>
+#include <linux/of_pci.h>
 #include <linux/pci.h>
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/reset.h>
-#include <linux/of_pci.h>
-#include <linux/of_device.h>
 
 #include "../pci.h"
 
@@ -105,20 +105,30 @@
 #define PCIE_ATR_TLP_TYPE_MEM		PCIE_ATR_TLP_TYPE(0)
 #define PCIE_ATR_TLP_TYPE_IO		PCIE_ATR_TLP_TYPE(2)
 
-#define MAX_NUM_PHY_RSTS		3
+/* EN7581 */
+#define PCIE_PEXTP_DIG_GLB44_P0_REG	0x10044
+#define PCIE_PEXTP_DIG_LN_RX30_P0_REG	0x15030
+#define PCIE_PEXTP_DIG_LN_RX30_P1_REG	0x15130
+
+/* PCIe-PHY initialization delay in ms */
+#define PHY_INIT_TIME_MS		30
+/* PCIe reset line delay in ms */
+#define PCIE_RESET_TIME_MS		100
+
+#define MAX_NUM_PHY_RESETS		3
 
 struct mtk_gen3_pcie;
 
 /**
- * struct mtk_pcie_soc - differentiate between host generations
+ * struct mtk_gen3_pcie_pdata - differentiate between host generations
  * @power_up: pcie power_up callback
  * @phy_resets: phy reset lines SoC data.
  */
-struct mtk_pcie_soc {
+struct mtk_gen3_pcie_pdata {
 	int (*power_up)(struct mtk_gen3_pcie *pcie);
 	struct {
-		const char *id[MAX_NUM_PHY_RSTS];
-		int num_rsts;
+		const char *id[MAX_NUM_PHY_RESETS];
+		int num_resets;
 	} phy_resets;
 };
 
@@ -160,7 +170,7 @@ struct mtk_gen3_pcie {
 	void __iomem *base;
 	phys_addr_t reg_base;
 	struct reset_control *mac_reset;
-	struct reset_control_bulk_data phy_resets[MAX_NUM_PHY_RSTS];
+	struct reset_control_bulk_data phy_resets[MAX_NUM_PHY_RESETS];
 	struct phy *phy;
 	struct clk_bulk_data *clks;
 	int num_clks;
@@ -175,7 +185,7 @@ struct mtk_gen3_pcie {
 	struct mutex lock;
 	DECLARE_BITMAP(msi_irq_in_use, PCIE_MSI_IRQS_NUM);
 
-	const struct mtk_pcie_soc *soc;
+	const struct mtk_gen3_pcie_pdata *soc;
 };
 
 /* LTSSM state in PCIE_LTSSM_STATUS_REG bit[28:24] */
@@ -785,9 +795,9 @@ static int mtk_pcie_setup_irq(struct mtk_gen3_pcie *pcie)
 
 static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
 {
+	int i, ret, num_resets = pcie->soc->phy_resets.num_resets;
 	struct device *dev = pcie->dev;
 	struct platform_device *pdev = to_platform_device(dev);
-	int i, ret, num_rsts = pcie->soc->phy_resets.num_rsts;
 	struct resource *regs;
 
 	regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pcie-mac");
@@ -801,11 +811,10 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
 
 	pcie->reg_base = regs->start;
 
-	for (i = 0; i < num_rsts; i++)
+	for (i = 0; i < num_resets; i++)
 		pcie->phy_resets[i].id = pcie->soc->phy_resets.id[i];
 
-	ret = devm_reset_control_bulk_get_optional_shared(dev, num_rsts,
-							  pcie->phy_resets);
+	ret = devm_reset_control_bulk_get_optional_shared(dev, num_resets, pcie->phy_resets);
 	if (ret) {
 		dev_err(dev, "failed to get PHY bulk reset\n");
 		return ret;
@@ -843,16 +852,21 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
 	struct device *dev = pcie->dev;
 	int err;
 
-	writel_relaxed(0x23020133, pcie->base + 0x10044);
-	writel_relaxed(0x50500032, pcie->base + 0x15030);
-	writel_relaxed(0x50500032, pcie->base + 0x15130);
+	/* Wait for bulk assert completion in mtk_pcie_setup */
+	mdelay(PCIE_RESET_TIME_MS);
+
+	/* Setup Tx-Rx detect time */
+	writel_relaxed(0x23020133, pcie->base + PCIE_PEXTP_DIG_GLB44_P0_REG);
+	/* Setup Rx AEQ training time */
+	writel_relaxed(0x50500032, pcie->base + PCIE_PEXTP_DIG_LN_RX30_P0_REG);
+	writel_relaxed(0x50500032, pcie->base + PCIE_PEXTP_DIG_LN_RX30_P1_REG);
 
 	err = phy_init(pcie->phy);
 	if (err) {
 		dev_err(dev, "failed to initialize PHY\n");
 		return err;
 	}
-	mdelay(30);
+	mdelay(PHY_INIT_TIME_MS);
 
 	err = phy_power_on(pcie->phy);
 	if (err) {
@@ -860,13 +874,12 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
 		goto err_phy_on;
 	}
 
-	err = reset_control_bulk_deassert(pcie->soc->phy_resets.num_rsts,
-					  pcie->phy_resets);
+	err = reset_control_bulk_deassert(pcie->soc->phy_resets.num_resets, pcie->phy_resets);
 	if (err) {
 		dev_err(dev, "failed to deassert PHYs\n");
 		goto err_phy_deassert;
 	}
-	usleep_range(5000, 10000);
+	mdelay(PCIE_RESET_TIME_MS);
 
 	pm_runtime_enable(dev);
 	pm_runtime_get_sync(dev);
@@ -879,7 +892,6 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
 
 	writel_relaxed(0x41474147, pcie->base + PCIE_EQ_PRESET_01_REF);
 	writel_relaxed(0x1018020f, pcie->base + PCIE_PIPE4_PIE8_REG);
-	mdelay(10);
 
 	err = clk_bulk_enable(pcie->num_clks, pcie->clks);
 	if (err) {
@@ -894,8 +906,7 @@ err_clk_enable:
 err_clk_prepare:
 	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
-	reset_control_bulk_assert(pcie->soc->phy_resets.num_rsts,
-				  pcie->phy_resets);
+	reset_control_bulk_assert(pcie->soc->phy_resets.num_resets, pcie->phy_resets);
 err_phy_deassert:
 	phy_power_off(pcie->phy);
 err_phy_on:
@@ -910,8 +921,7 @@ static int mtk_pcie_power_up(struct mtk_gen3_pcie *pcie)
 	int err;
 
 	/* PHY power on and enable pipe clock */
-	err = reset_control_bulk_deassert(pcie->soc->phy_resets.num_rsts,
-					  pcie->phy_resets);
+	err = reset_control_bulk_deassert(pcie->soc->phy_resets.num_resets, pcie->phy_resets);
 	if (err) {
 		dev_err(dev, "failed to deassert PHYs\n");
 		return err;
@@ -951,8 +961,7 @@ err_clk_init:
 err_phy_on:
 	phy_exit(pcie->phy);
 err_phy_init:
-	reset_control_bulk_assert(pcie->soc->phy_resets.num_rsts,
-				  pcie->phy_resets);
+	reset_control_bulk_assert(pcie->soc->phy_resets.num_resets, pcie->phy_resets);
 
 	return err;
 }
@@ -967,8 +976,7 @@ static void mtk_pcie_power_down(struct mtk_gen3_pcie *pcie)
 
 	phy_power_off(pcie->phy);
 	phy_exit(pcie->phy);
-	reset_control_bulk_assert(pcie->soc->phy_resets.num_rsts,
-				  pcie->phy_resets);
+	reset_control_bulk_assert(pcie->soc->phy_resets.num_resets, pcie->phy_resets);
 }
 
 static int mtk_pcie_setup(struct mtk_gen3_pcie *pcie)
@@ -980,15 +988,15 @@ static int mtk_pcie_setup(struct mtk_gen3_pcie *pcie)
 		return err;
 
 	/*
+	 * Deassert the line in order to avoid unbalance in deassert_count
+	 * counter since the bulk is shared.
+	 */
+	reset_control_bulk_deassert(pcie->soc->phy_resets.num_resets, pcie->phy_resets);
+	/*
 	 * The controller may have been left out of reset by the bootloader
 	 * so make sure that we get a clean start by asserting resets here.
 	 */
-	reset_control_bulk_deassert(pcie->soc->phy_resets.num_rsts,
-				    pcie->phy_resets);
-	usleep_range(5000, 10000);
-	reset_control_bulk_assert(pcie->soc->phy_resets.num_rsts,
-				  pcie->phy_resets);
-	msleep(100);
+	reset_control_bulk_assert(pcie->soc->phy_resets.num_resets, pcie->phy_resets);
 
 	reset_control_assert(pcie->mac_reset);
 	usleep_range(10, 20);
@@ -1029,7 +1037,7 @@ static int mtk_pcie_probe(struct platform_device *pdev)
 	pcie = pci_host_bridge_priv(host);
 
 	pcie->dev = dev;
-	pcie->soc = of_device_get_match_data(dev);
+	pcie->soc = device_get_match_data(dev);
 	platform_set_drvdata(pdev, pcie);
 
 	err = mtk_pcie_setup(pcie);
@@ -1167,21 +1175,21 @@ static const struct dev_pm_ops mtk_pcie_pm_ops = {
 				  mtk_pcie_resume_noirq)
 };
 
-static const struct mtk_pcie_soc mtk_pcie_soc_mt8192 = {
+static const struct mtk_gen3_pcie_pdata mtk_pcie_soc_mt8192 = {
 	.power_up = mtk_pcie_power_up,
 	.phy_resets = {
 		.id[0] = "phy",
-		.num_rsts = 1,
+		.num_resets = 1,
 	},
 };
 
-static const struct mtk_pcie_soc mtk_pcie_soc_en7581 = {
+static const struct mtk_gen3_pcie_pdata mtk_pcie_soc_en7581 = {
 	.power_up = mtk_pcie_en7581_power_up,
 	.phy_resets = {
 		.id[0] = "phy-lane0",
 		.id[1] = "phy-lane1",
 		.id[2] = "phy-lane2",
-		.num_rsts = 3,
+		.num_resets = 3,
 	},
 };
 
