@@ -13,6 +13,7 @@
 #include <linux/platform_device.h>
 #include <linux/reset.h>
 #include <linux/tcp.h>
+#include <net/dsa.h>
 #include <net/page_pool.h>
 #include <uapi/linux/ppp_defs.h>
 #include "airoha_eth.h"
@@ -189,8 +190,6 @@ static void airoha_fe_maccr_init(struct airoha_eth *eth)
 			      FIELD_PREP(GDM_LONG_LEN_MASK, 4004));
 	}
 
-	/* Enable Rx DSA tagging for GDM1 */
-	airoha_fe_set(eth, REG_GDM_INGRESS_CFG(0), GDM_STAG_EN_MASK);
 	airoha_fe_rmw(eth, REG_CDM1_VLAN_CTRL, CDM1_VLAN_MASK,
 		      FIELD_PREP(CDM1_VLAN_MASK, 0x8100));
 
@@ -606,7 +605,6 @@ static int airoha_qdma_fill_rx_queue(struct airoha_queue *q)
 		WRITE_ONCE(desc->msg2, 0);
 		WRITE_ONCE(desc->msg3, 0);
 
-		wmb();
 		airoha_qdma_rmw(eth, REG_RX_CPU_IDX(qid), RX_RING_CPU_IDX_MASK,
 				FIELD_PREP(RX_RING_CPU_IDX_MASK, q->head));
 	}
@@ -773,7 +771,7 @@ static int airoha_qdma_init_rx_queue(struct airoha_eth *eth,
 	return 0;
 }
 
-static void airoha_qdma_clenaup_rx_queue(struct airoha_queue *q)
+static void airoha_qdma_cleanup_rx_queue(struct airoha_queue *q)
 {
 	enum dma_data_direction dir = page_pool_get_dma_dir(q->page_pool);
 	struct airoha_eth *eth = q->eth;
@@ -993,7 +991,7 @@ static int airoha_qdma_init_tx(struct airoha_eth *eth)
 	return 0;
 }
 
-static void airoha_qdma_clenaup_tx_queue(struct airoha_queue *q)
+static void airoha_qdma_cleanup_tx_queue(struct airoha_queue *q)
 {
 	struct airoha_eth *eth = q->eth;
 
@@ -1251,7 +1249,7 @@ static void airoha_hw_cleanup(struct airoha_eth *eth)
 		struct airoha_queue *q = &eth->q_rx[i];
 
 		netif_napi_del(&q->napi);
-		airoha_qdma_clenaup_rx_queue(q);
+		airoha_qdma_cleanup_rx_queue(q);
 		if (q->page_pool)
 			page_pool_destroy(q->page_pool);
 	}
@@ -1260,7 +1258,7 @@ static void airoha_hw_cleanup(struct airoha_eth *eth)
 		netif_napi_del(&eth->q_tx_irq[i].napi);
 
 	airoha_qdma_for_each_q_tx(eth, i)
-		airoha_qdma_clenaup_tx_queue(&eth->q_tx[i]);
+		airoha_qdma_cleanup_tx_queue(&eth->q_tx[i]);
 }
 
 static void airoha_qdma_start_napi(struct airoha_eth *eth)
@@ -1284,6 +1282,13 @@ static int airoha_dev_open(struct net_device *dev)
 	err = airoha_set_gdm_ports(eth, true);
 	if (err)
 		return err;
+
+	if (netdev_uses_dsa(dev))
+		airoha_fe_set(eth, REG_GDM_INGRESS_CFG(port->id),
+			      GDM_STAG_EN_MASK);
+	else
+		airoha_fe_clear(eth, REG_GDM_INGRESS_CFG(port->id),
+				GDM_STAG_EN_MASK);
 
 	airoha_qdma_set(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_TX_DMA_EN_MASK);
 	airoha_qdma_set(eth, REG_QDMA_GLOBAL_CFG, GLOBAL_CFG_RX_DMA_EN_MASK);
@@ -1357,7 +1362,9 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 			goto error;
 
 		if (sinfo->gso_type & (SKB_GSO_TCPV4 | SKB_GSO_TCPV6)) {
-			tcp_hdr(skb)->check = cpu_to_be16(sinfo->gso_size);
+			__be16 csum = cpu_to_be16(sinfo->gso_size);
+
+			tcp_hdr(skb)->check = (__force __sum16)csum;
 			msg0 |= FIELD_PREP(QDMA_ETH_TXMSG_TSO_MASK, 1);
 		}
 	}
@@ -1412,7 +1419,6 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
 		e->dma_addr = addr;
 		e->dma_len = len;
 
-		wmb();
 		airoha_qdma_rmw(eth, REG_TX_CPU_IDX(qid), TX_RING_CPU_IDX_MASK,
 				FIELD_PREP(TX_RING_CPU_IDX_MASK, index));
 
@@ -1897,10 +1903,8 @@ static int airoha_probe(struct platform_device *pdev)
 
 	spin_lock_init(&eth->irq_lock);
 	eth->irq = platform_get_irq(pdev, 0);
-	if (eth->irq < 0) {
-		dev_err(eth->dev, "failed reading irq line\n");
+	if (eth->irq < 0)
 		return eth->irq;
-	}
 
 	init_dummy_netdev(&eth->napi_dev);
 	platform_set_drvdata(pdev, eth);
@@ -1959,7 +1963,7 @@ static void airoha_remove(struct platform_device *pdev)
 	platform_set_drvdata(pdev, NULL);
 }
 
-const struct of_device_id of_airoha_match[] = {
+static const struct of_device_id of_airoha_match[] = {
 	{ .compatible = "airoha,en7581-eth" },
 	{ /* sentinel */ }
 };
