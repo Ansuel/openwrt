@@ -427,9 +427,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			gmac0: mac@0 {
+			gdm1: mac@1 {
 				compatible = "airoha,eth-mac";
-				reg = <0>;
+				reg = <1>;
 				phy-mode = "internal";
 				status = "disabled";
 
@@ -491,7 +491,7 @@
 				port@6 {
 					reg = <6>;
 					label = "cpu";
-					ethernet = <&gmac0>;
+					ethernet = <&gdm1>;
 					phy-mode = "internal";
 
 					fixed-link {

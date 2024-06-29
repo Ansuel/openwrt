@@ -251,7 +251,7 @@
 	status = "okay";
 };
 
-&gmac0 {
+&gdm1 {
 	status = "okay";
 };
 
