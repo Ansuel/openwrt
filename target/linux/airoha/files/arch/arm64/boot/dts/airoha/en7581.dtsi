@@ -307,8 +307,13 @@
 			compatible = "airoha,en7581-pcie-phy";
 			reg = <0x0 0x1fa5a000 0x0 0xfff>,
 			      <0x0 0x1fa5b000 0x0 0xfff>,
-			      <0x0 0x1fa5c000 0x0 0xfff>;
-			reg-names = "csr-2l", "pma0", "pma1";
+			      <0x0 0x1fa5c000 0x0 0xfff>,
+			      <0x0 0x1fc10044 0x0 0x4>,
+			      <0x0 0x1fc30044 0x0 0x4>,
+			      <0x0 0x1fc15030 0x0 0x104>;
+			reg-names = "csr-2l", "pma0", "pma1",
+				    "p0-xr-dtime", "p1-xr-dtime",
+				    "rx-aeq";
 			#phy-cells = <0>;
 		};
 
@@ -318,7 +323,7 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 
-			reg = <0x0 0x1fc00000 0x0 0x20000>;
+			reg = <0x0 0x1fc00000 0x0 0x1670>;
 			reg-names = "pcie-mac";
 
 			clocks = <&scuclk EN7523_CLK_PCIE>;
@@ -358,7 +363,7 @@
 			#address-cells = <3>;
 			#size-cells = <2>;
 
-			reg = <0x0 0x1fc20000 0x0 0x20000>;
+			reg = <0x0 0x1fc20000 0x0 0x1670>;
 			reg-names = "pcie-mac";
 
 			clocks = <&scuclk EN7523_CLK_PCIE>;
