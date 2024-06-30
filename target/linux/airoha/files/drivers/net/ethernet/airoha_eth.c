@@ -2251,7 +2251,7 @@ error:
 	return NETDEV_TX_OK;
 }
 
-static const char *airoha_ethtool_stats_name[] = {
+static const char * const airoha_ethtool_stats_name[] = {
 	"tx_eth_pkt_cnt",
 	"tx_eth_byte_cnt",
 	"tx_ok_pkt_cnt",
@@ -2356,6 +2356,11 @@ static void airoha_update_hw_stats(struct airoha_gdm_port *port)
 	val = airoha_fe_rr(eth, REG_FE_GDM_TX_ETH_E64_CNT_L(port->id));
 	port->hw_stats[i++] += val;
 
+	val = airoha_fe_rr(eth, REG_FE_GDM_TX_ETH_L64_CNT_H(port->id));
+	port->hw_stats[i] += ((u64)val << 32);
+	val = airoha_fe_rr(eth, REG_FE_GDM_TX_ETH_L64_CNT_L(port->id));
+	port->hw_stats[i++] += val;
+
 	val = airoha_fe_rr(eth, REG_FE_GDM_TX_ETH_L127_CNT_H(port->id));
 	port->hw_stats[i] += ((u64)val << 32);
 	val = airoha_fe_rr(eth, REG_FE_GDM_TX_ETH_L127_CNT_L(port->id));
@@ -2424,6 +2429,11 @@ static void airoha_update_hw_stats(struct airoha_gdm_port *port)
 	val = airoha_fe_rr(eth, REG_FE_GDM_RX_ETH_E64_CNT_H(port->id));
 	port->hw_stats[i] += ((u64)val << 32);
 	val = airoha_fe_rr(eth, REG_FE_GDM_RX_ETH_E64_CNT_L(port->id));
+	port->hw_stats[i++] += val;
+
+	val = airoha_fe_rr(eth, REG_FE_GDM_RX_ETH_L64_CNT_H(port->id));
+	port->hw_stats[i] += ((u64)val << 32);
+	val = airoha_fe_rr(eth, REG_FE_GDM_RX_ETH_L64_CNT_L(port->id));
 	port->hw_stats[i++] += val;
 
 	val = airoha_fe_rr(eth, REG_FE_GDM_RX_ETH_L127_CNT_H(port->id));
@@ -2720,7 +2730,7 @@ static int airoha_probe(struct platform_device *pdev)
 	init_dummy_netdev(&eth->napi_dev);
 	/* Enable threaded NAPI by default */
 	eth->napi_dev.threaded = true;
-	strcpy(eth->napi_dev.name, "qdma_eth");
+	strscpy(eth->napi_dev.name, "qdma_eth", sizeof(eth->napi_dev.name));
 	platform_set_drvdata(pdev, eth);
 
 	err = airoha_hw_init(eth);
