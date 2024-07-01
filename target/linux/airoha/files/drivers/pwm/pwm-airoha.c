@@ -19,28 +19,26 @@ struct duty_period_bucket {
 	u32 period;		/* In 1/250 s, 1-250 permitted */
 };
 
-struct en7523_sipo {
+struct airoha_sipo {
 	void __iomem *flash_mode_cfg;
 	void __iomem *flash_map_cfg[3];
 	void __iomem *led_data;
 	void __iomem *clk_divr;
 	void __iomem *clk_dly;
-	struct gpio_desc *oe_gpio;
 	u8 clk_divr_val;
 	u8 clk_dly_val;
 	bool hc74595;
 };
 
-struct en7523_pwm {
+struct airoha_pwm {
 	struct pwm_chip chip;
 	struct mutex mutex;
 	struct duty_period_bucket bucket[8];
 	u64 initialized;
-//	void __iomem *flash_mode_cfg;
 	void __iomem *flash_prd_set[4];
 	void __iomem *flash_map_cfg[2];
 	void __iomem *cycle_cfg_value[2];
-	struct en7523_sipo sipo;
+	struct airoha_sipo sipo;
 };
 
 /*
@@ -65,7 +63,7 @@ struct en7523_pwm {
 #define PERIOD_MIN   1
 #define PERIOD_MAX 250
 
-static inline int find_waveform_index(struct en7523_pwm *pc, u32 duty, u32 period)
+static inline int find_waveform_index(struct airoha_pwm *pc, u32 duty, u32 period)
 {
 	int i = 0;
 
@@ -86,7 +84,7 @@ static inline int find_waveform_index(struct en7523_pwm *pc, u32 duty, u32 perio
 	return -1;
 }
 
-static inline void free_waveform(struct en7523_pwm *pc, unsigned int hwpwm)
+static inline void free_waveform(struct airoha_pwm *pc, unsigned int hwpwm)
 {
 	int i = 0;
 
@@ -94,7 +92,7 @@ static inline void free_waveform(struct en7523_pwm *pc, unsigned int hwpwm)
 		pc->bucket[i].used &= ~BIT_ULL(hwpwm);
 }
 
-static inline int find_unused_waveform(struct en7523_pwm *pc, unsigned int hwpwm)
+static inline int find_unused_waveform(struct airoha_pwm *pc, unsigned int hwpwm)
 {
 	int i = 0;
 
@@ -105,7 +103,7 @@ static inline int find_unused_waveform(struct en7523_pwm *pc, unsigned int hwpwm
 	return -1;
 }
 
-static inline int use_waveform(struct en7523_pwm *pc, u32 duty, u32 period, unsigned int hwpwm)
+static inline int use_waveform(struct airoha_pwm *pc, u32 duty, u32 period, unsigned int hwpwm)
 {
 	int exists = find_waveform_index(pc, duty, period);
 
@@ -124,9 +122,9 @@ static inline int use_waveform(struct en7523_pwm *pc, u32 duty, u32 period, unsi
 	return exists;
 }
 
-static inline struct en7523_pwm *to_en7523_pwm(struct pwm_chip *chip)
+static inline struct airoha_pwm *to_airoha_pwm(struct pwm_chip *chip)
 {
-	return container_of(chip, struct en7523_pwm, chip);
+	return container_of(chip, struct airoha_pwm, chip);
 }
 
 static inline u32 wait_clear_and_read(void __iomem *reg, u32 mask)
@@ -140,7 +138,7 @@ static inline u32 wait_clear_and_read(void __iomem *reg, u32 mask)
 	return value;
 }
 
-static void en7523_sipo_init(struct en7523_pwm *pc)
+static void airoha_sipo_init(struct airoha_pwm *pc)
 {
 	u32 value = 0;
 
@@ -173,7 +171,7 @@ static void en7523_sipo_init(struct en7523_pwm *pc)
 	writel(value, pc->sipo.flash_mode_cfg);
 }
 
-static void en7523_sipo_deinit(struct en7523_pwm *pc)
+static void airoha_sipo_deinit(struct airoha_pwm *pc)
 {
 	u32 value = 0;
 
@@ -183,7 +181,7 @@ static void en7523_sipo_deinit(struct en7523_pwm *pc)
 	writel(value, pc->sipo.flash_mode_cfg);
 }
 
-static void en7523_pwm_config_waveform(struct en7523_pwm *pc, int index, u32 duty, u32 period)
+static void airoha_pwm_config_waveform(struct airoha_pwm *pc, int index, u32 duty, u32 period)
 {
 	u32 value = 0;
 	u32 bit_shift = 0;
@@ -227,7 +225,7 @@ static void en7523_pwm_config_waveform(struct en7523_pwm *pc, int index, u32 dut
 	writel(value, reg);
 }
 
-static void en7523_pwm_config_flash_map(struct en7523_pwm *pc, unsigned int hwpwm, int index)
+static void airoha_pwm_config_flash_map(struct airoha_pwm *pc, unsigned int hwpwm, int index)
 {
 	u32 value = 0;
 	u32 bit_shift = 0;
@@ -251,9 +249,11 @@ static void en7523_pwm_config_flash_map(struct en7523_pwm *pc, unsigned int hwpw
 		case 8 ... 15:
 			reg = pc->sipo.flash_map_cfg[1];
 			break;
-		default:
+		case 16:
 			reg = pc->sipo.flash_map_cfg[2];
 			break;
+		default:
+			return;
 		}
 	}
 	bit_shift = (4 * (hwpwm % 8));
@@ -271,7 +271,7 @@ static void en7523_pwm_config_flash_map(struct en7523_pwm *pc, unsigned int hwpw
 	writel(value, reg);
 }
 
-static int en7523_pwm_config(struct en7523_pwm *pc, struct pwm_device *pwm,
+static int airoha_pwm_config(struct airoha_pwm *pc, struct pwm_device *pwm,
 			     u64 duty_ns, u64 period_ns, enum pwm_polarity polarity)
 {
 	u32 duty = clamp_val(div64_u64(DUTY_FULL * duty_ns, period_ns), 0, DUTY_FULL);
@@ -290,79 +290,40 @@ static int en7523_pwm_config(struct en7523_pwm *pc, struct pwm_device *pwm,
 
 	if ((pc->initialized & BIT_ULL(pwm->hwpwm)) == 0) {
 		if (pwm->hwpwm < PWM_NUM_GPIO) {
-// 			u32 value = 0;
-
-			/* Configure GPIO pin as PWM mode */
-// 			value = readl(pc->flash_mode_cfg);
-// 			value |= BIT(pwm->hwpwm);
-// 			writel(value, pc->flash_mode_cfg);
 		} else if ((pc->initialized >> PWM_NUM_GPIO) == 0)
-			en7523_sipo_init(pc);
+			airoha_sipo_init(pc);
 	}
 
 	if (index == -1) {
-		en7523_pwm_config_flash_map(pc, pwm->hwpwm, -1);
+		airoha_pwm_config_flash_map(pc, pwm->hwpwm, -1);
 		free_waveform(pc, pwm->hwpwm);
 	} else {
-		en7523_pwm_config_waveform(pc, index, duty, period);
-		en7523_pwm_config_flash_map(pc, pwm->hwpwm, index);
+		airoha_pwm_config_waveform(pc, index, duty, period);
+		airoha_pwm_config_flash_map(pc, pwm->hwpwm, index);
 	}
 
 	if (pc->initialized & BIT_ULL(pwm->hwpwm))
 		return 0;
-
-	if (pwm->hwpwm < PWM_NUM_GPIO) {
-//		gpio_direction_output(pwm->hwpwm, 0);
-	} else if (pc->sipo.oe_gpio && (pc->initialized >> PWM_NUM_GPIO) == 0)
-		gpiod_direction_output(pc->sipo.oe_gpio, 1);
 
 	pc->initialized |= BIT_ULL(pwm->hwpwm);
 
 	return 0;
 }
 
-static int en7523_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
+static void airoha_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	int ret = 0;
-
-// 	if (pwm->hwpwm < PWM_NUM_GPIO)
-// 		ret = gpio_request(pwm->hwpwm, dev_name(chip->dev));
-
-	if (ret)
-		dev_err(chip->dev, "%s: Failed to request PWM: %d\n", pwm->label, ret);
-
-	return ret;
-}
-
-static void en7523_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
-{
-	struct en7523_pwm *pc = to_en7523_pwm(chip);
+	struct airoha_pwm *pc = to_airoha_pwm(chip);
 
 	mutex_lock(&pc->mutex);
 
 	pc->initialized &= ~BIT_ULL(pwm->hwpwm);
 
-	if (pwm->hwpwm < PWM_NUM_GPIO) {
-// 		gpio_direction_input(pwm->hwpwm);
-	} else if (pc->sipo.oe_gpio && (pc->initialized >> PWM_NUM_GPIO) == 0)
-		gpiod_direction_input(pc->sipo.oe_gpio);
-
 	/* Disable PWM and release the waveform */
-	en7523_pwm_config_flash_map(pc, pwm->hwpwm, -1);
+	airoha_pwm_config_flash_map(pc, pwm->hwpwm, -1);
 	free_waveform(pc, pwm->hwpwm);
 
-	if (pwm->hwpwm < PWM_NUM_GPIO) {
-// 		u32 value = 0;
-
-// 		/* Configure as GPIO mode */
-// 		value = readl(pc->flash_mode_cfg);
-// 		value &= ~BIT(pwm->hwpwm);
-// 		writel(value, pc->flash_mode_cfg);
-
-		/* Release the GPIO pin */
-// 		gpio_free(pwm->hwpwm);
-	} else if ((pc->initialized >> PWM_NUM_GPIO) == 0)
-		en7523_sipo_deinit(pc);
+	if ((pc->initialized >> PWM_NUM_GPIO) == 0)
+		airoha_sipo_deinit(pc);
 
 	mutex_unlock(&pc->mutex);
 
@@ -372,10 +333,10 @@ static void en7523_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
 	memset(&pwm->state, 0, sizeof(pwm->state));
 }
 
-static int en7523_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
+static int airoha_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			    const struct pwm_state *state)
 {
-	struct en7523_pwm *pc = to_en7523_pwm(chip);
+	struct airoha_pwm *pc = to_airoha_pwm(chip);
 	u64 duty = state->enabled ? state->duty_cycle : 0;
 	int ret = 0;
 
@@ -383,31 +344,23 @@ static int en7523_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		return -EINVAL;
 
 	mutex_lock(&pc->mutex);
-	ret = en7523_pwm_config(pc, pwm, duty, state->period, state->polarity);
+	ret = airoha_pwm_config(pc, pwm, duty, state->period, state->polarity);
 	mutex_unlock(&pc->mutex);
 
 	return ret;
 }
 
-static int en7523_pwm_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
-			       struct pwm_state *state)
-{
-	return 0;
-}
-
-static const struct pwm_ops en7523_pwm_ops = {
-	.request = en7523_pwm_request,
-	.free = en7523_pwm_free,
-	.apply = en7523_pwm_apply,
-	.get_state = en7523_pwm_get_state,
+static const struct pwm_ops airoha_pwm_ops = {
+	.free = airoha_pwm_free,
+	.apply = airoha_pwm_apply,
 	.owner = THIS_MODULE,
 };
 
-static int en7523_pwm_probe(struct platform_device *pdev)
+static int airoha_pwm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
-	struct en7523_pwm *pc = NULL;
+	struct airoha_pwm *pc = NULL;
 	u32 sipo_clock_divisor = 32;
 	u32 sipo_clock_delay = 1;
 
@@ -478,10 +431,6 @@ static int en7523_pwm_probe(struct platform_device *pdev)
 	if (IS_ERR(pc->sipo.clk_dly))
 		return PTR_ERR(pc->sipo.clk_dly);
 
-	pc->sipo.oe_gpio = devm_gpiod_get_index_optional(dev, "sipo", 0, GPIOD_ASIS);
-	if (IS_ERR(pc->sipo.oe_gpio))
-		return PTR_ERR(pc->sipo.oe_gpio);
-
 	of_property_read_u32(np, "sipo-clock-divisor", &sipo_clock_divisor);
 	of_property_read_u32(np, "sipo-clock-delay", &sipo_clock_delay);
 
@@ -513,7 +462,7 @@ static int en7523_pwm_probe(struct platform_device *pdev)
 	mutex_init(&pc->mutex);
 
 	pc->chip.dev = dev;
-	pc->chip.ops = &en7523_pwm_ops;
+	pc->chip.ops = &airoha_pwm_ops;
 	pc->chip.base = -1;
 	pc->chip.npwm = PWM_NUM_GPIO + PWM_NUM_SIPO;
 	pc->chip.of_xlate = of_pwm_xlate_with_flags;
@@ -526,32 +475,32 @@ static int en7523_pwm_probe(struct platform_device *pdev)
 	return pwmchip_add(&pc->chip);
 }
 
-static int en7523_pwm_remove(struct platform_device *pdev)
+static int airoha_pwm_remove(struct platform_device *pdev)
 {
-	struct en7523_pwm *pc = platform_get_drvdata(pdev);
+	struct airoha_pwm *pc = platform_get_drvdata(pdev);
 
 	pwmchip_remove(&pc->chip);
 
 	return 0;
 }
 
-static const struct of_device_id en7523_pwm_of_match[] = {
-	{ .compatible = "airoha,en7523-pwm", },
+static const struct of_device_id airoha_pwm_of_match[] = {
+	{ .compatible = "airoha,airoha-pwm", },
 	{ /* sentinel */ }
 };
-MODULE_DEVICE_TABLE(of, en7523_pwm_of_match);
+MODULE_DEVICE_TABLE(of, airoha_pwm_of_match);
 
-static struct platform_driver en7523_pwm_driver = {
+static struct platform_driver airoha_pwm_driver = {
 	.driver = {
-		.name = "en7523-pwm",
-		.of_match_table = en7523_pwm_of_match,
+		.name = "airoha-pwm",
+		.of_match_table = airoha_pwm_of_match,
 	},
-	.probe = en7523_pwm_probe,
-	.remove = en7523_pwm_remove,
+	.probe = airoha_pwm_probe,
+	.remove = airoha_pwm_remove,
 };
-module_platform_driver(en7523_pwm_driver);
+module_platform_driver(airoha_pwm_driver);
 
-MODULE_ALIAS("platform:en7523-pwm");
+MODULE_ALIAS("platform:airoha-pwm");
 MODULE_AUTHOR("Markus Gothe <markus.gothe@genexis.eu>");
-MODULE_DESCRIPTION("Airoha EN7523 PWM driver");
+MODULE_DESCRIPTION("Airoha EN7581 PWM driver");
 MODULE_LICENSE("GPL v2");
