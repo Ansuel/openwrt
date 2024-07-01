@@ -231,7 +231,6 @@ enum airoha_pinctrl_mux_func {
 	AIROHA_FUNC_MUX,
 	AIROHA_FUNC_PWM_MUX,
 	AIROHA_FUNC_PWM_EXT_MUX,
-	AIROHA_FUNC_MUX_MAX,
 };
 
 struct airoha_pinctrl_func_group {
@@ -256,7 +255,7 @@ struct airoha_pinctrl {
 
 	struct mutex mutex;
 	struct {
-		void __iomem *mux[AIROHA_FUNC_MUX_MAX];
+		void __iomem *mux[3];
 		void __iomem *conf;
 		void __iomem *pcie_rst;
 	} regs;
