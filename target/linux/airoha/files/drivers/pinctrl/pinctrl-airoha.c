@@ -20,28 +20,21 @@
 #include "pinconf.h"
 #include "pinmux.h"
 
-#define PINCTRL_PIN_GROUP(name, id)						\
-	PINCTRL_PINGROUP(name, id##_pins, ARRAY_SIZE(id##_pins))
+#define PINCTRL_PIN_GROUP(id)						\
+	PINCTRL_PINGROUP(#id, id##_pins, ARRAY_SIZE(id##_pins))
 
-#define PINCTRL_FUNC_DESC(name, id, type)						\
-	{									\
-		.desc = { name, id##_groups, ARRAY_SIZE(id##_groups) },		\
-		.groups = id##_func_group,					\
-		.group_size = ARRAY_SIZE(id##_func_group),			\
-		.group_type = type,						\
+#define PINCTRL_FUNC_DESC(id)						\
+	{								\
+		.desc = { #id, id##_groups, ARRAY_SIZE(id##_groups) },	\
+		.groups = id##_func_group,				\
+		.group_size = ARRAY_SIZE(id##_func_group),		\
 	}
 
-#define PINCTRL_CONF_DESC(p, offset, mask)					\
-	{									\
-		.pin = p,							\
-		.reg = { offset, mask },					\
+#define PINCTRL_CONF_DESC(p, offset, mask)				\
+	{								\
+		.pin = p,						\
+		.reg = { offset, mask },				\
 	}
-
-enum  {
-    MUX,
-    PWM,
-    SERDES,
-};
 
 /* MUX */
 #define REG_GPIO_2ND_I2C_MODE			0x00
@@ -191,7 +184,7 @@ enum  {
 #define GPIO0_FLASH_MODE_CFG			BIT(0)
 
 /* PWM MODE CONF EXT */
-#define REG_GPIO_FLASH_MODE_CFG_EXT		0x34
+#define REG_GPIO_FLASH_MODE_CFG_EXT		0x00
 #define GPIO51_FLASH_MODE_CFG			BIT(31)
 #define GPIO50_FLASH_MODE_CFG			BIT(30)
 #define GPIO49_FLASH_MODE_CFG			BIT(29)
@@ -225,7 +218,6 @@ enum  {
 #define GPIO17_FLASH_MODE_CFG			BIT(1)
 #define GPIO16_FLASH_MODE_CFG			BIT(0)
 
-
 #define AIROHA_NUM_GPIOS			64
 #define AIROHA_GPIO_BANK_SIZE			(AIROHA_NUM_GPIOS / 2)
 #define AIROHA_REG_GPIOCTRL_NUM_GPIO		(AIROHA_NUM_GPIOS / 4)
@@ -235,8 +227,16 @@ struct airoha_pinctrl_reg {
 	u32 mask;
 };
 
+enum airoha_pinctrl_mux_func {
+	AIROHA_FUNC_MUX,
+	AIROHA_FUNC_PWM_MUX,
+	AIROHA_FUNC_PWM_EXT_MUX,
+	AIROHA_FUNC_MUX_MAX,
+};
+
 struct airoha_pinctrl_func_group {
 	const char *name;
+	enum airoha_pinctrl_mux_func mux_func;
 	struct airoha_pinctrl_reg reg;
 };
 
@@ -244,7 +244,6 @@ struct airoha_pinctrl_func {
 	const struct function_desc desc;
 	const struct airoha_pinctrl_func_group *groups;
 	u8 group_size;
-	u8 group_type;
 };
 
 struct airoha_pinctrl_conf {
@@ -257,13 +256,10 @@ struct airoha_pinctrl {
 
 	struct mutex mutex;
 	struct {
-		void __iomem *mux;
+		void __iomem *mux[AIROHA_FUNC_MUX_MAX];
 		void __iomem *conf;
 		void __iomem *pcie_rst;
-		void __iomem *pwm_mode_conf;
-		void __iomem *pwm_mode_conf_ext;
 	} regs;
-	s8 pwm_gpio_index_slots[16];
 
 	struct {
 		struct gpio_chip chip;
@@ -275,68 +271,69 @@ struct airoha_pinctrl {
 };
 
 static struct pinctrl_pin_desc airoha_pinctrl_pins[] = {
-	PINCTRL_PIN(0, "UART1_TXD"),
-	PINCTRL_PIN(1, "UART1_RXD"),
-	PINCTRL_PIN(2, "I2C_SCL"),
-	PINCTRL_PIN(3, "I2C_SDA"),
-	PINCTRL_PIN(4, "SPI_CS0"),
-	PINCTRL_PIN(5, "SPI_CLK"),
-	PINCTRL_PIN(6, "SPI_MOSI"),
-	PINCTRL_PIN(7, "SPI_MISO"),
-	PINCTRL_PIN(13, "GPIO0"),
-	PINCTRL_PIN(14, "GPIO1"),
-	PINCTRL_PIN(15, "GPIO2"),
-	PINCTRL_PIN(16, "GPIO3"),
-	PINCTRL_PIN(17, "GPIO4"),
-	PINCTRL_PIN(18, "GPIO5"),
-	PINCTRL_PIN(19, "GPIO6"),
-	PINCTRL_PIN(20, "GPIO7"),
-	PINCTRL_PIN(21, "GPIO8"),
-	PINCTRL_PIN(22, "GPIO9"),
-	PINCTRL_PIN(23, "GPIO10"),
-	PINCTRL_PIN(24, "GPIO11"),
-	PINCTRL_PIN(25, "GPIO12"),
-	PINCTRL_PIN(26, "GPIO13"),
-	PINCTRL_PIN(27, "GPIO14"),
-	PINCTRL_PIN(28, "GPIO15"),
-	PINCTRL_PIN(29, "GPIO16"),
-	PINCTRL_PIN(30, "GPIO17"),
-	PINCTRL_PIN(31, "GPIO18"),
-	PINCTRL_PIN(32, "GPIO19"),
-	PINCTRL_PIN(33, "GPIO20"),
-	PINCTRL_PIN(34, "GPIO21"),
-	PINCTRL_PIN(35, "GPIO22"),
-	PINCTRL_PIN(36, "GPIO23"),
-	PINCTRL_PIN(37, "GPIO24"),
-	PINCTRL_PIN(38, "GPIO25"),
-	PINCTRL_PIN(39, "GPIO26"),
-	PINCTRL_PIN(40, "GPIO27"),
-	PINCTRL_PIN(41, "GPIO28"),
-	PINCTRL_PIN(42, "GPIO29"),
-	PINCTRL_PIN(43, "GPIO30"),
-	PINCTRL_PIN(44, "GPIO31"),
-	PINCTRL_PIN(45, "GPIO32"),
-	PINCTRL_PIN(46, "GPIO33"),
-	PINCTRL_PIN(47, "GPIO34"),
-	PINCTRL_PIN(48, "GPIO35"),
-	PINCTRL_PIN(49, "GPIO36"),
-	PINCTRL_PIN(50, "GPIO37"),
-	PINCTRL_PIN(51, "GPIO38"),
-	PINCTRL_PIN(52, "GPIO39"),
-	PINCTRL_PIN(53, "GPIO40"),
-	PINCTRL_PIN(54, "GPIO41"),
-	PINCTRL_PIN(55, "GPIO42"),
-	PINCTRL_PIN(56, "GPIO43"),
-	PINCTRL_PIN(57, "GPIO44"),
-	PINCTRL_PIN(58, "GPIO45"),
-	PINCTRL_PIN(59, "GPIO46"),
-	PINCTRL_PIN(61, "PCIE_RESET0"),
-	PINCTRL_PIN(62, "PCIE_RESET1"),
-	PINCTRL_PIN(63, "PCIE_RESET2"),
+	PINCTRL_PIN(0, "uart1_txd"),
+	PINCTRL_PIN(1, "uart1_rxd"),
+	PINCTRL_PIN(2, "i2c_scl"),
+	PINCTRL_PIN(3, "i2c_sda"),
+	PINCTRL_PIN(4, "spi_cs0"),
+	PINCTRL_PIN(5, "spi_clk"),
+	PINCTRL_PIN(6, "spi_mosi"),
+	PINCTRL_PIN(7, "spi_miso"),
+	PINCTRL_PIN(13, "gpio0"),
+	PINCTRL_PIN(14, "gpio1"),
+	PINCTRL_PIN(15, "gpio2"),
+	PINCTRL_PIN(16, "gpio3"),
+	PINCTRL_PIN(17, "gpio4"),
+	PINCTRL_PIN(18, "gpio5"),
+	PINCTRL_PIN(19, "gpio6"),
+	PINCTRL_PIN(20, "gpio7"),
+	PINCTRL_PIN(21, "gpio8"),
+	PINCTRL_PIN(22, "gpio9"),
+	PINCTRL_PIN(23, "gpio10"),
+	PINCTRL_PIN(24, "gpio11"),
+	PINCTRL_PIN(25, "gpio12"),
+	PINCTRL_PIN(26, "gpio13"),
+	PINCTRL_PIN(27, "gpio14"),
+	PINCTRL_PIN(28, "gpio15"),
+	PINCTRL_PIN(29, "gpio16"),
+	PINCTRL_PIN(30, "gpio17"),
+	PINCTRL_PIN(31, "gpio18"),
+	PINCTRL_PIN(32, "gpio19"),
+	PINCTRL_PIN(33, "gpio20"),
+	PINCTRL_PIN(34, "gpio21"),
+	PINCTRL_PIN(35, "gpio22"),
+	PINCTRL_PIN(36, "gpio23"),
+	PINCTRL_PIN(37, "gpio24"),
+	PINCTRL_PIN(38, "gpio25"),
+	PINCTRL_PIN(39, "gpio26"),
+	PINCTRL_PIN(40, "gpio27"),
+	PINCTRL_PIN(41, "gpio28"),
+	PINCTRL_PIN(42, "gpio29"),
+	PINCTRL_PIN(43, "gpio30"),
+	PINCTRL_PIN(44, "gpio31"),
+	PINCTRL_PIN(45, "gpio32"),
+	PINCTRL_PIN(46, "gpio33"),
+	PINCTRL_PIN(47, "gpio34"),
+	PINCTRL_PIN(48, "gpio35"),
+	PINCTRL_PIN(49, "gpio36"),
+	PINCTRL_PIN(50, "gpio37"),
+	PINCTRL_PIN(51, "gpio38"),
+	PINCTRL_PIN(52, "gpio39"),
+	PINCTRL_PIN(53, "gpio40"),
+	PINCTRL_PIN(54, "gpio41"),
+	PINCTRL_PIN(55, "gpio42"),
+	PINCTRL_PIN(56, "gpio43"),
+	PINCTRL_PIN(57, "gpio44"),
+	PINCTRL_PIN(58, "gpio45"),
+	PINCTRL_PIN(59, "gpio46"),
+	PINCTRL_PIN(61, "pcie_reset0"),
+	PINCTRL_PIN(62, "pcie_reset1"),
+	PINCTRL_PIN(63, "pcie_reset2"),
 };
 
 static const int pon_pins[] = { 49, 50, 51, 52, 53, 54 };
-static const int tod_1pps_pins[] = { 46 };
+static const int pon_tod_1pps_pins[] = { 46 };
+static const int gsw_tod_1pps_pins[] = { 46 };
 static const int sipo_pins[] = { 16, 17 };
 static const int sipo_rclk_pins[] = { 16, 17, 43 };
 static const int mdio1_pins[] = { 14, 15 };
@@ -348,7 +345,8 @@ static const int uart4_pins[] = { 38, 39 };
 static const int uart5_pins[] = { 18, 19 };
 static const int i2c0_pins[] = { 2, 3 };
 static const int i2c1_pins[] = { 14, 15 };
-static const int jtag_pins[] = { 16, 17, 18, 19, 20 };
+static const int jtag_udi_pins[] = { 16, 17, 18, 19, 20 };
+static const int jtag_dfd_pins[] = { 16, 17, 18, 19, 20 };
 static const int i2s_pins[] = { 26, 27, 28, 29 };
 static const int pcm1_pins[] = { 22, 23, 24, 25 };
 static const int pcm2_pins[] = { 18, 19, 20, 21 };
@@ -360,13 +358,53 @@ static const int pcm_spi_int_pins[] = { 14 };
 static const int pcm_spi_rst_pins[] = { 15 };
 static const int pcm_spi_cs1_pins[] = { 43 };
 static const int pcm_spi_cs2_pins[] = { 40 };
+static const int pcm_spi_cs2_p128_pins[] = { 40 };
+static const int pcm_spi_cs2_p156_pins[] = { 40 };
 static const int pcm_spi_cs3_pins[] = { 41 };
 static const int pcm_spi_cs4_pins[] = { 42 };
 static const int emmc_pins[] = { 4, 5, 6, 30, 31, 32, 33, 34, 35, 36, 37 };
 static const int pnand_pins[] = { 4, 5, 6, 7, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42 };
+static const int gpio0_pins[] = { 13 };
+static const int gpio1_pins[] = { 14 };
+static const int gpio2_pins[] = { 15 };
+static const int gpio3_pins[] = { 16 };
+static const int gpio4_pins[] = { 17 };
+static const int gpio5_pins[] = { 18 };
+static const int gpio6_pins[] = { 19 };
+static const int gpio7_pins[] = { 20 };
+static const int gpio8_pins[] = { 21 };
+static const int gpio9_pins[] = { 22 };
+static const int gpio10_pins[] = { 23 };
+static const int gpio11_pins[] = { 24 };
+static const int gpio12_pins[] = { 25 };
+static const int gpio13_pins[] = { 26 };
+static const int gpio14_pins[] = { 27 };
+static const int gpio15_pins[] = { 28 };
+static const int gpio16_pins[] = { 29 };
+static const int gpio17_pins[] = { 30 };
+static const int gpio18_pins[] = { 31 };
+static const int gpio19_pins[] = { 32 };
+static const int gpio20_pins[] = { 33 };
+static const int gpio21_pins[] = { 34 };
+static const int gpio22_pins[] = { 35 };
+static const int gpio23_pins[] = { 36 };
+static const int gpio24_pins[] = { 37 };
+static const int gpio25_pins[] = { 38 };
+static const int gpio26_pins[] = { 39 };
+static const int gpio27_pins[] = { 40 };
+static const int gpio28_pins[] = { 41 };
+static const int gpio29_pins[] = { 42 };
+static const int gpio30_pins[] = { 43 };
+static const int gpio31_pins[] = { 44 };
 static const int gpio33_pins[] = { 46 };
 static const int gpio34_pins[] = { 47 };
 static const int gpio35_pins[] = { 48 };
+static const int gpio36_pins[] = { 49 };
+static const int gpio37_pins[] = { 50 };
+static const int gpio38_pins[] = { 51 };
+static const int gpio39_pins[] = { 52 };
+static const int gpio40_pins[] = { 53 };
+static const int gpio41_pins[] = { 54 };
 static const int gpio42_pins[] = { 55 };
 static const int gpio43_pins[] = { 56 };
 static const int gpio44_pins[] = { 57 };
@@ -376,145 +414,89 @@ static const int pcie_reset0_pins[] = { 61 };
 static const int pcie_reset1_pins[] = { 62 };
 static const int pcie_reset2_pins[] = { 63 };
 
-static const int pwm_gpio0_idx0_pins[] = { 13 };
-static const int pwm_gpio1_idx1_pins[] = { 14 };
-static const int pwm_gpio2_idx2_pins[] = { 15 };
-static const int pwm_gpio3_idx3_pins[] = { 16 };
-static const int pwm_gpio4_idx4_pins[] = { 17 };
-static const int pwm_gpio5_idx5_pins[] = { 18 };
-static const int pwm_gpio6_idx6_pins[] = { 19 };
-static const int pwm_gpio7_idx7_pins[] = { 20 };
-static const int pwm_gpio8_idx8_pins[] = { 21 };
-static const int pwm_gpio9_idx9_pins[] = { 22 };
-static const int pwm_gpio10_idx10_pins[] = { 23 };
-static const int pwm_gpio11_idx11_pins[] = { 24 };
-static const int pwm_gpio12_idx12_pins[] = { 25 };
-static const int pwm_gpio13_idx13_pins[] = { 26 };
-static const int pwm_gpio14_idx14_pins[] = { 27 };
-static const int pwm_gpio15_idx15_pins[] = { 28 };
-static const int pwm_gpio16_idx8_pins[] = { 29 };
-static const int pwm_gpio17_idx9_pins[] = { 30 };
-static const int pwm_gpio18_idx10_pins[] = { 31 };
-static const int pwm_gpio19_idx11_pins[] = { 32 };
-static const int pwm_gpio20_idx12_pins[] = { 33 };
-static const int pwm_gpio21_idx13_pins[] = { 34 };
-static const int pwm_gpio22_idx14_pins[] = { 35 };
-static const int pwm_gpio23_idx15_pins[] = { 36 };
-static const int pwm_gpio24_idx8_pins[] = { 37 };
-static const int pwm_gpio25_idx9_pins[] = { 38 };
-static const int pwm_gpio26_idx10_pins[] = { 39 };
-static const int pwm_gpio27_idx11_pins[] = { 40 };
-static const int pwm_gpio28_idx12_pins[] = { 41 };
-static const int pwm_gpio29_idx13_pins[] = { 42 };
-static const int pwm_gpio30_idx14_pins[] = { 43 };
-static const int pwm_gpio31_idx15_pins[] = { 44 };
-static const int pwm_gpio36_idx8_pins[] = { 49 };
-static const int pwm_gpio37_idx9_pins[] = { 50 };
-static const int pwm_gpio38_idx10_pins[] = { 51 };
-static const int pwm_gpio39_idx11_pins[] = { 52 };
-static const int pwm_gpio40_idx12_pins[] = { 53 };
-static const int pwm_gpio41_idx13_pins[] = { 54 };
-static const int pwm_gpio42_idx14_pins[] = { 55 };
-static const int pwm_gpio43_idx15_pins[] = { 56 };
-static const int pwm_gpio44_idx8_pins[] = { 57 };
-static const int pwm_gpio45_idx9_pins[] = { 58 };
-static const int pwm_gpio46_idx10_pins[] = { 59 };
-static const int pwm_gpio47_idx11_pins[] = { 60 };
-static const int pwm_gpio48_idx12_pins[] = { 61 };
-static const int pwm_gpio49_idx13_pins[] = { 62 };
-
-
 static const struct pingroup airoha_pinctrl_groups[] = {
-	PINCTRL_PIN_GROUP("pon", pon),
-	PINCTRL_PIN_GROUP("pon_tod_1pps", tod_1pps),
-	PINCTRL_PIN_GROUP("gsw_tod_1pps", tod_1pps),
-	PINCTRL_PIN_GROUP("sipo", sipo),
-	PINCTRL_PIN_GROUP("sipo_rclk", sipo_rclk),
-	PINCTRL_PIN_GROUP("mdio1", mdio1),
-	PINCTRL_PIN_GROUP("uart2", uart2),
-	PINCTRL_PIN_GROUP("uart2_cts_rts", uart2_cts_rts),
-	PINCTRL_PIN_GROUP("hsuart", hsuart),
-	PINCTRL_PIN_GROUP("hsuart_cts_rts", hsuart_cts_rts),
-	PINCTRL_PIN_GROUP("uart4", uart4),
-	PINCTRL_PIN_GROUP("uart5", uart5),
-	PINCTRL_PIN_GROUP("i2c0", i2c0),
-	PINCTRL_PIN_GROUP("i2c1", i2c1),
-	PINCTRL_PIN_GROUP("jtag_udi", jtag),
-	PINCTRL_PIN_GROUP("jtag_dfd", jtag),
-	PINCTRL_PIN_GROUP("i2s", i2s),
-	PINCTRL_PIN_GROUP("pcm1", pcm1),
-	PINCTRL_PIN_GROUP("pcm2", pcm2),
-	PINCTRL_PIN_GROUP("spi", spi),
-	PINCTRL_PIN_GROUP("spi_quad", spi_quad),
-	PINCTRL_PIN_GROUP("spi_cs1", spi_cs1),
-	PINCTRL_PIN_GROUP("pcm_spi", pcm_spi),
-	PINCTRL_PIN_GROUP("pcm_spi_int", pcm_spi_int),
-	PINCTRL_PIN_GROUP("pcm_spi_rst", pcm_spi_rst),
-	PINCTRL_PIN_GROUP("pcm_spi_cs1", pcm_spi_cs1),
-	PINCTRL_PIN_GROUP("pcm_spi_cs2_p128", pcm_spi_cs2),
-	PINCTRL_PIN_GROUP("pcm_spi_cs2_p156", pcm_spi_cs2),
-	PINCTRL_PIN_GROUP("pcm_spi_cs2", pcm_spi_cs1),
-	PINCTRL_PIN_GROUP("pcm_spi_cs3", pcm_spi_cs3),
-	PINCTRL_PIN_GROUP("pcm_spi_cs4", pcm_spi_cs4),
-	PINCTRL_PIN_GROUP("emmc", emmc),
-	PINCTRL_PIN_GROUP("pnand", pnand),
-	PINCTRL_PIN_GROUP("lan0_led0", gpio33),
-	PINCTRL_PIN_GROUP("lan0_led1", gpio43),
-	PINCTRL_PIN_GROUP("lan1_led0", gpio34),
-	PINCTRL_PIN_GROUP("lan1_led1", gpio44),
-	PINCTRL_PIN_GROUP("lan2_led0", gpio35),
-	PINCTRL_PIN_GROUP("lan2_led1", gpio45),
-	PINCTRL_PIN_GROUP("lan3_led0", gpio42),
-	PINCTRL_PIN_GROUP("lan3_led1", gpio46),
-	PINCTRL_PIN_GROUP("pcie_reset0", pcie_reset0),
-	PINCTRL_PIN_GROUP("pcie_reset1", pcie_reset1),
-	PINCTRL_PIN_GROUP("pcie_reset2", pcie_reset2),
-	PINCTRL_PIN_GROUP("pwm_gpio0_idx0", pwm_gpio0_idx0),
-	PINCTRL_PIN_GROUP("pwm_gpio1_idx1", pwm_gpio1_idx1),
-	PINCTRL_PIN_GROUP("pwm_gpio2_idx2", pwm_gpio2_idx2),
-	PINCTRL_PIN_GROUP("pwm_gpio3_idx3", pwm_gpio3_idx3),
-	PINCTRL_PIN_GROUP("pwm_gpio4_idx4", pwm_gpio4_idx4),
-	PINCTRL_PIN_GROUP("pwm_gpio5_idx5", pwm_gpio5_idx5),
-	PINCTRL_PIN_GROUP("pwm_gpio6_idx6", pwm_gpio6_idx6),
-	PINCTRL_PIN_GROUP("pwm_gpio7_idx7", pwm_gpio7_idx7),
-	PINCTRL_PIN_GROUP("pwm_gpio8_idx8", pwm_gpio8_idx8),
-	PINCTRL_PIN_GROUP("pwm_gpio9_idx9", pwm_gpio9_idx9),
-	PINCTRL_PIN_GROUP("pwm_gpio10_idx10", pwm_gpio10_idx10),
-	PINCTRL_PIN_GROUP("pwm_gpio11_idx11", pwm_gpio11_idx11),
-	PINCTRL_PIN_GROUP("pwm_gpio12_idx12", pwm_gpio12_idx12),
-	PINCTRL_PIN_GROUP("pwm_gpio13_idx13", pwm_gpio13_idx13),
-	PINCTRL_PIN_GROUP("pwm_gpio14_idx14", pwm_gpio14_idx14),
-	PINCTRL_PIN_GROUP("pwm_gpio15_idx15", pwm_gpio15_idx15),
-	PINCTRL_PIN_GROUP("pwm_gpio16_idx8", pwm_gpio16_idx8),
-	PINCTRL_PIN_GROUP("pwm_gpio17_idx9", pwm_gpio17_idx9),
-	PINCTRL_PIN_GROUP("pwm_gpio18_idx10", pwm_gpio18_idx10),
-	PINCTRL_PIN_GROUP("pwm_gpio19_idx11", pwm_gpio19_idx11),
-	PINCTRL_PIN_GROUP("pwm_gpio20_idx12", pwm_gpio20_idx12),
-	PINCTRL_PIN_GROUP("pwm_gpio21_idx13", pwm_gpio21_idx13),
-	PINCTRL_PIN_GROUP("pwm_gpio22_idx14", pwm_gpio22_idx14),
-	PINCTRL_PIN_GROUP("pwm_gpio23_idx15", pwm_gpio23_idx15),
-	PINCTRL_PIN_GROUP("pwm_gpio24_idx8", pwm_gpio24_idx8),
-	PINCTRL_PIN_GROUP("pwm_gpio25_idx9", pwm_gpio25_idx9),
-	PINCTRL_PIN_GROUP("pwm_gpio26_idx10", pwm_gpio26_idx10),
-	PINCTRL_PIN_GROUP("pwm_gpio27_idx11", pwm_gpio27_idx11),
-	PINCTRL_PIN_GROUP("pwm_gpio28_idx12", pwm_gpio28_idx12),
-	PINCTRL_PIN_GROUP("pwm_gpio29_idx13", pwm_gpio29_idx13),
-	PINCTRL_PIN_GROUP("pwm_gpio30_idx14", pwm_gpio30_idx14),
-	PINCTRL_PIN_GROUP("pwm_gpio31_idx15", pwm_gpio31_idx15),
-	PINCTRL_PIN_GROUP("pwm_gpio36_idx8", pwm_gpio36_idx8),
-	PINCTRL_PIN_GROUP("pwm_gpio37_idx9", pwm_gpio37_idx9),
-	PINCTRL_PIN_GROUP("pwm_gpio38_idx10", pwm_gpio38_idx10),
-	PINCTRL_PIN_GROUP("pwm_gpio39_idx11", pwm_gpio39_idx11),
-	PINCTRL_PIN_GROUP("pwm_gpio40_idx12", pwm_gpio40_idx12),
-	PINCTRL_PIN_GROUP("pwm_gpio41_idx13", pwm_gpio41_idx13),
-	PINCTRL_PIN_GROUP("pwm_gpio42_idx14", pwm_gpio42_idx14),
-	PINCTRL_PIN_GROUP("pwm_gpio43_idx15", pwm_gpio43_idx15),
-	PINCTRL_PIN_GROUP("pwm_gpio44_idx8", pwm_gpio44_idx8),
-	PINCTRL_PIN_GROUP("pwm_gpio45_idx9", pwm_gpio45_idx9),
-	PINCTRL_PIN_GROUP("pwm_gpio46_idx10", pwm_gpio46_idx10),
-	PINCTRL_PIN_GROUP("pwm_gpio47_idx11", pwm_gpio47_idx11),
-	PINCTRL_PIN_GROUP("pwm_gpio48_idx12", pwm_gpio48_idx12),
-	PINCTRL_PIN_GROUP("pwm_gpio49_idx13", pwm_gpio49_idx13),
+	PINCTRL_PIN_GROUP(pon),
+	PINCTRL_PIN_GROUP(pon_tod_1pps),
+	PINCTRL_PIN_GROUP(gsw_tod_1pps),
+	PINCTRL_PIN_GROUP(sipo),
+	PINCTRL_PIN_GROUP(sipo_rclk),
+	PINCTRL_PIN_GROUP(mdio1),
+	PINCTRL_PIN_GROUP(uart2),
+	PINCTRL_PIN_GROUP(uart2_cts_rts),
+	PINCTRL_PIN_GROUP(hsuart),
+	PINCTRL_PIN_GROUP(hsuart_cts_rts),
+	PINCTRL_PIN_GROUP(uart4),
+	PINCTRL_PIN_GROUP(uart5),
+	PINCTRL_PIN_GROUP(i2c0),
+	PINCTRL_PIN_GROUP(i2c1),
+	PINCTRL_PIN_GROUP(jtag_udi),
+	PINCTRL_PIN_GROUP(jtag_dfd),
+	PINCTRL_PIN_GROUP(i2s),
+	PINCTRL_PIN_GROUP(pcm1),
+	PINCTRL_PIN_GROUP(pcm2),
+	PINCTRL_PIN_GROUP(spi),
+	PINCTRL_PIN_GROUP(spi_quad),
+	PINCTRL_PIN_GROUP(spi_cs1),
+	PINCTRL_PIN_GROUP(pcm_spi),
+	PINCTRL_PIN_GROUP(pcm_spi_int),
+	PINCTRL_PIN_GROUP(pcm_spi_rst),
+	PINCTRL_PIN_GROUP(pcm_spi_cs1),
+	PINCTRL_PIN_GROUP(pcm_spi_cs2_p128),
+	PINCTRL_PIN_GROUP(pcm_spi_cs2_p156),
+	PINCTRL_PIN_GROUP(pcm_spi_cs2),
+	PINCTRL_PIN_GROUP(pcm_spi_cs3),
+	PINCTRL_PIN_GROUP(pcm_spi_cs4),
+	PINCTRL_PIN_GROUP(emmc),
+	PINCTRL_PIN_GROUP(pnand),
+	PINCTRL_PIN_GROUP(gpio0),
+	PINCTRL_PIN_GROUP(gpio1),
+	PINCTRL_PIN_GROUP(gpio2),
+	PINCTRL_PIN_GROUP(gpio3),
+	PINCTRL_PIN_GROUP(gpio4),
+	PINCTRL_PIN_GROUP(gpio5),
+	PINCTRL_PIN_GROUP(gpio6),
+	PINCTRL_PIN_GROUP(gpio7),
+	PINCTRL_PIN_GROUP(gpio8),
+	PINCTRL_PIN_GROUP(gpio9),
+	PINCTRL_PIN_GROUP(gpio10),
+	PINCTRL_PIN_GROUP(gpio11),
+	PINCTRL_PIN_GROUP(gpio12),
+	PINCTRL_PIN_GROUP(gpio13),
+	PINCTRL_PIN_GROUP(gpio14),
+	PINCTRL_PIN_GROUP(gpio15),
+	PINCTRL_PIN_GROUP(gpio16),
+	PINCTRL_PIN_GROUP(gpio17),
+	PINCTRL_PIN_GROUP(gpio18),
+	PINCTRL_PIN_GROUP(gpio19),
+	PINCTRL_PIN_GROUP(gpio20),
+	PINCTRL_PIN_GROUP(gpio21),
+	PINCTRL_PIN_GROUP(gpio22),
+	PINCTRL_PIN_GROUP(gpio23),
+	PINCTRL_PIN_GROUP(gpio24),
+	PINCTRL_PIN_GROUP(gpio25),
+	PINCTRL_PIN_GROUP(gpio26),
+	PINCTRL_PIN_GROUP(gpio27),
+	PINCTRL_PIN_GROUP(gpio28),
+	PINCTRL_PIN_GROUP(gpio29),
+	PINCTRL_PIN_GROUP(gpio30),
+	PINCTRL_PIN_GROUP(gpio31),
+	PINCTRL_PIN_GROUP(gpio33),
+	PINCTRL_PIN_GROUP(gpio34),
+	PINCTRL_PIN_GROUP(gpio35),
+	PINCTRL_PIN_GROUP(gpio36),
+	PINCTRL_PIN_GROUP(gpio37),
+	PINCTRL_PIN_GROUP(gpio38),
+	PINCTRL_PIN_GROUP(gpio39),
+	PINCTRL_PIN_GROUP(gpio40),
+	PINCTRL_PIN_GROUP(gpio41),
+	PINCTRL_PIN_GROUP(gpio42),
+	PINCTRL_PIN_GROUP(gpio43),
+	PINCTRL_PIN_GROUP(gpio44),
+	PINCTRL_PIN_GROUP(gpio45),
+	PINCTRL_PIN_GROUP(gpio46),
+	PINCTRL_PIN_GROUP(pcie_reset0),
+	PINCTRL_PIN_GROUP(pcie_reset1),
+	PINCTRL_PIN_GROUP(pcie_reset2),
 };
 
 static const char *const pon_groups[] = { "pon" };
@@ -539,191 +521,275 @@ static const char *const emmc_groups[] = { "emmc" };
 static const char *const pnand_groups[] = { "pnand" };
 static const char *const pcie_reset_groups[] = { "pcie_reset0", "pcie_reset1",
 						 "pcie_reset2" };
-static const char *const led_groups[] = { "lan0_led0", "lan0_led1",
-					  "lan1_led0", "lan1_led1",
-					  "lan2_led0", "lan2_led1",
-					  "lan3_led0", "lan3_led1" };
+static const char *const led_groups[] = { "gpio33", "gpio43",
+					  "gpio34", "gpio44",
+					  "gpio35", "gpio45",
+					  "gpio42", "gpio46" };
 
-static const char *const pwm_groups[] = { "pwm_gpio0_idx0", "pwm_gpio1_idx1",
-					  "pwm_gpio2_idx2", "pwm_gpio3_idx3",
-					  "pwm_gpio4_idx4", "pwm_gpio5_idx5",
-					  "pwm_gpio6_idx6", "pwm_gpio7_idx7",
-					  "pwm_gpio8_idx8", "pwm_gpio9_idx9",
-					  "pwm_gpio10_idx10", "pwm_gpio11_idx11",
-					  "pwm_gpio12_idx12", "pwm_gpio13_idx13",
-					  "pwm_gpio14_idx14", "pwm_gpio15_idx15",
-					  "pwm_gpio16_idx8", "pwm_gpio17_idx9",
-					  "pwm_gpio18_idx10", "pwm_gpio19_idx11",
-					  "pwm_gpio20_idx12", "pwm_gpio21_idx13",
-					  "pwm_gpio22_idx14", "pwm_gpio23_idx15",
-					  "pwm_gpio24_idx8", "pwm_gpio25_idx9",
-					  "pwm_gpio26_idx10", "pwm_gpio27_idx11",
-					  "pwm_gpio28_idx12", "pwm_gpio29_idx13",
-					  "pwm_gpio30_idx14", "pwm_gpio31_idx15",
-					  "pwm_gpio36_idx8", "pwm_gpio37_idx9",
-					  "pwm_gpio38_idx10","pwm_gpio39_idx11",
-					  "pwm_gpio40_idx12", "pwm_gpio41_idx13",
-					  "pwm_gpio42_idx14", "pwm_gpio43_idx15",
-					  "pwm_gpio44_idx8", "pwm_gpio45_idx9",
-					  "pwm_gpio46_idx10", "pwm_gpio47_idx11",
-					  "pwm_gpio48_idx12", "pwm_gpio49_idx13" };
+static const char *const pwm_groups[] = { "gpio0", "gpio1",
+					  "gpio2", "gpio3",
+					  "gpio4", "gpio5",
+					  "gpio6", "gpio7",
+					  "gpio8", "gpio9",
+					  "gpio10", "gpio11",
+					  "gpio12", "gpio13",
+					  "gpio14", "gpio15",
+					  "gpio16", "gpio17",
+					  "gpio18", "gpio19",
+					  "gpio20", "gpio21",
+					  "gpio22", "gpio23",
+					  "gpio24", "gpio25",
+					  "gpio26", "gpio27",
+					  "gpio28", "gpio29",
+					  "gpio30", "gpio31",
+					  "gpio36", "gpio37",
+					  "gpio38", "gpio39",
+					  "gpio40", "gpio41",
+					  "gpio42", "gpio43",
+					  "gpio44", "gpio45",
+					  "gpio46", "gpio47" };
 
 static const struct airoha_pinctrl_func_group pon_func_group[] = {
-	{ "pon", { REG_GPIO_PON_MODE, GPIO_PON_MODE_MASK }},
+	{ "pon", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE, GPIO_PON_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group tod_1pps_func_group[] = {
-	{ "pon_tod_1pps", { REG_GPIO_2ND_I2C_MODE, PON_TOD_1PPS_MODE_MASK }},
-	{ "gsw_tod_1pps", { REG_GPIO_2ND_I2C_MODE, GSW_TOD_1PPS_MODE_MASK }},
+	{ "pon_tod_1pps", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+					     PON_TOD_1PPS_MODE_MASK }},
+	{ "gsw_tod_1pps", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+					     GSW_TOD_1PPS_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group sipo_func_group[] = {
-	{ "sipo", { REG_GPIO_PON_MODE, GPIO_SIPO_MODE_MASK }},
-	{ "sipo_rclk", { REG_GPIO_PON_MODE, GPIO_SIPO_MODE_MASK | SIPO_RCLK_MODE_MASK }},
+	{ "sipo", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE, GPIO_SIPO_MODE_MASK }},
+	{ "sipo_rclk", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+					  GPIO_SIPO_MODE_MASK |
+					  SIPO_RCLK_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group mdio_func_group[] = {
-	{ "mdio1", { REG_GPIO_PON_MODE, GPIO_SGMII_MDIO_MODE_MASK }},
+	{ "mdio1", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+				      GPIO_SGMII_MDIO_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group uart_func_group[] = {
-	{ "uart2", { REG_GPIO_PON_MODE, GPIO_UART2_MODE_MASK }},
-	{ "uart2_cts_rts", { REG_GPIO_PON_MODE, GPIO_UART2_MODE_MASK | GPIO_UART2_CTS_RTS_MODE_MASK }},
-	{ "hsuart", { REG_GPIO_PON_MODE, GPIO_HSUART_MODE_MASK }},
-	{ "hsuart_cts_rts", { REG_GPIO_PON_MODE, GPIO_HSUART_MODE_MASK | GPIO_HSUART_CTS_RTS_MODE_MASK }},
-	{ "uart4", { REG_GPIO_PON_MODE, GPIO_UART4_MODE_MASK }},
-	{ "uart5", { REG_GPIO_PON_MODE, GPIO_UART5_MODE_MASK }},
+	{ "uart2", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+				      GPIO_UART2_MODE_MASK }},
+	{ "uart2_cts_rts", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+					      GPIO_UART2_MODE_MASK |
+					      GPIO_UART2_CTS_RTS_MODE_MASK }},
+	{ "hsuart", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+				       GPIO_HSUART_MODE_MASK }},
+	{ "hsuart_cts_rts", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+					       GPIO_HSUART_MODE_MASK |
+					       GPIO_HSUART_CTS_RTS_MODE_MASK }},
+	{ "uart4", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+				      GPIO_UART4_MODE_MASK }},
+	{ "uart5", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+				      GPIO_UART5_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group i2c_func_group[] = {
-	{ "i2c1", { REG_GPIO_2ND_I2C_MODE, GPIO_2ND_I2C_MODE_MASK }},
+	{ "i2c1", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+				     GPIO_2ND_I2C_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group jtag_func_group[] = {
-	{ "jtag_udi", { REG_NPU_UART_EN, JTAG_UDI_EN_MASK }},
-	{ "jtag_dfd", { REG_NPU_UART_EN, JTAG_DFD_EN_MASK }},
+	{ "jtag_udi", AIROHA_FUNC_MUX, { REG_NPU_UART_EN, JTAG_UDI_EN_MASK }},
+	{ "jtag_dfd", AIROHA_FUNC_MUX, { REG_NPU_UART_EN, JTAG_DFD_EN_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group pcm_func_group[] = {
-	{ "pcm1", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM1_MODE_MASK }},
-	{ "pcm2", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM2_MODE_MASK }},
+	{ "pcm1", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+				     GPIO_PCM1_MODE_MASK }},
+	{ "pcm2", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+				     GPIO_PCM2_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group spi_func_group[] = {
-	{ "spi_quad", { REG_GPIO_SPI_CS1_MODE, GPIO_SPI_QUAD_MODE_MASK }},
-	{ "spi_cs1", { REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS1_MODE_MASK }},
-	{ "spi_cs2", { REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS2_MODE_MASK }},
-	{ "spi_cs3", { REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS3_MODE_MASK }},
-	{ "spi_cs4", { REG_GPIO_SPI_CS1_MODE, GPIO_SPI_CS4_MODE_MASK }},
+	{ "spi_quad", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+					 GPIO_SPI_QUAD_MODE_MASK }},
+	{ "spi_cs1", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+					GPIO_SPI_CS1_MODE_MASK }},
+	{ "spi_cs2", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+					GPIO_SPI_CS2_MODE_MASK }},
+	{ "spi_cs3", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+					GPIO_SPI_CS3_MODE_MASK }},
+	{ "spi_cs4", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+					GPIO_SPI_CS4_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group pcm_spi_func_group[] = {
-	{ "pcm_spi", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_MODE_MASK }},
-	{ "pcm_spi_int", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_INT_MODE_MASK }},
-	{ "pcm_spi_rst", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_RESET_MODE_MASK }},
-	{ "pcm_spi_cs1", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS1_MODE_MASK }},
-	{ "pcm_spi_cs2_p128", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS2_MODE_P128_MASK }},
-	{ "pcm_spi_cs2_p156", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS2_MODE_P156_MASK }},
-	{ "pcm_spi_cs3", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS3_MODE_MASK }},
-	{ "pcm_spi_cs4", { REG_GPIO_SPI_CS1_MODE, GPIO_PCM_SPI_CS4_MODE_MASK }},
+	{ "pcm_spi", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+					GPIO_PCM_SPI_MODE_MASK }},
+	{ "pcm_spi_int", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+					    GPIO_PCM_INT_MODE_MASK }},
+	{ "pcm_spi_rst", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+					    GPIO_PCM_RESET_MODE_MASK }},
+	{ "pcm_spi_cs1", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+					    GPIO_PCM_SPI_CS1_MODE_MASK }},
+	{ "pcm_spi_cs2_p128", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+						 GPIO_PCM_SPI_CS2_MODE_P128_MASK }},
+	{ "pcm_spi_cs2_p156", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+						 GPIO_PCM_SPI_CS2_MODE_P156_MASK }},
+	{ "pcm_spi_cs3", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+					    GPIO_PCM_SPI_CS3_MODE_MASK }},
+	{ "pcm_spi_cs4", AIROHA_FUNC_MUX, { REG_GPIO_SPI_CS1_MODE,
+					    GPIO_PCM_SPI_CS4_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group i2s_func_group[] = {
-	{ "i2s", { REG_GPIO_2ND_I2C_MODE, GPIO_I2S_MODE_MASK }},
+	{ "i2s", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+				    GPIO_I2S_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group emmc_func_group[] = {
-	{ "emmc", { REG_GPIO_PON_MODE, GPIO_EMMC_MODE_MASK }},
+	{ "emmc", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE, GPIO_EMMC_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group pnand_func_group[] = {
-	{ "pnand", { REG_GPIO_PON_MODE, GPIO_PARALLEL_NAND_MODE_MASK }},
+	{ "pnand", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+				      GPIO_PARALLEL_NAND_MODE_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group pcie_reset_func_group[] = {
-	{ "pcie_reset0", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET0_MASK }},
-	{ "pcie_reset1", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET1_MASK }},
-	{ "pcie_reset2", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET2_MASK }},
+	{ "pcie_reset0", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+					    GPIO_PCIE_RESET0_MASK }},
+	{ "pcie_reset1", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+					    GPIO_PCIE_RESET1_MASK }},
+	{ "pcie_reset2", AIROHA_FUNC_MUX, { REG_GPIO_PON_MODE,
+					    GPIO_PCIE_RESET2_MASK }},
 };
 
+/* LED */
 static const struct airoha_pinctrl_func_group led_func_group[] = {
-	{ "lan0_led0", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN0_LED0_MODE_MASK }},
-	{ "lan0_led1", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN0_LED1_MODE_MASK }},
-	{ "lan1_led0", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN1_LED0_MODE_MASK }},
-	{ "lan1_led1", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN1_LED1_MODE_MASK }},
-	{ "lan2_led0", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN2_LED0_MODE_MASK }},
-	{ "lan2_led1", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN2_LED1_MODE_MASK }},
-	{ "lan3_led0", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN3_LED0_MODE_MASK }},
-	{ "lan3_led1", { REG_GPIO_2ND_I2C_MODE, GPIO_LAN3_LED1_MODE_MASK }},
+	{ "gpio33", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+				       GPIO_LAN0_LED0_MODE_MASK }},
+	{ "gpio43", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+				       GPIO_LAN0_LED1_MODE_MASK }},
+	{ "gpio34", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+				       GPIO_LAN1_LED0_MODE_MASK }},
+	{ "gpio44", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+				       GPIO_LAN1_LED1_MODE_MASK }},
+	{ "gpio35", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+				       GPIO_LAN2_LED0_MODE_MASK }},
+	{ "gpio45", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+				       GPIO_LAN2_LED1_MODE_MASK }},
+	{ "gpio42", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+				       GPIO_LAN3_LED0_MODE_MASK }},
+	{ "gpio46", AIROHA_FUNC_MUX, { REG_GPIO_2ND_I2C_MODE,
+				       GPIO_LAN3_LED1_MODE_MASK }},
 };
 
+/* PWM */
 static const struct airoha_pinctrl_func_group pwm_func_group[] = {
-	{ "pwm_gpio0_idx0", { REG_GPIO_FLASH_MODE_CFG, GPIO0_FLASH_MODE_CFG }},
-	{ "pwm_gpio1_idx1", { REG_GPIO_FLASH_MODE_CFG, GPIO1_FLASH_MODE_CFG }},
-	{ "pwm_gpio2_idx2", { REG_GPIO_FLASH_MODE_CFG, GPIO2_FLASH_MODE_CFG }},
-	{ "pwm_gpio3_idx3", { REG_GPIO_FLASH_MODE_CFG, GPIO3_FLASH_MODE_CFG }},
-	{ "pwm_gpio4_idx4", { REG_GPIO_FLASH_MODE_CFG, GPIO4_FLASH_MODE_CFG }},
-	{ "pwm_gpio5_idx5", { REG_GPIO_FLASH_MODE_CFG, GPIO5_FLASH_MODE_CFG }},
-	{ "pwm_gpio6_idx6", { REG_GPIO_FLASH_MODE_CFG, GPIO6_FLASH_MODE_CFG }},
-	{ "pwm_gpio7_idx7", { REG_GPIO_FLASH_MODE_CFG, GPIO7_FLASH_MODE_CFG }},
-	{ "pwm_gpio8_idx8", { REG_GPIO_FLASH_MODE_CFG, GPIO8_FLASH_MODE_CFG }},
-	{ "pwm_gpio9_idx9", { REG_GPIO_FLASH_MODE_CFG, GPIO9_FLASH_MODE_CFG }},
-	{ "pwm_gpio10_idx10", { REG_GPIO_FLASH_MODE_CFG, GPIO10_FLASH_MODE_CFG }},
-	{ "pwm_gpio11_idx11", { REG_GPIO_FLASH_MODE_CFG, GPIO11_FLASH_MODE_CFG }},
-	{ "pwm_gpio12_idx12", { REG_GPIO_FLASH_MODE_CFG, GPIO12_FLASH_MODE_CFG }},
-	{ "pwm_gpio13_idx13", { REG_GPIO_FLASH_MODE_CFG, GPIO13_FLASH_MODE_CFG }},
-	{ "pwm_gpio14_idx14", { REG_GPIO_FLASH_MODE_CFG, GPIO14_FLASH_MODE_CFG }},
-	{ "pwm_gpio15_idx15", { REG_GPIO_FLASH_MODE_CFG, GPIO15_FLASH_MODE_CFG }},
-	{ "pwm_gpio16_idx8", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO16_FLASH_MODE_CFG }},
-	{ "pwm_gpio17_idx9", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO17_FLASH_MODE_CFG }},
-	{ "pwm_gpio18_idx10", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO18_FLASH_MODE_CFG }},
-	{ "pwm_gpio19_idx11", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO19_FLASH_MODE_CFG }},
-	{ "pwm_gpio20_idx12", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO20_FLASH_MODE_CFG }},
-	{ "pwm_gpio21_idx13", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO21_FLASH_MODE_CFG }},
-	{ "pwm_gpio22_idx14", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO22_FLASH_MODE_CFG }},
-	{ "pwm_gpio23_idx15", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO23_FLASH_MODE_CFG }},
-	{ "pwm_gpio24_idx8", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO24_FLASH_MODE_CFG }},
-	{ "pwm_gpio25_idx9", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO25_FLASH_MODE_CFG }},
-	{ "pwm_gpio26_idx10", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO26_FLASH_MODE_CFG }},
-	{ "pwm_gpio27_idx11", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO27_FLASH_MODE_CFG }},
-	{ "pwm_gpio28_idx12", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO28_FLASH_MODE_CFG }},
-	{ "pwm_gpio29_idx13", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO29_FLASH_MODE_CFG }},
-	{ "pwm_gpio30_idx14", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO30_FLASH_MODE_CFG }},
-	{ "pwm_gpio31_idx15", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO31_FLASH_MODE_CFG }},
-	{ "pwm_gpio36_idx8", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO36_FLASH_MODE_CFG }},
-	{ "pwm_gpio37_idx9", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO37_FLASH_MODE_CFG }},
-	{ "pwm_gpio38_idx10", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO38_FLASH_MODE_CFG }},
-	{ "pwm_gpio39_idx11", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO39_FLASH_MODE_CFG }},
-	{ "pwm_gpio40_idx12", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO40_FLASH_MODE_CFG }},
-	{ "pwm_gpio41_idx13", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO41_FLASH_MODE_CFG }},
-	{ "pwm_gpio42_idx14", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO42_FLASH_MODE_CFG }},
-	{ "pwm_gpio43_idx15", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO43_FLASH_MODE_CFG }},
-	{ "pwm_gpio44_idx8", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO44_FLASH_MODE_CFG }},
-	{ "pwm_gpio45_idx9", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO45_FLASH_MODE_CFG }},
-	{ "pwm_gpio46_idx10", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO46_FLASH_MODE_CFG }},
-	{ "pwm_gpio47_idx11", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO47_FLASH_MODE_CFG }},
-	{ "pwm_gpio48_idx12", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO48_FLASH_MODE_CFG }},
-	{ "pwm_gpio49_idx13", { REG_GPIO_FLASH_MODE_CFG_EXT, GPIO49_FLASH_MODE_CFG }},
+	{ "gpio0", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					  GPIO0_FLASH_MODE_CFG }},
+	{ "gpio1", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					  GPIO1_FLASH_MODE_CFG }},
+	{ "gpio2", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					  GPIO2_FLASH_MODE_CFG }},
+	{ "gpio3", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					  GPIO3_FLASH_MODE_CFG }},
+	{ "gpio4", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					  GPIO4_FLASH_MODE_CFG }},
+	{ "gpio5", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					  GPIO5_FLASH_MODE_CFG }},
+	{ "gpio6", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					  GPIO6_FLASH_MODE_CFG }},
+	{ "gpio7", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					  GPIO7_FLASH_MODE_CFG }},
+	{ "gpio8", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					  GPIO8_FLASH_MODE_CFG }},
+	{ "gpio9", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					  GPIO9_FLASH_MODE_CFG }},
+	{ "gpio10", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					   GPIO10_FLASH_MODE_CFG }},
+	{ "gpio11", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					   GPIO11_FLASH_MODE_CFG }},
+	{ "gpio12", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					   GPIO12_FLASH_MODE_CFG }},
+	{ "gpio13", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					   GPIO13_FLASH_MODE_CFG }},
+	{ "gpio14", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					   GPIO14_FLASH_MODE_CFG }},
+	{ "gpio15", AIROHA_FUNC_PWM_MUX, { REG_GPIO_FLASH_MODE_CFG,
+					   GPIO15_FLASH_MODE_CFG }},
+	{ "gpio16", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO16_FLASH_MODE_CFG }},
+	{ "gpio17", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO17_FLASH_MODE_CFG }},
+	{ "gpio18", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO18_FLASH_MODE_CFG }},
+	{ "gpio19", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO19_FLASH_MODE_CFG }},
+	{ "gpio20", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO20_FLASH_MODE_CFG }},
+	{ "gpio21", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO21_FLASH_MODE_CFG }},
+	{ "gpio22", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO22_FLASH_MODE_CFG }},
+	{ "gpio23", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO23_FLASH_MODE_CFG }},
+	{ "gpio24", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO24_FLASH_MODE_CFG }},
+	{ "gpio25", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO25_FLASH_MODE_CFG }},
+	{ "gpio26", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO26_FLASH_MODE_CFG }},
+	{ "gpio27", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO27_FLASH_MODE_CFG }},
+	{ "gpio28", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO28_FLASH_MODE_CFG }},
+	{ "gpio29", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO29_FLASH_MODE_CFG }},
+	{ "gpio30", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO30_FLASH_MODE_CFG }},
+	{ "gpio31", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO31_FLASH_MODE_CFG }},
+	{ "gpio36", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO36_FLASH_MODE_CFG }},
+	{ "gpio37", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO37_FLASH_MODE_CFG }},
+	{ "gpio38", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO38_FLASH_MODE_CFG }},
+	{ "gpio39", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO39_FLASH_MODE_CFG }},
+	{ "gpio40", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO40_FLASH_MODE_CFG }},
+	{ "gpio41", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO41_FLASH_MODE_CFG }},
+	{ "gpio42", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO42_FLASH_MODE_CFG }},
+	{ "gpio43", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO43_FLASH_MODE_CFG }},
+	{ "gpio44", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO44_FLASH_MODE_CFG }},
+	{ "gpio45", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO45_FLASH_MODE_CFG }},
+	{ "gpio46", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO46_FLASH_MODE_CFG }},
+	{ "gpio47", AIROHA_FUNC_PWM_EXT_MUX, { REG_GPIO_FLASH_MODE_CFG_EXT,
+					       GPIO47_FLASH_MODE_CFG }},
 };
-
 
 static const struct airoha_pinctrl_func airoha_pinctrl_funcs[] = {
-	PINCTRL_FUNC_DESC("pon", pon, MUX),
-	PINCTRL_FUNC_DESC("tod_1pps", tod_1pps, MUX),
-	PINCTRL_FUNC_DESC("sipo", sipo, MUX),
-	PINCTRL_FUNC_DESC("mdio", mdio, MUX),
-	PINCTRL_FUNC_DESC("uart", uart, MUX),
-	PINCTRL_FUNC_DESC("i2c", i2c, MUX),
-	PINCTRL_FUNC_DESC("jtag", jtag, MUX),
-	PINCTRL_FUNC_DESC("pcm", pcm, MUX),
-	PINCTRL_FUNC_DESC("spi", spi, MUX),
-	PINCTRL_FUNC_DESC("pcm_spi", pcm_spi, MUX),
-	PINCTRL_FUNC_DESC("i2s", i2s, MUX),
-	PINCTRL_FUNC_DESC("emmc", emmc, MUX),
-	PINCTRL_FUNC_DESC("pnand", pnand, MUX),
-	PINCTRL_FUNC_DESC("led", led, MUX),
-	PINCTRL_FUNC_DESC("pcie_reset", pcie_reset, MUX),
-	PINCTRL_FUNC_DESC("pwm", pwm, PWM),
+	PINCTRL_FUNC_DESC(pon),
+	PINCTRL_FUNC_DESC(tod_1pps),
+	PINCTRL_FUNC_DESC(sipo),
+	PINCTRL_FUNC_DESC(mdio),
+	PINCTRL_FUNC_DESC(uart),
+	PINCTRL_FUNC_DESC(i2c),
+	PINCTRL_FUNC_DESC(jtag),
+	PINCTRL_FUNC_DESC(pcm),
+	PINCTRL_FUNC_DESC(spi),
+	PINCTRL_FUNC_DESC(pcm_spi),
+	PINCTRL_FUNC_DESC(i2s),
+	PINCTRL_FUNC_DESC(emmc),
+	PINCTRL_FUNC_DESC(pnand),
+	PINCTRL_FUNC_DESC(led),
+	PINCTRL_FUNC_DESC(pcie_reset),
+	PINCTRL_FUNC_DESC(pwm),
 };
 
 static const struct airoha_pinctrl_conf airoha_pinctrl_pullup_conf[] = {
@@ -987,13 +1053,8 @@ static u32 airoha_pinctrl_rmw(struct airoha_pinctrl *pinctrl,
 	return val;
 }
 
-#define airoha_pinctrl_mux_set(pinctrl, offset, val)			\
-	airoha_pinctrl_rmw((pinctrl), ((pinctrl)->regs.mux) + (offset),	\
-			   0, (val));
-
-#define airoha_pinctrl_pwm_set(pinctrl, offset, val)			\
-	airoha_pinctrl_rmw((pinctrl), ((pinctrl)->regs.pwm_mode_conf) + (offset),	\
-			   0, (val));
+#define airoha_pinctrl_mux_set(pinctrl, base, offset, val)			\
+	airoha_pinctrl_rmw((pinctrl), (base) + (offset), 0, (val));
 
 static void airoha_pinctrl_gpio_set_direction(struct airoha_pinctrl *pinctrl,
 					      unsigned int pin, bool input)
@@ -1024,103 +1085,6 @@ static int airoha_pinctrl_gpio_get_direction(struct airoha_pinctrl *pinctrl,
 	return val ? PIN_CONFIG_OUTPUT_ENABLE : PIN_CONFIG_INPUT_ENABLE;
 }
 
-static const u8 gpio_to_idx_tab[] = {
-	 0, 1, 2, 3, 4, 5, 6, 7,
-	 8, 9,10,11,12,13,14,15,
-	 8, 9,10,11,12,13,14,15,
-	 8, 9,10,11,12,13,14,15,
-	-1,-1,-1,-1,
-	 8, 9,10,11,12,13,14,15,
-	 8, 9,10,11,12,13,
-};
-
-static int pwm_mask_to_gpio(u32 offset, u32 mask) {
-    if (offset == REG_GPIO_FLASH_MODE_CFG) {
-	switch (mask) {
-	    case GPIO0_FLASH_MODE_CFG: return 0;
-	    case GPIO1_FLASH_MODE_CFG: return 1;
-	    case GPIO2_FLASH_MODE_CFG: return 2;
-	    case GPIO3_FLASH_MODE_CFG: return 3;
-	    case GPIO4_FLASH_MODE_CFG: return 4;
-	    case GPIO5_FLASH_MODE_CFG: return 5;
-	    case GPIO6_FLASH_MODE_CFG: return 6;
-	    case GPIO7_FLASH_MODE_CFG: return 7;
-	    case GPIO8_FLASH_MODE_CFG: return 8;
-	    case GPIO9_FLASH_MODE_CFG: return 9;
-	    case GPIO10_FLASH_MODE_CFG: return 10;
-	    case GPIO11_FLASH_MODE_CFG: return 11;
-	    case GPIO12_FLASH_MODE_CFG: return 12;
-	    case GPIO13_FLASH_MODE_CFG: return 13;
-	    case GPIO14_FLASH_MODE_CFG: return 14;
-	    case GPIO15_FLASH_MODE_CFG: return 15;
-	    default: return -EINVAL;
-	}
-
-    } else {
-	switch (mask) {
-	    case GPIO16_FLASH_MODE_CFG: return 16;
-	    case GPIO17_FLASH_MODE_CFG: return 17;
-	    case GPIO18_FLASH_MODE_CFG: return 18;
-	    case GPIO19_FLASH_MODE_CFG: return 19;
-	    case GPIO20_FLASH_MODE_CFG: return 20;
-	    case GPIO21_FLASH_MODE_CFG: return 21;
-	    case GPIO22_FLASH_MODE_CFG: return 22;
-	    case GPIO23_FLASH_MODE_CFG: return 23;
-	    case GPIO24_FLASH_MODE_CFG: return 24;
-	    case GPIO25_FLASH_MODE_CFG: return 25;
-	    case GPIO26_FLASH_MODE_CFG: return 26;
-	    case GPIO27_FLASH_MODE_CFG: return 27;
-	    case GPIO28_FLASH_MODE_CFG: return 28;
-	    case GPIO29_FLASH_MODE_CFG: return 29;
-	    case GPIO30_FLASH_MODE_CFG: return 30;
-	    case GPIO31_FLASH_MODE_CFG: return 31;
-	    case GPIO36_FLASH_MODE_CFG: return 36;
-	    case GPIO37_FLASH_MODE_CFG: return 37;
-	    case GPIO38_FLASH_MODE_CFG: return 38;
-	    case GPIO39_FLASH_MODE_CFG: return 39;
-	    case GPIO40_FLASH_MODE_CFG: return 40;
-	    case GPIO41_FLASH_MODE_CFG: return 41;
-	    case GPIO42_FLASH_MODE_CFG: return 42;
-	    case GPIO43_FLASH_MODE_CFG: return 43;
-	    case GPIO44_FLASH_MODE_CFG: return 44;
-	    case GPIO45_FLASH_MODE_CFG: return 45;
-	    case GPIO46_FLASH_MODE_CFG: return 46;
-	    case GPIO47_FLASH_MODE_CFG: return 47;
-	    case GPIO48_FLASH_MODE_CFG: return 48;
-	    case GPIO49_FLASH_MODE_CFG: return 49;
-	    default: return -EINVAL;
-	}
-    }
-}
-
-// static int airoha_reserve_pwm_index_slot(struct pinctrl_dev *pctrl_dev,
-// 				 struct airoha_pinctrl *pinctrl,
-// 				 u32 offset, u32 mask) {
-// 	int gpio, index_slot;
-//
-// 	gpio = pwm_mask_to_gpio(offset, mask);
-// 	if (gpio < 0)
-// 		return -EINVAL;
-//
-// 	index_slot = gpio_to_idx_tab[gpio];
-//
-// 	if (index_slot < 0) {
-// 		return -EINVAL;
-// 	}
-// 	dev_info(pctrl_dev->dev, "Allocating gpio pin %d to pwm index slot %d", gpio, index_slot);
-// 	/* allocate index slot for gpio if it is free */
-// 	if (pinctrl->pwm_gpio_index_slots[index_slot] < 0) {
-// 		pinctrl->pwm_gpio_index_slots[index_slot] = gpio;
-// 		return 0;
-// 	} else {
-// 		dev_err(pctrl_dev->dev, "gpio pin %d can not be mapped to index slot"
-// 				"%d as gpio pin %d is already allocated to it\n", gpio,
-// 				index_slot,	pinctrl->pwm_gpio_index_slots[index_slot]);
-// 		return -EINVAL;
-// 	}
-// }
-
-
 static int airoha_pinmux_set_mux(struct pinctrl_dev *pctrl_dev,
 				 unsigned int selector,
 				 unsigned int group)
@@ -1129,7 +1093,7 @@ static int airoha_pinmux_set_mux(struct pinctrl_dev *pctrl_dev,
 	const struct airoha_pinctrl_func *func;
 	struct function_desc *desc;
 	struct group_desc *grp;
-	int i, gpio;
+	int i;
 
 	desc = pinmux_generic_get_function(pctrl_dev, selector);
 	if (!desc)
@@ -1139,53 +1103,18 @@ static int airoha_pinmux_set_mux(struct pinctrl_dev *pctrl_dev,
 	if (!grp)
 		return -EINVAL;
 
-	dev_dbg(pctrl_dev->dev, "enable function %s group %s\n",
+	dev_err(pctrl_dev->dev, "enable function %s group %s\n",
 		desc->name, grp->name);
 
 	func = desc->data;
 	for (i = 0; i < func->group_size; i++) {
 		if (!strcmp(func->groups[i].name, grp->name)) {
-			switch (func->group_type) {
-				case MUX:
-				    airoha_pinctrl_mux_set(pinctrl,
-							   func->groups[i].reg.offset,
-							   func->groups[i].reg.mask);
-				    break;
-				case PWM:
-// 				    ret = airoha_reserve_pwm_index_slot(pctrl_dev, pinctrl,
-// 							   func->groups[i].reg.offset,
-// 							   func->groups[i].reg.mask);
-// 				    if (ret < 0)
-// 						return -EINVAL;
+			void __iomem *base;
 
-					gpio = pwm_mask_to_gpio(func->groups[i].reg.offset,
-											func->groups[i].reg.mask);
-
-// 					if (gpio > 15) {
-// 						dev_info(pctrl_dev->dev, "pwm_mode_conf_ext: %x\n", pinctrl->regs.pwm_mode_conf_ext);
-// 						airoha_pinctrl_pwm_set_ext(pinctrl,
-// 								func->groups[i].reg.offset,
-// 								func->groups[i].reg.mask);
-// 						dev_info(pctrl_dev->dev, "pwm_mode_conf_ext: %x\n", pinctrl->regs.pwm_mode_conf_ext);
-// 					} else {
- 						dev_info(pctrl_dev->dev, "pwm_mode_conf_ext: %i %x\n", i, ioread32(pinctrl->regs.pwm_mode_conf_ext));
- 						dev_info(pctrl_dev->dev, "pwm_mode_conf: %x\n", ioread32(pinctrl->regs.pwm_mode_conf));
-						airoha_pinctrl_pwm_set(pinctrl,
-									func->groups[i].reg.offset,
-									func->groups[i].reg.mask);
-						dev_info(pctrl_dev->dev, "offset %x, mask %x\n", func->groups[i].reg.offset, func->groups[i].reg.mask);
- 						dev_info(pctrl_dev->dev, "pwm_mode_conf_ext: %x\n", ioread32(pinctrl->regs.pwm_mode_conf_ext));
- 						dev_info(pctrl_dev->dev, "pwm_mode_conf: %x\n", ioread32(pinctrl->regs.pwm_mode_conf));
-// 					}
-					dev_info(pctrl_dev->dev, "output enable: %x\n", ioread32(pinctrl->gpiochip.out[0]));
-					airoha_pinctrl_gpio_set_direction(pinctrl, gpio, 0);
-					dev_info(pctrl_dev->dev, "output enable: %x\n", ioread32(pinctrl->gpiochip.out[0]));
-				    break;
-				case SERDES:
-				    break;
-				default:
-				    return -EINVAL;
-			}
+			base = pinctrl->regs.mux[func->groups[i].mux_func];
+			airoha_pinctrl_mux_set(pinctrl, base,
+					       func->groups[i].reg.offset,
+					       func->groups[i].reg.mask);
 			return 0;
 		}
 	}
@@ -1309,7 +1238,7 @@ static int airoha_pinconf_get(struct pinctrl_dev *pctrl_dev,
 	enum pin_config_param param = pinconf_to_config_param(*config);
 	u32 arg;
 
-	dev_info(pctrl_dev->dev, "get conf for pin %d, %d\n", pin, param);
+	dev_err(pctrl_dev->dev, "get conf for pin %d\n", pin);
 
 	switch (param) {
 	case PIN_CONFIG_BIAS_PULL_DOWN:
@@ -1417,7 +1346,7 @@ static int airoha_pinconf_set(struct pinctrl_dev *pctrl_dev,
 			break;
 		case PIN_CONFIG_OUTPUT_ENABLE:
 		case PIN_CONFIG_INPUT_ENABLE:
-			arg = (param == PIN_CONFIG_INPUT_ENABLE);
+			arg = param == PIN_CONFIG_INPUT_ENABLE;
 			airoha_pinctrl_gpio_set_direction(pinctrl, pin, arg);
 			break;
 		default:
@@ -1606,10 +1535,14 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
 
 	mutex_init(&pinctrl->mutex);
 
-	pinctrl->regs.mux = devm_platform_ioremap_resource(pdev, index++);
-	if (IS_ERR(pinctrl->regs.mux))
-		return dev_err_probe(&pdev->dev, PTR_ERR(pinctrl->regs.mux),
-				     "failed to iomap mux regs\n");
+	for (i = 0; i < ARRAY_SIZE(pinctrl->regs.mux); i++) {
+		pinctrl->regs.mux[i] = devm_platform_ioremap_resource(pdev,
+								      index++);
+		if (IS_ERR(pinctrl->regs.mux[i]))
+			return dev_err_probe(&pdev->dev,
+					     PTR_ERR(pinctrl->regs.mux[i]),
+					     "failed to iomap mux regs\n");
+	}
 
 	pinctrl->regs.conf = devm_platform_ioremap_resource(pdev, index++);
 	if (IS_ERR(pinctrl->regs.conf))
@@ -1621,23 +1554,6 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
 		return dev_err_probe(&pdev->dev,
 				     PTR_ERR(pinctrl->regs.pcie_rst),
 				     "failed to iomap pcie rst od regs\n");
-
-	pinctrl->regs.pwm_mode_conf = devm_platform_ioremap_resource(pdev, index++);
-	if (IS_ERR(pinctrl->regs.pwm_mode_conf))
-		return dev_err_probe(&pdev->dev,
-				     PTR_ERR(pinctrl->regs.pwm_mode_conf),
-				     "failed to iomap pwm mode conf\n");
-
-	pinctrl->regs.pwm_mode_conf_ext = devm_platform_ioremap_resource(pdev, index++);
-	if (IS_ERR(pinctrl->regs.pwm_mode_conf_ext))
-		return dev_err_probe(&pdev->dev,
-				     PTR_ERR(pinctrl->regs.pwm_mode_conf_ext),
-				     "failed to iomap pwm mode conf ext\n");
-
-dev_err(&pdev->dev, "pwm_mode_conf_ext: 0x%px:%x\n", pinctrl->regs.pwm_mode_conf_ext, ioread32(pinctrl->regs.pwm_mode_conf_ext));
-
-	/* set the pwm gpio index slots to all unallocated (-1)*/
-	memset(pinctrl->pwm_gpio_index_slots, -1, 16);
 
 	err = devm_pinctrl_register_and_init(&pdev->dev, &airoha_pinctrl_desc,
 					     pinctrl, &pinctrl->ctrl);
