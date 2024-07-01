@@ -298,17 +298,17 @@ static const int pcm_spi_cs3_pins[] = { 41 };
 static const int pcm_spi_cs4_pins[] = { 42 };
 static const int emmc_pins[] = { 4, 5, 6, 30, 31, 32, 33, 34, 35, 36, 37 };
 static const int pnand_pins[] = { 4, 5, 6, 7, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42 };
-static const int gpio47_pins[] = { 61 };
-static const int gpio48_pins[] = { 62 };
-static const int gpio49_pins[] = { 63 };
-static const int lan0_led0_pins[] = { 46 };
-static const int lan0_led1_pins[] = { 56 };
-static const int lan1_led0_pins[] = { 47 };
-static const int lan1_led1_pins[] = { 57 };
-static const int lan2_led0_pins[] = { 48 };
-static const int lan2_led1_pins[] = { 58 };
-static const int lan3_led0_pins[] = { 55 };
-static const int lan3_led1_pins[] = { 59 };
+static const int gpio33_pins[] = { 46 };
+static const int gpio34_pins[] = { 47 };
+static const int gpio35_pins[] = { 48 };
+static const int gpio42_pins[] = { 55 };
+static const int gpio43_pins[] = { 56 };
+static const int gpio44_pins[] = { 57 };
+static const int gpio45_pins[] = { 58 };
+static const int gpio46_pins[] = { 59 };
+static const int pcie_reset0_pins[] = { 61 };
+static const int pcie_reset1_pins[] = { 62 };
+static const int pcie_reset2_pins[] = { 63 };
 
 static const struct pingroup airoha_pinctrl_groups[] = {
 	PINCTRL_PIN_GROUP("pon", pon),
@@ -344,17 +344,17 @@ static const struct pingroup airoha_pinctrl_groups[] = {
 	PINCTRL_PIN_GROUP("pcm_spi_cs4", pcm_spi_cs4),
 	PINCTRL_PIN_GROUP("emmc", emmc),
 	PINCTRL_PIN_GROUP("pnand", pnand),
-	PINCTRL_PIN_GROUP("gpio47", gpio47),
-	PINCTRL_PIN_GROUP("gpio48", gpio48),
-	PINCTRL_PIN_GROUP("gpio49", gpio49),
-	PINCTRL_PIN_GROUP("lan0_led0", lan0_led0),
-	PINCTRL_PIN_GROUP("lan0_led1", lan0_led1),
-	PINCTRL_PIN_GROUP("lan1_led0", lan1_led0),
-	PINCTRL_PIN_GROUP("lan1_led1", lan1_led1),
-	PINCTRL_PIN_GROUP("lan2_led0", lan2_led0),
-	PINCTRL_PIN_GROUP("lan2_led1", lan2_led1),
-	PINCTRL_PIN_GROUP("lan3_led0", lan3_led0),
-	PINCTRL_PIN_GROUP("lan3_led1", lan3_led1),
+	PINCTRL_PIN_GROUP("lan0_led0", gpio33),
+	PINCTRL_PIN_GROUP("lan0_led1", gpio43),
+	PINCTRL_PIN_GROUP("lan1_led0", gpio34),
+	PINCTRL_PIN_GROUP("lan1_led1", gpio44),
+	PINCTRL_PIN_GROUP("lan2_led0", gpio35),
+	PINCTRL_PIN_GROUP("lan2_led1", gpio45),
+	PINCTRL_PIN_GROUP("lan3_led0", gpio42),
+	PINCTRL_PIN_GROUP("lan3_led1", gpio46),
+	PINCTRL_PIN_GROUP("pcie_reset0", pcie_reset0),
+	PINCTRL_PIN_GROUP("pcie_reset1", pcie_reset1),
+	PINCTRL_PIN_GROUP("pcie_reset2", pcie_reset2),
 };
 
 static const char *const pon_groups[] = { "pon" };
@@ -377,7 +377,8 @@ static const char *const pcm_spi_groups[] = { "pcm_spi", "pcm_spi_int",
 static const char *const i2s_groups[] = { "i2s" };
 static const char *const emmc_groups[] = { "emmc" };
 static const char *const pnand_groups[] = { "pnand" };
-static const char *const gpio_groups[] = { "gpio47", "gpio48", "gpio49" };
+static const char *const pcie_reset_groups[] = { "pcie_reset0", "pcie_reset1",
+						 "pcie_reset2" };
 static const char *const led_groups[] = { "lan0_led0", "lan0_led1",
 					  "lan1_led0", "lan1_led1",
 					  "lan2_led0", "lan2_led1",
@@ -455,10 +456,10 @@ static const struct airoha_pinctrl_func_group pnand_func_group[] = {
 	{ "pnand", { REG_GPIO_PON_MODE, GPIO_PARALLEL_NAND_MODE_MASK }},
 };
 
-static const struct airoha_pinctrl_func_group gpio_func_group[] = {
-	{ "gpio47", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET0_MASK }},
-	{ "gpio48", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET1_MASK }},
-	{ "gpio49", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET2_MASK }},
+static const struct airoha_pinctrl_func_group pcie_reset_func_group[] = {
+	{ "pcie_reset0", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET0_MASK }},
+	{ "pcie_reset1", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET1_MASK }},
+	{ "pcie_reset2", { REG_GPIO_PON_MODE, GPIO_PCIE_RESET2_MASK }},
 };
 
 static const struct airoha_pinctrl_func_group led_func_group[] = {
@@ -486,8 +487,8 @@ static const struct airoha_pinctrl_func airoha_pinctrl_funcs[] = {
 	PINCTRL_FUNC_DESC("i2s", i2s),
 	PINCTRL_FUNC_DESC("emmc", emmc),
 	PINCTRL_FUNC_DESC("pnand", pnand),
-	PINCTRL_FUNC_DESC("gpio", gpio),
 	PINCTRL_FUNC_DESC("led", led),
+	PINCTRL_FUNC_DESC("pcie_reset", pcie_reset),
 };
 
 static const struct airoha_pinctrl_conf airoha_pinctrl_pullup_conf[] = {
