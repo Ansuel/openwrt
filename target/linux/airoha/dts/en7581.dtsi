@@ -264,8 +264,8 @@
 
 			clocks = <&i2cclock>;
 
-			/* 400 kHz */
-			clock-frequency = <400000>;
+			/* 100 kHz */
+			clock-frequency = <100000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
@@ -278,8 +278,8 @@
 
 			clocks = <&i2cclock>;
 
-			/* 400 kHz */
-			clock-frequency = <400000>;
+			/* 100 kHz */
+			clock-frequency = <100000>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 
