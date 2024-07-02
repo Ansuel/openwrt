@@ -1056,28 +1056,28 @@ static u32 airoha_pinctrl_rmw(struct airoha_pinctrl *pinctrl,
 	airoha_pinctrl_rmw((pinctrl), (base) + (offset), 0, (val));
 
 static void airoha_pinctrl_gpio_set_direction(struct airoha_pinctrl *pinctrl,
-					      unsigned int pin, bool input)
+					      unsigned int gpio, bool input)
 {
 	u32 mask, index;
 
 	/* set output enable */
-	mask = BIT(pin % AIROHA_GPIO_BANK_SIZE);
-	index = pin / AIROHA_GPIO_BANK_SIZE;
+	mask = BIT(gpio % AIROHA_GPIO_BANK_SIZE);
+	index = gpio / AIROHA_GPIO_BANK_SIZE;
 	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.out[index],
 			   mask, !input ? mask : 0);
 
-	/* set pin direction */
-	mask = BIT(2 * (pin % AIROHA_REG_GPIOCTRL_NUM_GPIO));
-	index = pin / AIROHA_REG_GPIOCTRL_NUM_GPIO;
+	/* set gpio direction */
+	mask = BIT(2 * (gpio % AIROHA_REG_GPIOCTRL_NUM_GPIO));
+	index = gpio / AIROHA_REG_GPIOCTRL_NUM_GPIO;
 	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.dir[index],
 			   mask, !input ? mask : 0);
 }
 
 static int airoha_pinctrl_gpio_get_direction(struct airoha_pinctrl *pinctrl,
-					     unsigned int pin)
+					     unsigned int gpio)
 {
-	u32 val, mask = BIT(2 * (pin % AIROHA_REG_GPIOCTRL_NUM_GPIO));
-	u8 index = pin / AIROHA_REG_GPIOCTRL_NUM_GPIO;
+	u32 val, mask = BIT(2 * (gpio % AIROHA_REG_GPIOCTRL_NUM_GPIO));
+	u8 index = gpio / AIROHA_REG_GPIOCTRL_NUM_GPIO;
 
 	val = (readl(pinctrl->gpiochip.dir[index]) & mask);
 
@@ -1126,10 +1126,28 @@ static int airoha_pinmux_gpio_set_direction(struct pinctrl_dev *pctrl_dev,
 					    unsigned int pin, bool input)
 {
 	struct airoha_pinctrl *pinctrl = pinctrl_dev_get_drvdata(pctrl_dev);
+	int gpio = pin - range->pin_base;
 
-	airoha_pinctrl_gpio_set_direction(pinctrl, pin, input);
+	airoha_pinctrl_gpio_set_direction(pinctrl, gpio, input);
 
 	return 0;
+}
+
+static int airoha_pinctrl_get_gpio_from_pin(struct pinctrl_dev *pctrl_dev,
+					    int pin)
+{
+	struct pinctrl_gpio_range *range;
+	int gpio;
+
+	range = pinctrl_find_gpio_range_from_pin(pctrl_dev, pin);
+	if (!range)
+		return -EINVAL;
+
+	gpio = pin - range->pin_base;
+	if (gpio < 0)
+		return -EINVAL;
+
+	return gpio;
 }
 
 static const struct airoha_pinctrl_reg *
@@ -1276,13 +1294,19 @@ static int airoha_pinconf_get(struct pinctrl_dev *pctrl_dev,
 			return -EINVAL;
 		break;
 	case PIN_CONFIG_OUTPUT_ENABLE:
-	case PIN_CONFIG_INPUT_ENABLE:
-		arg = airoha_pinctrl_gpio_get_direction(pinctrl, pin);
+	case PIN_CONFIG_INPUT_ENABLE: {
+		int gpio = airoha_pinctrl_get_gpio_from_pin(pctrl_dev, pin);
+
+		if (gpio < 0)
+			return gpio;
+
+		arg = airoha_pinctrl_gpio_get_direction(pinctrl, gpio);
 		if (arg != param)
 			return -EINVAL;
 
 		arg = 1;
 		break;
+	}
 	default:
 		return -ENOTSUPP;
 	}
@@ -1344,10 +1368,16 @@ static int airoha_pinconf_set(struct pinctrl_dev *pctrl_dev,
 			airoha_pinctrl_set_pcie_rst_od_conf(pinctrl, pin, !!arg);
 			break;
 		case PIN_CONFIG_OUTPUT_ENABLE:
-		case PIN_CONFIG_INPUT_ENABLE:
+		case PIN_CONFIG_INPUT_ENABLE: {
+			int gpio = airoha_pinctrl_get_gpio_from_pin(pctrl_dev, pin);
+
+			if (gpio < 0)
+				return gpio;
+
 			arg = param == PIN_CONFIG_INPUT_ENABLE;
-			airoha_pinctrl_gpio_set_direction(pinctrl, pin, arg);
+			airoha_pinctrl_gpio_set_direction(pinctrl, gpio, arg);
 			break;
+		}
 		default:
 			return -ENOTSUPP;
 		}
