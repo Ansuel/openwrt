@@ -485,7 +485,7 @@ static int airoha_pwm_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id airoha_pwm_of_match[] = {
-	{ .compatible = "airoha,airoha-pwm", },
+	{ .compatible = "airoha,en7581-pwm", },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, airoha_pwm_of_match);

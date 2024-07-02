@@ -229,7 +229,7 @@
 		};
 
 		pwm: pwm@1fbf0224 {
-			compatible = "airoha,en7523-pwm";
+			compatible = "airoha,en7581-pwm";
 			reg = <0x0 0x1fbf023C 0x0 0x4>, /* Flash period set 0 */
 				  <0x0 0x1fbf0240 0x0 0x4>, /* Flash period set 1 */
 				  <0x0 0x1fbf0244 0x0 0x4>, /* Flash period set 2 */
