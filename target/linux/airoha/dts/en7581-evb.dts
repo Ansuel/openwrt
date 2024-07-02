@@ -72,9 +72,9 @@
 	pwmleds {
 		compatible = "pwm-leds";
 		pinctrl-names = "default";
-		pinctrl-0 = <&pwm_status_led_green_pins>;
+		pinctrl-0 = <&pwm_gpio18_idx10_pins>;
 		lan4_green {
-			label = "status:green";
+			label = "pon:green";
 			pwms = <&pwm 10 4000000 0>;
 			max-brightness = <255>;
 		};
@@ -88,7 +88,7 @@
 			label = "pwr";
 			color = <LED_COLOR_ID_RED>;
 			function = LED_FUNCTION_POWER;
-			gpios = <&pio 4 GPIO_ACTIVE_LOW>;
+			gpios = <&pio 17 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
@@ -96,7 +96,7 @@
 			label = "los";
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 6 GPIO_ACTIVE_LOW>;
+			gpios = <&pio 19 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
@@ -104,31 +104,7 @@
 			label = "internet";
 			color = <LED_COLOR_ID_GREEN>;
 			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 7 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
-
-		usb1_led: led-4 {
-			label = "usb1";
-			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 21 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
-
-		usb0_led: led-5 {
-			label = "usb0";
-			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 22 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
-
-		wps_led: led-6 {
-			label = "wps";
-			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 29 GPIO_ACTIVE_LOW>;
+			gpios = <&pio 20 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 	};
@@ -185,13 +161,10 @@
 			pins = "gpio42";
 		};
 	};
-
-	pwm_status_led_green_pins: pwm-status-led-green-pins {
-		mux {
-			function = "pwm";
-			pins = "gpio18";
-			output-enable;
-		};
+	pwm_gpio18_idx10_pins: pwm-gpio18-idx10-pins {
+		function = "pwm";
+		pins = "gpio18";
+		output-enable;
 	};
 };
 
