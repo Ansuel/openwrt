@@ -69,6 +69,18 @@
 		};
 	};
 
+	pwmleds {
+		compatible = "pwm-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_gpio18_idx10_pins>;
+		lan4_green {
+			label = "pon:green";
+			pwms = <&pwm 10 4000000 0>;
+			max-brightness = <255>;
+		};
+	};
+
+
 	leds {
 		compatible = "gpio-leds";
 
@@ -77,14 +89,6 @@
 			color = <LED_COLOR_ID_RED>;
 			function = LED_FUNCTION_POWER;
 			gpios = <&pio 17 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
-
-		pon_led: led-1 {
-			label = "pon";
-			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 18 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 
@@ -103,36 +107,11 @@
 			gpios = <&pio 20 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
-
-		usb1_led: led-4 {
-			label = "usb1";
-			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 34 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
-
-		usb0_led: led-5 {
-			label = "usb0";
-			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 35 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
-
-		wps_led: led-6 {
-			label = "wps";
-			color = <LED_COLOR_ID_GREEN>;
-			function = LED_FUNCTION_STATUS;
-			gpios = <&pio 42 GPIO_ACTIVE_LOW>;
-			default-state = "on";
-		};
 	};
 };
 
 &pio {
-	gpio-ranges = <&pio 0 0 8>, <&pio 13 13 47>,
-		      <&pio 61 61 3>;
+	gpio-ranges = <&pio 0 13 47>;
 
 	i2c1_pins: i2c1-pins {
 		mux {
@@ -143,14 +122,14 @@
 
 	pcie0_rst_pins: pcie0-rst-pins {
 		conf {
-			pins = "PCIE_RESET0";
+			pins = "pcie_reset0";
 			drive-open-drain = <1>;
 		};
 	};
 
 	pcie1_rst_pins: pcie1-rst-pins {
 		conf {
-			pins = "PCIE_RESET1";
+			pins = "pcie_reset1";
 			drive-open-drain = <1>;
 		};
 	};
@@ -158,64 +137,34 @@
 	gswp1_led0_pins: gswp1-led0-pins {
 		mux {
 			function = "led";
-			groups = "lan0_led0";
-		};
-	};
-
-	gswp1_led1_pins: gswp1-led1-pins {
-		mux {
-			function = "led";
-			groups = "lan0_led1";
+			pins = "gpio33";
 		};
 	};
 
 	gswp2_led0_pins: gswp2-led0-pins {
 		mux {
 			function = "led";
-			groups = "lan1_led0";
-		};
-	};
-
-	gswp2_led1_pins: gswp2-led1-pins {
-		mux {
-			function = "led";
-			groups = "lan1_led1";
+			pins = "gpio34";
 		};
 	};
 
 	gswp3_led0_pins: gswp3-led0-pins {
 		mux {
 			function = "led";
-			groups = "lan2_led0";
-		};
-	};
-
-	gswp3_led1_pins: gswp3-led1-pins {
-		mux {
-			function = "led";
-			groups = "lan2_led1";
+			pins = "gpio35";
 		};
 	};
 
 	gswp4_led0_pins: gswp4-led0-pins {
 		mux {
 			function = "led";
-			groups = "lan3_led0";
+			pins = "gpio42";
 		};
 	};
-
-	gswp4_led1_pins: gswp4-led1-pins {
-		mux {
-			function = "led";
-			groups = "lan3_led1";
-		};
-	};
-
-	mmc_pins: mmc-pins {
-		mux {
-			function = "emmc";
-			groups = "emmc";
-		};
+	pwm_gpio18_idx10_pins: pwm-gpio18-idx10-pins {
+		function = "pwm";
+		pins = "gpio18";
+		output-enable;
 	};
 };
 
@@ -232,6 +181,10 @@
 &i2c1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c1_pins>;
+	status = "okay";
+};
+
+&pwm {
 	status = "okay";
 };
 
