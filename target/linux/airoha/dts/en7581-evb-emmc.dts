@@ -161,10 +161,18 @@
 			pins = "gpio42";
 		};
 	};
+
 	pwm_gpio18_idx10_pins: pwm-gpio18-idx10-pins {
 		function = "pwm";
 		pins = "gpio18";
 		output-enable;
+	};
+
+	mmc_pins: mmc-pins {
+		mux {
+			function = "emmc";
+			groups = "emmc";
+		};
 	};
 };
 
