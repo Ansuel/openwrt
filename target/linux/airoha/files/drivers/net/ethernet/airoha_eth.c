@@ -460,7 +460,6 @@
 	 TX16_COHERENT_INT_MASK | TX17_COHERENT_INT_MASK |	\
 	 TX18_COHERENT_INT_MASK | TX19_COHERENT_INT_MASK |	\
 	 TX20_COHERENT_INT_MASK | TX21_COHERENT_INT_MASK |	\
-	 TX20_COHERENT_INT_MASK | TX21_COHERENT_INT_MASK |	\
 	 TX22_COHERENT_INT_MASK | TX23_COHERENT_INT_MASK |	\
 	 TX24_COHERENT_INT_MASK | TX25_COHERENT_INT_MASK |	\
 	 TX26_COHERENT_INT_MASK | TX27_COHERENT_INT_MASK |	\
@@ -849,7 +848,7 @@ static void airoha_qdma_set_irqmask(struct airoha_eth *eth, int index,
 	/* Read irq_enable register in order to guarantee the update above
 	 * completes in the spinlock critical section.
 	 */
-	airoha_rr(eth, REG_INT_ENABLE(index));
+	airoha_qdma_rr(eth, REG_INT_ENABLE(index));
 
 	spin_unlock_irqrestore(&eth->irq_lock, flags);
 }
@@ -2295,12 +2294,9 @@ static void airoha_ethtool_get_strings(struct net_device *dev, u32 sset,
 	if (sset != ETH_SS_STATS)
 		return;
 
-	for (i = 0; i < ARRAY_SIZE(airoha_ethtool_stats_name); i++) {
-		memcpy(data + i * ETH_GSTRING_LEN,
-		       airoha_ethtool_stats_name[i], ETH_GSTRING_LEN);
-	}
+	for (i = 0; i < ARRAY_SIZE(airoha_ethtool_stats_name); i++)
+		ethtool_puts(&data, airoha_ethtool_stats_name[i]);
 
-	data += ETH_GSTRING_LEN * ARRAY_SIZE(airoha_ethtool_stats_name);
 	page_pool_ethtool_stats_get_strings(data);
 }
 
@@ -2599,8 +2595,8 @@ static void airoha_register_debugfs(struct airoha_eth *eth)
 static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
 {
 	const __be32 *id_ptr = of_get_property(np, "reg", NULL);
-	struct net_device *dev;
 	struct airoha_gdm_port *port;
+	struct net_device *dev;
 	int err, index;
 	u32 id;
 
