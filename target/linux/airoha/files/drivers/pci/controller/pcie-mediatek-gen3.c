@@ -119,11 +119,8 @@
 
 #define MAX_NUM_PHY_RESETS		3
 
-/* EN7581 */
-/* PCIe-PHY initialization delay in ms */
-#define PHY_INIT_TIME_MS		30
-/* PCIe reset line delay in ms */
-#define PCIE_RESET_TIME_MS		100
+/* Time in ms needed to complete PCIe reset on EN7581 SoC */
+#define PCIE_EN7581_RESET_TIME_MS	100
 
 struct mtk_gen3_pcie;
 
@@ -861,15 +858,17 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
 	int err;
 	u32 val;
 
-	/* Wait for bulk assert completion in mtk_pcie_setup */
-	mdelay(PCIE_RESET_TIME_MS);
+	/*
+	 * Wait for the time needed to complete the bulk assert in
+	 * mtk_pcie_setup for EN7581 SoC.
+	 */
+	mdelay(PCIE_EN7581_RESET_TIME_MS);
 
 	err = phy_init(pcie->phy);
 	if (err) {
 		dev_err(dev, "failed to initialize PHY\n");
 		return err;
 	}
-	mdelay(PHY_INIT_TIME_MS);
 
 	err = phy_power_on(pcie->phy);
 	if (err) {
@@ -882,7 +881,12 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
 		dev_err(dev, "failed to deassert PHYs\n");
 		goto err_phy_deassert;
 	}
-	mdelay(PCIE_RESET_TIME_MS);
+
+	/*
+	 * Wait for the time needed to complete the bulk de-assert above.
+	 * This time is specific for EN7581 SoC.
+	 */
+	mdelay(PCIE_EN7581_RESET_TIME_MS);
 
 	pm_runtime_enable(dev);
 	pm_runtime_get_sync(dev);
