@@ -30,7 +30,7 @@
 
 #define REG_GPIO_FLASH_MAP(_n)		(0x0014 + ((_n) << 2))
 #define GPIO_FLASH_SETID_MASK(_n)	GENMASK(2 + ((_n) << 2), ((_n) << 2))
-#define GPIO_FLASH_EN(_n)		BIT(3 << ((_n) << 2))
+#define GPIO_FLASH_EN(_n)		BIT(3 + ((_n) << 2))
 
 #define REG_SIPO_FLASH_MAP(_n)		(0x001c + ((_n) << 2))
 
@@ -131,11 +131,14 @@ static void airoha_pwm_free_waveform(struct airoha_pwm *pc, unsigned int hwpwm)
 		pc->bucket[i].used &= ~BIT_ULL(hwpwm);
 }
 
-static inline int use_waveform(struct airoha_pwm *pc, u32 duty, u32 period, unsigned int hwpwm)
+static int airoha_pwm_consume_waveform(struct airoha_pwm *pc, u32 duty,
+				       u32 period, unsigned int hwpwm)
 {
-	int i, id = airoha_pwm_get_waveform(pc, duty, period);
+	int id = airoha_pwm_get_waveform(pc, duty, period);
 
 	if (id < 0) {
+		int i;
+
 		/* find an unused waveform generator */
 		for (i = 0; i < ARRAY_SIZE(pc->bucket); i++) {
 			if (!(pc->bucket[i].used & ~BIT_ULL(hwpwm))) {
@@ -287,7 +290,8 @@ static int airoha_pwm_config(struct airoha_pwm *pc, struct pwm_device *pwm,
 	period = clamp_val(div64_u64(25 * period_ns, 100000000), PERIOD_MIN,
 			   PERIOD_MAX);
 	if (duty) {
-		index = use_waveform(pc, duty, period, pwm->hwpwm);
+		index = airoha_pwm_consume_waveform(pc, duty, period,
+						    pwm->hwpwm);
 		if (index < 0)
 			return -EBUSY;
 	}
@@ -296,12 +300,12 @@ static int airoha_pwm_config(struct airoha_pwm *pc, struct pwm_device *pwm,
 	    pwm->hwpwm >= PWM_NUM_GPIO)
 		airoha_pwm_sipo_init(pc);
 
-	if (index < 0) {
-		airoha_pwm_config_flash_map(pc, pwm->hwpwm, -1);
-		airoha_pwm_free_waveform(pc, pwm->hwpwm);
-	} else {
+	if (index >= 0) {
 		airoha_pwm_config_waveform(pc, index, duty, period);
 		airoha_pwm_config_flash_map(pc, pwm->hwpwm, index);
+	} else {
+		airoha_pwm_config_flash_map(pc, pwm->hwpwm, index);
+		airoha_pwm_free_waveform(pc, pwm->hwpwm);
 	}
 
 	pc->initialized |= BIT_ULL(pwm->hwpwm);
@@ -408,5 +412,7 @@ module_platform_driver(airoha_pwm_driver);
 
 MODULE_ALIAS("platform:airoha-pwm");
 MODULE_AUTHOR("Markus Gothe <markus.gothe@genexis.eu>");
+MODULE_AUTHOR("Lorenzo Bianconi <lorenzo@kernel.org>");
+MODULE_AUTHOR("Benjamin Larsson <benjamin.larsson@genexis.eu>");
 MODULE_DESCRIPTION("Airoha EN7581 PWM driver");
 MODULE_LICENSE("GPL v2");
