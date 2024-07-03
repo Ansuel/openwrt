@@ -43,13 +43,8 @@ struct airoha_pwm {
 	void __iomem *base;
 	void __iomem *cycle_cfg;
 
+	struct device_node *np;
 	u64 initialized;
-
-	struct {
-		u8 clk_divr_val;
-		u8 clk_dly_val;
-		bool hc74595;
-	} sipo;
 
 	struct {
 		/* Bitmask of PWM channels using this bucket */
@@ -97,20 +92,22 @@ static u32 __airoha_pwm_rmw(struct airoha_pwm *pc, void __iomem *addr,
 #define airoha_pwm_clear(pc, offset, mask)					\
 	airoha_pwm_rmw((pc), (offset), (mask), 0)
 
-static inline int find_waveform_index(struct airoha_pwm *pc, u32 duty, u32 period)
+static int airoha_pwm_get_waveform(struct airoha_pwm *pc, u32 duty, u32 period)
 {
-	int i = 0;
+	int i;
 
-	for (; i < sizeof(pc->bucket)/sizeof(pc->bucket[0]); i++) {
-		if (pc->bucket[i].used == 0)
+	for (i = 0; i < ARRAY_SIZE(pc->bucket); i++) {
+		if (!pc->bucket[i].used)
 			continue;
 
-		if (duty == pc->bucket[i].duty && period == pc->bucket[i].period)
+		if (duty == pc->bucket[i].duty &&
+		    period == pc->bucket[i].period)
 			return i;
 
 		/* Unlike duty cycle zero, which can be handled by
 		 * disabling PWM, a generator is needed for full duty
-		 * cycle but it can be reused regardless of period */
+		 * cycle but it can be reused regardless of period
+		 */
 		if (duty == DUTY_FULL && pc->bucket[i].duty == DUTY_FULL)
 			return i;
 	}
@@ -118,66 +115,84 @@ static inline int find_waveform_index(struct airoha_pwm *pc, u32 duty, u32 perio
 	return -1;
 }
 
-static inline void free_waveform(struct airoha_pwm *pc, unsigned int hwpwm)
+static void airoha_pwm_free_waveform(struct airoha_pwm *pc, unsigned int hwpwm)
 {
-	int i = 0;
+	int i;
 
-	for (; i < sizeof(pc->bucket)/sizeof(pc->bucket[0]); i++)
+	for (i = 0; i < ARRAY_SIZE(pc->bucket); i++)
 		pc->bucket[i].used &= ~BIT_ULL(hwpwm);
-}
-
-static inline int find_unused_waveform(struct airoha_pwm *pc, unsigned int hwpwm)
-{
-	int i = 0;
-
-	for (; i < sizeof(pc->bucket)/sizeof(pc->bucket[0]); i++)
-		if ((pc->bucket[i].used & ~BIT_ULL(hwpwm)) == 0)
-			return i;
-
-	return -1;
 }
 
 static inline int use_waveform(struct airoha_pwm *pc, u32 duty, u32 period, unsigned int hwpwm)
 {
-	int exists = find_waveform_index(pc, duty, period);
+	int i, id = airoha_pwm_get_waveform(pc, duty, period);
 
-	if (exists == -1)
-		exists = find_unused_waveform(pc, hwpwm);
+	if (id < 0) {
+		/* find an unused waveform generator */
+		for (i = 0; i < ARRAY_SIZE(pc->bucket); i++) {
+			if (!(pc->bucket[i].used & ~BIT_ULL(hwpwm))) {
+				id = i;
+				break;
+			}
+		}
+	}
 
-	if (exists == -1)
-		return -1;
+	if (id > 0) {
+		airoha_pwm_free_waveform(pc, hwpwm);
+		pc->bucket[id].used |= BIT_ULL(hwpwm);
+		pc->bucket[id].period = period;
+		pc->bucket[id].duty = duty;
+	}
 
-	free_waveform(pc, hwpwm);
-
-	pc->bucket[exists].period = period;
-	pc->bucket[exists].duty = duty;
-	pc->bucket[exists].used |= BIT_ULL(hwpwm);
-
-	return exists;
-}
-
-static inline struct airoha_pwm *to_airoha_pwm(struct pwm_chip *chip)
-{
-	return container_of(chip, struct airoha_pwm, chip);
+	return id;
 }
 
 static int airoha_pwm_sipo_init(struct airoha_pwm *pc)
 {
-	u32 val;
+	u32 clk_divr_val = 3, sipo_clock_delay = 1;
+	u32 val, sipo_clock_divisor = 32;
 
 	if (!(pc->initialized >> PWM_NUM_GPIO))
 		return 0;
 
 	/* Select the right shift register chip */
-	if (pc->sipo.hc74595)
+	if (of_property_read_bool(pc->np, "hc74595"))
 		airoha_pwm_set(pc, REG_SIPO_FLASH_MODE_CFG, SERIAL_GPIO_MODE);
 	else
 		airoha_pwm_clear(pc, REG_SIPO_FLASH_MODE_CFG,
 				 SERIAL_GPIO_MODE);
 
+	if (!of_property_read_u32(pc->np, "sipo-clock-divisor",
+				  &sipo_clock_divisor)) {
+		switch (sipo_clock_divisor) {
+		case 4:
+			clk_divr_val = 0;
+			break;
+		case 8:
+			clk_divr_val = 1;
+			break;
+		case 16:
+			clk_divr_val = 2;
+			break;
+		case 32:
+			clk_divr_val = 3;
+			break;
+		default:
+			return -EINVAL;
+		}
+	}
 	/* Configure shift register timings */
-	writel(pc->sipo.clk_divr_val, pc->base + REG_SGPIO_CLK_DIVR);
-	writel(pc->sipo.clk_dly_val, pc->base + REG_SGPIO_CLK_DLY);
+	writel(clk_divr_val, pc->base + REG_SGPIO_CLK_DIVR);
+
+	of_property_read_u32(pc->np, "sipo-clock-delay", &sipo_clock_delay);
+	if (sipo_clock_delay < 1 || sipo_clock_delay > sipo_clock_divisor / 2)
+		return -EINVAL;
+
+	/* The actual delay is sclkdly + 1 so subtract 1 from
+	 * sipo-clock-delay to calculate the register value
+	 */
+	sipo_clock_delay--;
+	writel(sipo_clock_delay, pc->base + REG_SGPIO_CLK_DLY);
 
 	/* It it necessary to after muxing explicitly shift out all
 	 * zeroes to initialize the shift register before enabling PWM
@@ -277,7 +292,7 @@ static int airoha_pwm_config(struct airoha_pwm *pc, struct pwm_device *pwm,
 
 	if (index < 0) {
 		airoha_pwm_config_flash_map(pc, pwm->hwpwm, -1);
-		free_waveform(pc, pwm->hwpwm);
+		airoha_pwm_free_waveform(pc, pwm->hwpwm);
 	} else {
 		airoha_pwm_config_waveform(pc, index, duty, period);
 		airoha_pwm_config_flash_map(pc, pwm->hwpwm, index);
@@ -290,11 +305,11 @@ static int airoha_pwm_config(struct airoha_pwm *pc, struct pwm_device *pwm,
 
 static void airoha_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
 {
-	struct airoha_pwm *pc = to_airoha_pwm(chip);
+	struct airoha_pwm *pc = container_of(chip, struct airoha_pwm, chip);
 
 	/* Disable PWM and release the waveform */
 	airoha_pwm_config_flash_map(pc, pwm->hwpwm, -1);
-	free_waveform(pc, pwm->hwpwm);
+	airoha_pwm_free_waveform(pc, pwm->hwpwm);
 
 	pc->initialized &= ~BIT_ULL(pwm->hwpwm);
 	if (!(pc->initialized >> PWM_NUM_GPIO))
@@ -311,8 +326,8 @@ static void airoha_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
 static int airoha_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			    const struct pwm_state *state)
 {
+	struct airoha_pwm *pc = container_of(chip, struct airoha_pwm, chip);
 	u64 duty = state->enabled ? state->duty_cycle : 0;
-	struct airoha_pwm *pc = to_airoha_pwm(chip);
 
 	if (state->period < PERIOD_MIN_NS || state->period > PERIOD_MAX_NS)
 		return -EINVAL;
@@ -329,13 +344,9 @@ static const struct pwm_ops airoha_pwm_ops = {
 
 static int airoha_pwm_probe(struct platform_device *pdev)
 {
-	struct device *dev = &pdev->dev;
-	struct device_node *np = dev->of_node;
-	struct airoha_pwm *pc = NULL;
-	u32 sipo_clock_divisor = 32;
-	u32 sipo_clock_delay = 1;
+	struct airoha_pwm *pc;
 
-	pc = devm_kzalloc(dev, sizeof(*pc), GFP_KERNEL);
+	pc = devm_kzalloc(&pdev->dev, sizeof(*pc), GFP_KERNEL);
 	if (!pc)
 		return -ENOMEM;
 
@@ -347,35 +358,8 @@ static int airoha_pwm_probe(struct platform_device *pdev)
 	if (IS_ERR(pc->cycle_cfg))
 		return PTR_ERR(pc->cycle_cfg);
 
-	of_property_read_u32(np, "sipo-clock-divisor", &sipo_clock_divisor);
-	of_property_read_u32(np, "sipo-clock-delay", &sipo_clock_delay);
-
-	switch (sipo_clock_divisor) {
-	case 4:
-		pc->sipo.clk_divr_val = 0;
-		break;
-	case 8:
-		pc->sipo.clk_divr_val = 1;
-		break;
-	case 16:
-		pc->sipo.clk_divr_val = 2;
-		break;
-	case 32:
-		pc->sipo.clk_divr_val = 3;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if (sipo_clock_delay < 1 || sipo_clock_delay > sipo_clock_divisor/2)
-		return -EINVAL;
-
-	/* The actual delay is sclkdly + 1 so subtract 1 from
-	 * sipo-clock-delay to calculate the register value */
-	pc->sipo.clk_dly_val = sipo_clock_delay - 1;
-	pc->sipo.hc74595 = of_property_read_bool(np, "hc74595");
-
-	pc->chip.dev = dev;
+	pc->np = pdev->dev.of_node;
+	pc->chip.dev = &pdev->dev;
 	pc->chip.ops = &airoha_pwm_ops;
 	pc->chip.base = -1;
 	pc->chip.npwm = PWM_NUM_GPIO + PWM_NUM_SIPO;
