@@ -13,6 +13,15 @@
 #include <linux/bitops.h>
 #include <asm/div64.h>
 
+#define REG_SGPIO_LED_DATE		0x0000
+#define REG_SGPIO_CLK_DIVR		0x0004
+#define REG_SGPIO_CLK_DLY		0x0008
+#define REG_SIPO_FLASH_MODE_CFG		0x000c
+#define REG_GPIO_FLASH_PRD_SET(_n)	(0x0018 + ((_n) << 2))
+#define REG_GPIO_FLASH_MAP(_n)		(0x0028 + ((_n) << 2))
+#define REG_SIPO_FLASH_MAP(_n)		(0x0030 + ((_n) << 2))
+#define REG_CYCLE_CFG_VALUE(_n)		(0x0000 + ((_n) << 2))
+
 struct duty_period_bucket {
 	u64 used;		/* Bitmask of PWM channels using this bucket */
 	u32 duty;		/* Relative duty cycle, 0-255 */
@@ -20,11 +29,6 @@ struct duty_period_bucket {
 };
 
 struct airoha_sipo {
-	void __iomem *flash_mode_cfg;
-	void __iomem *flash_map_cfg[3];
-	void __iomem *led_data;
-	void __iomem *clk_divr;
-	void __iomem *clk_dly;
 	u8 clk_divr_val;
 	u8 clk_dly_val;
 	bool hc74595;
@@ -35,10 +39,10 @@ struct airoha_pwm {
 	struct mutex mutex;
 	struct duty_period_bucket bucket[8];
 	u64 initialized;
-	void __iomem *flash_prd_set[4];
-	void __iomem *flash_map_cfg[2];
-	void __iomem *cycle_cfg_value[2];
 	struct airoha_sipo sipo;
+
+	void __iomem *base;
+	void __iomem *cycle_cfg;
 };
 
 /*
@@ -143,16 +147,16 @@ static void airoha_sipo_init(struct airoha_pwm *pc)
 	u32 value = 0;
 
 	/* Select the right shift register chip */
-	value = readl(pc->sipo.flash_mode_cfg);
+	value = readl(pc->base + REG_SIPO_FLASH_MODE_CFG);
 	if (pc->sipo.hc74595)
 		value |= BIT(0);
 	else
 		value &= ~BIT(0);
-	writel(value, pc->sipo.flash_mode_cfg);
+	writel(value, pc->base + REG_SIPO_FLASH_MODE_CFG);
 
 	/* Configure shift register timings */
-	writel(pc->sipo.clk_divr_val, pc->sipo.clk_divr);
-	writel(pc->sipo.clk_dly_val, pc->sipo.clk_dly);
+	writel(pc->sipo.clk_divr_val, pc->base + REG_SGPIO_CLK_DIVR);
+	writel(pc->sipo.clk_dly_val, pc->base + REG_SGPIO_CLK_DLY);
 
 	/* It it necessary to after muxing explicitly shift out all
 	 * zeroes to initialize the shift register before enabling PWM
@@ -160,15 +164,15 @@ static void airoha_sipo_init(struct airoha_pwm *pc)
 	 * it needs to output a non-zero value (bit 31 of led_data
 	 * indicates shifting in progress and it must return to zero
 	 * before led_data can be written or PWM mode can be set) */
-	value = wait_clear_and_read(pc->sipo.led_data, BIT(31));
+	value = wait_clear_and_read(pc->base + REG_SGPIO_LED_DATE, BIT(31));
 	value &= ~0x1ffff;
-	writel(value, pc->sipo.led_data);
-	wait_clear_and_read(pc->sipo.led_data, BIT(31));
+	writel(value, pc->base + REG_SGPIO_LED_DATE);
+	wait_clear_and_read(pc->base + REG_SGPIO_LED_DATE, BIT(31));
 
 	/* Set SIPO in PWM mode */
-	value = readl(pc->sipo.flash_mode_cfg);
+	value = readl(pc->base + REG_SIPO_FLASH_MODE_CFG);
 	value |= BIT(1);
-	writel(value, pc->sipo.flash_mode_cfg);
+	writel(value, pc->base + REG_SIPO_FLASH_MODE_CFG);
 }
 
 static void airoha_sipo_deinit(struct airoha_pwm *pc)
@@ -176,9 +180,9 @@ static void airoha_sipo_deinit(struct airoha_pwm *pc)
 	u32 value = 0;
 
 	/* Set SIPO in LED display mode */
-	value = readl(pc->sipo.flash_mode_cfg);
+	value = readl(pc->base + REG_SIPO_FLASH_MODE_CFG);
 	value &= ~BIT(1);
-	writel(value, pc->sipo.flash_mode_cfg);
+	writel(value, pc->base + REG_SIPO_FLASH_MODE_CFG);
 }
 
 static void airoha_pwm_config_waveform(struct airoha_pwm *pc, int index, u32 duty, u32 period)
@@ -188,14 +192,7 @@ static void airoha_pwm_config_waveform(struct airoha_pwm *pc, int index, u32 dut
 	void __iomem *reg = NULL;
 
 	/* Configure frequency divisor */
-	switch (index) {
-	case 0 ... 3:
-		reg = pc->cycle_cfg_value[0];
-		break;
-	case 4 ... 7:
-		reg = pc->cycle_cfg_value[1];
-		break;
-	}
+	reg = pc->cycle_cfg + REG_CYCLE_CFG_VALUE(index / 4);
 	bit_shift = (8 * (index % 4));
 	value = readl(reg);
 	value &= (~(0xff << bit_shift));
@@ -204,20 +201,7 @@ static void airoha_pwm_config_waveform(struct airoha_pwm *pc, int index, u32 dut
 
 	/* Configure duty cycle */
 	duty = ((DUTY_FULL - duty) << 8) | duty;
-	switch (index) {
-	case 0 ... 1:
-		reg = pc->flash_prd_set[0];
-		break;
-	case 2 ... 3:
-		reg = pc->flash_prd_set[1];
-		break;
-	case 4 ... 5:
-		reg = pc->flash_prd_set[2];
-		break;
-	case 6 ... 7:
-		reg = pc->flash_prd_set[3];
-		break;
-	}
+	reg = pc->base + REG_GPIO_FLASH_PRD_SET(index / 2);
 	bit_shift = (16 * (index % 2));
 	value = readl(reg);
 	value &= (~(0xffff << bit_shift));
@@ -232,29 +216,10 @@ static void airoha_pwm_config_flash_map(struct airoha_pwm *pc, unsigned int hwpw
 	void __iomem *reg = NULL;
 
 	if (hwpwm < PWM_NUM_GPIO) {
-		switch (hwpwm) {
-		case 0 ... 7:
-			reg = pc->flash_map_cfg[0];
-			break;
-		case 8 ... 15:
-			reg = pc->flash_map_cfg[1];
-			break;
-		}
+		reg = pc->base + REG_GPIO_FLASH_MAP(hwpwm / 8);
 	} else {
 		hwpwm -= PWM_NUM_GPIO;
-		switch (hwpwm) {
-		case 0 ... 7:
-			reg = pc->sipo.flash_map_cfg[0];
-			break;
-		case 8 ... 15:
-			reg = pc->sipo.flash_map_cfg[1];
-			break;
-		case 16:
-			reg = pc->sipo.flash_map_cfg[2];
-			break;
-		default:
-			return;
-		}
+		reg = pc->base + REG_SIPO_FLASH_MAP(hwpwm / 8);
 	}
 	bit_shift = (4 * (hwpwm % 8));
 	value = readl(reg);
@@ -368,68 +333,13 @@ static int airoha_pwm_probe(struct platform_device *pdev)
 	if (!pc)
 		return -ENOMEM;
 
-	/* The PWM controller is part of the GPIO block so we need to
-	 * address the registers one-by-one */
+	pc->base = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(pc->base))
+		return PTR_ERR(pc->base);
 
-	pc->flash_prd_set[0] = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(pc->flash_prd_set[0]))
-		return PTR_ERR(pc->flash_prd_set[0]);
-
-	pc->flash_prd_set[1] = devm_platform_ioremap_resource(pdev, 1);
-	if (IS_ERR(pc->flash_prd_set[1]))
-		return PTR_ERR(pc->flash_prd_set[1]);
-
-	pc->flash_prd_set[2] = devm_platform_ioremap_resource(pdev, 2);
-	if (IS_ERR(pc->flash_prd_set[2]))
-		return PTR_ERR(pc->flash_prd_set[2]);
-
-	pc->flash_prd_set[3] = devm_platform_ioremap_resource(pdev, 3);
-	if (IS_ERR(pc->flash_prd_set[3]))
-		return PTR_ERR(pc->flash_prd_set[3]);
-
-	pc->flash_map_cfg[0] = devm_platform_ioremap_resource(pdev, 4);
-	if (IS_ERR(pc->flash_map_cfg[0]))
-		return PTR_ERR(pc->flash_map_cfg[0]);
-
-	pc->flash_map_cfg[1] = devm_platform_ioremap_resource(pdev, 5);
-	if (IS_ERR(pc->flash_map_cfg[1]))
-		return PTR_ERR(pc->flash_map_cfg[1]);
-
-	pc->cycle_cfg_value[0] = devm_platform_ioremap_resource(pdev, 6);
-	if (IS_ERR(pc->cycle_cfg_value[0]))
-		return PTR_ERR(pc->cycle_cfg_value[0]);
-
-	pc->cycle_cfg_value[1] = devm_platform_ioremap_resource(pdev, 7);
-	if (IS_ERR(pc->cycle_cfg_value[1]))
-		return PTR_ERR(pc->cycle_cfg_value[1]);
-
-	pc->sipo.flash_mode_cfg = devm_platform_ioremap_resource(pdev, 8);
-	if (IS_ERR(pc->sipo.flash_mode_cfg))
-		return PTR_ERR(pc->sipo.flash_mode_cfg);
-
-	pc->sipo.flash_map_cfg[0] = devm_platform_ioremap_resource(pdev, 9);
-	if (IS_ERR(pc->sipo.flash_map_cfg[0]))
-		return PTR_ERR(pc->sipo.flash_map_cfg[0]);
-
-	pc->sipo.flash_map_cfg[1] = devm_platform_ioremap_resource(pdev, 10);
-	if (IS_ERR(pc->sipo.flash_map_cfg[1]))
-		return PTR_ERR(pc->sipo.flash_map_cfg[1]);
-
-	pc->sipo.flash_map_cfg[2] = devm_platform_ioremap_resource(pdev, 11);
-	if (IS_ERR(pc->sipo.flash_map_cfg[2]))
-		return PTR_ERR(pc->sipo.flash_map_cfg[2]);
-
-	pc->sipo.led_data = devm_platform_ioremap_resource(pdev, 12);
-	if (IS_ERR(pc->sipo.led_data))
-		return PTR_ERR(pc->sipo.led_data);
-
-	pc->sipo.clk_divr = devm_platform_ioremap_resource(pdev, 13);
-	if (IS_ERR(pc->sipo.clk_divr))
-		return PTR_ERR(pc->sipo.clk_divr);
-
-	pc->sipo.clk_dly = devm_platform_ioremap_resource(pdev, 14);
-	if (IS_ERR(pc->sipo.clk_dly))
-		return PTR_ERR(pc->sipo.clk_dly);
+	pc->cycle_cfg = devm_platform_ioremap_resource(pdev, 1);
+	if (IS_ERR(pc->cycle_cfg))
+		return PTR_ERR(pc->cycle_cfg);
 
 	of_property_read_u32(np, "sipo-clock-divisor", &sipo_clock_divisor);
 	of_property_read_u32(np, "sipo-clock-delay", &sipo_clock_delay);
