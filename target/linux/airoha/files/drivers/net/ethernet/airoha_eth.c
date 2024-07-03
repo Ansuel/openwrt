@@ -2294,9 +2294,12 @@ static void airoha_ethtool_get_strings(struct net_device *dev, u32 sset,
 	if (sset != ETH_SS_STATS)
 		return;
 
-	for (i = 0; i < ARRAY_SIZE(airoha_ethtool_stats_name); i++)
-		ethtool_puts(&data, airoha_ethtool_stats_name[i]);
+	for (i = 0; i < ARRAY_SIZE(airoha_ethtool_stats_name); i++) {
+		memcpy(data + i * ETH_GSTRING_LEN,
+		       airoha_ethtool_stats_name[i], ETH_GSTRING_LEN);
+	}
 
+	data += ETH_GSTRING_LEN * ARRAY_SIZE(airoha_ethtool_stats_name);
 	page_pool_ethtool_stats_get_strings(data);
 }
 
