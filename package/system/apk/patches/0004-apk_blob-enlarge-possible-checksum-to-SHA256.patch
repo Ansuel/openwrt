@@ -1,0 +1,31 @@
+From 33399b176561bc2325ee6f9e5911fd24559d0118 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 4 Jul 2024 01:24:33 +0200
+Subject: [PATCH 4/5] apk_blob: enlarge possible checksum to SHA256
+
+Enlarge possible checksum to SHA256 as currently the max value is SHA1
+20 bytes.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ src/apk_blob.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/src/apk_blob.h b/src/apk_blob.h
+index 60b172b..e9d36bd 100644
+--- a/src/apk_blob.h
++++ b/src/apk_blob.h
+@@ -28,8 +28,9 @@ typedef int (*apk_blob_cb)(void *ctx, apk_blob_t blob);
+ #define APK_CHECKSUM_NONE	0
+ #define APK_CHECKSUM_MD5	16
+ #define APK_CHECKSUM_SHA1	20
++#define APK_CHECKSUM_SHA256	32
+ #define APK_CHECKSUM_DEFAULT	APK_CHECKSUM_SHA1
+-#define APK_CHECKSUM_MAX	APK_CHECKSUM_SHA1
++#define APK_CHECKSUM_MAX	APK_CHECKSUM_SHA256
+ 
+ /* Enough space for a hexdump of the longest checksum possible plus
+  * a two-character type prefix */
+-- 
+2.45.2
+

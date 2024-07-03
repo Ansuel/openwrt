@@ -1,0 +1,38 @@
+From 673dd20f8689eeb69198958bed60e3ffff34611c Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 4 Jul 2024 00:39:09 +0200
+Subject: [PATCH 3/5] mkpkg: move ADB identity to SHA256
+
+Move ADB identity to full SHA256 instead of SHA256_160 to prevent clash
+and make the APK identity more robust.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ src/app_mkpkg.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/app_mkpkg.c b/src/app_mkpkg.c
+index c43ba7a..049fefd 100644
+--- a/src/app_mkpkg.c
++++ b/src/app_mkpkg.c
+@@ -335,7 +335,7 @@ static int mkpkg_main(void *pctx, struct apk_ctx *ac, struct apk_string_array *a
+ 	struct apk_ostream *os;
+ 	struct apk_digest d = {};
+ 	char outbuf[PATH_MAX];
+-	const int uid_len = apk_digest_alg_len(APK_DIGEST_SHA1);
++	const int uid_len = apk_digest_alg_len(APK_DIGEST_SHA256);
+ 	apk_blob_t uid = APK_BLOB_PTR_LEN((char*)d.data, uid_len);
+ 
+ 	ctx->ac = ac;
+@@ -401,7 +401,7 @@ static int mkpkg_main(void *pctx, struct apk_ctx *ac, struct apk_string_array *a
+ 	adb_ro_obj(&pkg, ADBI_PKG_PATHS, &ctx->paths);
+ 
+ 	// fill in unique id
+-	apk_digest_calc(&d, APK_DIGEST_SHA256_160, ctx->db.adb.ptr, ctx->db.adb.len);
++	apk_digest_calc(&d, APK_DIGEST_SHA256, ctx->db.adb.ptr, ctx->db.adb.len);
+ 	uid = adb_ro_blob(&pkgi, ADBI_PI_UNIQUE_ID);
+ 	memcpy(uid.ptr, d.data, uid.len);
+ 
+-- 
+2.45.2
+

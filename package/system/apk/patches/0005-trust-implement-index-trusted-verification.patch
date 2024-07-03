@@ -1,0 +1,132 @@
+From eb260fbed0387686ec276d99e85320aaa23557b6 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 4 Jul 2024 00:55:35 +0200
+Subject: [PATCH 5/5] trust: implement index trusted verification
+
+Implement index trusted verification.
+
+This comes from concept of v2 and is needed in some corner case on
+OpenWrt where it's not possible to sign every package due to HW
+constraints of HW SIGN KEY and security chain fortification.
+
+This works on the principle that Index is signed and package inherit
+trust by their checksum/identity. If the index have a matching identity
+for the package, then package is trusted.
+
+We base this on 2 principle, we check if the package is present in a
+repo and then we check if the identity is present in one of the
+repository. With these 2 condition true, SIGN verification is skipped
+and package is trusted.
+
+This also works for manually provided package as someone might manually
+download an APK and an Index and instally them offline.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ src/adb.c         | 4 ++--
+ src/apk_extract.h | 1 +
+ src/apk_trust.h   | 1 +
+ src/app_mkndx.c   | 2 ++
+ src/database.c    | 5 +++++
+ src/extract_v3.c  | 3 +++
+ 6 files changed, 14 insertions(+), 2 deletions(-)
+
+diff --git a/src/adb.c b/src/adb.c
+index 7759ede..428df48 100644
+--- a/src/adb.c
++++ b/src/adb.c
+@@ -81,7 +81,7 @@ static int __adb_m_parse(struct adb *db, apk_blob_t data, struct apk_trust *t,
+ 	struct adb_verify_ctx vfy = {};
+ 	struct adb_block *blk;
+ 	struct apk_istream is;
+-	int r = 0, trusted = (t && t->allow_untrusted) ? 1 : 0;
++	int r = 0, trusted = (t && (t->allow_untrusted || t->index_trusted)) ? 1 : 0;
+ 	uint32_t type, allowed = BIT(ADB_BLOCK_ADB);
+ 
+ 	adb_foreach_block(blk, data) {
+@@ -169,7 +169,7 @@ static int __adb_m_stream(struct adb *db, struct apk_istream *is, uint32_t expec
+ 	struct adb_block blk;
+ 	struct apk_segment_istream seg;
+ 	void *sig;
+-	int r = 0, trusted = (t && t->allow_untrusted) ? 1 : 0;
++	int r = 0, trusted = (t && (t->allow_untrusted || t->index_trusted)) ? 1 : 0;
+ 	uint32_t type, allowed = BIT(ADB_BLOCK_ADB);
+ 
+ 	if (IS_ERR(is)) return PTR_ERR(is);
+diff --git a/src/apk_extract.h b/src/apk_extract.h
+index e3fabad..ded4db0 100644
+--- a/src/apk_extract.h
++++ b/src/apk_extract.h
+@@ -33,6 +33,7 @@ struct apk_extract_ctx {
+ 	struct apk_checksum *identity;
+ 	apk_blob_t desc;
+ 	void *pctx;
++	unsigned index_trusted : 1;
+ 	unsigned generate_identity : 1;
+ 	unsigned is_package : 1;
+ 	unsigned is_index : 1;
+diff --git a/src/apk_trust.h b/src/apk_trust.h
+index ee39f5a..02564ab 100644
+--- a/src/apk_trust.h
++++ b/src/apk_trust.h
+@@ -25,6 +25,7 @@ struct apk_trust {
+ 	struct list_head private_key_list;
+ 	unsigned int allow_untrusted : 1;
+ 	unsigned int keys_loaded : 1;
++	unsigned int index_trusted : 1;
+ };
+ 
+ void apk_trust_init(struct apk_trust *trust);
+diff --git a/src/app_mkndx.c b/src/app_mkndx.c
+index b1e809b..60a2da2 100644
+--- a/src/app_mkndx.c
++++ b/src/app_mkndx.c
+@@ -269,6 +269,8 @@ static int mkndx_main(void *pctx, struct apk_ctx *ac, struct apk_string_array *a
+ 		if (!found) {
+ 		do_file:
+ 			apk_extract_reset(&ctx->ectx);
++			/* Index Trust by default on creating Index */
++			ctx->ectx.index_trusted = TRUE;
+ 			apk_extract_generate_identity(&ctx->ectx, &csum);
+ 			csum.type = APK_CHECKSUM_NONE;
+ 			r = apk_extract(&ctx->ectx, apk_istream_from_file(AT_FDCWD, *parg));
+diff --git a/src/database.c b/src/database.c
+index 46550f6..a6a77d2 100644
+--- a/src/database.c
++++ b/src/database.c
+@@ -2988,6 +2988,8 @@ static int apk_db_unpack_pkg(struct apk_database *db,
+ 		if (!(pkg->repos & db->local_repos))
+ 			need_copy = TRUE;
+ 	} else {
++		/* Check if the external package is found in a repo */
++		repo = apk_db_select_repo(db, pkg);
+ 		if (strlcpy(file, db->filename_array->item[pkg->filename_ndx-1], sizeof file) >= sizeof file) {
+ 			r = -ENAMETOOLONG;
+ 			goto err_msg;
+@@ -3025,6 +3027,9 @@ static int apk_db_unpack_pkg(struct apk_database *db,
+ 		.cb_ctx = cb_ctx,
+ 	};
+ 	apk_extract_init(&ctx.ectx, db->ctx, &extract_installer);
++	/* Flag a package index trustable if in a repo and identity is found in repo */
++	if (repo && apk_hash_get(&db->available.packages, APK_BLOB_CSUM(pkg->csum)))
++		ctx.ectx.index_trusted = TRUE;
+ 	apk_extract_verify_identity(&ctx.ectx, &pkg->csum);
+ 	r = apk_extract(&ctx.ectx, is);
+ 	if (need_copy && r == 0) pkg->repos |= BIT(APK_REPOSITORY_CACHED);
+diff --git a/src/extract_v3.c b/src/extract_v3.c
+index 88407d3..c0d03b3 100644
+--- a/src/extract_v3.c
++++ b/src/extract_v3.c
+@@ -250,6 +250,9 @@ int apk_extract_v3(struct apk_extract_ctx *ectx, struct apk_istream *is)
+ 	if (!ectx->ops->v3meta && !ectx->ops->v3index)
+ 		return apk_istream_close_error(is, -APKE_FORMAT_NOT_SUPPORTED);
+ 
++	if (ectx->index_trusted)
++		trust->index_trusted = TRUE;
++
+ 	ectx->pctx = &ctx;
+ 	r = adb_m_process(&ctx.db, adb_decompress(is, 0),
+ 		ADB_SCHEMA_ANY, trust, apk_extract_v3_data_block);
+-- 
+2.45.2
+
