@@ -5,6 +5,7 @@
 
 #include <linux/err.h>
 #include <linux/io.h>
+#include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
@@ -14,58 +15,87 @@
 #include <asm/div64.h>
 
 #define REG_SGPIO_LED_DATE		0x0000
+#define SGPIO_LED_SHIFT_FLAG		BIT(31)
+#define SGPIO_LED_DATA			GENMASK(16, 0)
+
 #define REG_SGPIO_CLK_DIVR		0x0004
 #define REG_SGPIO_CLK_DLY		0x0008
+
 #define REG_SIPO_FLASH_MODE_CFG		0x000c
+#define SERIAL_GPIO_FLASH_MODE		BIT(1)
+#define SERIAL_GPIO_MODE		BIT(0)
+
 #define REG_GPIO_FLASH_PRD_SET(_n)	(0x0018 + ((_n) << 2))
+#define GPIO_FLASH_PRD_MASK(_n)		GENMASK(15 + ((_n) << 4), ((_n) << 4))
+
 #define REG_GPIO_FLASH_MAP(_n)		(0x0028 + ((_n) << 2))
+#define GPIO_FLASH_SETID_MASK(_n)	GENMASK(2 + ((_n) << 2), ((_n) << 2))
+#define GPIO_FLASH_EN(_n)		BIT(3 << ((_n) << 2))
+
 #define REG_SIPO_FLASH_MAP(_n)		(0x0030 + ((_n) << 2))
+
 #define REG_CYCLE_CFG_VALUE(_n)		(0x0000 + ((_n) << 2))
-
-struct duty_period_bucket {
-	u64 used;		/* Bitmask of PWM channels using this bucket */
-	u32 duty;		/* Relative duty cycle, 0-255 */
-	u32 period;		/* In 1/250 s, 1-250 permitted */
-};
-
-struct airoha_sipo {
-	u8 clk_divr_val;
-	u8 clk_dly_val;
-	bool hc74595;
-};
+#define WAVE_GEN_CYCLE_MASK(_n)		GENMASK(7 + ((_n) << 3), ((_n) << 3))
 
 struct airoha_pwm {
 	struct pwm_chip chip;
-	struct mutex mutex;
-	struct duty_period_bucket bucket[8];
-	u64 initialized;
-	struct airoha_sipo sipo;
 
 	void __iomem *base;
 	void __iomem *cycle_cfg;
+
+	u64 initialized;
+
+	struct {
+		u8 clk_divr_val;
+		u8 clk_dly_val;
+		bool hc74595;
+	} sipo;
+
+	struct {
+		/* Bitmask of PWM channels using this bucket */
+		u64 used;
+		/* Relative duty cycle, 0-255 */
+		u32 duty;
+		/* In 1/250 s, 1-250 permitted */
+		u32 period;
+	} bucket[8];
 };
 
 /*
-	The first 16 GPIO pins, GPIO0-GPIO15, are mapped into 16 PWM channels, 0-15.
-	The SIPO GPIO pins are 16 pins which are mapped into 17 PWM channels, 16-32.
-
-	However, we've only got 8 concurrent waveform generators and can therefore
-	only use up to 8 different combinations of duty cycle and period at a time.
+ * The first 16 GPIO pins, GPIO0-GPIO15, are mapped into 16 PWM channels, 0-15.
+ * The SIPO GPIO pins are 16 pins which are mapped into 17 PWM channels, 16-32.
+ * However, we've only got 8 concurrent waveform generators and can therefore
+ * only use up to 8 different combinations of duty cycle and period at a time.
  */
-
-#define PWM_NUM_GPIO 16
-#define PWM_NUM_SIPO 17
-
-/* Duty cycle is relative with 255 corresponding to 100% */
-#define DUTY_FULL 255
+#define PWM_NUM_GPIO	16
+#define PWM_NUM_SIPO	17
 
 /* The PWM hardware supports periods between 4 ms and 1 s */
-#define PERIOD_MIN_NS    4000000
-#define PERIOD_MAX_NS 1000000000
-
+#define PERIOD_MIN_NS	4000000
+#define PERIOD_MAX_NS	1000000000
 /* It is represented internally as 1/250 s between 1 and 250 */
-#define PERIOD_MIN   1
-#define PERIOD_MAX 250
+#define PERIOD_MIN	1
+#define PERIOD_MAX	250
+/* Duty cycle is relative with 255 corresponding to 100% */
+#define DUTY_FULL	255
+
+static u32 __airoha_pwm_rmw(struct airoha_pwm *pc, void __iomem *addr,
+			    u32 mask, u32 val)
+{
+	val |= (readl(addr) & ~mask);
+	writel(val, addr);
+
+	return val;
+}
+
+#define airoha_pwm_rmw(pc, offset, mask, val)					\
+	__airoha_pwm_rmw((pc), (pc)->base + (offset), (mask), (val))
+#define airoha_pwm_cycle_rmw(pc, offset, mask, val)				\
+	__airoha_pwm_rmw((pc), (pc)->cycle_cfg + (offset), (mask), (val))
+#define airoha_pwm_set(pc, offset, val)						\
+	airoha_pwm_rmw((pc), (offset), 0, (val))
+#define airoha_pwm_clear(pc, offset, mask)					\
+	airoha_pwm_rmw((pc), (offset), (mask), 0)
 
 static inline int find_waveform_index(struct airoha_pwm *pc, u32 duty, u32 period)
 {
@@ -131,28 +161,19 @@ static inline struct airoha_pwm *to_airoha_pwm(struct pwm_chip *chip)
 	return container_of(chip, struct airoha_pwm, chip);
 }
 
-static inline u32 wait_clear_and_read(void __iomem *reg, u32 mask)
+static int airoha_pwm_sipo_init(struct airoha_pwm *pc)
 {
-	u32 value = 0;
+	u32 val;
 
-	do {
-		value = readl(reg);
-	} while (value & mask);
-
-	return value;
-}
-
-static void airoha_sipo_init(struct airoha_pwm *pc)
-{
-	u32 value = 0;
+	if (!(pc->initialized >> PWM_NUM_GPIO))
+		return 0;
 
 	/* Select the right shift register chip */
-	value = readl(pc->base + REG_SIPO_FLASH_MODE_CFG);
 	if (pc->sipo.hc74595)
-		value |= BIT(0);
+		airoha_pwm_set(pc, REG_SIPO_FLASH_MODE_CFG, SERIAL_GPIO_MODE);
 	else
-		value &= ~BIT(0);
-	writel(value, pc->base + REG_SIPO_FLASH_MODE_CFG);
+		airoha_pwm_clear(pc, REG_SIPO_FLASH_MODE_CFG,
+				 SERIAL_GPIO_MODE);
 
 	/* Configure shift register timings */
 	writel(pc->sipo.clk_divr_val, pc->base + REG_SGPIO_CLK_DIVR);
@@ -163,112 +184,104 @@ static void airoha_sipo_init(struct airoha_pwm *pc)
 	 * mode because in PWM mode SIPO will not start shifting until
 	 * it needs to output a non-zero value (bit 31 of led_data
 	 * indicates shifting in progress and it must return to zero
-	 * before led_data can be written or PWM mode can be set) */
-	value = wait_clear_and_read(pc->base + REG_SGPIO_LED_DATE, BIT(31));
-	value &= ~0x1ffff;
-	writel(value, pc->base + REG_SGPIO_LED_DATE);
-	wait_clear_and_read(pc->base + REG_SGPIO_LED_DATE, BIT(31));
+	 * before led_data can be written or PWM mode can be set)
+	 */
+	if (readl_poll_timeout(pc->base + REG_SGPIO_LED_DATE, val,
+			       !(val & SGPIO_LED_SHIFT_FLAG), 10,
+			       200 * USEC_PER_MSEC))
+		return -ETIMEDOUT;
+
+	airoha_pwm_clear(pc, REG_SGPIO_LED_DATE, SGPIO_LED_DATA);
+	if (readl_poll_timeout(pc->base + REG_SGPIO_LED_DATE, val,
+			       !(val & SGPIO_LED_SHIFT_FLAG), 10,
+			       200 * USEC_PER_MSEC))
+		return -ETIMEDOUT;
 
 	/* Set SIPO in PWM mode */
-	value = readl(pc->base + REG_SIPO_FLASH_MODE_CFG);
-	value |= BIT(1);
-	writel(value, pc->base + REG_SIPO_FLASH_MODE_CFG);
+	airoha_pwm_set(pc, REG_SIPO_FLASH_MODE_CFG, SERIAL_GPIO_FLASH_MODE);
+
+	return 0;
 }
 
-static void airoha_sipo_deinit(struct airoha_pwm *pc)
+static void airoha_pwm_config_waveform(struct airoha_pwm *pc, int index,
+				       u32 duty, u32 period)
 {
-	u32 value = 0;
-
-	/* Set SIPO in LED display mode */
-	value = readl(pc->base + REG_SIPO_FLASH_MODE_CFG);
-	value &= ~BIT(1);
-	writel(value, pc->base + REG_SIPO_FLASH_MODE_CFG);
-}
-
-static void airoha_pwm_config_waveform(struct airoha_pwm *pc, int index, u32 duty, u32 period)
-{
-	u32 value = 0;
-	u32 bit_shift = 0;
-	void __iomem *reg = NULL;
+	u32 mask, val;
 
 	/* Configure frequency divisor */
-	reg = pc->cycle_cfg + REG_CYCLE_CFG_VALUE(index / 4);
-	bit_shift = (8 * (index % 4));
-	value = readl(reg);
-	value &= (~(0xff << bit_shift));
-	value |= ((period & 0xff) << bit_shift);
-	writel(value, reg);
+	mask = WAVE_GEN_CYCLE_MASK(index % 4);
+	val = (period << __bf_shf(mask)) & mask;
+	airoha_pwm_cycle_rmw(pc, REG_CYCLE_CFG_VALUE(index / 4), mask, val);
 
 	/* Configure duty cycle */
 	duty = ((DUTY_FULL - duty) << 8) | duty;
-	reg = pc->base + REG_GPIO_FLASH_PRD_SET(index / 2);
-	bit_shift = (16 * (index % 2));
-	value = readl(reg);
-	value &= (~(0xffff << bit_shift));
-	value |= ((duty & 0xffff) << bit_shift);
-	writel(value, reg);
+	mask = GPIO_FLASH_PRD_MASK(index % 2);
+	val = (duty << __bf_shf(mask)) & mask;
+	airoha_pwm_rmw(pc, REG_GPIO_FLASH_PRD_SET(index / 2), mask, val);
 }
 
-static void airoha_pwm_config_flash_map(struct airoha_pwm *pc, unsigned int hwpwm, int index)
+static void airoha_pwm_config_flash_map(struct airoha_pwm *pc,
+					unsigned int hwpwm, int index)
 {
-	u32 value = 0;
-	u32 bit_shift = 0;
-	void __iomem *reg = NULL;
+	u32 addr, mask, val;
 
 	if (hwpwm < PWM_NUM_GPIO) {
-		reg = pc->base + REG_GPIO_FLASH_MAP(hwpwm / 8);
+		addr = REG_GPIO_FLASH_MAP(hwpwm / 8);
 	} else {
+		addr = REG_SIPO_FLASH_MAP(hwpwm / 8);
 		hwpwm -= PWM_NUM_GPIO;
-		reg = pc->base + REG_SIPO_FLASH_MAP(hwpwm / 8);
 	}
-	bit_shift = (4 * (hwpwm % 8));
-	value = readl(reg);
-	if (index == -1) {
+
+	if (index < 0) {
 		/* Change of waveform takes effect immediately but
 		 * disabling has some delay so to prevent glitching
-		 * only the enable bit is touched when disabling */
-		value &= (~(8 << bit_shift));
-	} else {
-		value &= (~(7 << bit_shift));
-		value |= ((index & 7) << bit_shift);
-		value |= (8 << bit_shift);
+		 * only the enable bit is touched when disabling
+		 */
+		airoha_pwm_clear(pc, addr, GPIO_FLASH_EN(hwpwm % 8));
+		return;
 	}
-	writel(value, reg);
+
+	mask = GPIO_FLASH_SETID_MASK(hwpwm % 8);
+	val = ((index & 7) << __bf_shf(mask)) & mask;
+	airoha_pwm_rmw(pc, addr, mask, val);
+	airoha_pwm_set(pc, addr, GPIO_FLASH_EN(hwpwm % 8));
 }
 
 static int airoha_pwm_config(struct airoha_pwm *pc, struct pwm_device *pwm,
-			     u64 duty_ns, u64 period_ns, enum pwm_polarity polarity)
+			     u64 duty_ns, u64 period_ns,
+			     enum pwm_polarity polarity)
 {
-	u32 duty = clamp_val(div64_u64(DUTY_FULL * duty_ns, period_ns), 0, DUTY_FULL);
-	u32 period = clamp_val(div64_u64(25 * period_ns, 100000000), PERIOD_MIN, PERIOD_MAX);
+	u32 duty, period;
 	int index = -1;
 
+	duty = clamp_val(div64_u64(DUTY_FULL * duty_ns, period_ns), 0,
+			 DUTY_FULL);
 	if (polarity == PWM_POLARITY_INVERSED)
 		duty = DUTY_FULL - duty;
 
-	if (duty > 0 && (index = use_waveform(pc, duty, period, pwm->hwpwm)) == -1) {
-		dev_err(pc->chip.dev,
-			"%s: Failed to configure PWM, no free waveform available: %u / %u\n",
-			pwm->label, duty, period);
-		return -EBUSY;
+	period = clamp_val(div64_u64(25 * period_ns, 100000000), PERIOD_MIN,
+			   PERIOD_MAX);
+	if (duty) {
+		index = use_waveform(pc, duty, period, pwm->hwpwm);
+		if (index < 0) {
+			dev_err(pc->chip.dev,
+				"%s: no free waveform available: %u / %u\n",
+				pwm->label, duty, period);
+			return -EBUSY;
+		}
 	}
 
-	if ((pc->initialized & BIT_ULL(pwm->hwpwm)) == 0) {
-		if (pwm->hwpwm < PWM_NUM_GPIO) {
-		} else if ((pc->initialized >> PWM_NUM_GPIO) == 0)
-			airoha_sipo_init(pc);
-	}
+	if (!(pc->initialized & BIT_ULL(pwm->hwpwm)) &&
+	    pwm->hwpwm >= PWM_NUM_GPIO)
+		airoha_pwm_sipo_init(pc);
 
-	if (index == -1) {
+	if (index < 0) {
 		airoha_pwm_config_flash_map(pc, pwm->hwpwm, -1);
 		free_waveform(pc, pwm->hwpwm);
 	} else {
 		airoha_pwm_config_waveform(pc, index, duty, period);
 		airoha_pwm_config_flash_map(pc, pwm->hwpwm, index);
 	}
-
-	if (pc->initialized & BIT_ULL(pwm->hwpwm))
-		return 0;
 
 	pc->initialized |= BIT_ULL(pwm->hwpwm);
 
@@ -279,45 +292,38 @@ static void airoha_pwm_free(struct pwm_chip *chip, struct pwm_device *pwm)
 {
 	struct airoha_pwm *pc = to_airoha_pwm(chip);
 
-	mutex_lock(&pc->mutex);
-
-	pc->initialized &= ~BIT_ULL(pwm->hwpwm);
-
 	/* Disable PWM and release the waveform */
 	airoha_pwm_config_flash_map(pc, pwm->hwpwm, -1);
 	free_waveform(pc, pwm->hwpwm);
 
-	if ((pc->initialized >> PWM_NUM_GPIO) == 0)
-		airoha_sipo_deinit(pc);
-
-	mutex_unlock(&pc->mutex);
+	pc->initialized &= ~BIT_ULL(pwm->hwpwm);
+	if (!(pc->initialized >> PWM_NUM_GPIO))
+		airoha_pwm_clear(pc, REG_SIPO_FLASH_MODE_CFG,
+				 SERIAL_GPIO_FLASH_MODE);
 
 	/* Clear the state to force re-initialization the next time
 	 * this PWM channel is used since we cannot retain state in
-	 * hardware due to limited number of waveform generators */
+	 * hardware due to limited number of waveform generators
+	 */
 	memset(&pwm->state, 0, sizeof(pwm->state));
 }
 
 static int airoha_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			    const struct pwm_state *state)
 {
-	struct airoha_pwm *pc = to_airoha_pwm(chip);
 	u64 duty = state->enabled ? state->duty_cycle : 0;
-	int ret = 0;
+	struct airoha_pwm *pc = to_airoha_pwm(chip);
 
 	if (state->period < PERIOD_MIN_NS || state->period > PERIOD_MAX_NS)
 		return -EINVAL;
 
-	mutex_lock(&pc->mutex);
-	ret = airoha_pwm_config(pc, pwm, duty, state->period, state->polarity);
-	mutex_unlock(&pc->mutex);
-
-	return ret;
+	return airoha_pwm_config(pc, pwm, duty, state->period,
+				 state->polarity);
 }
 
 static const struct pwm_ops airoha_pwm_ops = {
-	.free = airoha_pwm_free,
 	.apply = airoha_pwm_apply,
+	.free = airoha_pwm_free,
 	.owner = THIS_MODULE,
 };
 
@@ -369,8 +375,6 @@ static int airoha_pwm_probe(struct platform_device *pdev)
 	pc->sipo.clk_dly_val = sipo_clock_delay - 1;
 	pc->sipo.hc74595 = of_property_read_bool(np, "hc74595");
 
-	mutex_init(&pc->mutex);
-
 	pc->chip.dev = dev;
 	pc->chip.ops = &airoha_pwm_ops;
 	pc->chip.base = -1;
@@ -379,8 +383,6 @@ static int airoha_pwm_probe(struct platform_device *pdev)
 	pc->chip.of_pwm_n_cells = 3;
 
 	platform_set_drvdata(pdev, pc);
-
-	dev_err(dev, "Airoha PWM driver loaded");
 
 	return pwmchip_add(&pc->chip);
 }
@@ -395,7 +397,7 @@ static int airoha_pwm_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id airoha_pwm_of_match[] = {
-	{ .compatible = "airoha,en7581-pwm", },
+	{ .compatible = "airoha,en7581-pwm" },
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, airoha_pwm_of_match);
