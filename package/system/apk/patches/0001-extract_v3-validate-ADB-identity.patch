@@ -1,0 +1,72 @@
+From 826a9e6761185cddd31ba94a7b4c29b5695ed8a5 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 4 Jul 2024 00:28:18 +0200
+Subject: [PATCH 1/5] extract_v3: validate ADB identity
+
+There is currently a fragility where the package identity saved in
+ADBI_PI_UNIQUE_ID is never validated and assumed correct.
+
+This assumption is OK in the context of signed packaged but this is not
+OK with unsigned package. Although security risk doesn't pose since
+someone can just craft an arbritrary APK since sign is not verified,
+it's still worth to verify the saved value refelect actual ADB.
+
+One might compromise a package by setting an identity and actually
+modify the file and run other things. One package would be referenced by
+another and APK wouldn't notice that since chain of trust from unsigned
+package comes from the identity.
+
+To better handle this, validate the APK identity actually reflect the
+extracted ADB.
+
+The APK identity is mkpkg is calculated by hasing the entire ADB with
+identity no set (uid 0) with SHA256 and put in a 20bytes space
+(resulting in SHA256_160).
+
+On APK ADB extraction, we follow the same steps by first unsetting the
+identity (uid 0) and then calculating the hash with the same length of
+the one used in the saved identity. We don't hardcode the hash and we
+base on the saved identity lenght to future proof the code if in the
+future we will switch identity to full SHA256.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ src/extract_v3.c | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/src/extract_v3.c b/src/extract_v3.c
+index ba4edec..88407d3 100644
+--- a/src/extract_v3.c
++++ b/src/extract_v3.c
+@@ -275,6 +275,28 @@ int apk_extract_v3(struct apk_extract_ctx *ectx, struct apk_istream *is)
+ 	}
+ 	if (r == -ECANCELED) r = 0;
+ 	if (r == 0 && !ctx.db.adb.len) r = -APKE_ADB_BLOCK;
++
++	/* Validate ADB package identity */
++	if (ctx.db.schema == ADB_SCHEMA_PACKAGE) {
++		struct apk_digest pkgd, d;
++		struct adb_obj pkg, pkgi;
++		apk_blob_t uid;
++
++		adb_r_rootobj(&ctx.db, &pkg, &schema_package);
++		adb_ro_obj(&pkg, ADBI_PKG_PKGINFO, &pkgi);
++		uid = adb_ro_blob(&pkgi, ADBI_PI_UNIQUE_ID);
++
++		apk_digest_from_blob(&pkgd, uid);
++		/* Some ADB might use SHA256_160 as alg */
++		if (pkgd.alg == APK_DIGEST_SHA1) pkgd.alg = APK_DIGEST_SHA256_160;
++
++		/* Calculate ADB checksum. ADB checksum is calculated with UID to 0*/
++		memset(uid.ptr, 0, uid.len);
++		apk_digest_calc(&d, pkgd.alg, ctx.db.adb.ptr, ctx.db.adb.len);
++		if (apk_digest_cmp(&pkgd, &d))
++			return -APKE_SIGNATURE_UNTRUSTED;
++	}
++
+ 	adb_free(&ctx.db);
+ 	apk_extract_reset(ectx);
+ 
+-- 
+2.45.2
+

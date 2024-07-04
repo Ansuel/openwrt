@@ -1,0 +1,33 @@
+From abf055afc8d877305b436ed9ad468407da39c574 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 4 Jul 2024 00:36:56 +0200
+Subject: [PATCH 2/5] mkpkg: explicitly set SHA256_160 in ADB identity
+ calculation
+
+We currently allocate a blob for SHA1 and then we calculate a SHA256
+checksum. This can be confusing as we effectively calculate a
+SHA256_160.
+
+Set SHA256_160 directly to make it more clear and prevent confusion.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ src/app_mkpkg.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/app_mkpkg.c b/src/app_mkpkg.c
+index 2d9b9d7..c43ba7a 100644
+--- a/src/app_mkpkg.c
++++ b/src/app_mkpkg.c
+@@ -401,7 +401,7 @@ static int mkpkg_main(void *pctx, struct apk_ctx *ac, struct apk_string_array *a
+ 	adb_ro_obj(&pkg, ADBI_PKG_PATHS, &ctx->paths);
+ 
+ 	// fill in unique id
+-	apk_digest_calc(&d, APK_DIGEST_SHA256, ctx->db.adb.ptr, ctx->db.adb.len);
++	apk_digest_calc(&d, APK_DIGEST_SHA256_160, ctx->db.adb.ptr, ctx->db.adb.len);
+ 	uid = adb_ro_blob(&pkgi, ADBI_PI_UNIQUE_ID);
+ 	memcpy(uid.ptr, d.data, uid.len);
+ 
+-- 
+2.45.2
+
