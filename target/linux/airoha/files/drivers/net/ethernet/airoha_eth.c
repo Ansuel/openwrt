@@ -3,7 +3,6 @@
  * Copyright (c) 2024 AIROHA Inc
  * Author: Lorenzo Bianconi <lorenzo@kernel.org>
  */
-#include <linux/debugfs.h>
 #include <linux/etherdevice.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
@@ -776,7 +775,7 @@ struct airoha_eth {
 
 	struct airoha_gdm_port *ports[AIROHA_MAX_NUM_GDM_PORTS];
 
-	struct net_device napi_dev;
+	struct net_device *napi_dev;
 	struct airoha_queue q_tx[AIROHA_NUM_TX_RING];
 	struct airoha_queue q_rx[AIROHA_NUM_RX_RING];
 
@@ -787,9 +786,6 @@ struct airoha_eth {
 		void *desc;
 		void *q;
 	} hfwd;
-
-	struct dentry *debugfs_dir;
-	u32 debugfs_reg;
 };
 
 static u32 airoha_rr(void __iomem *base, u32 offset)
@@ -1499,12 +1495,12 @@ static int airoha_qdma_init_rx_queue(struct airoha_eth *eth,
 	struct page_pool_params pp_params = {
 		.order = 0,
 		.pool_size = 256,
-		.flags = PP_FLAG_DMA_MAP | PP_FLAG_DMA_SYNC_DEV |
-			 PP_FLAG_PAGE_FRAG,
+		.flags = PP_FLAG_DMA_MAP | PP_FLAG_DMA_SYNC_DEV,
 		.dma_dir = DMA_FROM_DEVICE,
 		.max_len = PAGE_SIZE,
 		.nid = NUMA_NO_NODE,
 		.dev = eth->dev,
+		.napi = &q->napi,
 	};
 	int qid = q - &eth->q_rx[0], thr;
 	dma_addr_t dma_addr;
@@ -1531,7 +1527,7 @@ static int airoha_qdma_init_rx_queue(struct airoha_eth *eth,
 	if (!q->desc)
 		return -ENOMEM;
 
-	netif_napi_add(&eth->napi_dev, &q->napi, airoha_qdma_rx_napi_poll);
+	netif_napi_add(eth->napi_dev, &q->napi, airoha_qdma_rx_napi_poll);
 
 	airoha_qdma_wr(eth, REG_RX_RING_BASE(qid), dma_addr);
 	airoha_qdma_rmw(eth, REG_RX_RING_SIZE(qid), RX_RING_SIZE_MASK,
@@ -1727,7 +1723,7 @@ static int airoha_qdma_tx_irq_init(struct airoha_eth *eth,
 	int id = irq_q - &eth->q_tx_irq[0];
 	dma_addr_t dma_addr;
 
-	netif_napi_add_tx(&eth->napi_dev, &irq_q->napi,
+	netif_napi_add_tx(eth->napi_dev, &irq_q->napi,
 			  airoha_qdma_tx_napi_poll);
 	irq_q->q = dmam_alloc_coherent(eth->dev, size * sizeof(u32),
 				       &dma_addr, GFP_KERNEL);
@@ -2294,12 +2290,9 @@ static void airoha_ethtool_get_strings(struct net_device *dev, u32 sset,
 	if (sset != ETH_SS_STATS)
 		return;
 
-	for (i = 0; i < ARRAY_SIZE(airoha_ethtool_stats_name); i++) {
-		memcpy(data + i * ETH_GSTRING_LEN,
-		       airoha_ethtool_stats_name[i], ETH_GSTRING_LEN);
-	}
+	for (i = 0; i < ARRAY_SIZE(airoha_ethtool_stats_name); i++)
+		ethtool_puts(&data, airoha_ethtool_stats_name[i]);
 
-	data += ETH_GSTRING_LEN * ARRAY_SIZE(airoha_ethtool_stats_name);
 	page_pool_ethtool_stats_get_strings(data);
 }
 
@@ -2498,103 +2491,6 @@ static const struct ethtool_ops airoha_ethtool_ops = {
 	.get_ethtool_stats	= airoha_ethtool_get_stats,
 };
 
-static int airoha_fe_reg_set(void *data, u64 val)
-{
-	struct airoha_eth *eth = data;
-
-	airoha_fe_wr(eth, eth->debugfs_reg, val);
-
-	return 0;
-}
-
-static int airoha_fe_reg_get(void *data, u64 *val)
-{
-	struct airoha_eth *eth = data;
-
-	*val = airoha_fe_rr(eth, eth->debugfs_reg);
-
-	return 0;
-}
-
-DEFINE_DEBUGFS_ATTRIBUTE(fops_fe, airoha_fe_reg_get, airoha_fe_reg_set,
-			 "0x%08llx\n");
-
-static int airoha_qdma_reg_set(void *data, u64 val)
-{
-	struct airoha_eth *eth = data;
-
-	airoha_qdma_wr(eth, eth->debugfs_reg, val);
-
-	return 0;
-}
-
-static int airoha_qdma_reg_get(void *data, u64 *val)
-{
-	struct airoha_eth *eth = data;
-
-	*val = airoha_qdma_rr(eth, eth->debugfs_reg);
-
-	return 0;
-}
-
-DEFINE_DEBUGFS_ATTRIBUTE(fops_qdma, airoha_qdma_reg_get, airoha_qdma_reg_set,
-			 "0x%08llx\n");
-
-static int airoha_rx_queues_show(struct seq_file *s, void *data)
-{
-	struct airoha_eth *eth = s->private;
-	int i;
-
-	seq_puts(s, "     queue | hw-queued |      head |      tail |\n");
-	for (i = 0; i < ARRAY_SIZE(eth->q_rx); i++) {
-		struct airoha_queue *q = &eth->q_rx[i];
-
-		if (!q->ndesc)
-			continue;
-
-		seq_printf(s, " %9d | %9d | %9d | %9d |\n",
-			   i, q->queued, q->head, q->tail);
-	}
-
-	return 0;
-}
-DEFINE_SHOW_ATTRIBUTE(airoha_rx_queues);
-
-static int airoha_xmit_queues_show(struct seq_file *s, void *data)
-{
-	struct airoha_eth *eth = s->private;
-	int i;
-
-	seq_puts(s, "     queue | hw-queued |      head |      tail |\n");
-	for (i = 0; i < ARRAY_SIZE(eth->q_tx); i++) {
-		struct airoha_queue *q = &eth->q_tx[i];
-
-		if (!q->ndesc)
-			continue;
-
-		seq_printf(s, " %9d | %9d | %9d | %9d |\n",
-			   i, q->queued, q->head, q->tail);
-	}
-
-	return 0;
-}
-DEFINE_SHOW_ATTRIBUTE(airoha_xmit_queues);
-
-static void airoha_register_debugfs(struct airoha_eth *eth)
-{
-	eth->debugfs_dir = debugfs_create_dir(KBUILD_MODNAME, NULL);
-	debugfs_create_u32("regidx", 0600, eth->debugfs_dir,
-			   &eth->debugfs_reg);
-	debugfs_create_file_unsafe("fe_regval", 0600, eth->debugfs_dir, eth,
-				   &fops_fe);
-	debugfs_create_file_unsafe("qdma_regval", 0600, eth->debugfs_dir, eth,
-				   &fops_qdma);
-	debugfs_create_file("rx-queues", 0400, eth->debugfs_dir, eth,
-			    &airoha_rx_queues_fops);
-	debugfs_create_file("xmit-queues", 0400, eth->debugfs_dir, eth,
-			    &airoha_xmit_queues_fops);
-}
-
 static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
 {
 	const __be32 *id_ptr = of_get_property(np, "reg", NULL);
@@ -2726,10 +2622,13 @@ static int airoha_probe(struct platform_device *pdev)
 	if (eth->irq < 0)
 		return eth->irq;
 
-	init_dummy_netdev(&eth->napi_dev);
+	eth->napi_dev = alloc_netdev_dummy(0);
+	if (!eth->napi_dev)
+		return -ENOMEM;
+
 	/* Enable threaded NAPI by default */
-	eth->napi_dev.threaded = true;
-	strscpy(eth->napi_dev.name, "qdma_eth", sizeof(eth->napi_dev.name));
+	eth->napi_dev->threaded = true;
+	strscpy(eth->napi_dev->name, "qdma_eth", sizeof(eth->napi_dev->name));
 	platform_set_drvdata(pdev, eth);
 
 	err = airoha_hw_init(eth);
@@ -2751,7 +2650,6 @@ static int airoha_probe(struct platform_device *pdev)
 	}
 
 	airoha_qdma_start_napi(eth);
-	airoha_register_debugfs(eth);
 
 	return 0;
 
@@ -2761,6 +2659,7 @@ error:
 		if (eth->ports[i])
 			unregister_netdev(eth->ports[i]->dev);
 	}
+	free_netdev(eth->napi_dev);
 	platform_set_drvdata(pdev, NULL);
 
 	return err;
@@ -2770,8 +2669,6 @@ static void airoha_remove(struct platform_device *pdev)
 {
 	struct airoha_eth *eth = platform_get_drvdata(pdev);
 	int i;
-
-	debugfs_remove(eth->debugfs_dir);
 
 	airoha_hw_cleanup(eth);
 	for (i = 0; i < ARRAY_SIZE(eth->ports); i++) {
@@ -2783,6 +2680,7 @@ static void airoha_remove(struct platform_device *pdev)
 		airoha_dev_stop(port->dev);
 		unregister_netdev(port->dev);
 	}
+	free_netdev(eth->napi_dev);
 
 	platform_set_drvdata(pdev, NULL);
 }

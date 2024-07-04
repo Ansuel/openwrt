@@ -1,0 +1,96 @@
+From 1fb09530f97daf43ffdfac52a027576317b7d37e Mon Sep 17 00:00:00 2001
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sun, 2 Jun 2024 15:09:25 +0200
+Subject: [PATCH 7/7] clk: en7523: fix scuclk io region for pinctrl
+
+EN7581 clock driver shares the IO region with the upcoming pinctrl
+driver for EN7581 SoC. Fix it by reducing the clk mapped region to
+just used registers in order to not overlap with pinctrl one.
+---
+ drivers/clk/clk-en7523.c | 23 +++++++++++++++--------
+ 1 file changed, 15 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
+index b20e56337a6b..d9ecbb6bf55a 100644
+--- a/drivers/clk/clk-en7523.c
++++ b/drivers/clk/clk-en7523.c
+@@ -31,7 +31,14 @@
+ #define   REG_RESET_CONTROL_PCIE1	BIT(27)
+ #define   REG_RESET_CONTROL_PCIE2	BIT(26)
+ /* EN7581 */
+-#define REG_CRYPTO_CLKSRC2		0x20c
++#define REG_GSW_CLK_DIV_SEL2		0x00
++#define REG_EMI_CLK_DIV_SEL2		0x04
++#define REG_BUS_CLK_DIV_SEL2		0x08
++#define REG_SPI_CLK_DIV_SEL2		0x10
++#define REG_SPI_CLK_FREQ_SEL2		0x14
++#define REG_NPU_CLK_DIV_SEL2		0x48
++#define REG_CRYPTO_CLKSRC2		0x58
++
+ #define REG_PCIE0_MEM			0x00
+ #define REG_PCIE0_MEM_MASK		0x04
+ #define REG_PCIE1_MEM			0x08
+@@ -203,7 +210,7 @@ static const struct en_clk_desc en7581_base_clks[] = {
+ 		.id = EN7523_CLK_GSW,
+ 		.name = "gsw",
+ 
+-		.base_reg = REG_GSW_CLK_DIV_SEL,
++		.base_reg = REG_GSW_CLK_DIV_SEL2,
+ 		.base_bits = 1,
+ 		.base_shift = 8,
+ 		.base_values = gsw_base,
+@@ -217,7 +224,7 @@ static const struct en_clk_desc en7581_base_clks[] = {
+ 		.id = EN7523_CLK_EMI,
+ 		.name = "emi",
+ 
+-		.base_reg = REG_EMI_CLK_DIV_SEL,
++		.base_reg = REG_EMI_CLK_DIV_SEL2,
+ 		.base_bits = 2,
+ 		.base_shift = 8,
+ 		.base_values = emi7581_base,
+@@ -231,7 +238,7 @@ static const struct en_clk_desc en7581_base_clks[] = {
+ 		.id = EN7523_CLK_BUS,
+ 		.name = "bus",
+ 
+-		.base_reg = REG_BUS_CLK_DIV_SEL,
++		.base_reg = REG_BUS_CLK_DIV_SEL2,
+ 		.base_bits = 1,
+ 		.base_shift = 8,
+ 		.base_values = bus_base,
+@@ -245,13 +252,13 @@ static const struct en_clk_desc en7581_base_clks[] = {
+ 		.id = EN7523_CLK_SLIC,
+ 		.name = "slic",
+ 
+-		.base_reg = REG_SPI_CLK_FREQ_SEL,
++		.base_reg = REG_SPI_CLK_FREQ_SEL2,
+ 		.base_bits = 1,
+ 		.base_shift = 0,
+ 		.base_values = slic_base,
+ 		.n_base_values = ARRAY_SIZE(slic_base),
+ 
+-		.div_reg = REG_SPI_CLK_DIV_SEL,
++		.div_reg = REG_SPI_CLK_DIV_SEL2,
+ 		.div_bits = 5,
+ 		.div_shift = 24,
+ 		.div_val0 = 20,
+@@ -260,7 +267,7 @@ static const struct en_clk_desc en7581_base_clks[] = {
+ 		.id = EN7523_CLK_SPI,
+ 		.name = "spi",
+ 
+-		.base_reg = REG_SPI_CLK_DIV_SEL,
++		.base_reg = REG_SPI_CLK_DIV_SEL2,
+ 
+ 		.base_value = 400000000,
+ 
+@@ -272,7 +279,7 @@ static const struct en_clk_desc en7581_base_clks[] = {
+ 		.id = EN7523_CLK_NPU,
+ 		.name = "npu",
+ 
+-		.base_reg = REG_NPU_CLK_DIV_SEL,
++		.base_reg = REG_NPU_CLK_DIV_SEL2,
+ 		.base_bits = 2,
+ 		.base_shift = 8,
+ 		.base_values = npu7581_base,
+-- 
+2.45.2
+

@@ -1,0 +1,67 @@
+From 86c9139c5506a2a77d0b00d60d0bd954f08781ec Mon Sep 17 00:00:00 2001
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sun, 2 Jun 2024 14:38:32 +0200
+Subject: [PATCH 3/7] clk: en7523: Remove PCIe reset open drain configuration
+ for EN7581
+
+PCIe reset open drain configuration will be managed by pinctrl driver.
+
+Reviewed-by: AngeloGioacchino Del Regno <angelogioacchino.delregno@collabora.com>
+---
+ drivers/clk/clk-en7523.c | 12 ++----------
+ 1 file changed, 2 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
+index b134821b23c1..e10c73c29ee2 100644
+--- a/drivers/clk/clk-en7523.c
++++ b/drivers/clk/clk-en7523.c
+@@ -37,8 +37,6 @@
+ #define REG_PCIE1_MEM_MASK		0x0c
+ #define REG_PCIE2_MEM			0x10
+ #define REG_PCIE2_MEM_MASK		0x14
+-#define REG_PCIE_RESET_OPEN_DRAIN	0x018c
+-#define REG_PCIE_RESET_OPEN_DRAIN_MASK	GENMASK(2, 0)
+ #define REG_NP_SCU_PCIC			0x88
+ #define REG_NP_SCU_SSTR			0x9c
+ #define REG_PCIE_XSI0_SEL_MASK		GENMASK(14, 13)
+@@ -85,8 +83,7 @@ struct en_clk_soc_data {
+ 		const u16 *idx_map;
+ 		u16 idx_map_nr;
+ 	} reset;
+-	int (*hw_init)(struct platform_device *pdev, void __iomem *base,
+-		       void __iomem *np_base);
++	int (*hw_init)(struct platform_device *pdev, void __iomem *np_base);
+ };
+ 
+ static const u32 gsw_base[] = { 400000000, 500000000 };
+@@ -411,7 +408,6 @@ static void en7581_pci_disable(struct clk_hw *hw)
+ }
+ 
+ static int en7581_clk_hw_init(struct platform_device *pdev,
+-			      void __iomem *base,
+ 			      void __iomem *np_base)
+ {
+ 	void __iomem *pb_base;
+@@ -434,10 +430,6 @@ static int en7581_clk_hw_init(struct platform_device *pdev,
+ 	writel(0x28000000, pb_base + REG_PCIE2_MEM);
+ 	writel(0xfc000000, pb_base + REG_PCIE2_MEM_MASK);
+ 
+-	val = readl(base + REG_PCIE_RESET_OPEN_DRAIN);
+-	writel(val | REG_PCIE_RESET_OPEN_DRAIN_MASK,
+-	       base + REG_PCIE_RESET_OPEN_DRAIN);
+-
+ 	return 0;
+ }
+ 
+@@ -577,7 +569,7 @@ static int en7523_clk_probe(struct platform_device *pdev)
+ 
+ 	soc_data = device_get_match_data(&pdev->dev);
+ 	if (soc_data->hw_init) {
+-		r = soc_data->hw_init(pdev, base, np_base);
++		r = soc_data->hw_init(pdev, np_base);
+ 		if (r)
+ 			return r;
+ 	}
+-- 
+2.45.2
+
