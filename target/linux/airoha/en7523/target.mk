@@ -2,7 +2,7 @@
 # Copyright (C) 2009 OpenWrt.org
 #
 
-ARCH:=aarch64
+ARCH:=arm
 SUBTARGET:=en7523
 BOARDNAME:=en7523 based boards
 CPU_TYPE:=cortex-a53
