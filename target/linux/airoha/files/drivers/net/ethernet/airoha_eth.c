@@ -14,7 +14,7 @@
 #include <linux/reset.h>
 #include <linux/tcp.h>
 #include <net/dsa.h>
-#include <net/page_pool.h>
+#include <net/page_pool/helpers.h>
 #include <uapi/linux/ppp_defs.h>
 
 #define AIROHA_MAX_NUM_GDM_PORTS	1
