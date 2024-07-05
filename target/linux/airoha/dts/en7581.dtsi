@@ -154,6 +154,13 @@
 			clock-frequency = <1843200>;
 		};
 
+		watchdog@1fbf0100 {
+			compatible = "airoha,en7581-wdt";
+			reg = <0x1fbf0100 0x8>;
+			clocks = <&scu EN7523_CLK_BUS>;
+			clock-names = "bus";
+		};
+
 		uart2: serial@1fbf0300 {
 			compatible = "airoha,en7523-uart";
 			reg = <0x0 0x1fbf0300 0x0 0x30>;
