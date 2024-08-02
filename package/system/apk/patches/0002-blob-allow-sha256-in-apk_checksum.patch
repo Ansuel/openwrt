@@ -1,0 +1,43 @@
+From 3f1ea7a1a4a9169a29e7b699ff3bce03dd7980d8 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
+Date: Fri, 2 Aug 2024 14:40:03 +0300
+Subject: [PATCH 2/4] blob: allow sha256 in apk_checksum
+
+---
+ src/apk_blob.h | 3 ++-
+ src/package.c  | 4 ++--
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/src/apk_blob.h b/src/apk_blob.h
+index 60b172b..e9d36bd 100644
+--- a/src/apk_blob.h
++++ b/src/apk_blob.h
+@@ -28,8 +28,9 @@ typedef int (*apk_blob_cb)(void *ctx, apk_blob_t blob);
+ #define APK_CHECKSUM_NONE	0
+ #define APK_CHECKSUM_MD5	16
+ #define APK_CHECKSUM_SHA1	20
++#define APK_CHECKSUM_SHA256	32
+ #define APK_CHECKSUM_DEFAULT	APK_CHECKSUM_SHA1
+-#define APK_CHECKSUM_MAX	APK_CHECKSUM_SHA1
++#define APK_CHECKSUM_MAX	APK_CHECKSUM_SHA256
+ 
+ /* Enough space for a hexdump of the longest checksum possible plus
+  * a two-character type prefix */
+diff --git a/src/package.c b/src/package.c
+index 68d2e60..4159f30 100644
+--- a/src/package.c
++++ b/src/package.c
+@@ -543,8 +543,8 @@ void apk_pkg_from_adb(struct apk_database *db, struct apk_package *pkg, struct a
+ 	apk_blob_t uid;
+ 
+ 	uid = adb_ro_blob(pkginfo, ADBI_PI_UNIQUE_ID);
+-	if (uid.len >= APK_CHECKSUM_SHA1) {
+-		pkg->csum.type = APK_CHECKSUM_SHA1;
++	if (uid.len >= APK_CHECKSUM_MAX) {
++		pkg->csum.type = APK_CHECKSUM_MAX;
+ 		memcpy(pkg->csum.data, uid.ptr, uid.len);
+ 	}
+ 
+-- 
+2.45.2
+
