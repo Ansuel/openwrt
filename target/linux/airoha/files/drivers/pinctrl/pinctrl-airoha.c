@@ -12,6 +12,7 @@
 #include <linux/io.h>
 #include <linux/irq.h>
 #include <linux/irqdomain.h>
+#include <linux/mfd/syscon.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
@@ -21,6 +22,7 @@
 #include <linux/pinctrl/pinconf-generic.h>
 #include <linux/pinctrl/pinmux.h>
 #include <linux/platform_device.h>
+#include <linux/regmap.h>
 
 #include "core.h"
 #include "pinconf.h"
@@ -41,6 +43,20 @@
 		.pin = p,						\
 		.reg = { offset, mask },				\
 	}
+
+/* chip SCU regs */
+#define PINCTRL_REG_IOCONF			0x1c
+#define PINCTRL_REG_PCIE_RST_OD			0x18c
+#define PINCTRL_REG_IOMUX			0x214
+#define PINCTRL_REG_LED_IOMUX			0x27c
+
+/* GPIO regs */
+#define PINCTRL_REG_GPIO_FLASH_MODE		0x34
+#define PINCTRL_REG_GPIO_FLASH_MODE_EXT		0x68
+#define PINCTRL_REG_GPIO_BANK0			0x00
+#define PINCTRL_REG_GPIO_CTRL1			0x20
+#define PINCTRL_REG_GPIO_CTRL2			0x60
+#define PINCTRL_REG_GPIO_BANK1			0x70
 
 /* MUX */
 #define REG_GPIO_2ND_I2C_MODE			0x00
@@ -302,6 +318,11 @@ enum airoha_pinctrl_mux_func {
 	AIROHA_FUNC_PWM_EXT_MUX,
 };
 
+struct airoha_pinctrl_mux_info {
+	struct regmap *base;
+	u32 offset;
+};
+
 struct airoha_pinctrl_func_group {
 	const char *name;
 	struct {
@@ -327,15 +348,15 @@ struct airoha_pinctrl_conf {
 struct airoha_pinctrl_gpiochip {
 	struct gpio_chip chip;
 
-	void __iomem *data[2];
-	void __iomem *dir[4];
-	void __iomem *out[2];
+	unsigned int data[2];
+	unsigned int dir[4];
+	unsigned int out[2];
 
 	/* protect concurrent register accesses */
 	spinlock_t lock;
-	void __iomem *status[2];
-	void __iomem *level[4];
-	void __iomem *edge[4];
+	unsigned int status[2];
+	unsigned int level[4];
+	unsigned int edge[4];
 
 	u32 irq_type[AIROHA_NUM_GPIOS];
 };
@@ -345,11 +366,9 @@ struct airoha_pinctrl {
 
 	/* protect concurrent register accesses */
 	struct mutex mutex;
-	struct {
-		void __iomem *mux[4];
-		void __iomem *conf;
-		void __iomem *pcie_rst;
-	} regs;
+
+	struct regmap *base;
+	struct regmap *chip_scu;
 
 	struct airoha_pinctrl_gpiochip gpiochip;
 };
@@ -2219,27 +2238,28 @@ static const struct airoha_pinctrl_conf airoha_pinctrl_pcie_rst_od_conf[] = {
 	PINCTRL_CONF_DESC(63, REG_PCIE_RESET_OD, PCIE2_RESET_OD_MASK),
 };
 
-static u32 airoha_pinctrl_rmw_unlock(void __iomem *addr, u32 mask, u32 val)
+static int airoha_pinctrl_rmw_unlock(struct regmap *base, int base_offset,
+				     u32 mask, u32 val)
 {
-	val |= (readl(addr) & ~mask);
-	writel(val, addr);
-
-	return val;
+	return regmap_update_bits(base, base_offset, mask, val);
 }
 
-#define airoha_pinctrl_set_unlock(addr, val)					\
-	airoha_pinctrl_rmw_unlock((addr), 0, (val))
-#define airoha_pinctrl_clear_unlock(addr, mask)					\
-	airoha_pinctrl_rmw_unlock((addr), (mask), (0))
+#define airoha_pinctrl_set_unlock(base, base_offset, val)					\
+	airoha_pinctrl_rmw_unlock((base), (base_offset), 0, (val))
+#define airoha_pinctrl_clear_unlock(base, base_offset, mask)					\
+	airoha_pinctrl_rmw_unlock((base), (base_offset), (mask), (0))
 
-static u32 airoha_pinctrl_rmw(struct airoha_pinctrl *pinctrl,
-			      void __iomem *addr, u32 mask, u32 val)
+static int airoha_pinctrl_rmw(struct airoha_pinctrl *pinctrl,
+			      struct regmap *base, int base_offset, u32 mask,
+			      u32 val)
 {
+	int ret;
+
 	mutex_lock(&pinctrl->mutex);
-	val = airoha_pinctrl_rmw_unlock(addr, mask, val);
+	ret = airoha_pinctrl_rmw_unlock(base, base_offset, mask, val);
 	mutex_unlock(&pinctrl->mutex);
 
-	return val;
+	return ret;
 }
 
 static void airoha_pinctrl_gpio_set_direction(struct airoha_pinctrl *pinctrl,
@@ -2250,13 +2270,13 @@ static void airoha_pinctrl_gpio_set_direction(struct airoha_pinctrl *pinctrl,
 	/* set output enable */
 	mask = BIT(gpio % AIROHA_GPIO_BANK_SIZE);
 	index = gpio / AIROHA_GPIO_BANK_SIZE;
-	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.out[index],
+	airoha_pinctrl_rmw(pinctrl, pinctrl->base, pinctrl->gpiochip.out[index],
 			   mask, !input ? mask : 0);
 
 	/* set gpio direction */
 	mask = BIT(2 * (gpio % AIROHA_REG_GPIOCTRL_NUM_GPIO));
 	index = gpio / AIROHA_REG_GPIOCTRL_NUM_GPIO;
-	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.dir[index],
+	airoha_pinctrl_rmw(pinctrl, pinctrl->base, pinctrl->gpiochip.dir[index],
 			   mask, !input ? mask : 0);
 }
 
@@ -2266,7 +2286,7 @@ static void airoha_pinctrl_gpio_set_value(struct airoha_pinctrl *pinctrl,
 	u8 index = gpio / AIROHA_GPIO_BANK_SIZE;
 	u32 pin = gpio % AIROHA_GPIO_BANK_SIZE;
 
-	airoha_pinctrl_rmw(pinctrl, pinctrl->gpiochip.data[index],
+	airoha_pinctrl_rmw(pinctrl, pinctrl->base, pinctrl->gpiochip.data[index],
 			   BIT(pin), value ? BIT(pin) : 0);
 }
 
@@ -2275,10 +2295,38 @@ static int airoha_pinctrl_gpio_get_direction(struct airoha_pinctrl *pinctrl,
 {
 	u32 val, mask = BIT(2 * (gpio % AIROHA_REG_GPIOCTRL_NUM_GPIO));
 	u8 index = gpio / AIROHA_REG_GPIOCTRL_NUM_GPIO;
+	int ret;
 
-	val = (readl(pinctrl->gpiochip.dir[index]) & mask);
+	ret = regmap_read(pinctrl->base, pinctrl->gpiochip.dir[index], &val);
+	if (ret)
+		return ret;
 
+	val &= mask;
 	return val ? PIN_CONFIG_OUTPUT_ENABLE : PIN_CONFIG_INPUT_ENABLE;
+}
+
+static void airoha_get_func_info(struct airoha_pinctrl *pinctrl,
+				 enum airoha_pinctrl_mux_func func,
+				 struct airoha_pinctrl_mux_info *info)
+{
+	switch (func) {
+	case AIROHA_FUNC_MUX:
+		info->offset = PINCTRL_REG_IOMUX;
+		info->base = pinctrl->chip_scu;
+		return;
+	case AIROHA_FUNC_LED_MUX:
+		info->offset = PINCTRL_REG_LED_IOMUX;
+		info->base = pinctrl->chip_scu;
+		return;
+	case AIROHA_FUNC_PWM_MUX:
+		info->offset = PINCTRL_REG_GPIO_FLASH_MODE;
+		info->base = pinctrl->base;
+		return;
+	case AIROHA_FUNC_PWM_EXT_MUX:
+		info->offset = PINCTRL_REG_GPIO_FLASH_MODE_EXT;
+		info->base = pinctrl->base;
+		return;
+	}
 }
 
 static int airoha_pinmux_set_mux(struct pinctrl_dev *pctrl_dev,
@@ -2312,11 +2360,11 @@ static int airoha_pinmux_set_mux(struct pinctrl_dev *pctrl_dev,
 			continue;
 
 		for (j = 0; j < group->regmap_size; j++) {
-			void __iomem *base;
+			struct airoha_pinctrl_mux_info info;
 
-			base = pinctrl->regs.mux[group->regmap[j].mux];
-			airoha_pinctrl_rmw(pinctrl,
-					   base + group->regmap[j].offset,
+			airoha_get_func_info(pinctrl, group->regmap[j].mux, &info);
+			airoha_pinctrl_rmw(pinctrl, info.base,
+					   info.offset + group->regmap[j].offset,
 					   group->regmap[j].mask,
 					   group->regmap[j].val);
 		}
@@ -2369,24 +2417,27 @@ airoha_pinctrl_get_conf_reg(const struct airoha_pinctrl_conf *conf,
 	return NULL;
 }
 
-static int airoha_pinctrl_get_conf(void __iomem *base,
+static int airoha_pinctrl_get_conf(struct regmap *base, int base_offset,
 				   const struct airoha_pinctrl_conf *conf,
 				   int conf_size, int pin, u32 *val)
 {
 	const struct airoha_pinctrl_reg *reg;
+	int ret;
 
 	reg = airoha_pinctrl_get_conf_reg(conf, conf_size, pin);
 	if (!reg)
 		return -EINVAL;
 
-	*val = readl(base + reg->offset);
-	*val = (*val & reg->mask) >> __bf_shf(reg->mask);
+	ret = regmap_read(base, base_offset + reg->offset, val);
+	if (ret)
+		return ret;
 
+	*val = (*val & reg->mask) >> __bf_shf(reg->mask);
 	return 0;
 }
 
 static int airoha_pinctrl_set_conf(struct airoha_pinctrl *pinctrl,
-				   void __iomem *base,
+				   struct regmap *base, int base_offset,
 				   const struct airoha_pinctrl_conf *conf,
 				   int conf_size, int pin, u32 val)
 {
@@ -2396,59 +2447,59 @@ static int airoha_pinctrl_set_conf(struct airoha_pinctrl *pinctrl,
 	if (!reg)
 		return -EINVAL;
 
-	airoha_pinctrl_rmw(pinctrl, base + reg->offset, reg->mask,
+	airoha_pinctrl_rmw(pinctrl, base, base_offset + reg->offset, reg->mask,
 			   val << __bf_shf(reg->mask));
 
 	return 0;
 }
 
 #define airoha_pinctrl_get_pullup_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_get_conf(((pinctrl)->regs.conf),				\
+	airoha_pinctrl_get_conf(((pinctrl)->chip_scu), PINCTRL_REG_IOCONF,	\
 				airoha_pinctrl_pullup_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_pullup_conf),		\
 				(pin), (val))
 #define airoha_pinctrl_get_pulldown_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_get_conf(((pinctrl)->regs.conf),				\
+	airoha_pinctrl_get_conf(((pinctrl)->chip_scu), PINCTRL_REG_IOCONF,	\
 				airoha_pinctrl_pulldown_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_pulldown_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_get_drive_e2_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_get_conf(((pinctrl)->regs.conf),				\
+	airoha_pinctrl_get_conf(((pinctrl)->chip_scu), PINCTRL_REG_IOCONF,	\
 				airoha_pinctrl_drive_e2_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_drive_e2_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_get_drive_e4_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_get_conf(((pinctrl)->regs.conf),				\
+	airoha_pinctrl_get_conf(((pinctrl)->chip_scu), PINCTRL_REG_IOCONF,	\
 				airoha_pinctrl_drive_e4_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_drive_e4_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_get_pcie_rst_od_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_get_conf(((pinctrl)->regs.pcie_rst),			\
+	airoha_pinctrl_get_conf(((pinctrl)->chip_scu), PINCTRL_REG_PCIE_RST_OD, \
 				airoha_pinctrl_pcie_rst_od_conf,		\
 				ARRAY_SIZE(airoha_pinctrl_pcie_rst_od_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_set_pullup_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->regs.conf),		\
+	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->chip_scu), PINCTRL_REG_IOCONF, \
 				airoha_pinctrl_pullup_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_pullup_conf),		\
 				(pin), (val))
 #define airoha_pinctrl_set_pulldown_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->regs.conf),		\
+	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->chip_scu), PINCTRL_REG_IOCONF, \
 				airoha_pinctrl_pulldown_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_pulldown_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_set_drive_e2_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->regs.conf),		\
+	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->chip_scu), PINCTRL_REG_IOCONF, \
 				airoha_pinctrl_drive_e2_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_drive_e2_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_set_drive_e4_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->regs.conf),		\
+	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->chip_scu), PINCTRL_REG_IOCONF, \
 				airoha_pinctrl_drive_e4_conf,			\
 				ARRAY_SIZE(airoha_pinctrl_drive_e4_conf),	\
 				(pin), (val))
 #define airoha_pinctrl_set_pcie_rst_od_conf(pinctrl, pin, val)			\
-	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->regs.pcie_rst),		\
+	airoha_pinctrl_set_conf((pinctrl), ((pinctrl)->chip_scu), PINCTRL_REG_PCIE_RST_OD, \
 				airoha_pinctrl_pcie_rst_od_conf,		\
 				ARRAY_SIZE(airoha_pinctrl_pcie_rst_od_conf),	\
 				(pin), (val))
@@ -2681,8 +2732,14 @@ static int airoha_pinctrl_gpio_get(struct gpio_chip *chip, unsigned int gpio)
 	struct airoha_pinctrl *pinctrl = gpiochip_get_data(chip);
 	u8 index = gpio / AIROHA_GPIO_BANK_SIZE;
 	u32 pin = gpio % AIROHA_GPIO_BANK_SIZE;
+	u32 val;
+	int ret;
 
-	return !!(readl(pinctrl->gpiochip.data[index]) & BIT(pin));
+	ret = regmap_read(pinctrl->base, pinctrl->gpiochip.data[index], &val);
+	if (ret)
+		return ret;
+
+	return !!(val & BIT(pin));
 }
 
 static int airoha_pinctrl_gpio_direction_input(struct gpio_chip *chip,
@@ -2711,6 +2768,7 @@ static void airoha_pinctrl_gpio_irq_unmask(struct irq_data *data)
 	u8 index = data->hwirq / AIROHA_REG_GPIOCTRL_NUM_GPIO;
 	u32 mask = GENMASK(2 * offset + 1, 2 * offset);
 	struct airoha_pinctrl_gpiochip *gpiochip;
+	struct airoha_pinctrl *pinctrl;
 	u32 val = BIT(2 * offset);
 	unsigned long flags;
 
@@ -2718,6 +2776,7 @@ static void airoha_pinctrl_gpio_irq_unmask(struct irq_data *data)
 	if (WARN_ON_ONCE(data->hwirq >= ARRAY_SIZE(gpiochip->irq_type)))
 		return;
 
+	pinctrl = container_of(gpiochip, struct airoha_pinctrl, gpiochip);
 	spin_lock_irqsave(&gpiochip->lock, flags);
 
 	switch (gpiochip->irq_type[data->hwirq] & IRQ_TYPE_SENSE_MASK) {
@@ -2725,16 +2784,16 @@ static void airoha_pinctrl_gpio_irq_unmask(struct irq_data *data)
 		val = val << 1;
 		fallthrough;
 	case IRQ_TYPE_LEVEL_HIGH:
-		airoha_pinctrl_rmw_unlock(gpiochip->level[index], mask, val);
+		airoha_pinctrl_rmw_unlock(pinctrl->base, gpiochip->level[index], mask, val);
 		break;
 	case IRQ_TYPE_EDGE_FALLING:
 		val = val << 1;
 		fallthrough;
 	case IRQ_TYPE_EDGE_RISING:
-		airoha_pinctrl_rmw_unlock(gpiochip->edge[index], mask, val);
+		airoha_pinctrl_rmw_unlock(pinctrl->base, gpiochip->edge[index], mask, val);
 		break;
 	case IRQ_TYPE_EDGE_BOTH:
-		airoha_pinctrl_set_unlock(gpiochip->edge[index], mask);
+		airoha_pinctrl_set_unlock(pinctrl->base, gpiochip->edge[index], mask);
 		break;
 	default:
 		break;
@@ -2749,14 +2808,16 @@ static void airoha_pinctrl_gpio_irq_mask(struct irq_data *data)
 	u8 index = data->hwirq / AIROHA_REG_GPIOCTRL_NUM_GPIO;
 	u32 mask = GENMASK(2 * offset + 1, 2 * offset);
 	struct airoha_pinctrl_gpiochip *gpiochip;
+	struct airoha_pinctrl *pinctrl;
 	unsigned long flags;
 
 	gpiochip = irq_data_get_irq_chip_data(data);
+	pinctrl = container_of(gpiochip, struct airoha_pinctrl, gpiochip);
 
 	spin_lock_irqsave(&gpiochip->lock, flags);
 
-	airoha_pinctrl_clear_unlock(gpiochip->edge[index], mask);
-	airoha_pinctrl_clear_unlock(gpiochip->level[index], mask);
+	airoha_pinctrl_clear_unlock(pinctrl->base, gpiochip->edge[index], mask);
+	airoha_pinctrl_clear_unlock(pinctrl->base, gpiochip->level[index], mask);
 
 	spin_unlock_irqrestore(&gpiochip->lock, flags);
 }
@@ -2789,21 +2850,25 @@ unlock:
 static irqreturn_t airoha_pinctrl_gpio_irq_handler(int irq, void *data)
 {
 	struct airoha_pinctrl_gpiochip *gpiochip;
+	struct airoha_pinctrl *pinctrl;
 	bool handled = false;
 	int i;
 
 	gpiochip = container_of(data, struct airoha_pinctrl_gpiochip, chip);
+	pinctrl = container_of(gpiochip, struct airoha_pinctrl, gpiochip);
 	for (i = 0; i < ARRAY_SIZE(gpiochip->status); i++) {
-		unsigned long status = readl(gpiochip->status[i]);
 		struct gpio_irq_chip *girq = &gpiochip->chip.irq;
+		unsigned long status;
 		int irq;
+
+		regmap_read(pinctrl->base, gpiochip->status[i], (u32 *)&status);
 
 		for_each_set_bit(irq, &status, AIROHA_GPIO_BANK_SIZE) {
 			u32 offset = irq + i * AIROHA_GPIO_BANK_SIZE;
 
 			generic_handle_irq(irq_find_mapping(girq->domain,
 							    offset));
-			writel(BIT(irq), gpiochip->status[i]);
+			regmap_write(pinctrl->base, gpiochip->status[i], BIT(irq));
 		}
 		handled |= !!status;
 	}
@@ -2817,52 +2882,35 @@ static int airoha_pinctrl_add_gpiochip(struct airoha_pinctrl *pinctrl,
 	struct gpio_chip *chip = &pinctrl->gpiochip.chip;
 	struct gpio_irq_chip *girq = &chip->irq;
 	struct device *dev = &pdev->dev;
-	void __iomem *ptr;
 	int irq, err;
 
-	ptr = devm_platform_ioremap_resource_byname(pdev, "gpio-bank0");
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
-
-	pinctrl->gpiochip.data[0] = ptr + REG_GPIO_DATA;
-	pinctrl->gpiochip.dir[0] = ptr + REG_GPIO_CTRL;
-	pinctrl->gpiochip.out[0] = ptr + REG_GPIO_OE;
+	pinctrl->gpiochip.data[0] = PINCTRL_REG_GPIO_BANK0 + REG_GPIO_DATA;
+	pinctrl->gpiochip.dir[0] = PINCTRL_REG_GPIO_BANK0 + REG_GPIO_CTRL;
+	pinctrl->gpiochip.out[0] = PINCTRL_REG_GPIO_BANK0 + REG_GPIO_OE;
 
 	if (of_property_read_bool(dev->of_node, "interrupt-controller")) {
-		pinctrl->gpiochip.status[0] = ptr + REG_GPIO_INT;
-		pinctrl->gpiochip.level[0] = ptr + REG_GPIO_INT_LEVEL;
-		pinctrl->gpiochip.edge[0] = ptr + REG_GPIO_INT_EDGE;
+		pinctrl->gpiochip.status[0] = PINCTRL_REG_GPIO_BANK0 + REG_GPIO_INT;
+		pinctrl->gpiochip.level[0] = PINCTRL_REG_GPIO_BANK0 + REG_GPIO_INT_LEVEL;
+		pinctrl->gpiochip.edge[0] = PINCTRL_REG_GPIO_BANK0 + REG_GPIO_INT_EDGE;
 	}
 
-	ptr = devm_platform_ioremap_resource_byname(pdev, "gpio-ctrl1");
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
+	pinctrl->gpiochip.dir[1] = PINCTRL_REG_GPIO_CTRL1 + REG_GPIO_CTRL1;
 
-	pinctrl->gpiochip.dir[1] = ptr + REG_GPIO_CTRL1;
-
-	ptr = devm_platform_ioremap_resource_byname(pdev, "gpio-bank1");
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
-
-	pinctrl->gpiochip.data[1] = ptr + REG_GPIO_DATA1;
-	pinctrl->gpiochip.out[1] = ptr + REG_GPIO_OE1;
+	pinctrl->gpiochip.data[1] = PINCTRL_REG_GPIO_BANK1 + REG_GPIO_DATA1;
+	pinctrl->gpiochip.out[1] = PINCTRL_REG_GPIO_BANK1 + REG_GPIO_OE1;
 
 	if (of_property_read_bool(dev->of_node, "interrupt-controller")) {
-		pinctrl->gpiochip.status[1] = ptr + REG_GPIO_INT1;
-		pinctrl->gpiochip.level[1] = ptr + REG_GPIO_INT_LEVEL1;
-		pinctrl->gpiochip.level[2] = ptr + REG_GPIO_INT_LEVEL2;
-		pinctrl->gpiochip.level[3] = ptr + REG_GPIO_INT_LEVEL3;
-		pinctrl->gpiochip.edge[1] = ptr + REG_GPIO_INT_EDGE1;
-		pinctrl->gpiochip.edge[2] = ptr + REG_GPIO_INT_EDGE2;
-		pinctrl->gpiochip.edge[3] = ptr + REG_GPIO_INT_EDGE3;
+		pinctrl->gpiochip.status[1] = PINCTRL_REG_GPIO_BANK1 + REG_GPIO_INT1;
+		pinctrl->gpiochip.level[1] = PINCTRL_REG_GPIO_BANK1 + REG_GPIO_INT_LEVEL1;
+		pinctrl->gpiochip.level[2] = PINCTRL_REG_GPIO_BANK1 + REG_GPIO_INT_LEVEL2;
+		pinctrl->gpiochip.level[3] = PINCTRL_REG_GPIO_BANK1 + REG_GPIO_INT_LEVEL3;
+		pinctrl->gpiochip.edge[1] = PINCTRL_REG_GPIO_BANK1 + REG_GPIO_INT_EDGE1;
+		pinctrl->gpiochip.edge[2] = PINCTRL_REG_GPIO_BANK1 + REG_GPIO_INT_EDGE2;
+		pinctrl->gpiochip.edge[3] = PINCTRL_REG_GPIO_BANK1 + REG_GPIO_INT_EDGE3;
 	}
 
-	ptr = devm_platform_ioremap_resource_byname(pdev, "gpio-ctrl2");
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
-
-	pinctrl->gpiochip.dir[2] = ptr + REG_GPIO_CTRL2;
-	pinctrl->gpiochip.dir[3] = ptr + REG_GPIO_CTRL3;
+	pinctrl->gpiochip.dir[2] = PINCTRL_REG_GPIO_CTRL2 + REG_GPIO_CTRL2;
+	pinctrl->gpiochip.dir[3] = PINCTRL_REG_GPIO_CTRL2 + REG_GPIO_CTRL3;
 
 	chip->parent = dev;
 	chip->label = dev_name(dev);
@@ -2906,54 +2954,18 @@ out:
 	return devm_gpiochip_add_data(dev, chip, pinctrl);
 }
 
-static int airoha_pinctrl_ioreg_map(struct airoha_pinctrl *pinctrl,
-				    struct platform_device *pdev)
-{
-	void __iomem *ptr;
-
-	ptr = devm_platform_ioremap_resource_byname(pdev, "iomux");
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
-
-	pinctrl->regs.mux[0] = ptr;
-
-	ptr = devm_platform_ioremap_resource_byname(pdev, "led-iomux");
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
-
-	pinctrl->regs.mux[1] = ptr;
-
-	ptr = devm_platform_ioremap_resource_byname(pdev, "gpio-flash-mode");
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
-
-	pinctrl->regs.mux[2] = ptr;
-
-	ptr = devm_platform_ioremap_resource_byname(pdev,
-						    "gpio-flash-mode-ext");
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
-
-	pinctrl->regs.mux[3] = ptr;
-
-	ptr = devm_platform_ioremap_resource_byname(pdev, "ioconf");
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
-
-	pinctrl->regs.conf = ptr;
-
-	ptr = devm_platform_ioremap_resource_byname(pdev, "pcie-rst-od");
-	if (IS_ERR(ptr))
-		return PTR_ERR(ptr);
-
-	pinctrl->regs.pcie_rst = ptr;
-
-	return 0;
-}
+static const struct regmap_config airoha_pinctrl_regmap_config = {
+	.reg_bits	= 32,
+	.reg_stride	= 4,
+	.val_bits	= 32,
+	.max_register	= 0xbc,
+	.fast_io	= true,
+};
 
 static int airoha_pinctrl_probe(struct platform_device *pdev)
 {
 	struct airoha_pinctrl *pinctrl;
+	void __iomem *base;
 	int err, i;
 
 	pinctrl = devm_kzalloc(&pdev->dev, sizeof(*pinctrl), GFP_KERNEL);
@@ -2962,9 +2974,19 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
 
 	mutex_init(&pinctrl->mutex);
 
-	err = airoha_pinctrl_ioreg_map(pinctrl, pdev);
-	if (err)
-		return err;
+	base = devm_platform_ioremap_resource(pdev, 0);
+	if (IS_ERR(base))
+		return PTR_ERR(base);
+
+	pinctrl->base = devm_regmap_init_mmio(&pdev->dev, base,
+					      &airoha_pinctrl_regmap_config);
+	if (IS_ERR(pinctrl->base))
+		return PTR_ERR(pinctrl->base);
+
+	pinctrl->chip_scu = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
+							    "airoha,chip-scu");
+	if (IS_ERR(pinctrl->chip_scu))
+		return PTR_ERR(pinctrl->chip_scu);
 
 	err = devm_pinctrl_register_and_init(&pdev->dev, &airoha_pinctrl_desc,
 					     pinctrl, &pinctrl->ctrl);
