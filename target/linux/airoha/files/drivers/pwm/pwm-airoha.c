@@ -7,13 +7,20 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/iopoll.h>
+#include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
+#include <linux/regmap.h>
 #include <linux/gpio.h>
 #include <linux/bitops.h>
 #include <asm/div64.h>
+
+/* Offset from SCU reg mapped starting from 0x200 */
+#define REG_SGPIO_CFG_OFF		0x0024
+#define REG_FLASH_CFG_OFF		0x0038
+#define REG_CYCLE_CFG_OFF		0x0098
 
 #define REG_SGPIO_LED_DATE		0x0000
 #define SGPIO_LED_SHIFT_FLAG		BIT(31)
@@ -41,9 +48,7 @@
 struct airoha_pwm {
 	struct pwm_chip chip;
 
-	void __iomem *sgpio_cfg;
-	void __iomem *flash_cfg;
-	void __iomem *cycle_cfg;
+	struct regmap *base;
 
 	struct device_node *np;
 	u64 initialized;
@@ -76,21 +81,12 @@ struct airoha_pwm {
 /* Duty cycle is relative with 255 corresponding to 100% */
 #define DUTY_FULL	255
 
-static u32 airoha_pwm_rmw(struct airoha_pwm *pc, void __iomem *addr,
-			  u32 mask, u32 val)
-{
-	val |= (readl(addr) & ~mask);
-	writel(val, addr);
-
-	return val;
-}
-
 #define airoha_pwm_sgpio_rmw(pc, offset, mask, val)				\
-	airoha_pwm_rmw((pc), (pc)->sgpio_cfg + (offset), (mask), (val))
+	regmap_update_bits((pc)->base, REG_SGPIO_CFG_OFF + (offset), (mask), (val))
 #define airoha_pwm_flash_rmw(pc, offset, mask, val)				\
-	airoha_pwm_rmw((pc), (pc)->flash_cfg + (offset), (mask), (val))
+	regmap_update_bits((pc)->base, REG_FLASH_CFG_OFF + (offset), (mask), (val))
 #define airoha_pwm_cycle_rmw(pc, offset, mask, val)				\
-	airoha_pwm_rmw((pc), (pc)->cycle_cfg + (offset), (mask), (val))
+	regmap_update_bits((pc)->base, REG_CYCLE_CFG_OFF + (offset), (mask), (val))
 
 #define airoha_pwm_sgpio_set(pc, offset, val)					\
 	airoha_pwm_sgpio_rmw((pc), (offset), 0, (val))
@@ -196,7 +192,7 @@ static int airoha_pwm_sipo_init(struct airoha_pwm *pc)
 		}
 	}
 	/* Configure shift register timings */
-	writel(clk_divr_val, pc->sgpio_cfg + REG_SGPIO_CLK_DIVR);
+	regmap_write(pc->base, REG_SGPIO_CFG_OFF + REG_SGPIO_CLK_DIVR, clk_divr_val);
 
 	of_property_read_u32(pc->np, "sipo-clock-delay", &sipo_clock_delay);
 	if (sipo_clock_delay < 1 || sipo_clock_delay > sipo_clock_divisor / 2)
@@ -207,7 +203,7 @@ static int airoha_pwm_sipo_init(struct airoha_pwm *pc)
 	 * sipo-clock-delay to calculate the register value
 	 */
 	sipo_clock_delay--;
-	writel(sipo_clock_delay, pc->sgpio_cfg + REG_SGPIO_CLK_DLY);
+	regmap_write(pc->base, REG_SGPIO_CFG_OFF + REG_SGPIO_CLK_DLY, sipo_clock_delay);
 
 	/*
 	 * It it necessary to after muxing explicitly shift out all
@@ -217,15 +213,15 @@ static int airoha_pwm_sipo_init(struct airoha_pwm *pc)
 	 * indicates shifting in progress and it must return to zero
 	 * before led_data can be written or PWM mode can be set)
 	 */
-	if (readl_poll_timeout(pc->sgpio_cfg + REG_SGPIO_LED_DATE, val,
-			       !(val & SGPIO_LED_SHIFT_FLAG), 10,
-			       200 * USEC_PER_MSEC))
+	if (regmap_read_poll_timeout(pc->base, REG_SGPIO_CFG_OFF + REG_SGPIO_LED_DATE,
+				     val, !(val & SGPIO_LED_SHIFT_FLAG), 10,
+				     200 * USEC_PER_MSEC))
 		return -ETIMEDOUT;
 
 	airoha_pwm_sgpio_clear(pc, REG_SGPIO_LED_DATE, SGPIO_LED_DATA);
-	if (readl_poll_timeout(pc->sgpio_cfg + REG_SGPIO_LED_DATE, val,
-			       !(val & SGPIO_LED_SHIFT_FLAG), 10,
-			       200 * USEC_PER_MSEC))
+	if (regmap_read_poll_timeout(pc->base, REG_SGPIO_CFG_OFF + REG_SGPIO_LED_DATE,
+				     val, !(val & SGPIO_LED_SHIFT_FLAG), 10,
+				     200 * USEC_PER_MSEC))
 		return -ETIMEDOUT;
 
 	/* Set SIPO in PWM mode */
@@ -360,23 +356,16 @@ static const struct pwm_ops airoha_pwm_ops = {
 
 static int airoha_pwm_probe(struct platform_device *pdev)
 {
+	struct device *parent = pdev->dev.parent;
 	struct airoha_pwm *pc;
 
 	pc = devm_kzalloc(&pdev->dev, sizeof(*pc), GFP_KERNEL);
 	if (!pc)
 		return -ENOMEM;
 
-	pc->sgpio_cfg = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(pc->sgpio_cfg))
-		return PTR_ERR(pc->sgpio_cfg);
-
-	pc->flash_cfg = devm_platform_ioremap_resource(pdev, 1);
-	if (IS_ERR(pc->flash_cfg))
-		return PTR_ERR(pc->flash_cfg);
-
-	pc->cycle_cfg = devm_platform_ioremap_resource(pdev, 2);
-	if (IS_ERR(pc->cycle_cfg))
-		return PTR_ERR(pc->cycle_cfg);
+	pc->base = syscon_node_to_regmap(parent->of_node);
+	if (IS_ERR(pc->base))
+		return PTR_ERR(pc->base);
 
 	pc->np = pdev->dev.of_node;
 	pc->chip.dev = &pdev->dev;
