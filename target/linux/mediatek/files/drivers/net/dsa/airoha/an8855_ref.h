@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (C) 2023 Min Yao <min.yao@airoha.com>
- * Copyright (C) 2024 Christian Marangi <ansuelsmth@gmail.com>
  */
 
 #ifndef __AN8855_H
@@ -615,9 +614,7 @@ struct an8855_priv {
 	struct regulator *core_pwr;
 	struct regulator *io_pwr;
 	struct gpio_desc *reset;
-	// void __iomem *base;
-
-
+	void __iomem *base;
 	const struct an8855_dev_info *info;
 	unsigned int phy_base;
 	int phy_base_new;
@@ -633,9 +630,6 @@ struct an8855_priv {
 	struct an8855_port ports[AN8855_NUM_PORTS];
 	/* protect among processes for registers access */
 	struct mutex reg_mutex;
-
-	struct regmap *regmap;
-	struct phylink_pcs pcs
 };
 
 struct an8855_hw_vlan_entry {
