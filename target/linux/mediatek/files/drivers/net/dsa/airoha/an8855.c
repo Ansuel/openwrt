@@ -482,13 +482,289 @@ static void an8855_pcs_get_state(struct phylink_pcs *pcs,
 		state->pause |= MLO_PAUSE_TX;
 }
 
+static int an8855_hsgmii_setup(struct an8855_priv *priv)
+{
+
+
+	return 0;
+}
+
 static int an8855_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 			     phy_interface_t interface,
 			     const unsigned long *advertising,
 			     bool permit_pause_to_mac)
 {
 	struct an8855_priv *priv = container_of(pcs, struct an8855_priv, pcs);
+	u32 val;
 	int ret;
+
+	/* Check port 4 */
+
+	switch(interface) {
+	case PHY_INTERFACE_MODE_RGMII:
+		break;
+	case PHY_INTERFACE_MODE_SGMII:
+		break;
+	case PHY_INTERFACE_MODE_2500BASEX:
+		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
+			return -EINVAL;
+
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	/* TX FIR - improve TX EYE */
+	regmap_update_bits(priv->regmap, INTF_CTRL_10, GENMASK(21, 16),
+			   FIELD_PREP(GENMASK(21, 16), 0x20));
+	regmap_update_bits(priv->regmap, INTF_CTRL_10, GENMASK(28, 24),
+			   FIELD_PREP(GENMASK(28, 24), 0x4));
+	regmap_set_bits(priv->regmap, INTF_CTRL_10, BIT(29));
+
+	if (interface == PHY_INTERFACE_MODE_2500BASEX)
+		val = 0x0;
+	else
+		val = 0xd;
+	regmap_update_bits(priv->regmap, INTF_CTRL_11, GENMASK(5, 0),
+			   FIELD_PREP(GENMASK(5, 0), val));
+	regmap_set_bits(priv->regmap, INTF_CTRL_11, BIT(6));
+
+	/* RX CDR - improve RX Jitter Tolerance */
+	if (interface == PHY_INTERFACE_MODE_2500BASEX)
+		val = 0x5;
+	else
+		val = 0x6;
+	regmap_update_bits(priv->regmap, RG_QP_CDR_LPF_BOT_LIM, GENMASK(26, 24),
+			   FIELD_PREP(GENMASK(26, 24), val));
+	regmap_update_bits(priv->regmap, RG_QP_CDR_LPF_BOT_LIM, GENMASK(22, 20),
+			   FIELD_PREP(GENMASK(22, 20), val));
+
+	/* PLL */
+	if (interface == PHY_INTERFACE_MODE_2500BASEX)
+		val = 0x1;
+	else
+		val = 0x0;
+	regmap_update_bits(priv->regmap, QP_DIG_MODE_CTRL_1, GENMASK(3, 2),
+			   FIELD_PREP(GENMASK(3, 2), val));
+
+	/* PLL - LPF */
+	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(1, 0),
+			   FIELD_PREP(GENMASK(1, 0), 0x1));
+	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(4, 2),
+			   FIELD_PREP(GENMASK(4, 2), 0x5));
+	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(6) | BIT(7));
+	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(10, 8),
+			   FIELD_PREP(GENMASK(10, 8), 0x3));
+	regmap_set_bits(priv->regmap, PLL_CTRL_2, BIT(29));
+	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(12) | BIT(13));
+
+	/* PLL - ICO */
+	regmap_set_bits(priv->regmap, PLL_CTRL_4, BIT(2));
+	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(14));
+
+	/* PLL - CHP */
+	if (interface == PHY_INTERFACE_MODE_2500BASEX)
+		val = 0x6;
+	else
+		val = 0x4;
+	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(19, 16),
+			   FIELD_PREP(GENMASK(19, 16), val));
+
+	/* PLL - PFD */
+	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(21, 20),
+			   FIELD_PREP(GENMASK(21, 20), 0x1));
+	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(25, 24),
+			   FIELD_PREP(GENMASK(25, 24), 0x1));
+	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(26));
+	
+	/* PLL - POSTDIV */
+	regmap_set_bits(priv->regmap, PLL_CTRL_2, BIT(22));
+	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(27));
+	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(28));
+
+	/* PLL - SDM */
+	regmap_clear_bits(priv->regmap, PLL_CTRL_4, BIT(3) | BIT(4));
+	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(30));
+
+	regmap_update_bits(priv->regmap, SS_LCPLL_PWCTL_SETTING_2,
+			   GENMASK(17, 16),
+			   FIELD_PREP(GENMASK(17, 16), 0x1));
+
+	if (interface == PHY_INTERFACE_MODE_2500BASEX)
+		val = 0x7a000000;
+	else
+		val = 0x48000000;
+	regmap_write(priv->regmap, SS_LCPLL_TDC_FLT_2, val);
+	regmap_write(priv->regmap, SS_LCPLL_TDC_PCW_1, val);
+
+	regmap_clear_bits(priv->regmap, SS_LCPLL_TDC_FLT_5, BIT(24));
+	regmap_clear_bits(priv->regmap, PLL_CK_CTRL_0, BIT(8));
+
+	/* PLL - SS */
+	regmap_clear_bits(priv->regmap, PLL_CTRL_3, GENMASK(15, 0));
+	regmap_clear_bits(priv->regmap, PLL_CTRL_4, GENMASK(1, 0));
+	regmap_clear_bits(priv->regmap, PLL_CTRL_3, GENMASK(31, 16)); /* ??? */
+
+	/* PLL - TDC */
+	regmap_clear_bits(priv->regmap, PLL_CK_CTRL_0, BIT(9));
+
+	regmap_set_bits(priv->regmap, RG_QP_PLL_SDM_ORD, BIT(3));
+	regmap_set_bits(priv->regmap, RG_QP_PLL_SDM_ORD, BIT(4));
+
+	regmap_update_bits(priv->regmap, RG_QP_RX_DAC_EN, GENMASK(17, 16),
+			   FIELD_PREP(GENMASK(17, 16), 0x2));
+
+	/* TCL Disable (only for Co-SIM) */
+	regmap_clear_bits(priv->regmap, PON_RXFEDIG_CTRL_0, BIT(12));
+
+	/* TX Init */
+	if (interface == PHY_INTERFACE_MODE_2500BASEX)
+		val = 0x4;
+	else
+		val = 0x0;
+	regmap_clear_bits(priv->regmap, RG_QP_TX_MODE_16B_EN, BIT(0));
+	regmap_update_bits(priv->regmap, RG_QP_TX_MODE_16B_EN, GENMASK(31, 16),
+			   FIELD_PREP(GENMASK(31, 16), val));
+
+	/* RX Control/Init */
+	regmap_set_bits(priv->regmap, RG_QP_RXAFE_RESERVE, BIT(11));
+
+	if (interface == PHY_INTERFACE_MODE_2500BASEX)
+		val = 0x1;
+	else
+		val = 0x2;
+	regmap_update_bits(priv->regmap, RG_QP_CDR_LPF_MJV_LIM, GENMASK(5, 4),
+			   FIELD_PREP(GENMASK(5, 4), val));
+
+	regmap_update_bits(priv->regmap, RG_QP_CDR_LPF_SETVALUE, GENMASK(28, 25),
+			   FIELD_PREP(GENMASK(28, 25), 0x1));
+	regmap_update_bits(priv->regmap, RG_QP_CDR_LPF_SETVALUE, GENMASK(31, 29),
+			   FIELD_PREP(GENMASK(31, 29), 0x6));
+
+	if (interface == PHY_INTERFACE_MODE_2500BASEX)
+		val = 0xf;
+	else
+		val = 0xc;
+	regmap_update_bits(priv->regmap, RG_QP_CDR_PR_CKREF_DIV1, GENMASK(12, 8),
+			   FIELD_PREP(GENMASK(12, 8), val));
+
+	regmap_update_bits(priv->regmap, RG_QP_CDR_PR_KBAND_DIV_PCIE, GENMASK(12, 8),
+			   FIELD_PREP(GENMASK(12, 8), 0x19));
+	regmap_clear_bits(priv->regmap, RG_QP_CDR_PR_KBAND_DIV_PCIE, BIT(6));
+
+	regmap_update_bits(priv->regmap, RG_QP_CDR_FORCE_IBANDLPF_R_OFF, GENMASK(12, 6),
+			   FIELD_PREP(GENMASK(12, 6), 0x21));
+	regmap_update_bits(priv->regmap, RG_QP_CDR_FORCE_IBANDLPF_R_OFF, GENMASK(17, 16),
+			   FIELD_PREP(GENMASK(17, 16), 0x2));
+	regmap_clear_bits(priv->regmap, RG_QP_CDR_FORCE_IBANDLPF_R_OFF, BIT(13));
+
+	regmap_clear_bits(priv->regmap, RG_QP_CDR_PR_KBAND_DIV_PCIE, BIT(30));
+
+	regmap_update_bits(priv->regmap, RG_QP_CDR_PR_CKREF_DIV1, GENMASK(26, 24),
+			   FIELD_PREP(GENMASK(26, 24), 0x4));
+
+	regmap_set_bits(priv->regmap, RX_CTRL_26, BIT(23));
+	regmap_clear_bits(priv->regmap, RX_CTRL_26, BIT(24));
+	regmap_set_bits(priv->regmap, RX_CTRL_26, BIT(26));
+
+	regmap_update_bits(priv->regmap, RX_DLY_0, GENMASK(7, 0),
+			   FIELD_PREP(GENMASK(7, 0), 0x6f));
+	regmap_set_bits(priv->regmap, RX_DLY_0, GENMASK(13, 8));
+
+	regmap_update_bits(priv->regmap, RX_CTRL_42, GENMASK(12, 0),
+			   FIELD_PREP(GENMASK(12, 0), 0x150));
+
+	regmap_update_bits(priv->regmap, RX_CTRL_2, GENMASK(28, 16),
+			   FIELD_PREP(GENMASK(28, 16), 0x150));
+
+	regmap_update_bits(priv->regmap, PON_RXFEDIG_CTRL_9, GENMASK(2, 0),
+			   FIELD_PREP(GENMASK(2, 0), 0x1));
+
+	regmap_update_bits(priv->regmap, RX_CTRL_8, GENMASK(27, 16),
+			   FIELD_PREP(GENMASK(27, 16), 0x200));
+	regmap_update_bits(priv->regmap, RX_CTRL_8, GENMASK(14, 0),
+			   FIELD_PREP(GENMASK(14, 0), 0xfff));
+
+	/* Frequency meter */
+	if (interface == PHY_INTERFACE_MODE_2500BASEX)
+		val = 0x10;
+	else
+		val = 0x28;
+	regmap_update_bits(priv->regmap, RX_CTRL_5, GENMASK(29, 10),
+			   FIELD_PREP(GENMASK(29, 10), val));
+
+	regmap_update_bits(priv->regmap, RX_CTRL_6, GENMASK(19, 0),
+			   FIELD_PREP(GENMASK(19, 0), 0x64));
+
+	regmap_update_bits(priv->regmap, RX_CTRL_7, GENMASK(19, 0),
+			   FIELD_PREP(GENMASK(19, 0), 0x2710));
+
+	regmap_set_bits(priv->regmap, PLL_CTRL_0, BIT(0));
+
+	/* PCS Init */
+	if (neg == PHYLINK_PCS_NEG_INBAND_DISABLED) {
+		regmap_clear_bits(priv->regmap, QP_DIG_MODE_CTRL_0, BIT(0));
+		regmap_clear_bits(priv->regmap, QP_DIG_MODE_CTRL_0, GENMASK(5, 4));
+	}
+
+	regmap_clear_bits(priv->regmap, RG_HSGMII_PCS_CTROL_1, BIT(30));
+
+	if (neg == PHYLINK_PCS_NEG_INBAND_ENABLED) {
+		/* Set AN Ability - Interrupt */
+		regmap_set_bits(priv->regmap, SGMII_REG_AN_FORCE_CL37, BIT(0));
+
+		regmap_update_bits(priv->regmap, SGMII_REG_AN_13, GENMASK(5, 0),
+				   FIELD_PREP(GENMASK(5, 4), 0xb));
+		regmap_set_bits(priv->regmap, SGMII_REG_AN_13, BIT(8));
+	}
+
+	/* Rate Adaption - GMII path config. */
+	if (interface == PHY_INTERFACE_MODE_2500BASEX) {
+		regmap_clear_bits(priv->regmap, RATE_ADP_P0_CTRL_0, BIT(31));
+	} else {
+		if (neg == PHYLINK_PCS_NEG_INBAND_ENABLED) {
+			regmap_set_bits(priv->regmap, MII_RA_AN_ENABLE, BIT(0));
+		else {
+			regmap_set_bits(priv->regmap, RG_AN_SGMII_MODE_FORCE, BIT(0));
+			regmap_clear_bits(priv->regmap, RG_AN_SGMII_MODE_FORCE, GENMASK(5, 4));
+
+			regmap_clear_bits(priv->regmap, RATE_ADP_P0_CTRL_0, GENMASK(3, 0));
+		}
+
+		regmap_set_bits(priv->regmap, RATE_ADP_P0_CTRL_0, BIT(28));
+	}
+
+	regmap_set_bits(priv->regmap, RG_RATE_ADAPT_CTRL_0, BIT(0));
+	regmap_set_bits(priv->regmap, RG_RATE_ADAPT_CTRL_0, BIT(4));
+	regmap_set_bits(priv->regmap, RG_RATE_ADAPT_CTRL_0, GENMASK(27, 26));
+
+	/* Disable AN */
+	if (neg == PHYLINK_PCS_NEG_INBAND_ENABLED)
+		regmap_set_bits(priv->regmap, SGMII_REG_AN0, SGMII_AN_ENABLE);
+	else
+		regmap_clear_bits(priv->regmap, SGMII_REG_AN0, SGMII_AN_ENABLE);
+
+	if (interface == PHY_INTERFACE_MODE_SGMII &&
+	    neg == PHYLINK_PCS_NEG_INBAND_DISABLED)
+	    	regmap_set_bits(priv->regmap, PHY_RX_FORCE_CTRL_0, BIT(4));
+
+	/* Force Speed */
+	if (interface == PHY_INTERFACE_MODE_2500BASEX ||
+	    neg == PHYLINK_PCS_NEG_INBAND_ENABLED)) {
+		if (interface == PHY_INTERFACE_MODE_2500BASEX)
+			val = 0x0;
+		else
+			val = 0x2;
+		regmap_set_bits(priv->regmap, SGMII_STS_CTRL_0, BIT(2));
+		regmap_update_bits(priv->regmap, SGMII_STS_CTRL_0, GENMASK(5, 4),
+				   FIELD_PREP(GENMASK(5, 4), val));
+	}
+
+	/* bypass flow control to MAC */
+	regmap_write(priv->regmap, MSG_RX_LIK_STS_0, 0x01010107);
+	regmap_write(priv->regmap, MSG_RX_LIK_STS_2, 0x00000EEF);
+
+	return 0;
 }
 
 static const struct phylink_pcs_ops an8855_pcs_ops = {
