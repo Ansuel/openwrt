@@ -7,6 +7,8 @@
 #ifndef __AN8855_H
 #define __AN8855_H
 
+#include <linux/bitfiled.h>
+
 #define BITS(m, n)	 (~(BIT(m) - 1) & ((BIT(n) - 1) | BIT(n)))
 
 #define AN8855_NUM_PORTS				6
@@ -59,22 +61,65 @@ enum an8855_bpdu_port_fw {
 
 /* Registers for address table access */
 #define AN8855_ATA1			0x10200304
+#define   AN8855_ATA1_MAC0		GENMASK(31, 24)
+#define   AN8855_ATA1_MAC1		GENMASK(23, 16)
+#define   AN8855_ATA1_MAC2		GENMASK(15, 8)
+#define   AN8855_ATA1_MAC3		GENMASK(7, 0)
 #define AN8855_ATA2			0x10200308
+#define   AN8855_ATA2_MAC4		GENMASK(31, 24)
+#define   AN8855_ATA2_MAC5		GENMASK(23, 16)
 
 /* Register for address table write data */
 #define AN8855_ATWD			0x10200324
-#define AN8855_ATWD2		0x10200328
+#define   AN8855_ATWD_VLD		BIT(0) /* vid LOAD */
+#define   AN8855_ATWD_LEAKY		BIT(1)
+#define   AN8855_ATWD_UPRI		GENMASK(4, 2)
+#define   AN8855_ATWD_SA_FWD		GENMASK(7, 5)
+#define   AN8855_ATWD_SA_MIR		GENMASK(9, 8)
+#define   AN8855_ATWD_EG_TAG		GENMASK(14, 12)
+#define   AN8855_ATWD_IVL		BIT(15)
+#define   AN8855_ATWD_VID		GENMASK(27, 16)
+#define   AN8855_ATWD_FID		GENMASK(31, 28)
+#define AN8855_ATWD2			0x10200328
+#define   AN8855_ATWD2_PORT		GENMASK(7, 0)
 
 /* Register for address table control */
 #define AN8855_ATC			0x10200300
 #define	 ATC_BUSY			BIT(31)
 #define	 ATC_INVALID		~BIT(30)
-#define	 ATC_HASH			16
-#define	 ATC_HASH_MASK		0x1ff
-#define	 ATC_HIT			12
-#define	 ATC_HIT_MASK		0xf
-#define	 ATC_MAT(x)			(((x) & 0x1f) << 7)
+#define	 ATC_HASH			GENMASK(24, 16)
+#define	 ATC_HIT			GENMASK(15, 12)
+#define	 ATC_MAT_MASK			GENMASK(11, 7)
+#define	 ATC_MAT(x)			FIELD_PREP(ATC_MAT_MASK, x)
+#define	 ATC_SAT			GENMASK(5, 4)
+#define	 ATC_CMD			GENMASK(2, 0)
 #define	 ATC_MAT_MACTAB		ATC_MAT(1)
+
+enum an8855_fdb_mat_cmds {
+	AND8855_FDB_MAT_ALL = 0,
+	AND8855_FDB_MAT_MAC, /* All MAC address */
+	AND8855_FDB_MAT_DYNAMIC_MAC, /* All Dynamic MAC address */
+	AND8855_FDB_MAT_STATIC_MAC, /* All Static Mac Address */
+	AND8855_FDB_MAT_DIP, /* All DIP/GA address */
+	AND8855_FDB_MAT_DIP_IPV4, /* All DIP/GA IPv4 address */
+	AND8855_FDB_MAT_DIP_IPV6, /* All DIP/GA IPv6 address */
+	AND8855_FDB_MAT_DIP_SIP, /* All DIP_SIP address */
+	AND8855_FDB_MAT_DIP_SIP_IPV4, /* All DIP_SIP IPv4 address */
+	AND8855_FDB_MAT_DIP_SIP_IPV6, /* All DIP_SIP IPv6 address */
+	AND8855_FDB_MAT_MAC_CVID, /* All MAC address with CVID */
+	AND8855_FDB_MAT_MAC_FID, /* All MAC address with Filter ID */
+	AND8855_FDB_MAT_MAC_PORT, /* All MAC address with port */
+	AND8855_FDB_MAT_DIP_SIP_DIP_IPV4, /* All DIP_SIP address with DIP_IPV4 */
+	AND8855_FDB_MAT_DIP_SIP_SIP_IPV4, /* All DIP_SIP address with SIP_IPV4 */
+	AND8855_FDB_MAT_DIP_SIP_DIP_IPV6, /* All DIP_SIP address with DIP_IPV6 */
+	AND8855_FDB_MAT_DIP_SIP_SIP_IPV6, /* All DIP_SIP address with SIP_IPV6 */
+	/* All MAC address with MAC type (dynamic or static) with CVID */
+	AND8855_FDB_MAT_MAC_TYPE_CVID,
+	/* All MAC address with MAC type (dynamic or static) with Filter ID */
+	AND8855_FDB_MAT_MAC_TYPE_FID,
+	/* All MAC address with MAC type (dynamic or static) with port */
+	AND8855_FDB_MAT_MAC_TYPE_PORT,
+};
 
 enum an8855_fdb_cmds {
 	AN8855_FDB_READ = 0,
@@ -86,7 +131,25 @@ enum an8855_fdb_cmds {
 
 /* Registers for table search read address */
 #define AN8855_ATRDS		0x10200330
+#define   AN8855_ATRD_SEL	GENMASK(1, 0)
 #define AN8855_ATRD0		0x10200334
+#define   AN8855_ATRD0_LIVE	BIT(0)
+#define   AN8855_ATRD0_ARP	GENMASK(2, 1)
+#define   AN8855_ATRD0_TYPE	GENMASK(4, 3)
+#define   AN8855_ATRD0_IVL	BIT(9)
+#define   AN8855_ATRD0_VID	GENMASK(21, 16)
+#define   AN8855_ATRD0_FID	GENMASK(28, 25)
+#define AN8855_ATRD1		0x10200338
+#define   AN8855_ATRD1_MAC4	GENMASK(31, 24)
+#define   AN8855_ATRD1_MAC5	GENMASK(23, 16)
+#define   AN8855_ATRD1_AGING	GENMASK(11, 3)
+#define AN8855_ATRD2		0x1020033c
+#define   AN8855_ATRD1_MAC0	GENMASK(31, 24)
+#define   AN8855_ATRD1_MAC1	GENMASK(23, 16)
+#define   AN8855_ATRD1_MAC2	GENMASK(15, 8)
+#define   AN8855_ATRD1_MAC3	GENMASK(7, 0)
+#define AN8855_ATRD3		0x10200340
+#define   AN8855_ATRD1_PORTMASK	GENMASK(7, 0)
 #define	 CVID				10
 #define	 CVID_MASK			0xfff
 
@@ -116,8 +179,8 @@ enum an8855_fdb_type {
 /* Register for vlan table control */
 #define AN8855_VTCR			0x10200600
 #define	 VTCR_BUSY			BIT(31)
-#define	 VTCR_FUNC(x)		(((x) & 0xf) << 12)
-#define	 VTCR_VID			((x) & 0xfff)
+#define	 VTCR_FUNC_MASK			GENMASK(15, 12)
+#define	 VTCR_VID			GENMASK(11, 0)
 
 enum an8855_vlan_cmd {
 	/* Read/Write the specified VID entry from VAWD register based
@@ -151,6 +214,9 @@ enum an8855_vlan_cmd {
 #define	 ETAG_CTRL_MASK			(0x3FFF)
 
 #define AN8855_VARD0			0x10200618
+#define   AN8855_VARD0_PORT		GENMASK(31, 26)
+#define   AN8855_VARD0_ETAG		GENMASK(23, 12)
+#define   AN8855_VARD0_ETAG_PORT_MASK(port) (GENMASK(13, 12) << ((port) * 2))
 
 enum an8855_vlan_egress_attr {
 	AN8855_VLAN_EGRESS_UNTAG = 0,
@@ -175,22 +241,28 @@ enum an8855_stp_state {
 #define AN8855_PCR_P(x)		(0x10208004 + ((x) * 0x200))
 #define	 PORT_TX_MIR		BIT(20)
 #define	 PORT_RX_MIR		BIT(16)
-#define	 PORT_VLAN(x)		((x) & 0x3)
+#define	 PORT_VLAN		GENMASK(1, 0)
 
 enum an8855_port_mode {
 	/* Port Matrix Mode: Frames are forwarded by the PCR_MATRIX members. */
-	AN8855_PORT_MATRIX_MODE = PORT_VLAN(0),
+	AN8855_PORT_MATRIX_MODE = 0,
 
 	/* Fallback Mode: Forward received frames with ingress ports that do
 	 * not belong to the VLAN member. Frames whose VID is not listed on
 	 * the VLAN table are forwarded by the PCR_MATRIX members.
 	 */
-	AN8855_PORT_FALLBACK_MODE = PORT_VLAN(1),
+	AN8855_PORT_FALLBACK_MODE = 1,
+
+	/* Check Mode: Forward received frames whose ingress do not
+	 * belong to the VLAN member. Discard frames if VID ismiddes on the
+	 * VLAN table.
+	 */
+	AN8855_PORT_CHECK_MODE = 1,
 
 	/* Security Mode: Discard any frame due to ingress membership
 	 * violation or VID missed on the VLAN table.
 	 */
-	AN8855_PORT_SECURITY_MODE = PORT_VLAN(3),
+	AN8855_PORT_SECURITY_MODE = 3,
 };
 
 #define	 PORT_PRI(x)		(((x) & 0x7) << 24)
@@ -203,12 +275,10 @@ enum an8855_port_mode {
 
 /* Register for port vlan control */
 #define AN8855_PVC_P(x)			(0x10208010 + ((x) * 0x200))
-#define	 PORT_SPEC_REPLACE_MODE	BIT(11)
+#define	 PVC_EG_TAG_MASK		GENMASK(10, 8)
+#define	 PORT_SPEC_REPLACE_MODE		BIT(11)
+#define	 VLAN_ATTR_MASK			GENMASK(7, 6)
 #define	 PORT_SPEC_TAG			BIT(5)
-#define	 PVC_EG_TAG(x)			(((x) & 0x7) << 8)
-#define	 PVC_EG_TAG_MASK		PVC_EG_TAG(7)
-#define	 VLAN_ATTR(x)			(((x) & 0x3) << 6)
-#define	 VLAN_ATTR_MASK			VLAN_ATTR(3)
 
 #define AN8855_PORTMATRIX_P(x)	(0x10208044 + ((x) * 0x200))
 #define PORTMATRIX_MATRIX(x)	((x) & 0x3f)
@@ -218,17 +288,22 @@ enum an8855_port_mode {
 enum an8855_vlan_port_eg_tag {
 	AN8855_VLAN_EG_DISABLED = 0,
 	AN8855_VLAN_EG_CONSISTENT = 1,
+	AN8855_VLAN_EG_UNTAGGED = 4,
+	AN8855_VLAN_EG_SWAP = 5,
+	AN8855_VLAN_EG_TAGGED = 6,
+	AN8855_VLAN_EG_STACK = 7,
 };
 
 enum an8855_vlan_port_attr {
 	AN8855_VLAN_USER = 0,
+	AN8855_VLAN_STACK = 1,
 	AN8855_VLAN_TRANSPARENT = 3,
 };
 
 /* Register for port PVID */
 #define AN8855_PVID_P(x)		(0x10208048 + ((x) * 0x200))
-#define	 G0_PORT_VID(x)			(((x) & 0xfff) << 0)
-#define	 G0_PORT_VID_MASK		G0_PORT_VID(0xfff)
+#define	 G0_PORT_VID_MASK		GENMASK(11, 0)
+#define	 G0_PORT_VID(x)			FIELD_PREP(G0_PORT_VID_MASK, x)
 #define	 G0_PORT_VID_DEF		G0_PORT_VID(1)
 
 /* Register for port MAC control register */
@@ -241,14 +316,18 @@ enum an8855_vlan_port_attr {
 #define	 PMCR_RX_EN				BIT(15)
 #define	 PMCR_BACKOFF_EN		BIT(12)
 #define	 PMCR_BACKPR_EN			BIT(11)
+#define	 PMCR_FORCE_EEE5G		BIT(9)
 #define	 PMCR_FORCE_EEE2P5G		BIT(8)
 #define	 PMCR_FORCE_EEE1G		BIT(7)
 #define	 PMCR_FORCE_EEE100		BIT(6)
 #define	 PMCR_TX_FC_EN			BIT(5)
 #define	 PMCR_RX_FC_EN			BIT(4)
-#define	 PMCR_FORCE_SPEED_2500	(0x3 << 28)
-#define	 PMCR_FORCE_SPEED_1000	(0x2 << 28)
-#define	 PMCR_FORCE_SPEED_100	(0x1 << 28)
+#define  PMCR_FORCE_SPEED_MASK		GENMASK(30, 28)
+#define	 PMCR_FORCE_SPEED_5000		FIELD_PREP_CONST(PMCR_FORCE_SPEED_MASK, 0x4)
+#define	 PMCR_FORCE_SPEED_2500		FIELD_PREP_CONST(PMCR_FORCE_SPEED_MASK, 0x3)
+#define	 PMCR_FORCE_SPEED_1000		FIELD_PREP_CONST(PMCR_FORCE_SPEED_MASK, 0x2)
+#define	 PMCR_FORCE_SPEED_100		FIELD_PREP_CONST(PMCR_FORCE_SPEED_MASK, 0x1)
+#define	 PMCR_FORCE_SPEED_10		FIELD_PREP_CONST(PMCR_FORCE_SPEED_MASK, 0x1)
 #define	 PMCR_FORCE_FDX			BIT(25)
 #define	 PMCR_FORCE_LNK			BIT(24)
 #define	 PMCR_SPEED_MASK		BITS(28, 30)
@@ -271,13 +350,19 @@ enum an8855_vlan_port_attr {
 #define	 PMSR_EEE100M			BIT(6)
 #define	 PMSR_RX_FC				BIT(5)
 #define	 PMSR_TX_FC				BIT(4)
+#define	 PMSR_SPEED_5000		FIELD_PREP_CONST(PMSR_SPEED_MASK, 0x4)
+#define	 PMSR_SPEED_2500		FIELD_PREP_CONST(PMSR_SPEED_MASK, 0x3)
+#define	 PMSR_SPEED_1000		FIELD_PREP_CONST(PMSR_SPEED_MASK, 0x2)
+#define	 PMSR_SPEED_100			FIELD_PREP_CONST(PMSR_SPEED_MASK, 0x1)
+#define	 PMSR_SPEED_10			FIELD_PREP_CONST(PMSR_SPEED_MASK, 0x0)
+#define	 PMSR_SPEED_MASK		GENMASK(30, 28)
 #define	 PMSR_SPEED_2500		(0x3 << 28)
 #define	 PMSR_SPEED_1000		(0x2 << 28)
 #define	 PMSR_SPEED_100			(0x1 << 28)
 #define	 PMSR_SPEED_10			(0x0 << 28)
 #define	 PMSR_SPEED_MASK		BITS(28, 30)
-#define	 PMSR_DPX				BIT(25)
-#define	 PMSR_LINK				BIT(24)
+#define	 PMSR_DPX			BIT(25)
+#define	 PMSR_LINK			BIT(24)
 
 #define AN8855_PMEEECR_P(x)		(0x10210004 + (x) * 0x200)
 #define	 WAKEUP_TIME_2500(x)	((x & 0xFF) << 16)
@@ -289,7 +374,7 @@ enum an8855_vlan_port_attr {
 
 #define AN8855_CKGCR			(0x10213e1c)
 #define LPI_TXIDLE_THD			14
-#define LPI_TXIDLE_THD_MASK		BITS(14, 31)
+#define LPI_TXIDLE_THD_MASK		GENMASK(31, 14)
 #define CKG_LNKDN_GLB_STOP	0x01
 #define CKG_LNKDN_PORT_STOP	0x02
 
@@ -370,6 +455,7 @@ enum an8855_vlan_port_attr {
 #define HSGMII_AN_CSR_BASE		0x10220000
 #define SGMII_REG_AN0			(HSGMII_AN_CSR_BASE + 0x000)
 #define   SGMII_AN_ENABLE		BIT(12)
+#define   SGMII_AN_RESTART		BIT(9)
 #define SGMII_REG_AN_13			(HSGMII_AN_CSR_BASE + 0x034)
 #define SGMII_REG_AN_FORCE_CL37	(HSGMII_AN_CSR_BASE + 0x060)
 
