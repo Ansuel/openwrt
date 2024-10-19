@@ -929,8 +929,8 @@ static int an8855_setup(struct dsa_switch *ds)
 			return ret;
 
 		/* Set CPU port number */
-		ret = regmap_update_bits(priv->regmap, AN8855_MFC, CPU_MASK,
-					 CPU_EN | CPU_PORT(dp->index));
+		ret = regmap_update_bits(priv->regmap, AN8855_MFC, CPU_EN | CPU_MASK,
+					 CPU_EN | FIELD_PREP(CPU_MASK, dp->index));
 		if (ret)
 			return ret;
 
@@ -942,6 +942,13 @@ static int an8855_setup(struct dsa_switch *ds)
 		if (ret)
 			return ret;
 	}
+
+	/* BPDU to CPU port */
+	regmap_update_bits(priv->regmap, AN8855_BPC, AN8855_BPDU_PORT_FW_MASK,
+			   FIELD_PREP(AN8855_BPDU_PORT_FW_MASK, AN8855_BPDU_CPU_ONLY));
+
+	regmap_clear_bits(priv->regmap, AN8855_CKGCR,
+			  CKG_LNKDN_GLB_STOP | CKG_LNKDN_PORT_STOP);
 
 	/* TODO an8855_phy_setup */
 

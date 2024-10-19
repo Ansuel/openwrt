@@ -33,8 +33,7 @@ enum sgmii_mode {
 /* Registers to mac forward control for unknown frames */
 #define AN8855_MFC			0x10200010
 #define	 CPU_EN				BIT(15)
-#define	 CPU_PORT(x)		((x) << 8)
-#define	 CPU_MASK			(0x9f << 8)
+#define	 CPU_MASK			GENMASK(12, 8)
 
 #define AN8855_UNUF			0x102000b4
 #define AN8855_UNMF			0x102000b8
@@ -49,10 +48,10 @@ enum sgmii_mode {
 
 /* Registers for BPDU and PAE frame control*/
 #define AN8855_BPC					0x102000D0
-#define	AN8855_BPDU_PORT_FW_MASK	GENMASK(2, 0)
+#define	AN8855_BPDU_PORT_FW_MASK			GENMASK(2, 0)
 
 enum an8855_bpdu_port_fw {
-	AN8855_BPDU_FOLLOW_MFC,
+	AN8855_BPDU_FOLLOW_MFC = 0,
 	AN8855_BPDU_CPU_EXCLUDE = 4,
 	AN8855_BPDU_CPU_INCLUDE = 5,
 	AN8855_BPDU_CPU_ONLY = 6,
@@ -373,10 +372,9 @@ enum an8855_vlan_port_attr {
 #define	 WAKEUP_TIME_5000(x)	((x & 0xFF) << 0)
 
 #define AN8855_CKGCR			(0x10213e1c)
-#define LPI_TXIDLE_THD			14
 #define LPI_TXIDLE_THD_MASK		GENMASK(31, 14)
-#define CKG_LNKDN_GLB_STOP	0x01
-#define CKG_LNKDN_PORT_STOP	0x02
+#define CKG_LNKDN_PORT_STOP		BIT(1)
+#define CKG_LNKDN_GLB_STOP		BIT(0)
 
 /* Register for MIB */
 #define AN8855_PORT_MIB_COUNTER(x)	(0x10214000 + (x) * 0x200)
