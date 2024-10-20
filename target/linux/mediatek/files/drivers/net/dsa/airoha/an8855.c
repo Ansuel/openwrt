@@ -5,6 +5,7 @@
  * Copyright (C) 2024 Christian Marangi <ansuelsmth@gmail.com>
  */
 #include <linux/bitfield.h>
+#include <linux/ethtool.h>
 #include <linux/etherdevice.h>
 #include <linux/if_bridge.h>
 #include <linux/iopoll.h>
@@ -78,26 +79,50 @@ static const struct an8855_mib_desc an8855_mib[] = {
 	MIB_DESC(1, 0xfc, "PortControlDrop"),
 };
 
-static int an8855_mii_read32(struct mii_bus *bus, u32 reg, u32 *val)
+static const u8 dsa_r50ohm_table[] = {
+	127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+	127, 127, 127, 127, 127, 127, 127, 126, 122, 117,
+	112, 109, 104, 101,  97,  94,  90,  88,  84,  80,
+	78,  74,  72,  68,  66,  64,  61,  58,  56,  53,
+	51,  48,  47,  44,  42,  40,  38,  36,  34,  32,
+	31,  28,  27,  24,  24,  22,  20,  18,  16,  16,
+	14,  12,  11,   9
+};
+
+static u8 en8855_get_r50ohm_val(u8 shift_sel)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dsa_r50ohm_table); i++)
+		if (dsa_r50ohm_table[i] == shift_sel)
+			break;
+
+	if (i < 8 || i >= ARRAY_SIZE(dsa_r50ohm_table))
+		return dsa_r50ohm_table[25];
+
+	return dsa_r50ohm_table[i - 8];
+}
+
+static int an8855_mii_read32(struct mii_bus *bus, u8 phy_id, u32 reg, u32 *val)
 {
 	u16 lo, hi;
 	int ret;
 
-	ret = bus->write(bus, /* TODO */ 1, 0x1f, 0x4);
-	ret = bus->write(bus, /* TODO */ 1, 0x10, 0);
+	ret = bus->write(bus, phy_id, 0x1f, 0x4);
+	ret = bus->write(bus, phy_id, 0x10, 0);
 
-	ret = bus->write(bus, /* TODO */ 1, 0x15, ((reg >> 16) & 0xFFFF));
-	ret = bus->write(bus, /* TODO */ 1, 0x16, (reg & 0xFFFF));
+	ret = bus->write(bus, phy_id, 0x15, ((reg >> 16) & 0xFFFF));
+	ret = bus->write(bus, phy_id, 0x16, (reg & 0xFFFF));
 	if (ret < 0) {
 		dev_err_ratelimited(&bus->dev,
 				    "failed to read an8855 register\n");
 		return ret;
 	}
 
-	lo = bus->read(bus, /* TODO */ 1, 0x18);
-	hi = bus->read(bus, /* TODO */ 1, 0x17);
+	lo = bus->read(bus, phy_id, 0x18);
+	hi = bus->read(bus, phy_id, 0x17);
 
-	ret = bus->write(bus, /* TODO */ 1, 0x1f, 0);
+	ret = bus->write(bus, phy_id, 0x1f, 0);
 	if (ret < 0) {
 		dev_err_ratelimited(&bus->dev,
 				    "failed to read an8855 register\n");
@@ -117,7 +142,7 @@ static int an8855_regmap_read(void *ctx, uint32_t reg, uint32_t *val)
 
 	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
 
-	ret = an8855_mii_read32(bus, reg, val);
+	ret = an8855_mii_read32(bus, priv->phy_base, reg, val);
 	
 	mutex_unlock(&bus->mdio_lock);
 	if (ret < 0)
@@ -126,20 +151,20 @@ static int an8855_regmap_read(void *ctx, uint32_t reg, uint32_t *val)
 	return 0;
 }
 
-static int an8855_mii_write32(struct mii_bus *bus, u32 reg, u32 val)
+static int an8855_mii_write32(struct mii_bus *bus, u8 phy_id, u32 reg, u32 val)
 {
 	int ret;
 
-	ret = bus->write(bus, /* TODO */ 1, 0x1f, 0x4);
-	ret = bus->write(bus, /* TODO */ 1, 0x10, 0);
+	ret = bus->write(bus, phy_id, 0x1f, 0x4);
+	ret = bus->write(bus, phy_id, 0x10, 0);
 
-	ret = bus->write(bus, /* TODO */ 1, 0x11, ((reg >> 16) & 0xFFFF));
-	ret = bus->write(bus, /* TODO */ 1, 0x12, (reg & 0xFFFF));
+	ret = bus->write(bus, phy_id, 0x11, ((reg >> 16) & 0xFFFF));
+	ret = bus->write(bus, phy_id, 0x12, (reg & 0xFFFF));
 
-	ret = bus->write(bus, /* TODO */ 1, 0x13, ((val >> 16) & 0xFFFF));
-	ret = bus->write(bus, /* TODO */ 1, 0x14, (val & 0xFFFF));
+	ret = bus->write(bus, phy_id, 0x13, ((val >> 16) & 0xFFFF));
+	ret = bus->write(bus, phy_id, 0x14, (val & 0xFFFF));
 
-	ret = bus->write(bus, /* TODO */ 1, 0x1f, 0);
+	ret = bus->write(bus, phy_id, 0x1f, 0);
 	if (ret < 0)
 		dev_err_ratelimited(&bus->dev,
 				    "failed to write an8855 register\n");
@@ -155,7 +180,7 @@ an8855_regmap_write(void *ctx, uint32_t reg, uint32_t val)
 	int ret;
 
 	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
-	ret = an8855_mii_write32(priv->bus, reg, val);
+	ret = an8855_mii_write32(priv->bus, priv->phy_base, reg, val);
 	mutex_unlock(&bus->mdio_lock);
 
 	return ret;
@@ -171,38 +196,73 @@ an8855_regmap_update_bits(void *ctx, uint32_t reg, uint32_t mask, uint32_t write
 
 	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
 	
-	ret = an8855_mii_read32(bus, reg, &val);
+	ret = an8855_mii_read32(bus, priv->phy_base, reg, &val);
 	val &= ~mask;
 	val |= write_val;
-	ret = an8855_mii_write32(bus, reg, val);
+	ret = an8855_mii_write32(bus, priv->phy_base, reg, val);
 
 	mutex_unlock(&bus->mdio_lock);
 
 	return 0;
 }
 
+static const struct regmap_range an8855_readable_ranges[] = {
+	regmap_reg_range(0x10000000, 0x10000fff), /* SCU */
+	regmap_reg_range(0x10001000, 0x10001fff), /* RBUS */
+	regmap_reg_range(0x10002000, 0x10002fff), /* MCU */
+	regmap_reg_range(0x10005000, 0x10005fff), /* SYS SCU */
+	regmap_reg_range(0x10007000, 0x10007fff), /* I2C Slave */
+	regmap_reg_range(0x10008000, 0x10008fff), /* I2C Master */
+	regmap_reg_range(0x10009000, 0x10009fff), /* PDMA */
+	regmap_reg_range(0x1000a100, 0x1000a2ff), /* General Purpose Timer */
+	regmap_reg_range(0x1000a200, 0x1000a2ff), /* GPU timer */
+	regmap_reg_range(0x1000a300, 0x1000a3ff), /* GPIO */
+	regmap_reg_range(0x1000a400, 0x1000a4ff), /* EFUSE */
+	regmap_reg_range(0x1000c000, 0x1000cfff), /* GDMP CSR */
+	regmap_reg_range(0x10010000, 0x1001ffff), /* GDMP SRAM */
+	regmap_reg_range(0x10200000, 0x10203fff), /* Switch - ARL Global */
+	regmap_reg_range(0x10204000, 0x10207fff), /* Switch - BMU */
+	regmap_reg_range(0x10208000, 0x1020bfff), /* Switch - ARL Port */
+	regmap_reg_range(0x1020c000, 0x1020cfff), /* Switch - SCH */
+	regmap_reg_range(0x10210000, 0x10213fff), /* Switch - MAC */
+	regmap_reg_range(0x10214000, 0x10217fff), /* Switch - MIB */
+	regmap_reg_range(0x10218000, 0x1021bfff), /* Switch - Port Control */
+	regmap_reg_range(0x1021c000, 0x1021ffff), /* Switch - TOP */
+	regmap_reg_range(0x10220000, 0x1022ffff), /* SerDes */
+	regmap_reg_range(0x10286000, 0x10286fff), /* RG Batcher */
+	regmap_reg_range(0x1028c000, 0x1028ffff), /* ETHER_SYS */
+	regmap_reg_range(0x30000000, 0x37ffffff), /* I2C EEPROM */
+	regmap_reg_range(0x38000000, 0x3fffffff), /* BOOT_ROM */
+	regmap_reg_range(0xa0000000, 0xbfffffff), /* GPHY */
+};
+
+const struct regmap_access_table an8855_readable_table = {
+	.yes_ranges = an8855_readable_ranges,
+	.n_yes_ranges = ARRAY_SIZE(an8855_readable_ranges),
+};
+
 static struct regmap_config an8855_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
 	.reg_stride = 4,
-	.max_register = 0x1028c900, /* TODO */
+	.max_register = 0xbfffffff, /* TODO */
 	.reg_read = an8855_regmap_read,
 	.reg_write = an8855_regmap_write,
 	.reg_update_bits = an8855_regmap_update_bits,
 	.disable_locking = true,
+	.rd_table = &an8855_readable_table,
 };
 
 static int
 an8855_mib_init(struct an8855_priv *priv)
 {
-	struct an8855_priv *priv = ds->priv;
-	struct dsa_port *dp;
+	int ret;
 
-	ret = regmap_write(priv->regmap, AN8855_MIB_CCR, CCR_MIB_FLUSH);
+	ret = regmap_write(priv->regmap, AN8855_MIB_CCR, AN8855_CCR_MIB_ENABLE);
 	if (ret)
 		return ret;
 	
-	return regmap_write(priv->regmap, AN8855_MIB_CCR, CCR_MIB_ACTIVATE);
+	return regmap_write(priv->regmap, AN8855_MIB_CCR, AN8855_CCR_MIB_ACTIVATE);
 }
 
 static void an8855_fdb_write(struct an8855_priv *priv, u16 vid,
@@ -211,12 +271,12 @@ static void an8855_fdb_write(struct an8855_priv *priv, u16 vid,
 	u32 mac_reg[2] = { };
 	u32 reg;
 
-	reg[0] |= FIELD_PREP(AN8855_ATA1_MAC0, mac[0]);
-	reg[0] |= FIELD_PREP(AN8855_ATA1_MAC1, mac[1]);
-	reg[0] |= FIELD_PREP(AN8855_ATA1_MAC2, mac[2]);
-	reg[0] |= FIELD_PREP(AN8855_ATA1_MAC3, mac[3]);
-	reg[1] |= FIELD_PREP(AN8855_ATA1_MAC4, mac[4]);
-	reg[1] |= FIELD_PREP(AN8855_ATA1_MAC5, mac[5]);
+	mac_reg[0] |= FIELD_PREP(AN8855_ATA1_MAC0, mac[0]);
+	mac_reg[0] |= FIELD_PREP(AN8855_ATA1_MAC1, mac[1]);
+	mac_reg[0] |= FIELD_PREP(AN8855_ATA1_MAC2, mac[2]);
+	mac_reg[0] |= FIELD_PREP(AN8855_ATA1_MAC3, mac[3]);
+	mac_reg[1] |= FIELD_PREP(AN8855_ATA2_MAC4, mac[4]);
+	mac_reg[1] |= FIELD_PREP(AN8855_ATA2_MAC5, mac[5]);
 
 	regmap_bulk_write(priv->regmap, AN8855_ATA1, mac_reg,
 			  ARRAY_SIZE(mac_reg));
@@ -243,11 +303,11 @@ static void an8855_fdb_read(struct an8855_priv *priv, struct an8855_fdb *fdb)
 	fdb->vid = FIELD_GET(AN8855_ATRD0_VID, reg[0]);
 	fdb->fid = FIELD_GET(AN8855_ATRD0_FID, reg[0]);
 	fdb->aging = FIELD_GET(AN8855_ATRD1_AGING, reg[1]);
-	fdb->port_mask = FIELD_GET(AN8855_ATRD1_PORTMASK, reg[3]);
-	fdb->mac[0] = FIELD_GET(AN8855_ATRD1_MAC0, reg[2]);
-	fdb->mac[1] = FIELD_GET(AN8855_ATRD1_MAC1, reg[2]);
-	fdb->mac[2] = FIELD_GET(AN8855_ATRD1_MAC2, reg[2]);
-	fdb->mac[3] = FIELD_GET(AN8855_ATRD1_MAC3, reg[2]);
+	fdb->port_mask = FIELD_GET(AN8855_ATRD3_PORTMASK, reg[3]);
+	fdb->mac[0] = FIELD_GET(AN8855_ATRD2_MAC0, reg[2]);
+	fdb->mac[1] = FIELD_GET(AN8855_ATRD2_MAC1, reg[2]);
+	fdb->mac[2] = FIELD_GET(AN8855_ATRD2_MAC2, reg[2]);
+	fdb->mac[3] = FIELD_GET(AN8855_ATRD2_MAC3, reg[2]);
 	fdb->mac[4] = FIELD_GET(AN8855_ATRD1_MAC4, reg[1]);
 	fdb->mac[5] = FIELD_GET(AN8855_ATRD1_MAC5, reg[1]);
 	fdb->noarp = !!FIELD_GET(AN8855_ATRD0_ARP, reg[0]);
@@ -259,11 +319,11 @@ static int an8855_fdb_cmd(struct an8855_priv *priv, u32 cmd, u32 *rsp)
 	int ret;
 
 	/* Set the command operating upon the MAC address entries */
-	val = ATC_BUSY | cmd;
+	val = AN8855_ATC_BUSY | cmd;
 	regmap_write(priv->regmap, AN8855_ATC, val);
 
-	ret = regmap_read_poll_timeout(priv->pregmap, AN8855_ATC, val,
-				       !(val & ATC_BUSY), 20, 200000);
+	ret = regmap_read_poll_timeout(priv->regmap, AN8855_ATC, val,
+				       !(val & AN8855_ATC_BUSY), 20, 200000);
 	if (ret)
 		return ret;
 
@@ -277,6 +337,7 @@ static void
 an8855_stp_state_set(struct dsa_switch *ds, int port, u8 state)
 {
 	struct an8855_priv *priv = ds->priv;
+	u32 stp_state;
 
 	switch (state) {
 	case BR_STATE_DISABLED:
@@ -297,7 +358,7 @@ an8855_stp_state_set(struct dsa_switch *ds, int port, u8 state)
 		break;
 	}
 
-	regmap_update_bits(priv->regmap, AN8855_SSP_P(port), FID_PST_MASK,
+	regmap_update_bits(priv->regmap, AN8855_SSP_P(port), AN8855_FID_PST,
 			   stp_state);
 }
 
@@ -306,64 +367,64 @@ static int an8855_port_bridge_join(struct dsa_switch *ds, int port,
 				   bool *tx_fwd_offload,
 				   struct netlink_ext_ack *extack)
 {
-	struct dsa_port *dp = dsa_to_port(ds, port), *other_dp;
-	u32 port_mask = BIT(dp->cpu_dp->index);
 	struct an8855_priv *priv = ds->priv;
-	int i;
+	struct dsa_port *dp ;
+	u32 port_mask;
 
-	for (i = 0; i < AN8855_NUM_PORTS; i++) {
-		if (i == port)
+	dsa_switch_for_each_port(dp, ds) {
+		if (dp->index == port)
 			continue;
 
-		if (dsa_is_cpu_port(ds, i))
+		if (dsa_port_is_cpu(dp))
 			continue;
 
-		other_dp = dsa_to_port(priv->ds, i);
-		if (!dsa_port_offloads_bridge_dev(other_dp, bridge.dev))
+		if (!dsa_port_offloads_bridge_dev(dp, bridge.dev))
 			continue;
 
 		/* Add this port to the portvlan mask of the other
 		 * ports in the bridge
 		 */
-		port_mask |= BIT(i);
-		regmap_set_bits(priv->regmap, AN8855_PORTMATRIX_P(i),
-				BIT(i));
+		port_mask |= BIT(dp->index);
+		regmap_set_bits(priv->regmap, AN8855_PORTMATRIX_P(dp->index),
+				FIELD_PREP(AN8855_PORTMATRIX, port));
 	}
 
-	/* Add/remove all other ports to/from this port's portvlan mask */
-	regmap_update_bits(priv->regmap, AN8855_PORTMATRIX_P(i),
-			   PORTMATRIX_MASK, port_mask);
+	/* Add all other ports to this port's portvlan mask */
+	regmap_update_bits(priv->regmap, AN8855_PORTMATRIX_P(port),
+			   AN8855_PORTMATRIX, port_mask);
+
+	return 0;
 }
 
 static void an8855_port_bridge_leave(struct dsa_switch *ds, int port,
 				     struct dsa_bridge bridge)
 {
-	struct dsa_port *dp = dsa_to_port(ds, port), *other_dp;
-	u32 port_mask = BIT(dp->cpu_dp->index);
 	struct an8855_priv *priv = ds->priv;
-	int i;
+	struct dsa_port *dp;
+	u32 port_mask;
 
-	for (i = 0; i < AN8855_NUM_PORTS; i++) {
-		if (i == port)
+	dsa_switch_for_each_port(dp, ds) {
+		if (dp->index == port)
 			continue;
 
-		if (dsa_is_cpu_port(ds, i))
+		if (dsa_port_is_cpu(dp))
 			continue;
 
-		other_dp = dsa_to_port(priv->ds, i);
-		if (!dsa_port_offloads_bridge_dev(other_dp, bridge.dev))
+		if (!dsa_port_offloads_bridge_dev(dp, bridge.dev))
 			continue;
 
 		/* Remove this port from the portvlan mask of the other
 		 * ports in the bridge
 		 */
-		regmap_clear_bits(priv->regmap, AN8855_PORTMATRIX_P(i),
-				  BIT(i));
+		port_mask |= BIT(dp->index);
+		regmap_clear_bits(priv->regmap, AN8855_PORTMATRIX_P(dp->index),
+				  FIELD_PREP(AN8855_PORTMATRIX, port));
 	}
 
-	/* Add/remove all other ports to/from this port's portvlan mask */
-	regmap_update_bits(priv->regmap, AN8855_PORTMATRIX_P(i),
-			   PORTMATRIX_MASK, port_mask);
+	/* Remove all other ports from this port's portvlan mask */
+	regmap_update_bits(priv->regmap, AN8855_PORTMATRIX_P(port),
+			   AN8855_PORTMATRIX,
+			   FIELD_PREP(AN8855_PORTMATRIX, ~port_mask));
 }
 
 static int an8855_port_fdb_add(struct dsa_switch *ds, int port,
@@ -372,6 +433,7 @@ static int an8855_port_fdb_add(struct dsa_switch *ds, int port,
 {
 	struct an8855_priv *priv = ds->priv;
 	u8 port_mask = BIT(port);
+	int ret;
 
 	mutex_lock(&priv->reg_mutex);
 	an8855_fdb_write(priv, vid, port_mask, addr, 1);
@@ -381,11 +443,13 @@ static int an8855_port_fdb_add(struct dsa_switch *ds, int port,
 	return ret;
 }
 
-static int an8855_port_fdb_del(struct qca8k_priv *priv, const u8 *mac,
-			       u16 port_mask, u16 vid)
+static int an8855_port_fdb_del(struct dsa_switch *ds, int port,
+			       const unsigned char *addr, u16 vid,
+			       struct dsa_db db)
 {
 	struct an8855_priv *priv = ds->priv;
 	u8 port_mask = BIT(port);
+	int ret;
 
 	mutex_lock(&priv->reg_mutex);
 	an8855_fdb_write(priv, vid, port_mask, addr, 0);
@@ -410,14 +474,14 @@ static int an8855_port_fdb_dump(struct dsa_switch *ds, int port,
 	/* Load search port */
 	regmap_write(priv->regmap, AN8855_ATWD2,
 		     FIELD_PREP(AN8855_ATWD2_PORT, port));
-	ret = an8855_fdb_cmd(priv,  ATC_MAT(AND8855_FDB_MAT_MAC_PORT) |
+	ret = an8855_fdb_cmd(priv, AN8855_ATC_MAT(AND8855_FDB_MAT_MAC_PORT) |
 			     AN8855_FDB_START, &rsp);
 	if (ret < 0)
-		goto err;
+		goto exit;
 
 	do {
 		/* From response get the number of banks to read, exit if 0 */
-		banks = FIELD_GET(ATC_HIT, rsp);
+		banks = FIELD_GET(AN8855_ATC_HIT, rsp);
 		if (!banks)
 			break;
 
@@ -426,7 +490,7 @@ static int an8855_port_fdb_dump(struct dsa_switch *ds, int port,
 			count++;
 
 			/* Check if bank is present */
-			if (!banks & BIT(i))
+			if (!(banks & BIT(i)))
 				continue;
 
 			/* Select bank entry index */
@@ -448,7 +512,7 @@ static int an8855_port_fdb_dump(struct dsa_switch *ds, int port,
 			break;
 
 		/* Read next bank */
-		ret = an8855_fdb_cmd(priv,  ATC_MAT(AND8855_FDB_MAT_MAC_PORT) |
+		ret = an8855_fdb_cmd(priv, AN8855_ATC_MAT(AND8855_FDB_MAT_MAC_PORT) |
 				     AN8855_FDB_NEXT, &rsp);
 		if (ret < 0)
 			break;
@@ -465,12 +529,12 @@ static int an8855_vlan_cmd(struct an8855_priv *priv, enum an8855_vlan_cmd cmd,
 {
 	u32 val;
 
-	val = VTCR_BUSY | FIELD_PREP(VTCR_FUNC, cmd) |
-	      FIELD_PREP(VTCR_VID, vid);
+	val = AN8855_VTCR_BUSY | FIELD_PREP(AN8855_VTCR_FUNC, cmd) |
+	      FIELD_PREP(AN8855_VTCR_VID, vid);
 	regmap_write(priv->regmap, AN8855_VTCR, val);
 
-	return regmap_read_poll_timeout(priv->pregmap, AN8855_VTCR, val,
-				        !(val & VTCR_BUSY), 20, 200000);
+	return regmap_read_poll_timeout(priv->regmap, AN8855_VTCR, val,
+				        !(val & AN8855_VTCR_BUSY), 20, 200000);
 }
 
 static int an8855_vlan_add(struct an8855_priv *priv, u8 port, u16 vid,
@@ -486,36 +550,32 @@ static int an8855_vlan_add(struct an8855_priv *priv, u8 port, u16 vid,
 		return ret;
 
 	regmap_read(priv->regmap, AN8855_VARD0, &val);
-	port_mask = FIELD_GET(AN8855_VARD0_PORT, val) | BIT(port) |
-		    BIT(AN8855_CPU_PORT);
+	port_mask = FIELD_GET(AN8855_VA0_PORT, val) | BIT(port);
 
 	/* Validate the entry with independent learning, create egress tag per
 	 * VLAN and joining the port as one of the port members.
 	 */
-	val = (val & AN8855_VARD0_ETAG) | IVL_MAC | VTAG_EN | VLAN_VALID |
-	      FIELD_PREP(AN8855_VARD0_PORT, port_mask);
+	val = (val & AN8855_VA0_ETAG) | AN8855_VA0_IVL_MAC |
+	      AN8855_VA0_VTAG_EN | AN8855_VA0_VLAN_VALID |
+	      FIELD_PREP(AN8855_VA0_PORT, port_mask);
 	regmap_write(priv->regmap, AN8855_VAWD0, val);
 	regmap_write(priv->regmap, AN8855_VAWD1, 0);
-
-	/* Decide whether adding tag or not for those outgoing packets from the
-	 * port inside the VLAN.
-	 */
-	val = FIELD_PREP(AN8855_VARD0_ETAG_PORT_MASK(port),
-			 untagged ? AN8855_VLAN_EGRESS_UNTAG :
-				    AN8855_VLAN_EGRESS_TAG);
-	regmap_update_bits(priv->regmap, AN8855_VAWD0,
-			   AN8855_VARD0_ETAG_PORT_MASK(port),
-			   val);
 
 	/* CPU port is always taken as a tagged port for serving more than one
 	 * VLANs across and also being applied with egress type stack mode for
 	 * that VLAN tags would be appended after hardware special tag used as
 	 * DSA tag.
 	 */
+	if (port == AN8855_CPU_PORT)
+		val = AN8855_VLAN_EGRESS_STACK;
+	/* Decide whether adding tag or not for those outgoing packets from the
+	 * port inside the VLAN.
+	 */
+	else
+		val = untagged ? AN8855_VLAN_EGRESS_UNTAG : AN8855_VLAN_EGRESS_TAG;
 	regmap_update_bits(priv->regmap, AN8855_VAWD0,
-			   AN8855_VARD0_ETAG_PORT_MASK(AN8855_CPU_PORT),
-			   FIELD_PREP(AN8855_VARD0_ETAG_PORT_MASK(port),
-			   	      AN8855_VLAN_EGRESS_STACK));
+			   AN8855_VA0_ETAG_PORT_MASK(port),
+			   AN8855_VA0_ETAG_PORT_VAL(port, val));
 
 	/* Flush result to hardware */
 	an8855_vlan_cmd(priv, AN8855_VTCR_WR_VID, vid);
@@ -535,16 +595,17 @@ static int an8855_vlan_del(struct an8855_priv *priv, u8 port, u16 vid)
 		return ret;
 
 	regmap_read(priv->regmap, AN8855_VARD0, &val);
-	port_mask = FIELD_GET(AN8855_VARD0_PORT, val) & ~BIT(port);
+	port_mask = FIELD_GET(AN8855_VA0_PORT, val) & ~BIT(port);
 
-	if (!(val & VLAN_VALID)) {
+	if (!(val & AN8855_VA0_VLAN_VALID)) {
 		dev_err(priv->dev, "Cannot be deleted due to invalid entry\n");
 		return -EINVAL;
 	}
 
-	if (port_mask && port_mask != BIT(AN8855_CPU_PORT)) {
-		val = (val & AN8855_VARD0_ETAG) | IVL_MAC | VTAG_EN | VLAN_VALID |
-	      	       FIELD_PREP(AN8855_VARD0_PORT, port_mask);
+	if (port_mask) {
+		val = (val & AN8855_VA0_ETAG) | AN8855_VA0_IVL_MAC |
+		      AN8855_VA0_VTAG_EN | AN8855_VA0_VLAN_VALID |
+	      	      FIELD_PREP(AN8855_VA0_PORT, port_mask);
 		regmap_write(priv->regmap, AN8855_VAWD0, val);
 	} else {
 		regmap_write(priv->regmap, AN8855_VAWD0, 0);
@@ -565,14 +626,15 @@ static int an8855_port_set_vlan_mode(struct an8855_priv *priv, int port,
 	int ret;
 
 	ret = regmap_update_bits(priv->regmap, AN8855_PCR_P(port),
-				 PORT_VLAN, FIELD_PREP(PORT_VLAN, port_mode));
+				 AN8855_PORT_VLAN,
+				 FIELD_PREP(AN8855_PORT_VLAN, port_mode));
 	if (ret)
 		return ret;
 
 	return regmap_update_bits(priv->regmap, AN8855_PVC_P(port),
-				  PVC_EG_TAG_MASK | VLAN_ATTR_MASK,
-				  FIELD_PREP(PVC_EG_TAG_MASK, eg_tag) |
-				  FIELD_PREP(VLAN_ATTR_MASK, vlan_attr));
+				  AN8855_PVC_EG_TAG | AN8855_VLAN_ATTR,
+				  FIELD_PREP(AN8855_PVC_EG_TAG, eg_tag) |
+				  FIELD_PREP(AN8855_VLAN_ATTR, vlan_attr));
 }
 
 static int an8855_port_vlan_filtering(struct dsa_switch *ds, int port,
@@ -651,8 +713,8 @@ static int an8855_port_vlan_add(struct dsa_switch *ds, int port,
 
 	if (pvid) {
 		regmap_update_bits(priv->regmap, AN8855_PVID_P(port),
-				   G0_PORT_VID_MASK,
-				   FIELD_PREP(G0_PORT_VID_MASK, vlan->vid));
+				   AN8855_G0_PORT_VID,
+				   FIELD_PREP(AN8855_G0_PORT_VID, vlan->vid));
 	}
 
 	mutex_unlock(&priv->reg_mutex);
@@ -674,9 +736,11 @@ static int an8855_port_vlan_del(struct dsa_switch *ds, int port,
 		return ret;
 
 	regmap_read(priv->regmap, AN8855_PVID_P(port), &val);
-	if (FIELD_GET(G0_PORT_VID_MASK, val) == vlan->vid)
+	if (FIELD_GET(AN8855_G0_PORT_VID, val) == vlan->vid)
 		regmap_update_bits(priv->regmap, AN8855_PVID_P(port),
-				   G0_PORT_VID_MASK, G0_PORT_VID_DEF);
+				   AN8855_G0_PORT_VID,
+				   FIELD_PREP(AN8855_G0_PORT_VID,
+				   	      AN8855_PORT_VID_DEFAULT));
 
 	mutex_unlock(&priv->reg_mutex);
 
@@ -702,18 +766,20 @@ an8855_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t *data)
 {
 	struct an8855_priv *priv = ds->priv;
 	const struct an8855_mib_desc *mib;
-	u32 reg, i;
-	u64 hi;
+	u32 reg, i, val;
+	u32 hi;
 
 	for (i = 0; i < ARRAY_SIZE(an8855_mib); i++) {
 		mib = &an8855_mib[i];
 		reg = AN8855_PORT_MIB_COUNTER(port) + mib->offset;
 
-		data[i] = regmap_read(priv->regmap, reg);
-		if (mib->size == 2) {
-			hi = regmap_read(priv->regmap, reg + 4);
-			data[i] |= hi << 32;
-		}
+		regmap_read(priv->regmap, reg, &val);
+		if (mib->size == 2)
+			regmap_read(priv->regmap, reg + 4, &hi);
+		
+		data[i] = val;
+		if (mib->size == 2)
+			data[i] |= (u64)hi << 32;
 	}
 }
 
@@ -728,7 +794,8 @@ an8855_get_sset_count(struct dsa_switch *ds, int port, int sset)
 
 static int an8855_port_mirror_add(struct dsa_switch *ds, int port,
 				  struct dsa_mall_mirror_tc_entry *mirror,
-				  bool ingress)
+				  bool ingress,
+				  struct netlink_ext_ack *extack)
 {
 	struct an8855_priv *priv = ds->priv;
 	int monitor_port;
@@ -738,24 +805,25 @@ static int an8855_port_mirror_add(struct dsa_switch *ds, int port,
 	if ((ingress ? priv->mirror_rx : priv->mirror_tx) & BIT(port))
 		return -EEXIST;
 
-	val = regmap_read(priv->regmap, AN8855_MIR);
+	regmap_read(priv->regmap, AN8855_MIR, &val);
 
 	/* AN8855 supports 4 monitor port, but only use first group */
-	monitor_port = AN8855_MIRROR_PORT_GET(val);
+	monitor_port = FIELD_GET(AN8855_MIRROR_PORT, val);
 	if (val & AN8855_MIRROR_EN && monitor_port != mirror->to_local_port)
 		return -EEXIST;
 
-	val |= AN8855_MIRROR_EN;
-	val &= ~AN8855_MIRROR_MASK;
-	val |= AN8855_MIRROR_PORT_SET(mirror->to_local_port);
-	regmap_write(priv->regmap, AN8855_MIR, val);
+	val = AN8855_MIRROR_EN;
+	val |= FIELD_PREP(AN8855_MIRROR_PORT, mirror->to_local_port);
+	regmap_update_bits(priv->regmap, AN8855_MIR,
+			   AN8855_MIRROR_EN | AN8855_MIRROR_PORT,
+			   val);
 
-	val = regmap_read(priv->regmap, AN8855_PCR_P(port));
+	regmap_read(priv->regmap, AN8855_PCR_P(port), &val);
 	if (ingress) {
-		val |= PORT_RX_MIR;
+		val |= AN8855_PORT_RX_MIR;
 		priv->mirror_rx |= BIT(port);
 	} else {
-		val |= PORT_TX_MIR;
+		val |= AN8855_PORT_TX_MIR;
 		priv->mirror_tx |= BIT(port);
 	}
 	regmap_write(priv->regmap, AN8855_PCR_P(port), val);
@@ -769,21 +837,18 @@ static void an8855_port_mirror_del(struct dsa_switch *ds, int port,
 	struct an8855_priv *priv = ds->priv;
 	u32 val;
 
-	val = regmap_read(priv->regmap, AN8855_PCR_P(port));
+	regmap_read(priv->regmap, AN8855_PCR_P(port), &val);
 	if (mirror->ingress) {
-		val &= ~PORT_RX_MIR;
+		val &= ~AN8855_PORT_RX_MIR;
 		priv->mirror_rx &= ~BIT(port);
 	} else {
-		val &= ~PORT_TX_MIR;
+		val &= ~AN8855_PORT_TX_MIR;
 		priv->mirror_tx &= ~BIT(port);
 	}
 	regmap_write(priv->regmap, AN8855_PCR_P(port), val);
 
-	if (!priv->mirror_rx && !priv->mirror_tx) {
-		val = regmap_read(priv->regmap, AN8855_MIR);
-		val &= ~AN8855_MIRROR_EN;
-		regmap_write(priv->regmap, AN8855_MIR, val);
-	}
+	if (!priv->mirror_rx && !priv->mirror_tx)
+		regmap_clear_bits(priv->regmap, AN8855_MIR, AN8855_MIRROR_EN);
 }
 
 static int an8855_port_set_status(struct an8855_priv *priv, int port,
@@ -791,16 +856,15 @@ static int an8855_port_set_status(struct an8855_priv *priv, int port,
 {
 	if (enable)
 		return regmap_set_bits(priv->regmap, AN8855_PMCR_P(port),
-				       PMCR_TX_EN | PMCR_RX_EN);
+				       AN8855_PMCR_TX_EN | AN8855_PMCR_RX_EN);
 	else
 		return regmap_clear_bits(priv->regmap, AN8855_PMCR_P(port),
-					 PMCR_TX_EN | PMCR_RX_EN);
+					 AN8855_PMCR_TX_EN | AN8855_PMCR_RX_EN);
 }
 
 static int an8855_port_enable(struct dsa_switch *ds, int port,
 			      struct phy_device *phy)
 {
-	struct an8855_priv *priv = ds->priv;
 	int ret;
 
 	ret = an8855_port_set_status(ds->priv, port, true);
@@ -813,74 +877,92 @@ static int an8855_port_enable(struct dsa_switch *ds, int port,
 	return 0;
 }
 
-static int an8855_port_disable(struct dsa_switch *ds, int port,
-			       struct phy_device *phy)
+static void an8855_port_disable(struct dsa_switch *ds, int port)
 {
-	return an8855_port_set_status(ds->priv, port, false);
+	an8855_port_set_status(ds->priv, port, false);
 }
 
 static int an8855_set_mac_eee(struct dsa_switch *ds, int port,
-			      struct ethtool_keee *eee)
+			      struct ethtool_eee *eee)
 {
 	struct an8855_priv *priv = ds->priv;
 	u32 reg;
 
 	if (eee->eee_enabled) {
 		regmap_read(priv->regmap, AN8855_PMCR_P(port), &reg);
-		if (reg & AN8855_FORCE_MODE) {
-			switch(reg & PMSR_SPEED_MASK) {
-			case PMSR_SPEED_1000:
-				reg |= PMCR_FORCE_EEE1G;
+		if (reg & AN8855_PMCR_FORCE_MODE) {
+			switch(reg & AN8855_PMCR_FORCE_SPEED) {
+			case AN8855_PMCR_FORCE_SPEED_1000:
+				reg |= AN8855_PMCR_FORCE_EEE1G;
 				break;
-			case PMSR_SPEED_100:
-				reg |= PMCR_FORCE_EEE100;
+			case AN8855_PMCR_FORCE_SPEED_100:
+				reg |= AN8855_PMCR_FORCE_EEE100;
 				break;
 			default:
 				break;
 			}
-			regmap_write(priv->regmap, AN8855_PMCR_P(port),
-				     &reg);
+			regmap_write(priv->regmap, AN8855_PMCR_P(port), reg);
 		}
 		if (eee->tx_lpi_enabled)
 			regmap_set_bits(priv->regmap, AN8855_PMEEECR_P(port),
-					LPI_MODE_EN);
+					AN8855_LPI_MODE_EN);
 		else
 			regmap_clear_bits(priv->regmap, AN8855_PMEEECR_P(port),
-					  LPI_MODE_EN);
+					  AN8855_LPI_MODE_EN);
 	} else {
 		regmap_clear_bits(priv->regmap, AN8855_PMCR_P(port),
-				  PMCR_FORCE_EEE1G | PMCR_FORCE_EEE100);
+				  AN8855_PMCR_FORCE_EEE1G | AN8855_PMCR_FORCE_EEE100);
 		regmap_clear_bits(priv->regmap, AN8855_PMEEECR_P(port),
-				  LPI_MODE_EN);
+				  AN8855_LPI_MODE_EN);
 	}
 
 	return 0;
 }
 
 static int an8855_get_mac_eee(struct dsa_switch *ds, int port,
-			      struct ethtool_keee *eee)
+			      struct ethtool_eee *eee)
 {
 	struct an8855_priv *priv = ds->priv;
 	u32 reg;
 
 	regmap_read(priv->regmap, AN8855_PMEEECR_P(port), &reg);
-	eee->tx_lpi_enabled = reg & LPI_MODE_EN;
+	eee->tx_lpi_enabled = reg & AN8855_LPI_MODE_EN;
 
 	regmap_read(priv->regmap, AN8855_CKGCR, &reg);
 	/* Global LPI TXIDLE Threshold, defualt 60ms (unit 2us) */
-	e->tx_lpi_time = FIELD_GET(LPI_TXIDLE_THD_MASK, reg) / 500;
+	eee->tx_lpi_timer = FIELD_GET(AN8855_LPI_TXIDLE_THD_MASK, reg) / 500;
 
 	regmap_read(priv->regmap, AN8855_PMSR_P(port), &reg);
-	eee->eee_active = reg & (PMCR_FORCE_EEE1G | PMCR_FORCE_EEE100);
+	eee->eee_active = reg & (AN8855_PMSR_EEE1G | AN8855_PMSR_EEE100M);
 
 	return 0;
+}
+
+static u32 en8855_get_phy_flags(struct dsa_switch *ds, int port)
+{
+	struct an8855_priv *priv = ds->priv;
+	u8 calibration_data[4] = { };
+	u8 shift_sel;
+	u32 val;
+	int i;
+
+	/* Read Calibration value */
+	for (i = 0; i < sizeof(u32); i++) {
+		regmap_read(priv->regmap, AN8855_EFUSE_DATA0 +
+			    ((3 + i + (4 * port)) * 4), &val);
+
+		shift_sel = FIELD_GET(AN8855_EFUSE_R50O, val);
+		calibration_data[i] = en8855_get_r50ohm_val(shift_sel);
+	}
+
+	memcpy(&val, calibration_data, sizeof(u32));
+	return val;
 }
 
 static enum dsa_tag_protocol
 an8855_get_tag_protocol(struct dsa_switch *ds, int port,
 		       enum dsa_tag_protocol mp)
 {
-	/* TODO CHECK DIFFERENCES */
 	return DSA_TAG_PROTO_MTK;
 }
 
@@ -899,58 +981,57 @@ static int an8855_setup(struct dsa_switch *ds)
 	dsa_switch_for_each_port(dp, ds) {
 		/* Disable forwarding by default on all ports */
 		ret = regmap_clear_bits(priv->regmap, AN8855_PORTMATRIX_P(dp->index),
-					PORTMATRIX_MASK);
+					AN8855_PORTMATRIX);
 		if (ret)
 			return ret;
 
 		/* Enable consistent egress tag */
 		regmap_update_bits(priv->regmap, AN8855_PVC_P(dp->index),
-				   PVC_EG_TAG_MASK,
-				   FIELD_PREP(PVC_EG_TAG_MASK, AN8855_VLAN_EG_CONSISTENT));
+				   AN8855_PVC_EG_TAG,
+				   FIELD_PREP(AN8855_PVC_EG_TAG,
+				   	      AN8855_VLAN_EG_CONSISTENT));
 	}
 
 	/* Disable MAC by default on all user ports */
 	dsa_switch_for_each_user_port(dp, ds)
 		an8855_port_set_status(priv, dp->index, false);
 
-	/* Enable AIROHA header mode on all cpu ports */
-	dsa_switch_for_each_cpu_port(dp, ds) {
-		/* TODO check ref for phy capabilities */
+	/* Enable Airoha header mode on the cpu port */
+	ret = regmap_write(priv->regmap, AN8855_PVC_P(AN8855_CPU_PORT),
+			   AN8855_PORT_SPEC_REPLACE_MODE | AN8855_PORT_SPEC_TAG);
+	if (ret)
+		return ret;
 
-		/* Enable Airoha header mode on the cpu port */
-		ret = regmap_write(priv->regmap, AN8855_PVC_P(dp->index),
-				   PORT_SPEC_REPLACE_MODE | PORT_SPEC_TAG);
-		if (ret)
-			return ret;
+	/* Unknown multicast frame forwarding to the cpu port */
+	ret = regmap_write(priv->regmap, AN8855_UNMF, BIT(AN8855_CPU_PORT));
+	if (ret)
+		return ret;
 
-		/* Unknown multicast frame forwarding to the cpu port */
-		ret = regmap_write(priv->regmap, AN8855_UNMF, BIT(dp->index));
-		if (ret)
-			return ret;
+	/* Set CPU port number */
+	ret = regmap_update_bits(priv->regmap, AN8855_MFC,
+				 AN8855_CPU_EN | AN8855_CPU_PORT_IDX,
+				 AN8855_CPU_EN |
+				 FIELD_PREP(AN8855_CPU_PORT_IDX, AN8855_CPU_PORT));
+	if (ret)
+		return ret;
 
-		/* Set CPU port number */
-		ret = regmap_update_bits(priv->regmap, AN8855_MFC, CPU_EN | CPU_MASK,
-					 CPU_EN | FIELD_PREP(CPU_MASK, dp->index));
-		if (ret)
-			return ret;
-
-		/* CPU port gets connected to all user ports of
-		 * the switch.
-		 */
-		ret = regmap_write(priv->regmap, AN8855_PORTMATRIX_P(dp->index),
-				   PORTMATRIX_MATRIX(dsa_user_ports(ds)));
-		if (ret)
-			return ret;
-	}
+	/* CPU port gets connected to all user ports of
+	 * the switch.
+	 */
+	ret = regmap_write(priv->regmap, AN8855_PORTMATRIX_P(AN8855_CPU_PORT),
+			   FIELD_PREP(AN8855_PORTMATRIX, dsa_user_ports(ds)));
+	if (ret)
+		return ret;
 
 	/* BPDU to CPU port */
-	regmap_update_bits(priv->regmap, AN8855_BPC, AN8855_BPDU_PORT_FW_MASK,
-			   FIELD_PREP(AN8855_BPDU_PORT_FW_MASK, AN8855_BPDU_CPU_ONLY));
+	regmap_update_bits(priv->regmap, AN8855_BPC, AN8855_BPDU_PORT_FW,
+			   FIELD_PREP(AN8855_BPDU_PORT_FW, AN8855_BPDU_CPU_ONLY));
 
 	regmap_clear_bits(priv->regmap, AN8855_CKGCR,
-			  CKG_LNKDN_GLB_STOP | CKG_LNKDN_PORT_STOP);
+			  AN8855_CKG_LNKDN_GLB_STOP | AN8855_CKG_LNKDN_PORT_STOP);
 
-	/* TODO an8855_phy_setup */
+	/* Release PHY power down */
+	regmap_write(priv->regmap, AN8855_RG_GPHY_AFE_PWD, 0x0);
 
 	ds->configure_vlan_while_not_filtering = true;
 
@@ -1006,6 +1087,13 @@ an8855_phylink_mac_config(struct phylink_config *config, unsigned int mode,
 	if (state->interface == PHY_INTERFACE_MODE_2500BASEX &&
 	    phylink_autoneg_inband(mode))
 	    	dev_err(ds->dev, "in-band negotiation unsupported");
+
+	regmap_update_bits(priv->regmap, AN8855_PMCR_P(port),
+			   AN8855_PMCR_IFG_XMIT | AN8855_PMCR_MAC_MODE |
+			   AN8855_PMCR_BACKOFF_EN | AN8855_PMCR_BACKPR_EN,
+			   FIELD_PREP(AN8855_PMCR_IFG_XMIT, 0x1) |
+			   AN8855_PMCR_MAC_MODE | AN8855_PMCR_BACKOFF_EN |
+			   AN8855_PMCR_BACKPR_EN);
 }
 
 static void an8855_phylink_get_caps(struct dsa_switch *ds, int port,
@@ -1017,6 +1105,8 @@ static void an8855_phylink_get_caps(struct dsa_switch *ds, int port,
 	case 2:
 	case 3:
 	case 4:
+		__set_bit(PHY_INTERFACE_MODE_GMII,
+			  config->supported_interfaces);
 		__set_bit(PHY_INTERFACE_MODE_INTERNAL,
 			  config->supported_interfaces);
 		break;
@@ -1042,8 +1132,9 @@ an8855_phylink_mac_link_down(struct phylink_config *config, unsigned int mode,
 
 	/* Disable TX/RX, force link down */
 	regmap_update_bits(priv->regmap, AN8855_PMCR_P(dp->index),
-			   PMCR_TX_EN | PMCR_RX_EN | AN8855_FORCE_MODE | PMCR_FORCE_LNK,
-			   AN8855_FORCE_MODE);
+			   AN8855_PMCR_TX_EN | AN8855_PMCR_RX_EN |
+			   AN8855_PMCR_FORCE_MODE | AN8855_PMCR_FORCE_LNK,
+			   AN8855_PMCR_FORCE_MODE);
 }
 
 static void
@@ -1059,42 +1150,47 @@ an8855_phylink_mac_link_up(struct phylink_config *config,
 
 	reg = regmap_read(priv->regmap, AN8855_PMCR_P(port), &reg);
 	if (phylink_autoneg_inband(mode)) {
-		reg &= ~AN8855_FORCE_MODE;
+		reg &= ~AN8855_PMCR_FORCE_MODE;
 	} else {
-		reg |= AN8855_FORCE_MODE | PMCR_FORCE_LNK;
+		reg |= AN8855_PMCR_FORCE_MODE | AN8855_PMCR_FORCE_LNK;
 
-		reg &= ~PMCR_FORCE_SPEED_MASK;
+		reg &= ~AN8855_PMCR_FORCE_SPEED;
 		switch(speed) {
 		case SPEED_10:
-			reg |= PMCR_FORCE_SPEED_10;
+			reg |= AN8855_PMCR_FORCE_SPEED_10;
+			break;
 		case SPEED_100:
-			reg |= PMCR_FORCE_SPEED_100;
+			reg |= AN8855_PMCR_FORCE_SPEED_100;
+			break;
 		case SPEED_1000:
-			reg |= PMCR_FORCE_SPEED_1000;
+			reg |= AN8855_PMCR_FORCE_SPEED_1000;
+			break;
 		case SPEED_2500:
-			reg |= PMCR_FORCE_SPEED_2500;
+			reg |= AN8855_PMCR_FORCE_SPEED_2500;
+			break;
 		case SPEED_5000:
-			reg |= PMCR_FORCE_SPEED_5000;
+			reg |= AN8855_PMCR_FORCE_SPEED_5000;
+			break;
 		}
 
-		reg &= PMCR_FORCE_FDX;
+		reg &= AN8855_PMCR_FORCE_FDX;
 		if (duplex == DUPLEX_FULL)
-			reg |= PMCR_FORCE_FDX;
+			reg |= AN8855_PMCR_FORCE_FDX;
 
-		reg &= PMCR_RX_FC_EN;
+		reg &= AN8855_PMCR_RX_FC_EN;
 		if (rx_pause || dsa_port_is_cpu(dp))
-			reg |= PMCR_RX_FC_EN;
+			reg |= AN8855_PMCR_RX_FC_EN;
 
-		reg &= PMCR_TX_FC_EN;
+		reg &= AN8855_PMCR_TX_FC_EN;
 		if (rx_pause || dsa_port_is_cpu(dp))
-			reg |= PMCR_TX_FC_EN;
+			reg |= AN8855_PMCR_TX_FC_EN;
 
 		/* Disable any EEE options */
-		reg &= ~(PMCR_FORCE_EEE1G | PMCR_FORCE_EEE100 |
-		         PMCR_FORCE_EEE2P5G | PMCR_FORCE_EEE5G);
+		reg &= ~(AN8855_PMCR_FORCE_EEE5G | AN8855_PMCR_FORCE_EEE2P5G |
+		         AN8855_PMCR_FORCE_EEE1G | AN8855_PMCR_FORCE_EEE100);
 	}
 
-	reg |= PMCR_TX_EN | PMCR_RX_EN;
+	reg |= AN8855_PMCR_TX_EN | AN8855_PMCR_RX_EN;
 
 	regmap_write(priv->regmap, AN8855_PMCR_P(port), reg);
 }
@@ -1103,34 +1199,34 @@ static void an8855_pcs_get_state(struct phylink_pcs *pcs,
 				 struct phylink_link_state *state)
 {
 	struct an8855_priv *priv = container_of(pcs, struct an8855_priv, pcs);
-	u32 reg;
+	u32 val;
 	int ret;
 
-	ret = regmap_read(priv->regmap, AN8855_PMSR_P(AN8855_CPU_PORT), &reg);
+	ret = regmap_read(priv->regmap, AN8855_PMSR_P(AN8855_CPU_PORT), &val);
 	if (ret < 0) {
 		state->link = false;
 		return;
 	}
 
-	state->link = !!(reg & PMSR_LINK);
+	state->link = !!(val & AN8855_PMSR_LNK);
 	state->an_complete = state->link;
-	state->duplex = (pmsr & PMSR_DPX) ? DUPLEX_FULL :
-					    DUPLEX_HALF;
+	state->duplex = (val & AN8855_PMSR_DPX) ? DUPLEX_FULL :
+						  DUPLEX_HALF;
 
-	switch (pmsr & PMSR_SPEED_MASK) {
-	case PMSR_SPEED_10:
+	switch (val & AN8855_PMSR_SPEED) {
+	case AN8855_PMSR_SPEED_10:
 		state->speed = SPEED_10;
 		break;
-	case PMSR_SPEED_100:
+	case AN8855_PMSR_SPEED_100:
 		state->speed = SPEED_100;
 		break;
-	case PMSR_SPEED_1000:
+	case AN8855_PMSR_SPEED_1000:
 		state->speed = SPEED_1000;
 		break;
-	case PMSR_SPEED_2500:
+	case AN8855_PMSR_SPEED_2500:
 		state->speed = SPEED_2500;
 		break;
-	case PMSR_SPEED_5000:
+	case AN8855_PMSR_SPEED_5000:
 		state->speed = SPEED_5000;
 		break;
 	default:
@@ -1138,9 +1234,9 @@ static void an8855_pcs_get_state(struct phylink_pcs *pcs,
 		break;
 	}
 
-	if (pmsr & PMSR_RX_FC)
+	if (val & AN8855_PMSR_RX_FC)
 		state->pause |= MLO_PAUSE_RX;
-	if (pmsr & PMSR_TX_FC)
+	if (val & AN8855_PMSR_TX_FC)
 		state->pause |= MLO_PAUSE_TX;
 }
 
@@ -1151,13 +1247,10 @@ static int an8855_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 {
 	struct an8855_priv *priv = container_of(pcs, struct an8855_priv, pcs);
 	u32 val;
-	int ret;
-
-	/* Check port 4 */
 
 	switch(interface) {
 	case PHY_INTERFACE_MODE_RGMII:
-		break;
+		return 0;
 	case PHY_INTERFACE_MODE_SGMII:
 		break;
 	case PHY_INTERFACE_MODE_2500BASEX:
@@ -1169,29 +1262,31 @@ static int an8855_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 		return -EINVAL;
 	}
 
+	/*                   !!! WELCOME TO HELL !!!                   */
+
 	/* TX FIR - improve TX EYE */
-	regmap_update_bits(priv->regmap, INTF_CTRL_10, GENMASK(21, 16),
+	regmap_update_bits(priv->regmap, AN8855_INTF_CTRL_10, GENMASK(21, 16),
 			   FIELD_PREP(GENMASK(21, 16), 0x20));
-	regmap_update_bits(priv->regmap, INTF_CTRL_10, GENMASK(28, 24),
+	regmap_update_bits(priv->regmap, AN8855_INTF_CTRL_10, GENMASK(28, 24),
 			   FIELD_PREP(GENMASK(28, 24), 0x4));
-	regmap_set_bits(priv->regmap, INTF_CTRL_10, BIT(29));
+	regmap_set_bits(priv->regmap, AN8855_INTF_CTRL_10, BIT(29));
 
 	if (interface == PHY_INTERFACE_MODE_2500BASEX)
 		val = 0x0;
 	else
 		val = 0xd;
-	regmap_update_bits(priv->regmap, INTF_CTRL_11, GENMASK(5, 0),
+	regmap_update_bits(priv->regmap, AN8855_INTF_CTRL_11, GENMASK(5, 0),
 			   FIELD_PREP(GENMASK(5, 0), val));
-	regmap_set_bits(priv->regmap, INTF_CTRL_11, BIT(6));
+	regmap_set_bits(priv->regmap, AN8855_INTF_CTRL_11, BIT(6));
 
 	/* RX CDR - improve RX Jitter Tolerance */
 	if (interface == PHY_INTERFACE_MODE_2500BASEX)
 		val = 0x5;
 	else
 		val = 0x6;
-	regmap_update_bits(priv->regmap, RG_QP_CDR_LPF_BOT_LIM, GENMASK(26, 24),
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_LPF_BOT_LIM, GENMASK(26, 24),
 			   FIELD_PREP(GENMASK(26, 24), val));
-	regmap_update_bits(priv->regmap, RG_QP_CDR_LPF_BOT_LIM, GENMASK(22, 20),
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_LPF_BOT_LIM, GENMASK(22, 20),
 			   FIELD_PREP(GENMASK(22, 20), val));
 
 	/* PLL */
@@ -1199,49 +1294,49 @@ static int an8855_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 		val = 0x1;
 	else
 		val = 0x0;
-	regmap_update_bits(priv->regmap, QP_DIG_MODE_CTRL_1, GENMASK(3, 2),
+	regmap_update_bits(priv->regmap, AN8855_QP_DIG_MODE_CTRL_1, GENMASK(3, 2),
 			   FIELD_PREP(GENMASK(3, 2), val));
 
 	/* PLL - LPF */
-	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(1, 0),
+	regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(1, 0),
 			   FIELD_PREP(GENMASK(1, 0), 0x1));
-	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(4, 2),
+	regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(4, 2),
 			   FIELD_PREP(GENMASK(4, 2), 0x5));
-	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(6) | BIT(7));
-	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(10, 8),
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(6) | BIT(7));
+	regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(10, 8),
 			   FIELD_PREP(GENMASK(10, 8), 0x3));
-	regmap_set_bits(priv->regmap, PLL_CTRL_2, BIT(29));
-	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(12) | BIT(13));
+	regmap_set_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(29));
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(12) | BIT(13));
 
 	/* PLL - ICO */
-	regmap_set_bits(priv->regmap, PLL_CTRL_4, BIT(2));
-	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(14));
+	regmap_set_bits(priv->regmap, AN8855_PLL_CTRL_4, BIT(2));
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(14));
 
 	/* PLL - CHP */
 	if (interface == PHY_INTERFACE_MODE_2500BASEX)
 		val = 0x6;
 	else
 		val = 0x4;
-	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(19, 16),
+	regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(19, 16),
 			   FIELD_PREP(GENMASK(19, 16), val));
 
 	/* PLL - PFD */
-	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(21, 20),
+	regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(21, 20),
 			   FIELD_PREP(GENMASK(21, 20), 0x1));
-	regmap_update_bits(priv->regmap, PLL_CTRL_2, GENMASK(25, 24),
+	regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(25, 24),
 			   FIELD_PREP(GENMASK(25, 24), 0x1));
-	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(26));
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(26));
 	
 	/* PLL - POSTDIV */
-	regmap_set_bits(priv->regmap, PLL_CTRL_2, BIT(22));
-	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(27));
-	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(28));
+	regmap_set_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(22));
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(27));
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(28));
 
 	/* PLL - SDM */
-	regmap_clear_bits(priv->regmap, PLL_CTRL_4, BIT(3) | BIT(4));
-	regmap_clear_bits(priv->regmap, PLL_CTRL_2, BIT(30));
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_4, BIT(3) | BIT(4));
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(30));
 
-	regmap_update_bits(priv->regmap, SS_LCPLL_PWCTL_SETTING_2,
+	regmap_update_bits(priv->regmap, AN8855_SS_LCPLL_PWCTL_SETTING_2,
 			   GENMASK(17, 16),
 			   FIELD_PREP(GENMASK(17, 16), 0x1));
 
@@ -1249,95 +1344,95 @@ static int an8855_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 		val = 0x7a000000;
 	else
 		val = 0x48000000;
-	regmap_write(priv->regmap, SS_LCPLL_TDC_FLT_2, val);
-	regmap_write(priv->regmap, SS_LCPLL_TDC_PCW_1, val);
+	regmap_write(priv->regmap, AN8855_SS_LCPLL_TDC_FLT_2, val);
+	regmap_write(priv->regmap, AN8855_SS_LCPLL_TDC_PCW_1, val);
 
-	regmap_clear_bits(priv->regmap, SS_LCPLL_TDC_FLT_5, BIT(24));
-	regmap_clear_bits(priv->regmap, PLL_CK_CTRL_0, BIT(8));
+	regmap_clear_bits(priv->regmap, AN8855_SS_LCPLL_TDC_FLT_5, BIT(24));
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CK_CTRL_0, BIT(8));
 
 	/* PLL - SS */
-	regmap_clear_bits(priv->regmap, PLL_CTRL_3, GENMASK(15, 0));
-	regmap_clear_bits(priv->regmap, PLL_CTRL_4, GENMASK(1, 0));
-	regmap_clear_bits(priv->regmap, PLL_CTRL_3, GENMASK(31, 16)); /* ??? */
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_3, GENMASK(15, 0));
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_4, GENMASK(1, 0));
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_3, GENMASK(31, 16));
 
 	/* PLL - TDC */
-	regmap_clear_bits(priv->regmap, PLL_CK_CTRL_0, BIT(9));
+	regmap_clear_bits(priv->regmap, AN8855_PLL_CK_CTRL_0, BIT(9));
 
-	regmap_set_bits(priv->regmap, RG_QP_PLL_SDM_ORD, BIT(3));
-	regmap_set_bits(priv->regmap, RG_QP_PLL_SDM_ORD, BIT(4));
+	regmap_set_bits(priv->regmap, AN8855_RG_QP_PLL_SDM_ORD, BIT(3));
+	regmap_set_bits(priv->regmap, AN8855_RG_QP_PLL_SDM_ORD, BIT(4));
 
-	regmap_update_bits(priv->regmap, RG_QP_RX_DAC_EN, GENMASK(17, 16),
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_RX_DAC_EN, GENMASK(17, 16),
 			   FIELD_PREP(GENMASK(17, 16), 0x2));
 
 	/* TCL Disable (only for Co-SIM) */
-	regmap_clear_bits(priv->regmap, PON_RXFEDIG_CTRL_0, BIT(12));
+	regmap_clear_bits(priv->regmap, AN8855_PON_RXFEDIG_CTRL_0, BIT(12));
 
 	/* TX Init */
 	if (interface == PHY_INTERFACE_MODE_2500BASEX)
 		val = 0x4;
 	else
 		val = 0x0;
-	regmap_clear_bits(priv->regmap, RG_QP_TX_MODE_16B_EN, BIT(0));
-	regmap_update_bits(priv->regmap, RG_QP_TX_MODE_16B_EN, GENMASK(31, 16),
+	regmap_clear_bits(priv->regmap, AN8855_RG_QP_TX_MODE_16B_EN, BIT(0));
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_TX_MODE_16B_EN, GENMASK(31, 16),
 			   FIELD_PREP(GENMASK(31, 16), val));
 
 	/* RX Control/Init */
-	regmap_set_bits(priv->regmap, RG_QP_RXAFE_RESERVE, BIT(11));
+	regmap_set_bits(priv->regmap, AN8855_RG_QP_RXAFE_RESERVE, BIT(11));
 
 	if (interface == PHY_INTERFACE_MODE_2500BASEX)
 		val = 0x1;
 	else
 		val = 0x2;
-	regmap_update_bits(priv->regmap, RG_QP_CDR_LPF_MJV_LIM, GENMASK(5, 4),
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_LPF_MJV_LIM, GENMASK(5, 4),
 			   FIELD_PREP(GENMASK(5, 4), val));
 
-	regmap_update_bits(priv->regmap, RG_QP_CDR_LPF_SETVALUE, GENMASK(28, 25),
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_LPF_SETVALUE, GENMASK(28, 25),
 			   FIELD_PREP(GENMASK(28, 25), 0x1));
-	regmap_update_bits(priv->regmap, RG_QP_CDR_LPF_SETVALUE, GENMASK(31, 29),
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_LPF_SETVALUE, GENMASK(31, 29),
 			   FIELD_PREP(GENMASK(31, 29), 0x6));
 
 	if (interface == PHY_INTERFACE_MODE_2500BASEX)
 		val = 0xf;
 	else
 		val = 0xc;
-	regmap_update_bits(priv->regmap, RG_QP_CDR_PR_CKREF_DIV1, GENMASK(12, 8),
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_PR_CKREF_DIV1, GENMASK(12, 8),
 			   FIELD_PREP(GENMASK(12, 8), val));
 
-	regmap_update_bits(priv->regmap, RG_QP_CDR_PR_KBAND_DIV_PCIE, GENMASK(12, 8),
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_PR_KBAND_DIV_PCIE, GENMASK(12, 8),
 			   FIELD_PREP(GENMASK(12, 8), 0x19));
-	regmap_clear_bits(priv->regmap, RG_QP_CDR_PR_KBAND_DIV_PCIE, BIT(6));
+	regmap_clear_bits(priv->regmap, AN8855_RG_QP_CDR_PR_KBAND_DIV_PCIE, BIT(6));
 
-	regmap_update_bits(priv->regmap, RG_QP_CDR_FORCE_IBANDLPF_R_OFF, GENMASK(12, 6),
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_FORCE_IBANDLPF_R_OFF, GENMASK(12, 6),
 			   FIELD_PREP(GENMASK(12, 6), 0x21));
-	regmap_update_bits(priv->regmap, RG_QP_CDR_FORCE_IBANDLPF_R_OFF, GENMASK(17, 16),
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_FORCE_IBANDLPF_R_OFF, GENMASK(17, 16),
 			   FIELD_PREP(GENMASK(17, 16), 0x2));
-	regmap_clear_bits(priv->regmap, RG_QP_CDR_FORCE_IBANDLPF_R_OFF, BIT(13));
+	regmap_clear_bits(priv->regmap, AN8855_RG_QP_CDR_FORCE_IBANDLPF_R_OFF, BIT(13));
 
-	regmap_clear_bits(priv->regmap, RG_QP_CDR_PR_KBAND_DIV_PCIE, BIT(30));
+	regmap_clear_bits(priv->regmap, AN8855_RG_QP_CDR_PR_KBAND_DIV_PCIE, BIT(30));
 
-	regmap_update_bits(priv->regmap, RG_QP_CDR_PR_CKREF_DIV1, GENMASK(26, 24),
+	regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_PR_CKREF_DIV1, GENMASK(26, 24),
 			   FIELD_PREP(GENMASK(26, 24), 0x4));
 
-	regmap_set_bits(priv->regmap, RX_CTRL_26, BIT(23));
-	regmap_clear_bits(priv->regmap, RX_CTRL_26, BIT(24));
-	regmap_set_bits(priv->regmap, RX_CTRL_26, BIT(26));
+	regmap_set_bits(priv->regmap, AN8855_RX_CTRL_26, BIT(23));
+	regmap_clear_bits(priv->regmap, AN8855_RX_CTRL_26, BIT(24));
+	regmap_set_bits(priv->regmap, AN8855_RX_CTRL_26, BIT(26));
 
-	regmap_update_bits(priv->regmap, RX_DLY_0, GENMASK(7, 0),
+	regmap_update_bits(priv->regmap, AN8855_RX_DLY_0, GENMASK(7, 0),
 			   FIELD_PREP(GENMASK(7, 0), 0x6f));
-	regmap_set_bits(priv->regmap, RX_DLY_0, GENMASK(13, 8));
+	regmap_set_bits(priv->regmap, AN8855_RX_DLY_0, GENMASK(13, 8));
 
-	regmap_update_bits(priv->regmap, RX_CTRL_42, GENMASK(12, 0),
+	regmap_update_bits(priv->regmap, AN8855_RX_CTRL_42, GENMASK(12, 0),
 			   FIELD_PREP(GENMASK(12, 0), 0x150));
 
-	regmap_update_bits(priv->regmap, RX_CTRL_2, GENMASK(28, 16),
+	regmap_update_bits(priv->regmap, AN8855_RX_CTRL_2, GENMASK(28, 16),
 			   FIELD_PREP(GENMASK(28, 16), 0x150));
 
-	regmap_update_bits(priv->regmap, PON_RXFEDIG_CTRL_9, GENMASK(2, 0),
+	regmap_update_bits(priv->regmap, AN8855_PON_RXFEDIG_CTRL_9, GENMASK(2, 0),
 			   FIELD_PREP(GENMASK(2, 0), 0x1));
 
-	regmap_update_bits(priv->regmap, RX_CTRL_8, GENMASK(27, 16),
+	regmap_update_bits(priv->regmap, AN8855_RX_CTRL_8, GENMASK(27, 16),
 			   FIELD_PREP(GENMASK(27, 16), 0x200));
-	regmap_update_bits(priv->regmap, RX_CTRL_8, GENMASK(14, 0),
+	regmap_update_bits(priv->regmap, AN8855_RX_CTRL_8, GENMASK(14, 0),
 			   FIELD_PREP(GENMASK(14, 0), 0xfff));
 
 	/* Frequency meter */
@@ -1345,79 +1440,87 @@ static int an8855_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 		val = 0x10;
 	else
 		val = 0x28;
-	regmap_update_bits(priv->regmap, RX_CTRL_5, GENMASK(29, 10),
+	regmap_update_bits(priv->regmap, AN8855_RX_CTRL_5, GENMASK(29, 10),
 			   FIELD_PREP(GENMASK(29, 10), val));
 
-	regmap_update_bits(priv->regmap, RX_CTRL_6, GENMASK(19, 0),
+	regmap_update_bits(priv->regmap, AN8855_RX_CTRL_6, GENMASK(19, 0),
 			   FIELD_PREP(GENMASK(19, 0), 0x64));
 
-	regmap_update_bits(priv->regmap, RX_CTRL_7, GENMASK(19, 0),
+	regmap_update_bits(priv->regmap, AN8855_RX_CTRL_7, GENMASK(19, 0),
 			   FIELD_PREP(GENMASK(19, 0), 0x2710));
 
-	regmap_set_bits(priv->regmap, PLL_CTRL_0, BIT(0));
+	regmap_set_bits(priv->regmap, AN8855_PLL_CTRL_0, BIT(0));
 
 	/* PCS Init */
-	if (neg == PHYLINK_PCS_NEG_INBAND_DISABLED) {
-		regmap_clear_bits(priv->regmap, QP_DIG_MODE_CTRL_0, BIT(0));
-		regmap_clear_bits(priv->regmap, QP_DIG_MODE_CTRL_0, GENMASK(5, 4));
+	if (interface == PHY_INTERFACE_MODE_SGMII &&
+	    neg_mode == PHYLINK_PCS_NEG_INBAND_DISABLED) {
+		regmap_clear_bits(priv->regmap, AN8855_QP_DIG_MODE_CTRL_0,
+				  BIT(0));
+		regmap_clear_bits(priv->regmap, AN8855_QP_DIG_MODE_CTRL_0,
+				  GENMASK(5, 4));
 	}
 
-	regmap_clear_bits(priv->regmap, RG_HSGMII_PCS_CTROL_1, BIT(30));
+	regmap_clear_bits(priv->regmap, AN8855_RG_HSGMII_PCS_CTROL_1, BIT(30));
 
-	if (neg == PHYLINK_PCS_NEG_INBAND_ENABLED) {
+	if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED) {
 		/* Set AN Ability - Interrupt */
-		regmap_set_bits(priv->regmap, SGMII_REG_AN_FORCE_CL37, BIT(0));
+		regmap_set_bits(priv->regmap, AN8855_SGMII_REG_AN_FORCE_CL37, BIT(0));
 
-		regmap_update_bits(priv->regmap, SGMII_REG_AN_13, GENMASK(5, 0),
-				   FIELD_PREP(GENMASK(5, 4), 0xb));
-		regmap_set_bits(priv->regmap, SGMII_REG_AN_13, BIT(8));
+		regmap_update_bits(priv->regmap, AN8855_SGMII_REG_AN_13, GENMASK(5, 0),
+				   FIELD_PREP(GENMASK(5, 0), 0xb));
+		regmap_set_bits(priv->regmap, AN8855_SGMII_REG_AN_13, BIT(8));
 	}
 
 	/* Rate Adaption - GMII path config. */
 	if (interface == PHY_INTERFACE_MODE_2500BASEX) {
-		regmap_clear_bits(priv->regmap, RATE_ADP_P0_CTRL_0, BIT(31));
+		regmap_clear_bits(priv->regmap, AN8855_RATE_ADP_P0_CTRL_0, BIT(31));
 	} else {
-		if (neg == PHYLINK_PCS_NEG_INBAND_ENABLED) {
-			regmap_set_bits(priv->regmap, MII_RA_AN_ENABLE, BIT(0));
+		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED) {
+			regmap_set_bits(priv->regmap, AN8855_MII_RA_AN_ENABLE, BIT(0));
 		} else {
-			regmap_set_bits(priv->regmap, RG_AN_SGMII_MODE_FORCE, BIT(0));
-			regmap_clear_bits(priv->regmap, RG_AN_SGMII_MODE_FORCE, GENMASK(5, 4));
+			regmap_set_bits(priv->regmap, AN8855_RG_AN_SGMII_MODE_FORCE,
+					BIT(0));
+			regmap_clear_bits(priv->regmap, AN8855_RG_AN_SGMII_MODE_FORCE,
+					  GENMASK(5, 4));
 
-			regmap_clear_bits(priv->regmap, RATE_ADP_P0_CTRL_0, GENMASK(3, 0));
+			regmap_clear_bits(priv->regmap, AN8855_RATE_ADP_P0_CTRL_0,
+					  GENMASK(3, 0));
 		}
 
-		regmap_set_bits(priv->regmap, RATE_ADP_P0_CTRL_0, BIT(28));
+		regmap_set_bits(priv->regmap, AN8855_RATE_ADP_P0_CTRL_0, BIT(28));
 	}
 
-	regmap_set_bits(priv->regmap, RG_RATE_ADAPT_CTRL_0, BIT(0));
-	regmap_set_bits(priv->regmap, RG_RATE_ADAPT_CTRL_0, BIT(4));
-	regmap_set_bits(priv->regmap, RG_RATE_ADAPT_CTRL_0, GENMASK(27, 26));
+	regmap_set_bits(priv->regmap, AN8855_RG_RATE_ADAPT_CTRL_0, BIT(0));
+	regmap_set_bits(priv->regmap, AN8855_RG_RATE_ADAPT_CTRL_0, BIT(4));
+	regmap_set_bits(priv->regmap, AN8855_RG_RATE_ADAPT_CTRL_0, GENMASK(27, 26));
 
 	/* Disable AN */
-	if (neg == PHYLINK_PCS_NEG_INBAND_ENABLED)
-		regmap_set_bits(priv->regmap, SGMII_REG_AN0, SGMII_AN_ENABLE);
+	if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
+		regmap_set_bits(priv->regmap, AN8855_SGMII_REG_AN0,
+				AN8855_SGMII_AN_ENABLE);
 	else
-		regmap_clear_bits(priv->regmap, SGMII_REG_AN0, SGMII_AN_ENABLE);
+		regmap_clear_bits(priv->regmap, AN8855_SGMII_REG_AN0,
+				  AN8855_SGMII_AN_ENABLE);
 
 	if (interface == PHY_INTERFACE_MODE_SGMII &&
-	    neg == PHYLINK_PCS_NEG_INBAND_DISABLED)
-	    	regmap_set_bits(priv->regmap, PHY_RX_FORCE_CTRL_0, BIT(4));
+	    neg_mode == PHYLINK_PCS_NEG_INBAND_DISABLED)
+	    	regmap_set_bits(priv->regmap, AN8855_PHY_RX_FORCE_CTRL_0, BIT(4));
 
 	/* Force Speed */
 	if (interface == PHY_INTERFACE_MODE_2500BASEX ||
-	    neg == PHYLINK_PCS_NEG_INBAND_ENABLED) {
+	    neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED) {
 		if (interface == PHY_INTERFACE_MODE_2500BASEX)
-			val = 0x0;
+			val = 0x3;
 		else
 			val = 0x2;
-		regmap_set_bits(priv->regmap, SGMII_STS_CTRL_0, BIT(2));
-		regmap_update_bits(priv->regmap, SGMII_STS_CTRL_0, GENMASK(5, 4),
+		regmap_set_bits(priv->regmap, AN8855_SGMII_STS_CTRL_0, BIT(2));
+		regmap_update_bits(priv->regmap, AN8855_SGMII_STS_CTRL_0, GENMASK(5, 4),
 				   FIELD_PREP(GENMASK(5, 4), val));
 	}
 
 	/* bypass flow control to MAC */
-	regmap_write(priv->regmap, MSG_RX_LIK_STS_0, 0x01010107);
-	regmap_write(priv->regmap, MSG_RX_LIK_STS_2, 0x00000EEF);
+	regmap_write(priv->regmap, AN8855_MSG_RX_LIK_STS_0, 0x01010107);
+	regmap_write(priv->regmap, AN8855_MSG_RX_LIK_STS_2, 0x00000EEF);
 
 	return 0;
 }
@@ -1426,7 +1529,8 @@ static void an8855_pcs_an_restart(struct phylink_pcs *pcs)
 {
 	struct an8855_priv *priv = container_of(pcs, struct an8855_priv, pcs);
 
-	regmap_set_bits(priv->regmap, SGMII_REG_AN0, SGMII_AN_RESTART);
+	regmap_set_bits(priv->regmap, AN8855_SGMII_REG_AN0,
+			AN8855_SGMII_AN_RESTART);
 }
 
 static const struct phylink_pcs_ops an8855_pcs_ops = {
@@ -1464,6 +1568,7 @@ static const struct dsa_switch_ops an8855_switch_ops = {
 	.port_mirror_add = an8855_port_mirror_add,
 	.port_mirror_del = an8855_port_mirror_del,
 	.phylink_get_caps = an8855_phylink_get_caps,
+	.get_phy_flags = en8855_get_phy_flags,
 	.get_mac_eee = an8855_get_mac_eee,
 	.set_mac_eee = an8855_set_mac_eee,
 };
@@ -1491,21 +1596,12 @@ static int
 an8855_sw_probe(struct mdio_device *mdiodev)
 {
 	struct an8855_priv *priv;
+	u32 val;
 	int ret;
 
 	priv = devm_kzalloc(&mdiodev->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
-
-	// /* TODO */ 1 = AN8855_GPHY_SMI_ADDR_DEFAULT;
-	// priv->id = priv->info->id;
-
-	// priv->reset = devm_gpiod_get_optional(&mdiodev->dev, "reset",
-	// 				      GPIOD_OUT_LOW);
-	// if (IS_ERR(priv->reset)) {
-	// 	dev_err(&mdiodev->dev, "Couldn't get our reset line\n");
-	// 	return PTR_ERR(priv->reset);
-	// }
 
 	// ret = of_property_read_u32(dn, "changesmiaddr", &/* TODO */ 1_new);
 	// if ((ret < 0) || (/* TODO */ 1_new > 0x1f))
@@ -1520,6 +1616,19 @@ an8855_sw_probe(struct mdio_device *mdiodev)
 
 	priv->bus = mdiodev->bus;
 	priv->dev = &mdiodev->dev;
+	priv->phy_base = AN8855_GPHY_SMI_ADDR_DEFAULT;
+
+	priv->reset_gpio = devm_gpiod_get_optional(priv->dev, "reset",
+						   GPIOD_OUT_LOW);
+	if (IS_ERR(priv->reset_gpio))
+		return PTR_ERR(priv->reset_gpio);
+
+	if (priv->reset_gpio) {
+		usleep_range(100000, 150000);
+		gpiod_set_value_cansleep(priv->reset_gpio, 0);
+		usleep_range(100000, 150000);
+		gpiod_set_value_cansleep(priv->reset_gpio, 1);
+	}
 
 	priv->regmap = devm_regmap_init(&mdiodev->dev, NULL, priv,
 					&an8855_regmap_config);
@@ -1528,18 +1637,31 @@ an8855_sw_probe(struct mdio_device *mdiodev)
 		return PTR_ERR(priv->regmap);
 	}
 
+	/* Poll HWTRAP reg to wait for Switch to fully Init */
+	ret = regmap_read_poll_timeout(priv->regmap, AN8855_HWTRAP, val,
+				       val, 20, 200000);
+	if (ret)
+		return ret;
+
 	ret = an8855_read_switch_id(priv);
 	if (ret)
 		return ret;
+
+	/* Change base SMI addr */
+	if (!of_property_read_u32(mdiodev->dev.of_node, "changesmiaddr", &val)) {
+		regmap_write(priv->regmap, AN8855_RG_GPHY_SMI_ADDR, val);
+		priv->phy_base = val;
+	}
 
 	priv->ds = devm_kzalloc(&mdiodev->dev, sizeof(*priv->ds), GFP_KERNEL);
 	if (!priv->ds)
 		return -ENOMEM;
 
-	priv->ds->priv = priv;
+	priv->ds->dev = &mdiodev->dev;
 	priv->ds->num_ports = AN8855_NUM_PORTS;
+	priv->ds->priv = priv;
 	priv->ds->ops = &an8855_switch_ops;
-	// mutex_init(&priv->reg_mutex);
+	mutex_init(&priv->reg_mutex);
 	priv->ds->phylink_mac_ops = &an8855_phylink_mac_ops;
 
 	priv->pcs.ops = &an8855_pcs_ops;
@@ -1548,9 +1670,7 @@ an8855_sw_probe(struct mdio_device *mdiodev)
 
 	dev_set_drvdata(&mdiodev->dev, priv);
 
-	return -EINVAL;
-
-	// return dsa_register_switch(priv->ds);
+	return dsa_register_switch(priv->ds);
 }
 
 static void
@@ -1559,16 +1679,11 @@ an8855_sw_remove(struct mdio_device *mdiodev)
 	struct an8855_priv *priv = dev_get_drvdata(&mdiodev->dev);
 
 	dsa_unregister_switch(priv->ds);
-	// mutex_destroy(&priv->reg_mutex);
-
-	// if (priv->base)
-	// 	iounmap(priv->base);
-
-	dev_set_drvdata(&mdiodev->dev, NULL);
+	mutex_destroy(&priv->reg_mutex);
 }
 
 static const struct of_device_id an8855_of_match[] = {
-	{.compatible = "airoha,an8855" },
+	{ .compatible = "airoha,an8855" },
 	{ /* sentinel */ },
 };
 
@@ -1586,4 +1701,4 @@ mdio_module_driver(an8855_mdio_driver);
 MODULE_AUTHOR("Min Yao <min.yao@airoha.com>");
 MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 MODULE_DESCRIPTION("Driver for Airoha AN8855 Switch");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
