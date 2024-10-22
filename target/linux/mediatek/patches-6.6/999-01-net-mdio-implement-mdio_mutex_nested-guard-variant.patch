@@ -1,0 +1,50 @@
+From 4e3e83a73b8255b70639251c60cd54492808439f Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 27 Jun 2024 01:02:31 +0200
+Subject: [PATCH 1/4] net: mdio: implement mdio_mutex_nested guard() variant
+
+Implement mdio_mutex_nested guard() variant.
+
+guard() comes from the cleanup.h API that defines handy class to
+handle the lifecycle of a critical section.
+
+Several drivers use of the mutex_lock_nested()/mutex_unlock() function
+call pair hence it is sensible to provide a variant of the generic
+guard(mutex), guard(mdio_mutex_nested) so that drivers can be better
+supported with the call variant "mutex_lock_nested(..., MDIO_MUTEX_NESTED)"
+
+Example usage:
+
+guard(mutex_lock_nested)(&bus->mdio_lock)
+scoped_guard(mutex_lock_nested, &bus->mdio_lock) { ... }
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ include/linux/mdio.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/include/linux/mdio.h b/include/linux/mdio.h
+index efeca5bd7600..3f0691dee46a 100644
+--- a/include/linux/mdio.h
++++ b/include/linux/mdio.h
+@@ -8,6 +8,7 @@
+ 
+ #include <uapi/linux/mdio.h>
+ #include <linux/bitfield.h>
++#include <linux/mutex.h>
+ #include <linux/mod_devicetable.h>
+ 
+ struct gpio_desc;
+@@ -25,6 +26,9 @@ enum mdio_mutex_lock_class {
+ 	MDIO_MUTEX_NESTED,
+ };
+ 
++DEFINE_GUARD(mdio_mutex_nested, struct mutex *,
++	     mutex_lock_nested(_T, MDIO_MUTEX_NESTED), mutex_unlock(_T))
++
+ struct mdio_device {
+ 	struct device dev;
+ 
+-- 
+2.45.2
+

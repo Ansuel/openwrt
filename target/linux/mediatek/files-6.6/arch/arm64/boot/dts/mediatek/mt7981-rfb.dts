@@ -75,8 +75,14 @@
 	gmac1: mac@1 {
 		compatible = "mediatek,eth-mac";
 		reg = <1>;
-		phy-mode = "gmii";
-		phy-handle = <&int_gbe_phy>;
+		phy-mode = "2500base-x";
+		phy-handle = <&phy6>;
+
+		fixed-link {
+			speed = <2500>;
+			full-duplex;
+			pause;
+		};
 	};
 };
 
@@ -91,18 +97,19 @@
 		reset-gpios = <&pio 5 GPIO_ACTIVE_HIGH>;
 	};
 
-	phy5: phy@5 {
+	phy6: phy@6 {
 		compatible = "ethernet-phy-id67c9.de0a";
-		reg = <5>;
+		reg = <6>;
 	};
 
-	switch@0 {
+	switch@1 {
 		compatible = "airoha,an8855";
 		reg = <1>;
 		reset-gpios = <&pio 39 0>;
-		changesmiaddr = <6>;
+		// changesmiaddr = <7>;
 		/* airoha,intr = <13>; */
-		airoha,extSurge = <1>;
+		airoha,ext_surge;
+
 		ports {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -110,21 +117,29 @@
 			port@0 {
 				reg = <0>;
 				label = "lan1";
+				phy-mode = "internal";
+				phy-handle = <&phy0>;
 			};
 
 			port@1 {
 				reg = <1>;
 				label = "lan2";
+				phy-mode = "internal";
+				phy-handle = <&phy1>;
 			};
 
 			port@2 {
 				reg = <2>;
 				label = "lan3";
+				phy-mode = "internal";
+				phy-handle = <&phy2>;
 			};
 
 			port@3 {
 				reg = <3>;
 				label = "lan4";
+				phy-mode = "internal";
+				phy-handle = <&phy3>;
 			};
 
 			port@5 {
@@ -138,6 +153,24 @@
 					full-duplex;
 					pause;
 				};
+			};
+		};
+
+		mdio {
+			phy0: phy@0 {
+				reg = <0>;
+			};
+
+			phy1: phy@1 {
+				reg = <1>;
+			};
+
+			phy2: phy@2 {
+				reg = <2>;
+			};
+
+			phy3: phy@3 {
+				reg = <3>;
 			};
 		};
 	};
@@ -176,50 +209,50 @@
 	status = "disabled";
 };
 
-&switch {
-	ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
+// &switch {
+// 	ports {
+// 		#address-cells = <1>;
+// 		#size-cells = <0>;
 
-		port@0 {
-			reg = <0>;
-			label = "lan1";
-		};
+// 		port@0 {
+// 			reg = <0>;
+// 			label = "lan1";
+// 		};
 
-		port@1 {
-			reg = <1>;
-			label = "lan2";
-		};
+// 		port@1 {
+// 			reg = <1>;
+// 			label = "lan2";
+// 		};
 
-		port@2 {
-			reg = <2>;
-			label = "lan3";
-		};
+// 		port@2 {
+// 			reg = <2>;
+// 			label = "lan3";
+// 		};
 
-		port@3 {
-			reg = <3>;
-			label = "lan4";
-		};
+// 		port@3 {
+// 			reg = <3>;
+// 			label = "lan4";
+// 		};
 
-		sw_p5: port@5 {
-			reg = <5>;
-			label = "lan5";
-			status = "disabled";
-		};
+// 		sw_p5: port@5 {
+// 			reg = <5>;
+// 			label = "lan5";
+// 			status = "disabled";
+// 		};
 
-		port@6 {
-			reg = <6>;
-			ethernet = <&gmac0>;
-			phy-mode = "2500base-x";
+// 		port@6 {
+// 			reg = <6>;
+// 			ethernet = <&gmac0>;
+// 			phy-mode = "2500base-x";
 
-			fixed-link {
-				speed = <2500>;
-				full-duplex;
-				pause;
-			};
-		};
-	};
-};
+// 			fixed-link {
+// 				speed = <2500>;
+// 				full-duplex;
+// 				pause;
+// 			};
+// 		};
+// 	};
+// };
 
 &xhci {
 	vusb33-supply = <&reg_3p3v>;
