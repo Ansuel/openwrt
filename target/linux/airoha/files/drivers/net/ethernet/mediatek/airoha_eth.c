@@ -790,7 +790,6 @@ enum trtcm_param {
 	TRTCM_METER_MODE = BIT(2),
 };
 
-#define DEF_METER_RATE				1000000
 #define MIN_TOKEN_SIZE				4096
 #define MAX_TOKEN_SIZE_OFFSET			17
 #define TRTCM_TOKEN_RATE_MASK			GENMASK(23, 6)
@@ -1797,6 +1796,14 @@ static int airoha_qdma_tx_napi_poll(struct napi_struct *napi, int budget)
 		WRITE_ONCE(desc->msg0, 0);
 		WRITE_ONCE(desc->msg1, 0);
 		q->queued--;
+
+		/* completion ring can report out-of-order indexes if hw QoS
+		 * is enabled and packets with different priority are queued
+		 * to same DMA ring. Take into account possible out-of-order
+		 * reports incrementing DMA ring tail pointer
+		 */
+		while (q->tail != q->head && !q->entry[q->tail].dma_addr)
+			q->tail = (q->tail + 1) % q->ndesc;
 
 		if (skb) {
 			u16 queue = skb_get_queue_mapping(skb);
