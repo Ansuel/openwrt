@@ -2728,29 +2728,12 @@ static int airoha_qdma_set_chan_tx_sched(struct airoha_gdm_port *port,
 	return 0;
 }
 
-static int airoha_qdma_set_tx_sched(struct airoha_gdm_port *port,
-				    enum tx_sched_mode mode,
-				    const u16 *weights, u8 n_weights)
-{
-	int i;
-
-	for (i = 0; i < AIROHA_NUM_TX_RING; i++) {
-		int err;
-
-		err = airoha_qdma_set_chan_tx_sched(port, i, mode,
-						    weights, n_weights);
-		if (err)
-			return err;
-	}
-
-	return 0;
-}
-
 static int airoha_qdma_set_tx_prio_sched(struct airoha_gdm_port *port)
 {
 	static const u16 w[AIROHA_NUM_TX_RING] = {};
 
-	return airoha_qdma_set_tx_sched(port, TC_SCH_SP, w, ARRAY_SIZE(w));
+	return airoha_qdma_set_chan_tx_sched(port, port->id, TC_SCH_SP, w,
+					     ARRAY_SIZE(w));
 }
 
 static int airoha_qdma_set_tx_ets_sched(struct airoha_gdm_port *port,
@@ -2780,7 +2763,8 @@ static int airoha_qdma_set_tx_ets_sched(struct airoha_gdm_port *port,
 	else if (nstrict < AIROHA_NUM_TX_RING - 1)
 		mode = nstrict + 1;
 
-	return airoha_qdma_set_tx_sched(port, mode, w, ARRAY_SIZE(w));
+	return airoha_qdma_set_chan_tx_sched(port, port->id, mode, w,
+					     ARRAY_SIZE(w));
 }
 
 static int airoha_tc_setup_qdisc_ets(struct net_device *dev,
@@ -2799,16 +2783,16 @@ static int airoha_tc_setup_qdisc_ets(struct net_device *dev,
 	}
 }
 
-static int airoha_qdma_get_trtcm_param(struct airoha_qdma *qdma, int chan,
+static int airoha_qdma_get_trtcm_param(struct airoha_qdma *qdma, int channel,
 				       u32 addr, enum trtcm_param_type param,
 				       enum trtcm_mode_type mode,
 				       u32 *val_low, u32 *val_high)
 {
-	u32 val, idx = QDMA_METER_IDX(chan), group = QDMA_METER_GROUP(chan);
-	u32 config = FIELD_PREP(TRTCM_PARAM_TYPE_MASK, param) |
-		     FIELD_PREP(TRTCM_METER_GROUP_MASK, group) |
-		     FIELD_PREP(TRTCM_PARAM_INDEX_MASK, idx) |
-		     FIELD_PREP(TRTCM_PARAM_RATE_TYPE_MASK, mode);
+	u32 idx = QDMA_METER_IDX(channel), group = QDMA_METER_GROUP(channel);
+	u32 val, config = FIELD_PREP(TRTCM_PARAM_TYPE_MASK, param) |
+			  FIELD_PREP(TRTCM_METER_GROUP_MASK, group) |
+			  FIELD_PREP(TRTCM_PARAM_INDEX_MASK, idx) |
+			  FIELD_PREP(TRTCM_PARAM_RATE_TYPE_MASK, mode);
 
 	airoha_qdma_wr(qdma, REG_TRTCM_CFG_PARAM(addr), config);
 	if (read_poll_timeout(airoha_qdma_rr, val,
@@ -2824,11 +2808,11 @@ static int airoha_qdma_get_trtcm_param(struct airoha_qdma *qdma, int chan,
 	return 0;
 }
 
-static int airoha_qdma_set_trtcm_param(struct airoha_qdma *qdma, int chan,
+static int airoha_qdma_set_trtcm_param(struct airoha_qdma *qdma, int channel,
 				       u32 addr, enum trtcm_param_type param,
 				       enum trtcm_mode_type mode, u32 val)
 {
-	u32 idx = QDMA_METER_IDX(chan), group = QDMA_METER_GROUP(chan);
+	u32 idx = QDMA_METER_IDX(channel), group = QDMA_METER_GROUP(channel);
 	u32 config = TRTCM_PARAM_RW_MASK |
 		     FIELD_PREP(TRTCM_PARAM_TYPE_MASK, param) |
 		     FIELD_PREP(TRTCM_METER_GROUP_MASK, group) |
@@ -2844,31 +2828,31 @@ static int airoha_qdma_set_trtcm_param(struct airoha_qdma *qdma, int chan,
 				 qdma, REG_TRTCM_CFG_PARAM(addr));
 }
 
-static int airoha_qdma_set_trtcm_config(struct airoha_qdma *qdma, int chan,
+static int airoha_qdma_set_trtcm_config(struct airoha_qdma *qdma, int channel,
 					u32 addr, enum trtcm_mode_type mode,
 					bool enable, u32 enable_mask)
 {
 	u32 val;
 
-	if (airoha_qdma_get_trtcm_param(qdma, chan, addr, TRTCM_MISC_MODE,
+	if (airoha_qdma_get_trtcm_param(qdma, channel, addr, TRTCM_MISC_MODE,
 					mode, &val, NULL))
 		return -EINVAL;
 
 	val = enable ? val | enable_mask : val & ~enable_mask;
 
-	return airoha_qdma_set_trtcm_param(qdma, chan, addr, TRTCM_MISC_MODE,
+	return airoha_qdma_set_trtcm_param(qdma, channel, addr, TRTCM_MISC_MODE,
 					   mode, val);
 }
 
 static int airoha_qdma_set_trtcm_token_bucket(struct airoha_qdma *qdma,
-					      int chan, u32 addr,
+					      int channel, u32 addr,
 					      enum trtcm_mode_type mode,
 					      u32 rate_val, u32 bucket_size)
 {
 	u32 val, config, tick, unit, rate, rate_frac;
 	int err;
 
-	if (airoha_qdma_get_trtcm_param(qdma, chan, addr, TRTCM_MISC_MODE,
+	if (airoha_qdma_get_trtcm_param(qdma, channel, addr, TRTCM_MISC_MODE,
 					mode, &config, NULL))
 		return -EINVAL;
 
@@ -2889,7 +2873,7 @@ static int airoha_qdma_set_trtcm_token_bucket(struct airoha_qdma *qdma,
 	rate = FIELD_PREP(TRTCM_TOKEN_RATE_MASK, rate) |
 	       FIELD_PREP(TRTCM_TOKEN_RATE_FRACTION_MASK, rate_frac);
 
-	err = airoha_qdma_set_trtcm_param(qdma, chan, addr,
+	err = airoha_qdma_set_trtcm_param(qdma, channel, addr,
 					  TRTCM_TOKEN_RATE_MODE, mode, rate);
 	if (err)
 		return err;
@@ -2897,7 +2881,7 @@ static int airoha_qdma_set_trtcm_token_bucket(struct airoha_qdma *qdma,
 	val = max_t(u32, bucket_size, MIN_TOKEN_SIZE);
 	val = min_t(u32, __fls(val), MAX_TOKEN_SIZE_OFFSET);
 
-	return airoha_qdma_set_trtcm_param(qdma, chan, addr,
+	return airoha_qdma_set_trtcm_param(qdma, channel, addr,
 					   TRTCM_BUCKETSIZE_SHIFT_MODE,
 					   mode, val);
 }
@@ -2930,6 +2914,9 @@ static int airoha_tc_setup_qdisc_tbf(struct net_device *dev,
 	struct tc_tbf_qopt_offload_replace_params *p = &qopt->replace_params;
 	struct airoha_gdm_port *port = netdev_priv(dev);
 	u32 rate = 0;
+
+	if (qopt->parent != TC_H_ROOT)
+		return -EINVAL;
 
 	switch (qopt->command) {
 	case TC_TBF_REPLACE:
