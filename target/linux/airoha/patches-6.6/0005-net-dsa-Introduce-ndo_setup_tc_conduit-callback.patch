@@ -1,0 +1,66 @@
+From e6ce30011f630150617b0db6b13cfacfd8d2cc30 Mon Sep 17 00:00:00 2001
+Message-ID: <e6ce30011f630150617b0db6b13cfacfd8d2cc30.1730487855.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Fri, 1 Nov 2024 11:21:23 +0100
+Subject: [PATCH net-next] net: dsa: Introduce ndo_setup_tc_conduit callback
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ include/linux/netdevice.h | 12 ++++++++++++
+ net/dsa/user.c            | 10 ++++++++++
+ 2 files changed, 22 insertions(+)
+
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1226,6 +1226,14 @@ struct netdev_net_notifier {
+  *	This is always called from the stack with the rtnl lock held and netif
+  *	tx queues stopped. This allows the netdevice to perform queue
+  *	management safely.
++ * int (*ndo_setup_tc_conduit)(struct net_device *dev, int user_port,
++ *			       enum tc_setup_type type, void *type_data);
++*	Called to etup any 'tc' scheduler, classifier or action on the user
++*	port @user_port via the conduit port @dev. This is useful if the hw
++*	supports improved offloading capability through the conduit port.
++*	This is always called from the stack with the rtnl lock held and netif
++*	tx queues stopped. This allows the netdevice to perform queue
++*	management safely.
+  *
+  *	Fiber Channel over Ethernet (FCoE) offload functions.
+  * int (*ndo_fcoe_enable)(struct net_device *dev);
+@@ -1527,6 +1535,10 @@ struct net_device_ops {
+ 	int			(*ndo_setup_tc)(struct net_device *dev,
+ 						enum tc_setup_type type,
+ 						void *type_data);
++	int			(*ndo_setup_tc_conduit)(struct net_device *dev,
++							int user_port,
++							enum tc_setup_type type,
++							void *type_data);
+ #if IS_ENABLED(CONFIG_FCOE)
+ 	int			(*ndo_fcoe_enable)(struct net_device *dev);
+ 	int			(*ndo_fcoe_disable)(struct net_device *dev);
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -1701,6 +1701,7 @@ static int dsa_slave_setup_tc(struct net
+ {
+ 	struct dsa_port *dp = dsa_slave_to_port(dev);
+ 	struct dsa_switch *ds = dp->ds;
++	struct net_device *master;
+ 
+ 	switch (type) {
+ 	case TC_SETUP_BLOCK:
+@@ -1711,6 +1712,15 @@ static int dsa_slave_setup_tc(struct net
+ 		break;
+ 	}
+ 
++	/* Check if conduit port supports requested offloading for the
++	 * specified user port.
++	 */
++	master = dsa_port_to_master(dsa_to_port(ds, dp->index));
++	if (master->netdev_ops->ndo_setup_tc_conduit &&
++	    !master->netdev_ops->ndo_setup_tc_conduit(master, dp->index, type,
++						      type_data))
++		return 0;
++
+ 	if (!ds->ops->port_setup_tc)
+ 		return -EOPNOTSUPP;
+ 

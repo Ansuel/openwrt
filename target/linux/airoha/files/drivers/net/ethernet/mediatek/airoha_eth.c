@@ -2955,19 +2955,29 @@ static int airoha_tc_setup_qdisc_tbf(struct airoha_gdm_port *port, int channel,
 	}
 }
 
-static int airoha_tc_setup(struct net_device *dev, enum tc_setup_type type,
-			   void *type_data)
+static int airoha_dev_tc_setup_conduit(struct net_device *dev, int channel,
+				       enum tc_setup_type type,
+				       void *type_data)
 {
 	struct airoha_gdm_port *port = netdev_priv(dev);
 
 	switch (type) {
 	case TC_SETUP_QDISC_ETS:
-		return airoha_tc_setup_qdisc_ets(port, port->id, type_data);
+		return airoha_tc_setup_qdisc_ets(port, channel, type_data);
 	case TC_SETUP_QDISC_TBF:
-		return airoha_tc_setup_qdisc_tbf(port, port->id, type_data);
+		return airoha_tc_setup_qdisc_tbf(port, channel, type_data);
 	default:
 		return -EOPNOTSUPP;
 	}
+}
+
+static int airoha_dev_tc_setup(struct net_device *dev, enum tc_setup_type type,
+			       void *type_data)
+{
+	struct airoha_gdm_port *port = netdev_priv(dev);
+
+	return airoha_dev_tc_setup_conduit(dev, port->id, type, type_data);
+
 }
 
 static const struct net_device_ops airoha_netdev_ops = {
@@ -2978,7 +2988,8 @@ static const struct net_device_ops airoha_netdev_ops = {
 	.ndo_start_xmit		= airoha_dev_xmit,
 	.ndo_get_stats64        = airoha_dev_get_stats64,
 	.ndo_set_mac_address	= airoha_dev_set_macaddr,
-	.ndo_setup_tc		= airoha_tc_setup,
+	.ndo_setup_tc		= airoha_dev_tc_setup,
+	.ndo_setup_tc_conduit	= airoha_dev_tc_setup_conduit,
 };
 
 static const struct ethtool_ops airoha_ethtool_ops = {
