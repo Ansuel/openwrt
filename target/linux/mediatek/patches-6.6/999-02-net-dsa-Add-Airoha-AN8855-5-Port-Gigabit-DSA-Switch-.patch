@@ -1,23 +1,24 @@
-From 846202d147a52e9a48e3301434c2f226d921ccef Mon Sep 17 00:00:00 2001
+From d7b4b41fe0987c6d51ffeec211e737185caf1ca0 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Mon, 21 Oct 2024 13:24:54 +0200
-Subject: [PATCH 3/4] net: dsa: Add AN8855 5-Port Gigabit DSA Switch driver
+Subject: [PATCH 2/3] net: dsa: Add Airoha AN8855 5-Port Gigabit DSA Switch
+ driver
 
-Add AN8855 5-Port Gigabit DSA switch.
+Add Airoha AN8855 5-Port Gigabit DSA switch.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
  MAINTAINERS              |   10 +
  drivers/net/dsa/Kconfig  |    9 +
  drivers/net/dsa/Makefile |    1 +
- drivers/net/dsa/an8855.c | 2008 ++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/an8855.h |  492 ++++++++++
- 5 files changed, 2520 insertions(+)
+ drivers/net/dsa/an8855.c | 2054 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/an8855.h |  624 ++++++++++++
+ 5 files changed, 2698 insertions(+)
  create mode 100644 drivers/net/dsa/an8855.c
  create mode 100644 drivers/net/dsa/an8855.h
 
 # diff --git a/MAINTAINERS b/MAINTAINERS
-# index 16933f9faa0f..ef6259a0b693 100644
+# index 16933f9faa0f..e3077d9feee2 100644
 # --- a/MAINTAINERS
 # +++ b/MAINTAINERS
 # @@ -717,6 +717,16 @@ S:	Supported
@@ -25,7 +26,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 #  F:	include/linux/*aio*.h
  
 # +AIROHA DSA DRIVER
-# +M:	Christian Marangi
+# +M:	Christian Marangi <ansuelsmth@gmail.com>
 # +L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
 # +L:	linux-mediatek@lists.infradead.org (moderated for non-subscribers)
 # +L:	netdev@vger.kernel.org
@@ -71,10 +72,10 @@ index cb9a97340e58..a74afb41a491 100644
  obj-$(CONFIG_NET_DSA_MT7530_MDIO) += mt7530-mdio.o
 diff --git a/drivers/net/dsa/an8855.c b/drivers/net/dsa/an8855.c
 new file mode 100644
-index 000000000000..ed7003b406cf
+index 000000000000..1f25e1788afb
 --- /dev/null
 +++ b/drivers/net/dsa/an8855.c
-@@ -0,0 +1,2008 @@
+@@ -0,0 +1,2054 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Airoha AN8855 DSA Switch driver
@@ -92,6 +93,7 @@ index 000000000000..ed7003b406cf
 +#include <linux/of_mdio.h>
 +#include <linux/of_net.h>
 +#include <linux/of_platform.h>
++#include <linux/nvmem-provider.h>
 +#include <linux/phylink.h>
 +#include <linux/regmap.h>
 +#include <net/dsa.h>
@@ -153,59 +155,54 @@ index 000000000000..ed7003b406cf
 +	MIB_DESC(1, 0xfc, "PortControlDrop"),
 +};
 +
-+static const u8 dsa_r50ohm_table[] = {
-+	127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
-+	127, 127, 127, 127, 127, 127, 127, 126, 122, 117,
-+	112, 109, 104, 101,  97,  94,  90,  88,  84,  80,
-+	78,  74,  72,  68,  66,  64,  61,  58,  56,  53,
-+	51,  48,  47,  44,  42,  40,  38,  36,  34,  32,
-+	31,  28,  27,  24,  24,  22,  20,  18,  16,  16,
-+	14,  12,  11,   9
-+};
-+
-+static u8 en8855_get_r50ohm_val(u8 shift_sel)
++static int an8855_mii_set_page(struct mii_bus *bus, u8 phy_id, u8 page)
 +{
-+	int i;
++	int ret;
 +
-+	for (i = 0; i < ARRAY_SIZE(dsa_r50ohm_table); i++)
-+		if (dsa_r50ohm_table[i] == shift_sel)
-+			break;
++	ret = __mdiobus_write(bus, phy_id, AN8855_PHY_SELECT_PAGE, page);
++	if (ret < 0)
++		dev_err_ratelimited(&bus->dev,
++				    "failed to set an8855 mii page\n");
 +
-+	if (i < 8 || i >= ARRAY_SIZE(dsa_r50ohm_table))
-+		return dsa_r50ohm_table[25];
-+
-+	return dsa_r50ohm_table[i - 8];
++	return ret;
 +}
 +
 +static int an8855_mii_read32(struct mii_bus *bus, u8 phy_id, u32 reg, u32 *val)
 +{
-+	u16 lo, hi;
-+	int ret;
++	int lo, hi, ret;
 +
-+	ret = bus->write(bus, phy_id, 0x1f, 0x4);
-+	ret = bus->write(bus, phy_id, 0x10, 0);
++	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_MODE,
++			      AN8855_PBUS_MODE_ADDR_FIXED);
++	if (ret < 0)
++		goto err;
 +
-+	ret = bus->write(bus, phy_id, 0x15, ((reg >> 16) & 0xFFFF));
-+	ret = bus->write(bus, phy_id, 0x16, (reg & 0xFFFF));
-+	if (ret < 0) {
-+		dev_err_ratelimited(&bus->dev,
-+				    "failed to read an8855 register\n");
-+		return ret;
++	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_RD_ADDR_HIGH,
++			      upper_16_bits(reg));
++	if (ret < 0)
++		goto err;
++	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_RD_ADDR_LOW,
++			      lower_16_bits(reg));
++	if (ret < 0)
++		goto err;
++
++	hi = __mdiobus_read(bus, phy_id, AN8855_PBUS_RD_DATA_HIGH);
++	if (hi < 0) {
++		ret = hi;
++		goto err;
++	}
++	lo = __mdiobus_read(bus, phy_id, AN8855_PBUS_RD_DATA_LOW);
++	if (lo < 0) {
++		ret = lo;
++		goto err;
 +	}
 +
-+	lo = bus->read(bus, phy_id, 0x18);
-+	hi = bus->read(bus, phy_id, 0x17);
-+
-+	ret = bus->write(bus, phy_id, 0x1f, 0);
-+	if (ret < 0) {
-+		dev_err_ratelimited(&bus->dev,
-+				    "failed to read an8855 register\n");
-+		return ret;
-+	}
-+
-+	*val = (hi << 16) | (lo & 0xffff);
++	*val = ((u16)hi << 16) | ((u16)lo & 0xffff);
 +
 +	return 0;
++err:
++	dev_err_ratelimited(&bus->dev,
++			    "failed to read an8855 register\n");
++	return ret;
 +}
 +
 +static int an8855_regmap_read(void *ctx, uint32_t reg, uint32_t *val)
@@ -214,9 +211,17 @@ index 000000000000..ed7003b406cf
 +	struct mii_bus *bus = priv->bus;
 +	int ret;
 +
-+	scoped_guard(mdio_mutex_nested, &bus->mdio_lock)
-+		ret = an8855_mii_read32(bus, priv->phy_base,
-+					reg, val);
++	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
++	ret = an8855_mii_set_page(bus, priv->phy_base, AN8855_PHY_PAGE_EXTENDED_4);
++	if (ret < 0)
++		goto exit;
++
++	ret = an8855_mii_read32(bus, priv->phy_base,
++				reg, val);
++
++exit:
++	an8855_mii_set_page(bus, priv->phy_base, AN8855_PHY_PAGE_STANDARD);
++	mutex_unlock(&bus->mdio_lock);
 +
 +	return ret < 0 ? ret : 0;
 +}
@@ -225,21 +230,34 @@ index 000000000000..ed7003b406cf
 +{
 +	int ret;
 +
-+	ret = bus->write(bus, phy_id, 0x1f, 0x4);
-+	ret = bus->write(bus, phy_id, 0x10, 0);
-+
-+	ret = bus->write(bus, phy_id, 0x11, ((reg >> 16) & 0xFFFF));
-+	ret = bus->write(bus, phy_id, 0x12, (reg & 0xFFFF));
-+
-+	ret = bus->write(bus, phy_id, 0x13, ((val >> 16) & 0xFFFF));
-+	ret = bus->write(bus, phy_id, 0x14, (val & 0xFFFF));
-+
-+	ret = bus->write(bus, phy_id, 0x1f, 0);
++	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_MODE,
++			      AN8855_PBUS_MODE_ADDR_FIXED);
 +	if (ret < 0)
-+		dev_err_ratelimited(&bus->dev,
-+				    "failed to write an8855 register\n");
++		goto err;
++
++	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_WR_ADDR_HIGH,
++			      upper_16_bits(reg));
++	if (ret < 0)
++		goto err;
++	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_WR_ADDR_LOW,
++			      lower_16_bits(reg));
++	if (ret < 0)
++		goto err;
++
++	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_WR_DATA_HIGH,
++			      upper_16_bits(val));
++	if (ret < 0)
++		goto err;
++	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_WR_DATA_LOW,
++			      lower_16_bits(val));
++	if (ret < 0)
++		goto err;
 +
 +	return 0;
++err:
++	dev_err_ratelimited(&bus->dev,
++			    "failed to write an8855 register\n");
++	return ret;
 +}
 +
 +static int
@@ -249,9 +267,17 @@ index 000000000000..ed7003b406cf
 +	struct mii_bus *bus = priv->bus;
 +	int ret;
 +
-+	scoped_guard(mdio_mutex_nested, &bus->mdio_lock)
-+		ret = an8855_mii_write32(priv->bus, priv->phy_base,
-+					 reg, val);
++	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
++	ret = an8855_mii_set_page(bus, priv->phy_base, AN8855_PHY_PAGE_EXTENDED_4);
++	if (ret < 0)
++		goto exit;
++
++	ret = an8855_mii_write32(priv->bus, priv->phy_base,
++				 reg, val);
++
++exit:
++	an8855_mii_set_page(bus, priv->phy_base, AN8855_PHY_PAGE_STANDARD);
++	mutex_unlock(&bus->mdio_lock);
 +
 +	return ret < 0 ? ret : 0;
 +}
@@ -264,12 +290,22 @@ index 000000000000..ed7003b406cf
 +	u32 val;
 +	int ret;
 +
-+	scoped_guard(mdio_mutex_nested, &bus->mdio_lock) {
-+		ret = an8855_mii_read32(bus, priv->phy_base, reg, &val);
-+		val &= ~mask;
-+		val |= write_val;
-+		ret = an8855_mii_write32(bus, priv->phy_base, reg, val);
-+	}
++	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
++	ret = an8855_mii_set_page(bus, priv->phy_base, AN8855_PHY_PAGE_EXTENDED_4);
++	if (ret < 0)
++		goto exit;
++
++	ret = an8855_mii_read32(bus, priv->phy_base, reg, &val);
++	if (ret < 0)
++		goto exit;
++
++	val &= ~mask;
++	val |= write_val;
++	ret = an8855_mii_write32(bus, priv->phy_base, reg, val);
++
++exit:
++	an8855_mii_set_page(bus, priv->phy_base, AN8855_PHY_PAGE_STANDARD);
++	mutex_unlock(&bus->mdio_lock);
 +
 +	return ret < 0 ? ret : 0;
 +}
@@ -285,7 +321,7 @@ index 000000000000..ed7003b406cf
 +	regmap_reg_range(0x1000a100, 0x1000a2ff), /* General Purpose Timer */
 +	regmap_reg_range(0x1000a200, 0x1000a2ff), /* GPU timer */
 +	regmap_reg_range(0x1000a300, 0x1000a3ff), /* GPIO */
-+	regmap_reg_range(0x1000a400, 0x1000a4ff), /* EFUSE */
++	regmap_reg_range(0x1000a400, 0x1000a5ff), /* EFUSE */
 +	regmap_reg_range(0x1000c000, 0x1000cfff), /* GDMP CSR */
 +	regmap_reg_range(0x10010000, 0x1001ffff), /* GDMP SRAM */
 +	regmap_reg_range(0x10200000, 0x10203fff), /* Switch - ARL Global */
@@ -313,7 +349,7 @@ index 000000000000..ed7003b406cf
 +	.reg_bits = 32,
 +	.val_bits = 32,
 +	.reg_stride = 4,
-+	.max_register = 0xbfffffff, /* TODO */
++	.max_register = 0xbfffffff,
 +	.reg_read = an8855_regmap_read,
 +	.reg_write = an8855_regmap_write,
 +	.reg_update_bits = an8855_regmap_update_bits,
@@ -506,10 +542,10 @@ index 000000000000..ed7003b406cf
 +	u8 port_mask = BIT(port);
 +	int ret;
 +
-+	scoped_guard(mutex, &priv->reg_mutex) {
-+		an8855_fdb_write(priv, vid, port_mask, addr, 1);
-+		ret = an8855_fdb_cmd(priv, AN8855_FDB_WRITE, NULL);
-+	}
++	mutex_lock(&priv->reg_mutex);
++	an8855_fdb_write(priv, vid, port_mask, addr, 1);
++	ret = an8855_fdb_cmd(priv, AN8855_FDB_WRITE, NULL);
++	mutex_unlock(&priv->reg_mutex);
 +
 +	return ret;
 +}
@@ -522,10 +558,10 @@ index 000000000000..ed7003b406cf
 +	u8 port_mask = BIT(port);
 +	int ret;
 +
-+	scoped_guard(mutex, &priv->reg_mutex) {
-+		an8855_fdb_write(priv, vid, port_mask, addr, 0);
-+		ret = an8855_fdb_cmd(priv, AN8855_FDB_WRITE, NULL);
-+	}
++	mutex_lock(&priv->reg_mutex);
++	an8855_fdb_write(priv, vid, port_mask, addr, 0);
++	ret = an8855_fdb_cmd(priv, AN8855_FDB_WRITE, NULL);
++	mutex_unlock(&priv->reg_mutex);
 +
 +	return ret;
 +}
@@ -803,8 +839,9 @@ index 000000000000..ed7003b406cf
 +	struct an8855_priv *priv = ds->priv;
 +	int ret;
 +
-+	scoped_guard(mutex, &priv->reg_mutex)
-+		ret = an8855_vlan_add(priv, port, vlan->vid, untagged);
++	mutex_lock(&priv->reg_mutex);
++	ret = an8855_vlan_add(priv, port, vlan->vid, untagged);
++	mutex_unlock(&priv->reg_mutex);
 +	if (ret)
 +		return ret;
 +
@@ -826,8 +863,9 @@ index 000000000000..ed7003b406cf
 +	u32 val;
 +	int ret;
 +
-+	scoped_guard(mutex, &priv->reg_mutex)
-+		ret = an8855_vlan_del(priv, port, vlan->vid);
++	mutex_lock(&priv->reg_mutex);
++	ret = an8855_vlan_del(priv, port, vlan->vid);
++	mutex_unlock(&priv->reg_mutex);
 +	if (ret)
 +		return ret;
 +
@@ -994,7 +1032,9 @@ index 000000000000..ed7003b406cf
 +		ret = regmap_read(priv->regmap, AN8855_PMCR_P(port), &reg);
 +		if (ret)
 +			return ret;
-+		if (reg & AN8855_PMCR_FORCE_MODE) {
++		/* Force enable EEE if force mode and LINK */
++		if (reg & AN8855_PMCR_FORCE_MODE &&
++		    reg & AN8855_PMCR_FORCE_LNK) {
 +			switch (reg & AN8855_PMCR_FORCE_SPEED) {
 +			case AN8855_PMCR_FORCE_SPEED_1000:
 +				reg |= AN8855_PMCR_FORCE_EEE1G;
@@ -1009,17 +1049,11 @@ index 000000000000..ed7003b406cf
 +			if (ret)
 +				return ret;
 +		}
-+		if (eee->tx_lpi_enabled) {
-+			ret = regmap_set_bits(priv->regmap, AN8855_PMEEECR_P(port),
-+					      AN8855_LPI_MODE_EN);
-+			if (ret)
-+				return ret;
-+		} else {
-+			ret = regmap_clear_bits(priv->regmap, AN8855_PMEEECR_P(port),
-+						AN8855_LPI_MODE_EN);
-+			if (ret)
-+				return ret;
-+		}
++		ret = regmap_update_bits(priv->regmap, AN8855_PMEEECR_P(port),
++					 AN8855_LPI_MODE_EN,
++					 eee->tx_lpi_enabled ? AN8855_LPI_MODE_EN : 0);
++		if (ret)
++			return ret;
 +	} else {
 +		ret = regmap_clear_bits(priv->regmap, AN8855_PMCR_P(port),
 +					AN8855_PMCR_FORCE_EEE1G |
@@ -1057,7 +1091,6 @@ index 000000000000..ed7003b406cf
 +	ret = regmap_read(priv->regmap, AN8855_PMSR_P(port), &reg);
 +	if (ret)
 +		return ret;
-+	eee->eee_active = reg & (AN8855_PMSR_EEE1G | AN8855_PMSR_EEE100M);
 +
 +	return 0;
 +}
@@ -1065,29 +1098,13 @@ index 000000000000..ed7003b406cf
 +static u32 en8855_get_phy_flags(struct dsa_switch *ds, int port)
 +{
 +	struct an8855_priv *priv = ds->priv;
-+	u8 calibration_data[4] = { };
-+	u8 shift_sel;
-+	u32 val;
-+	int ret;
-+	int i;
 +
 +	/* PHY doesn't need calibration */
 +	if (!priv->phy_require_calib)
 +		return 0;
 +
-+	/* Read Calibration value */
-+	for (i = 0; i < sizeof(u32); i++) {
-+		ret = regmap_read(priv->regmap, AN8855_EFUSE_DATA0 +
-+				  ((3 + i + (4 * port)) * 4), &val);
-+		if (ret)
-+			return 0;
-+
-+		shift_sel = FIELD_GET(AN8855_EFUSE_R50O, val);
-+		calibration_data[i] = en8855_get_r50ohm_val(shift_sel);
-+	}
-+
-+	memcpy(&val, calibration_data, sizeof(u32));
-+	return val;
++	/* Use BIT(0) to signal calibration needed */
++	return BIT(0);
 +}
 +
 +static enum dsa_tag_protocol
@@ -1097,20 +1114,18 @@ index 000000000000..ed7003b406cf
 +	return DSA_TAG_PROTO_MTK;
 +}
 +
-+static int an8855_phy_read(struct mii_bus *bus, int port, int regnum)
++static int an8855_phy_read(struct mii_bus *bus, int phy, int regnum)
 +{
 +	struct an8855_priv *priv = bus->priv;
 +
-+	return mdiobus_read_nested(priv->bus, priv->phy_base + port,
-+				   regnum);
++	return mdiobus_read_nested(priv->bus, phy, regnum);
 +}
 +
-+static int an8855_phy_write(struct mii_bus *bus, int port, int regnum, u16 val)
++static int an8855_phy_write(struct mii_bus *bus, int phy, int regnum, u16 val)
 +{
 +	struct an8855_priv *priv = bus->priv;
 +
-+	return mdiobus_write_nested(priv->bus, priv->phy_base + port,
-+				    regnum, val);
++	return mdiobus_write_nested(priv->bus, phy, regnum, val);
 +}
 +
 +static int an8855_mdio_setup(struct an8855_priv *priv)
@@ -1281,10 +1296,6 @@ index 000000000000..ed7003b406cf
 +		return;
 +	}
 +
-+	if (state->interface == PHY_INTERFACE_MODE_2500BASEX &&
-+	    phylink_autoneg_inband(mode))
-+		dev_err(ds->dev, "in-band negotiation unsupported");
-+
 +	regmap_update_bits(priv->regmap, AN8855_PMCR_P(port),
 +			   AN8855_PMCR_IFG_XMIT | AN8855_PMCR_MAC_MODE |
 +			   AN8855_PMCR_BACKOFF_EN | AN8855_PMCR_BACKPR_EN,
@@ -1327,11 +1338,16 @@ index 000000000000..ed7003b406cf
 +	struct dsa_port *dp = dsa_phylink_to_port(config);
 +	struct an8855_priv *priv = dp->ds->priv;
 +
-+	/* Disable TX/RX, force link down */
-+	regmap_update_bits(priv->regmap, AN8855_PMCR_P(dp->index),
-+			   AN8855_PMCR_TX_EN | AN8855_PMCR_RX_EN |
-+			   AN8855_PMCR_FORCE_MODE | AN8855_PMCR_FORCE_LNK,
-+			   AN8855_PMCR_FORCE_MODE);
++	/* With autoneg just disable TX/RX else also force link down */
++	if (phylink_autoneg_inband(mode)) {
++		regmap_clear_bits(priv->regmap, AN8855_PMCR_P(dp->index),
++				  AN8855_PMCR_TX_EN | AN8855_PMCR_RX_EN);
++	} else {
++		regmap_update_bits(priv->regmap, AN8855_PMCR_P(dp->index),
++				   AN8855_PMCR_TX_EN | AN8855_PMCR_RX_EN |
++				   AN8855_PMCR_FORCE_MODE | AN8855_PMCR_FORCE_LNK,
++				   AN8855_PMCR_FORCE_MODE);
++	}
 +}
 +
 +static void
@@ -1452,9 +1468,10 @@ index 000000000000..ed7003b406cf
 +	case PHY_INTERFACE_MODE_SGMII:
 +		break;
 +	case PHY_INTERFACE_MODE_2500BASEX:
-+		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
++		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED) {
++			dev_err(priv->dev, "in-band negotiation unsupported");
 +			return -EINVAL;
-+
++		}
 +		break;
 +	default:
 +		return -EINVAL;
@@ -1463,15 +1480,15 @@ index 000000000000..ed7003b406cf
 +	/*                   !!! WELCOME TO HELL !!!                   */
 +
 +	/* TX FIR - improve TX EYE */
-+	ret = regmap_update_bits(priv->regmap, AN8855_INTF_CTRL_10, GENMASK(21, 16),
-+				 FIELD_PREP(GENMASK(21, 16), 0x20));
-+	if (ret)
-+		return ret;
-+	ret = regmap_update_bits(priv->regmap, AN8855_INTF_CTRL_10, GENMASK(28, 24),
-+				 FIELD_PREP(GENMASK(28, 24), 0x4));
-+	if (ret)
-+		return ret;
-+	ret = regmap_set_bits(priv->regmap, AN8855_INTF_CTRL_10, BIT(29));
++	ret = regmap_update_bits(priv->regmap, AN8855_INTF_CTRL_10,
++				 AN8855_RG_DA_QP_TX_FIR_C2_SEL |
++				 AN8855_RG_DA_QP_TX_FIR_C2_FORCE |
++				 AN8855_RG_DA_QP_TX_FIR_C1_SEL |
++				 AN8855_RG_DA_QP_TX_FIR_C1_FORCE,
++				 AN8855_RG_DA_QP_TX_FIR_C2_SEL |
++				 FIELD_PREP(AN8855_RG_DA_QP_TX_FIR_C2_FORCE, 0x4) |
++				 AN8855_RG_DA_QP_TX_FIR_C1_SEL |
++				 FIELD_PREP(AN8855_RG_DA_QP_TX_FIR_C1_FORCE, 0x0));
 +	if (ret)
 +		return ret;
 +
@@ -1479,11 +1496,11 @@ index 000000000000..ed7003b406cf
 +		val = 0x0;
 +	else
 +		val = 0xd;
-+	ret = regmap_update_bits(priv->regmap, AN8855_INTF_CTRL_11, GENMASK(5, 0),
-+				 FIELD_PREP(GENMASK(5, 0), val));
-+	if (ret)
-+		return ret;
-+	ret = regmap_set_bits(priv->regmap, AN8855_INTF_CTRL_11, BIT(6));
++	ret = regmap_update_bits(priv->regmap, AN8855_INTF_CTRL_11,
++				 AN8855_RG_DA_QP_TX_FIR_C0B_SEL |
++				 AN8855_RG_DA_QP_TX_FIR_C0B_FORCE,
++				 AN8855_RG_DA_QP_TX_FIR_C0B_SEL |
++				 FIELD_PREP(AN8855_RG_DA_QP_TX_FIR_C0B_FORCE, val));
 +	if (ret)
 +		return ret;
 +
@@ -1492,12 +1509,11 @@ index 000000000000..ed7003b406cf
 +		val = 0x5;
 +	else
 +		val = 0x6;
-+	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_LPF_BOT_LIM, GENMASK(26, 24),
-+				 FIELD_PREP(GENMASK(26, 24), val));
-+	if (ret)
-+		return ret;
-+	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_LPF_BOT_LIM, GENMASK(22, 20),
-+				 FIELD_PREP(GENMASK(22, 20), val));
++	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_LPF_BOT_LIM,
++				 AN8855_RG_QP_CDR_LPF_KP_GAIN |
++				 AN8855_RG_QP_CDR_LPF_KI_GAIN,
++				 FIELD_PREP(AN8855_RG_QP_CDR_LPF_KP_GAIN, val) |
++				 FIELD_PREP(AN8855_RG_QP_CDR_LPF_KI_GAIN, val));
 +	if (ret)
 +		return ret;
 +
@@ -1506,39 +1522,36 @@ index 000000000000..ed7003b406cf
 +		val = 0x1;
 +	else
 +		val = 0x0;
-+	ret = regmap_update_bits(priv->regmap, AN8855_QP_DIG_MODE_CTRL_1, GENMASK(3, 2),
-+				 FIELD_PREP(GENMASK(3, 2), val));
++	ret = regmap_update_bits(priv->regmap, AN8855_QP_DIG_MODE_CTRL_1,
++				 AN8855_RG_TPHY_SPEED,
++				 FIELD_PREP(AN8855_RG_TPHY_SPEED, val));
 +	if (ret)
 +		return ret;
 +
 +	/* PLL - LPF */
-+	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(1, 0),
-+				 FIELD_PREP(GENMASK(1, 0), 0x1));
-+	if (ret)
-+		return ret;
-+	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(4, 2),
-+				 FIELD_PREP(GENMASK(4, 2), 0x5));
-+	if (ret)
-+		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(6) | BIT(7));
-+	if (ret)
-+		return ret;
-+	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(10, 8),
-+				 FIELD_PREP(GENMASK(10, 8), 0x3));
-+	if (ret)
-+		return ret;
-+	ret = regmap_set_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(29));
-+	if (ret)
-+		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(12) | BIT(13));
++	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2,
++				 AN8855_RG_DA_QP_PLL_RICO_SEL_INTF |
++				 AN8855_RG_DA_QP_PLL_FBKSEL_INTF |
++				 AN8855_RG_DA_QP_PLL_BR_INTF |
++				 AN8855_RG_DA_QP_PLL_BPD_INTF |
++				 AN8855_RG_DA_QP_PLL_BPA_INTF |
++				 AN8855_RG_DA_QP_PLL_BC_INTF,
++				 AN8855_RG_DA_QP_PLL_RICO_SEL_INTF |
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_FBKSEL_INTF, 0x0) |
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_BR_INTF, 0x3) |
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_BPD_INTF, 0x0) |
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_BPA_INTF, 0x5) |
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_BC_INTF, 0x1));
 +	if (ret)
 +		return ret;
 +
 +	/* PLL - ICO */
-+	ret = regmap_set_bits(priv->regmap, AN8855_PLL_CTRL_4, BIT(2));
++	ret = regmap_set_bits(priv->regmap, AN8855_PLL_CTRL_4,
++			      AN8855_RG_DA_QP_PLL_ICOLP_EN_INTF);
 +	if (ret)
 +		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(14));
++	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2,
++				AN8855_RG_DA_QP_PLL_ICOIQ_EN_INTF);
 +	if (ret)
 +		return ret;
 +
@@ -1547,46 +1560,45 @@ index 000000000000..ed7003b406cf
 +		val = 0x6;
 +	else
 +		val = 0x4;
-+	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(19, 16),
-+				 FIELD_PREP(GENMASK(19, 16), val));
++	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2,
++				 AN8855_RG_DA_QP_PLL_IR_INTF,
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_IR_INTF, val));
 +	if (ret)
 +		return ret;
 +
 +	/* PLL - PFD */
-+	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(21, 20),
-+				 FIELD_PREP(GENMASK(21, 20), 0x1));
-+	if (ret)
-+		return ret;
-+	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2, GENMASK(25, 24),
-+				 FIELD_PREP(GENMASK(25, 24), 0x1));
-+	if (ret)
-+		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(26));
++	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2,
++				 AN8855_RG_DA_QP_PLL_PFD_OFFSET_EN_INTRF |
++				 AN8855_RG_DA_QP_PLL_PFD_OFFSET_INTF |
++				 AN8855_RG_DA_QP_PLL_KBAND_PREDIV_INTF,
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_PFD_OFFSET_INTF, 0x1) |
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_KBAND_PREDIV_INTF, 0x1));
 +	if (ret)
 +		return ret;
 +
 +	/* PLL - POSTDIV */
-+	ret = regmap_set_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(22));
-+	if (ret)
-+		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(27));
-+	if (ret)
-+		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(28));
++	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2,
++				 AN8855_RG_DA_QP_PLL_POSTDIV_EN_INTF |
++				 AN8855_RG_DA_QP_PLL_PHY_CK_EN_INTF |
++				 AN8855_RG_DA_QP_PLL_PCK_SEL_INTF,
++				 AN8855_RG_DA_QP_PLL_PCK_SEL_INTF);
 +	if (ret)
 +		return ret;
 +
 +	/* PLL - SDM */
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_4, BIT(3) | BIT(4));
++	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_2,
++				 AN8855_RG_DA_QP_PLL_SDM_HREN_INTF,
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_SDM_HREN_INTF, 0x0));
 +	if (ret)
 +		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2, BIT(30));
++	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_2,
++				AN8855_RG_DA_QP_PLL_SDM_IFM_INTF);
 +	if (ret)
 +		return ret;
 +
 +	ret = regmap_update_bits(priv->regmap, AN8855_SS_LCPLL_PWCTL_SETTING_2,
-+				 GENMASK(17, 16),
-+				 FIELD_PREP(GENMASK(17, 16), 0x1));
++				 AN8855_RG_NCPO_ANA_MSB,
++				 FIELD_PREP(AN8855_RG_NCPO_ANA_MSB, 0x1));
 +	if (ret)
 +		return ret;
 +
@@ -1594,50 +1606,65 @@ index 000000000000..ed7003b406cf
 +		val = 0x7a000000;
 +	else
 +		val = 0x48000000;
-+	ret = regmap_write(priv->regmap, AN8855_SS_LCPLL_TDC_FLT_2, val);
++	ret = regmap_write(priv->regmap, AN8855_SS_LCPLL_TDC_FLT_2,
++			   FIELD_PREP(AN8855_RG_LCPLL_NCPO_VALUE, val));
 +	if (ret)
 +		return ret;
-+	ret = regmap_write(priv->regmap, AN8855_SS_LCPLL_TDC_PCW_1, val);
++	ret = regmap_write(priv->regmap, AN8855_SS_LCPLL_TDC_PCW_1,
++			   FIELD_PREP(AN8855_RG_LCPLL_PON_HRDDS_PCW_NCPO_GPON, val));
 +	if (ret)
 +		return ret;
 +
-+	ret = regmap_clear_bits(priv->regmap, AN8855_SS_LCPLL_TDC_FLT_5, BIT(24));
++	ret = regmap_clear_bits(priv->regmap, AN8855_SS_LCPLL_TDC_FLT_5,
++				AN8855_RG_LCPLL_NCPO_CHG);
 +	if (ret)
 +		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CK_CTRL_0, BIT(8));
++	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CK_CTRL_0,
++				AN8855_RG_DA_QP_PLL_SDM_DI_EN_INTF);
 +	if (ret)
 +		return ret;
 +
 +	/* PLL - SS */
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_3, GENMASK(15, 0));
++	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_3,
++				 AN8855_RG_DA_QP_PLL_SSC_DELTA_INTF,
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_SSC_DELTA_INTF, 0x0));
 +	if (ret)
 +		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_4, GENMASK(1, 0));
++	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_4,
++				 AN8855_RG_DA_QP_PLL_SSC_DIR_DLY_INTF,
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_SSC_DIR_DLY_INTF, 0x0));
 +	if (ret)
 +		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CTRL_3, GENMASK(31, 16));
++	ret = regmap_update_bits(priv->regmap, AN8855_PLL_CTRL_3,
++				 AN8855_RG_DA_QP_PLL_SSC_PERIOD_INTF,
++				 FIELD_PREP(AN8855_RG_DA_QP_PLL_SSC_PERIOD_INTF, 0x0));
 +	if (ret)
 +		return ret;
 +
 +	/* PLL - TDC */
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CK_CTRL_0, BIT(9));
++	ret = regmap_clear_bits(priv->regmap, AN8855_PLL_CK_CTRL_0,
++				AN8855_RG_DA_QP_PLL_TDC_TXCK_SEL_INTF);
 +	if (ret)
 +		return ret;
 +
-+	ret = regmap_set_bits(priv->regmap, AN8855_RG_QP_PLL_SDM_ORD, BIT(3));
++	ret = regmap_set_bits(priv->regmap, AN8855_RG_QP_PLL_SDM_ORD,
++			      AN8855_RG_QP_PLL_SSC_TRI_EN);
 +	if (ret)
 +		return ret;
-+	ret = regmap_set_bits(priv->regmap, AN8855_RG_QP_PLL_SDM_ORD, BIT(4));
++	ret = regmap_set_bits(priv->regmap, AN8855_RG_QP_PLL_SDM_ORD,
++			      AN8855_RG_QP_PLL_SSC_PHASE_INI);
 +	if (ret)
 +		return ret;
 +
-+	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_RX_DAC_EN, GENMASK(17, 16),
-+				 FIELD_PREP(GENMASK(17, 16), 0x2));
++	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_RX_DAC_EN,
++				 AN8855_RG_QP_SIGDET_HF,
++				 FIELD_PREP(AN8855_RG_QP_SIGDET_HF, 0x2));
 +	if (ret)
 +		return ret;
 +
 +	/* TCL Disable (only for Co-SIM) */
-+	ret = regmap_clear_bits(priv->regmap, AN8855_PON_RXFEDIG_CTRL_0, BIT(12));
++	ret = regmap_clear_bits(priv->regmap, AN8855_PON_RXFEDIG_CTRL_0,
++				AN8855_RG_QP_EQ_RX500M_CK_SEL);
 +	if (ret)
 +		return ret;
 +
@@ -1646,17 +1673,16 @@ index 000000000000..ed7003b406cf
 +		val = 0x4;
 +	else
 +		val = 0x0;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_RG_QP_TX_MODE_16B_EN, BIT(0));
-+	if (ret)
-+		return ret;
-+	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_TX_MODE_16B_EN,
-+				 GENMASK(31, 16),
-+				 FIELD_PREP(GENMASK(31, 16), val));
++	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_TX_MODE,
++				 AN8855_RG_QP_TX_RESERVE |
++				 AN8855_RG_QP_TX_MODE_16B_EN,
++				 FIELD_PREP(AN8855_RG_QP_TX_RESERVE, val));
 +	if (ret)
 +		return ret;
 +
 +	/* RX Control/Init */
-+	ret = regmap_set_bits(priv->regmap, AN8855_RG_QP_RXAFE_RESERVE, BIT(11));
++	ret = regmap_set_bits(priv->regmap, AN8855_RG_QP_RXAFE_RESERVE,
++			      AN8855_RG_QP_CDR_PD_10B_EN);
 +	if (ret)
 +		return ret;
 +
@@ -1665,19 +1691,16 @@ index 000000000000..ed7003b406cf
 +	else
 +		val = 0x2;
 +	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_LPF_MJV_LIM,
-+				 GENMASK(5, 4),
-+				 FIELD_PREP(GENMASK(5, 4), val));
++				 AN8855_RG_QP_CDR_LPF_RATIO,
++				 FIELD_PREP(AN8855_RG_QP_CDR_LPF_RATIO, val));
 +	if (ret)
 +		return ret;
 +
 +	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_LPF_SETVALUE,
-+				 GENMASK(28, 25),
-+				 FIELD_PREP(GENMASK(28, 25), 0x1));
-+	if (ret)
-+		return ret;
-+	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_LPF_SETVALUE,
-+				 GENMASK(31, 29),
-+				 FIELD_PREP(GENMASK(31, 29), 0x6));
++				 AN8855_RG_QP_CDR_PR_BUF_IN_SR |
++				 AN8855_RG_QP_CDR_PR_BETA_SEL,
++				 FIELD_PREP(AN8855_RG_QP_CDR_PR_BUF_IN_SR, 0x6) |
++				 FIELD_PREP(AN8855_RG_QP_CDR_PR_BETA_SEL, 0x1));
 +	if (ret)
 +		return ret;
 +
@@ -1686,84 +1709,78 @@ index 000000000000..ed7003b406cf
 +	else
 +		val = 0xc;
 +	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_PR_CKREF_DIV1,
-+				 GENMASK(12, 8),
-+				 FIELD_PREP(GENMASK(12, 8), val));
++				 AN8855_RG_QP_CDR_PR_DAC_BAND,
++				 FIELD_PREP(AN8855_RG_QP_CDR_PR_DAC_BAND, val));
 +	if (ret)
 +		return ret;
 +
 +	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_PR_KBAND_DIV_PCIE,
-+				 GENMASK(12, 8),
-+				 FIELD_PREP(GENMASK(12, 8), 0x19));
-+	if (ret)
-+		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_RG_QP_CDR_PR_KBAND_DIV_PCIE, BIT(6));
++				 AN8855_RG_QP_CDR_PR_KBAND_PCIE_MODE |
++				 AN8855_RG_QP_CDR_PR_KBAND_DIV_PCIE_MASK,
++				 FIELD_PREP(AN8855_RG_QP_CDR_PR_KBAND_DIV_PCIE_MASK, 0x19));
 +	if (ret)
 +		return ret;
 +
 +	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_FORCE_IBANDLPF_R_OFF,
-+				 GENMASK(12, 6),
-+				 FIELD_PREP(GENMASK(12, 6), 0x21));
-+	if (ret)
-+		return ret;
-+	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_FORCE_IBANDLPF_R_OFF,
-+				 GENMASK(17, 16),
-+				 FIELD_PREP(GENMASK(17, 16), 0x2));
-+	if (ret)
-+		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_RG_QP_CDR_FORCE_IBANDLPF_R_OFF, BIT(13));
++				 AN8855_RG_QP_CDR_PHYCK_SEL |
++				 AN8855_RG_QP_CDR_PHYCK_RSTB |
++				 AN8855_RG_QP_CDR_PHYCK_DIV,
++				 FIELD_PREP(AN8855_RG_QP_CDR_PHYCK_SEL, 0x2) |
++				 FIELD_PREP(AN8855_RG_QP_CDR_PHYCK_DIV, 0x21));
 +	if (ret)
 +		return ret;
 +
-+	ret = regmap_clear_bits(priv->regmap, AN8855_RG_QP_CDR_PR_KBAND_DIV_PCIE, BIT(30));
++	ret = regmap_clear_bits(priv->regmap, AN8855_RG_QP_CDR_PR_KBAND_DIV_PCIE,
++				AN8855_RG_QP_CDR_PR_XFICK_EN);
 +	if (ret)
 +		return ret;
 +
 +	ret = regmap_update_bits(priv->regmap, AN8855_RG_QP_CDR_PR_CKREF_DIV1,
-+				 GENMASK(26, 24),
-+				 FIELD_PREP(GENMASK(26, 24), 0x4));
++				 AN8855_RG_QP_CDR_PR_KBAND_DIV,
++				 FIELD_PREP(AN8855_RG_QP_CDR_PR_KBAND_DIV, 0x4));
 +	if (ret)
 +		return ret;
 +
-+	ret = regmap_set_bits(priv->regmap, AN8855_RX_CTRL_26, BIT(23));
-+	if (ret)
-+		return ret;
-+	ret = regmap_clear_bits(priv->regmap, AN8855_RX_CTRL_26, BIT(24));
-+	if (ret)
-+		return ret;
-+	ret = regmap_set_bits(priv->regmap, AN8855_RX_CTRL_26, BIT(26));
-+	if (ret)
-+		return ret;
-+
-+	ret = regmap_update_bits(priv->regmap, AN8855_RX_DLY_0, GENMASK(7, 0),
-+				 FIELD_PREP(GENMASK(7, 0), 0x6f));
-+	if (ret)
-+		return ret;
-+	ret = regmap_set_bits(priv->regmap, AN8855_RX_DLY_0, GENMASK(13, 8));
++	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_26,
++				 AN8855_RG_QP_EQ_RETRAIN_ONLY_EN |
++				 AN8855_RG_LINK_NE_EN |
++				 AN8855_RG_LINK_ERRO_EN,
++				 AN8855_RG_QP_EQ_RETRAIN_ONLY_EN |
++				 AN8855_RG_LINK_ERRO_EN);
 +	if (ret)
 +		return ret;
 +
-+	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_42, GENMASK(12, 0),
-+				 FIELD_PREP(GENMASK(12, 0), 0x150));
++	ret = regmap_update_bits(priv->regmap, AN8855_RX_DLY_0,
++				 AN8855_RG_QP_RX_SAOSC_EN_H_DLY |
++				 AN8855_RG_QP_RX_PI_CAL_EN_H_DLY,
++				 FIELD_PREP(AN8855_RG_QP_RX_SAOSC_EN_H_DLY, 0x3f) |
++				 FIELD_PREP(AN8855_RG_QP_RX_PI_CAL_EN_H_DLY, 0x6f));
 +	if (ret)
 +		return ret;
 +
-+	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_2, GENMASK(28, 16),
-+				 FIELD_PREP(GENMASK(28, 16), 0x150));
++	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_42,
++				 AN8855_RG_QP_EQ_EN_DLY,
++				 FIELD_PREP(AN8855_RG_QP_EQ_EN_DLY, 0x150));
++	if (ret)
++		return ret;
++
++	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_2,
++				 AN8855_RG_QP_RX_EQ_EN_H_DLY,
++				 FIELD_PREP(AN8855_RG_QP_RX_EQ_EN_H_DLY, 0x150));
 +	if (ret)
 +		return ret;
 +
 +	ret = regmap_update_bits(priv->regmap, AN8855_PON_RXFEDIG_CTRL_9,
-+				 GENMASK(2, 0),
-+				 FIELD_PREP(GENMASK(2, 0), 0x1));
++				 AN8855_RG_QP_EQ_LEQOSC_DLYCNT,
++				 FIELD_PREP(AN8855_RG_QP_EQ_LEQOSC_DLYCNT, 0x1));
 +	if (ret)
 +		return ret;
 +
-+	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_8, GENMASK(27, 16),
-+				 FIELD_PREP(GENMASK(27, 16), 0x200));
-+	if (ret)
-+		return ret;
-+	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_8, GENMASK(14, 0),
-+				 FIELD_PREP(GENMASK(14, 0), 0xfff));
++	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_8,
++				 AN8855_RG_DA_QP_SAOSC_DONE_TIME |
++				 AN8855_RG_DA_QP_LEQOS_EN_TIME,
++				 FIELD_PREP(AN8855_RG_DA_QP_SAOSC_DONE_TIME, 0x200) |
++				 FIELD_PREP(AN8855_RG_DA_QP_LEQOS_EN_TIME, 0xfff));
 +	if (ret)
 +		return ret;
 +
@@ -1772,22 +1789,26 @@ index 000000000000..ed7003b406cf
 +		val = 0x10;
 +	else
 +		val = 0x28;
-+	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_5, GENMASK(29, 10),
-+				 FIELD_PREP(GENMASK(29, 10), val));
++	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_5,
++				 AN8855_RG_FREDET_CHK_CYCLE,
++				 FIELD_PREP(AN8855_RG_FREDET_CHK_CYCLE, val));
 +	if (ret)
 +		return ret;
 +
-+	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_6, GENMASK(19, 0),
-+				 FIELD_PREP(GENMASK(19, 0), 0x64));
++	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_6,
++				 AN8855_RG_FREDET_GOLDEN_CYCLE,
++				 FIELD_PREP(AN8855_RG_FREDET_GOLDEN_CYCLE, 0x64));
 +	if (ret)
 +		return ret;
 +
-+	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_7, GENMASK(19, 0),
-+				 FIELD_PREP(GENMASK(19, 0), 0x2710));
++	ret = regmap_update_bits(priv->regmap, AN8855_RX_CTRL_7,
++				 AN8855_RG_FREDET_TOLERATE_CYCLE,
++				 FIELD_PREP(AN8855_RG_FREDET_TOLERATE_CYCLE, 0x2710));
 +	if (ret)
 +		return ret;
 +
-+	ret = regmap_set_bits(priv->regmap, AN8855_PLL_CTRL_0, BIT(0));
++	ret = regmap_set_bits(priv->regmap, AN8855_PLL_CTRL_0,
++			      AN8855_RG_PHYA_AUTO_INIT);
 +	if (ret)
 +		return ret;
 +
@@ -1795,118 +1816,121 @@ index 000000000000..ed7003b406cf
 +	if (interface == PHY_INTERFACE_MODE_SGMII &&
 +	    neg_mode == PHYLINK_PCS_NEG_INBAND_DISABLED) {
 +		ret = regmap_clear_bits(priv->regmap, AN8855_QP_DIG_MODE_CTRL_0,
-+					BIT(0));
-+		if (ret)
-+			return ret;
-+		ret = regmap_clear_bits(priv->regmap, AN8855_QP_DIG_MODE_CTRL_0,
-+					GENMASK(5, 4));
++					AN8855_RG_SGMII_MODE | AN8855_RG_SGMII_AN_EN);
 +		if (ret)
 +			return ret;
 +	}
 +
-+	ret = regmap_clear_bits(priv->regmap, AN8855_RG_HSGMII_PCS_CTROL_1, BIT(30));
++	ret = regmap_clear_bits(priv->regmap, AN8855_RG_HSGMII_PCS_CTROL_1,
++				AN8855_RG_TBI_10B_MODE);
 +	if (ret)
 +		return ret;
 +
 +	if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED) {
 +		/* Set AN Ability - Interrupt */
-+		ret = regmap_set_bits(priv->regmap, AN8855_SGMII_REG_AN_FORCE_CL37, BIT(0));
++		ret = regmap_set_bits(priv->regmap, AN8855_SGMII_REG_AN_FORCE_CL37,
++				      AN8855_RG_FORCE_AN_DONE);
 +		if (ret)
 +			return ret;
 +
 +		ret = regmap_update_bits(priv->regmap, AN8855_SGMII_REG_AN_13,
-+					 GENMASK(5, 0),
-+					 FIELD_PREP(GENMASK(5, 0), 0xb));
-+		if (ret)
-+			return ret;
-+		ret = regmap_set_bits(priv->regmap, AN8855_SGMII_REG_AN_13, BIT(8));
++					 AN8855_SGMII_REMOTE_FAULT_DIS |
++					 AN8855_SGMII_IF_MODE,
++					 AN8855_SGMII_REMOTE_FAULT_DIS |
++					 FIELD_PREP(AN8855_SGMII_IF_MODE, 0xb));
 +		if (ret)
 +			return ret;
 +	}
 +
 +	/* Rate Adaption - GMII path config. */
 +	if (interface == PHY_INTERFACE_MODE_2500BASEX) {
-+		ret = regmap_clear_bits(priv->regmap, AN8855_RATE_ADP_P0_CTRL_0, BIT(31));
++		ret = regmap_clear_bits(priv->regmap, AN8855_RATE_ADP_P0_CTRL_0,
++					AN8855_RG_P0_DIS_MII_MODE);
 +		if (ret)
 +			return ret;
 +	} else {
 +		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED) {
-+			ret = regmap_set_bits(priv->regmap, AN8855_MII_RA_AN_ENABLE, BIT(0));
++			ret = regmap_set_bits(priv->regmap, AN8855_MII_RA_AN_ENABLE,
++					      AN8855_RG_P0_RA_AN_EN);
 +			if (ret)
 +				return ret;
 +		} else {
-+			ret = regmap_set_bits(priv->regmap, AN8855_RG_AN_SGMII_MODE_FORCE,
-+					      BIT(0));
-+			if (ret)
-+				return ret;
-+			ret = regmap_clear_bits(priv->regmap, AN8855_RG_AN_SGMII_MODE_FORCE,
-+						GENMASK(5, 4));
++			ret = regmap_update_bits(priv->regmap, AN8855_RG_AN_SGMII_MODE_FORCE,
++						 AN8855_RG_FORCE_CUR_SGMII_MODE |
++						 AN8855_RG_FORCE_CUR_SGMII_SEL,
++						 AN8855_RG_FORCE_CUR_SGMII_SEL);
 +			if (ret)
 +				return ret;
 +
 +			ret = regmap_clear_bits(priv->regmap, AN8855_RATE_ADP_P0_CTRL_0,
-+						GENMASK(3, 0));
++						AN8855_RG_P0_MII_RA_RX_EN |
++						AN8855_RG_P0_MII_RA_TX_EN |
++						AN8855_RG_P0_MII_RA_RX_MODE |
++						AN8855_RG_P0_MII_RA_TX_MODE);
 +			if (ret)
 +				return ret;
 +		}
 +
-+		ret = regmap_set_bits(priv->regmap, AN8855_RATE_ADP_P0_CTRL_0, BIT(28));
++		ret = regmap_set_bits(priv->regmap, AN8855_RATE_ADP_P0_CTRL_0,
++				      AN8855_RG_P0_MII_MODE);
 +		if (ret)
 +			return ret;
 +	}
 +
-+	ret = regmap_set_bits(priv->regmap, AN8855_RG_RATE_ADAPT_CTRL_0, BIT(0));
-+	if (ret)
-+		return ret;
-+	ret = regmap_set_bits(priv->regmap, AN8855_RG_RATE_ADAPT_CTRL_0, BIT(4));
-+	if (ret)
-+		return ret;
-+	ret = regmap_set_bits(priv->regmap, AN8855_RG_RATE_ADAPT_CTRL_0, GENMASK(27, 26));
++	ret = regmap_set_bits(priv->regmap, AN8855_RG_RATE_ADAPT_CTRL_0,
++			      AN8855_RG_RATE_ADAPT_RX_BYPASS |
++			      AN8855_RG_RATE_ADAPT_TX_BYPASS |
++			      AN8855_RG_RATE_ADAPT_RX_EN |
++			      AN8855_RG_RATE_ADAPT_TX_EN);
 +	if (ret)
 +		return ret;
 +
-+	/* Disable AN */
-+	if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED) {
-+		ret = regmap_set_bits(priv->regmap, AN8855_SGMII_REG_AN0,
-+				      AN8855_SGMII_AN_ENABLE);
-+		if (ret)
-+			return ret;
-+	} else {
-+		ret = regmap_clear_bits(priv->regmap, AN8855_SGMII_REG_AN0,
-+					AN8855_SGMII_AN_ENABLE);
-+		if (ret)
-+			return ret;
-+	}
++	/* Disable AN if not in autoneg */
++	ret = regmap_update_bits(priv->regmap, AN8855_SGMII_REG_AN0, BMCR_ANENABLE,
++				 neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED ? BMCR_ANENABLE :
++									      0);
 +
 +	if (interface == PHY_INTERFACE_MODE_SGMII &&
 +	    neg_mode == PHYLINK_PCS_NEG_INBAND_DISABLED) {
-+		ret = regmap_set_bits(priv->regmap, AN8855_PHY_RX_FORCE_CTRL_0, BIT(4));
++		ret = regmap_set_bits(priv->regmap, AN8855_PHY_RX_FORCE_CTRL_0,
++				      AN8855_RG_FORCE_TXC_SEL);
 +		if (ret)
 +			return ret;
 +	}
 +
-+	/* Force Speed */
++	/* Force Speed with fixed-link or 2500base-x as doesn't support aneg */
 +	if (interface == PHY_INTERFACE_MODE_2500BASEX ||
-+	    neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED) {
++	    neg_mode != PHYLINK_PCS_NEG_INBAND_ENABLED) {
 +		if (interface == PHY_INTERFACE_MODE_2500BASEX)
-+			val = 0x3;
++			val = AN8855_RG_LINK_MODE_P0_SPEED_2500;
 +		else
-+			val = 0x2;
-+		ret = regmap_set_bits(priv->regmap, AN8855_SGMII_STS_CTRL_0, BIT(2));
-+		if (ret)
-+			return ret;
++			val = AN8855_RG_LINK_MODE_P0_SPEED_1000;
 +		ret = regmap_update_bits(priv->regmap, AN8855_SGMII_STS_CTRL_0,
-+					 GENMASK(5, 4),
-+					 FIELD_PREP(GENMASK(5, 4), val));
++					 AN8855_RG_LINK_MODE_P0 |
++					 AN8855_RG_FORCE_SPD_MODE_P0,
++					 val | AN8855_RG_FORCE_SPD_MODE_P0);
 +		if (ret)
 +			return ret;
 +	}
 +
 +	/* bypass flow control to MAC */
-+	ret = regmap_write(priv->regmap, AN8855_MSG_RX_LIK_STS_0, 0x01010107);
++	ret = regmap_write(priv->regmap, AN8855_MSG_RX_LIK_STS_0,
++			   AN8855_RG_DPX_STS_P3 | AN8855_RG_DPX_STS_P2 |
++			   AN8855_RG_DPX_STS_P1 | AN8855_RG_TXFC_STS_P0 |
++			   AN8855_RG_RXFC_STS_P0 | AN8855_RG_DPX_STS_P0);
 +	if (ret)
 +		return ret;
-+	ret = regmap_write(priv->regmap, AN8855_MSG_RX_LIK_STS_2, 0x00000EEF);
++	ret = regmap_write(priv->regmap, AN8855_MSG_RX_LIK_STS_2,
++			   AN8855_RG_RXFC_AN_BYPASS_P3 |
++			   AN8855_RG_RXFC_AN_BYPASS_P2 |
++			   AN8855_RG_RXFC_AN_BYPASS_P1 |
++			   AN8855_RG_TXFC_AN_BYPASS_P3 |
++			   AN8855_RG_TXFC_AN_BYPASS_P2 |
++			   AN8855_RG_TXFC_AN_BYPASS_P1 |
++			   AN8855_RG_DPX_AN_BYPASS_P3 |
++			   AN8855_RG_DPX_AN_BYPASS_P2 |
++			   AN8855_RG_DPX_AN_BYPASS_P1 |
++			   AN8855_RG_DPX_AN_BYPASS_P0);
 +	if (ret)
 +		return ret;
 +
@@ -1917,8 +1941,7 @@ index 000000000000..ed7003b406cf
 +{
 +	struct an8855_priv *priv = container_of(pcs, struct an8855_priv, pcs);
 +
-+	regmap_set_bits(priv->regmap, AN8855_SGMII_REG_AN0,
-+			AN8855_SGMII_AN_RESTART);
++	regmap_set_bits(priv->regmap, AN8855_SGMII_REG_AN0, BMCR_ANRESTART);
 +}
 +
 +static const struct phylink_pcs_ops an8855_pcs_ops = {
@@ -1978,6 +2001,36 @@ index 000000000000..ed7003b406cf
 +	return 0;
 +}
 +
++static int an8855_efuse_read(void *context, unsigned int offset,
++			     void *val, size_t bytes)
++{
++	struct an8855_priv *priv = context;
++
++	return regmap_bulk_read(priv->regmap, AN8855_EFUSE_DATA0 + offset,
++				val, bytes / sizeof(u32));
++}
++
++static struct nvmem_config an8855_nvmem_config = {
++	.name = "an8855-efuse",
++	.size = AN8855_EFUSE_CELL * sizeof(u32),
++	.stride = sizeof(u32),
++	.word_size = sizeof(u32),
++	.reg_read = an8855_efuse_read,
++};
++
++static int an8855_sw_register_nvmem(struct an8855_priv *priv)
++{
++	struct nvmem_device *nvmem;
++
++	an8855_nvmem_config.priv = priv;
++	an8855_nvmem_config.dev = priv->dev;
++	nvmem = devm_nvmem_register(priv->dev, &an8855_nvmem_config);
++	if (IS_ERR(nvmem))
++		return PTR_ERR(nvmem);
++
++	return 0;
++}
++
 +static int
 +an8855_sw_probe(struct mdio_device *mdiodev)
 +{
@@ -1991,9 +2044,9 @@ index 000000000000..ed7003b406cf
 +
 +	priv->bus = mdiodev->bus;
 +	priv->dev = &mdiodev->dev;
-+	priv->phy_base = AN8855_GPHY_SMI_ADDR_DEFAULT;
++	priv->phy_base = mdiodev->addr;
 +	priv->phy_require_calib = of_property_read_bool(priv->dev->of_node,
-+							"airoha,ext_surge");
++							"airoha,ext-surge");
 +
 +	priv->reset_gpio = devm_gpiod_get_optional(priv->dev, "reset",
 +						   GPIOD_OUT_LOW);
@@ -2024,16 +2077,6 @@ index 000000000000..ed7003b406cf
 +	if (ret)
 +		return ret;
 +
-+	/* Change base switch PHY address to new address on the BUS */
-+	if (!of_property_read_u32(priv->dev->of_node,
-+				  "airoha,base_smi_address", &val) &&
-+	    val < PHY_MAX_ADDR) {
-+		ret = regmap_write(priv->regmap, AN8855_RG_GPHY_SMI_ADDR, val);
-+		if (ret)
-+			return ret;
-+		priv->phy_base = val;
-+	}
-+
 +	priv->ds = devm_kzalloc(&mdiodev->dev, sizeof(*priv->ds), GFP_KERNEL);
 +	if (!priv->ds)
 +		return -ENOMEM;
@@ -2048,6 +2091,10 @@ index 000000000000..ed7003b406cf
 +	priv->pcs.ops = &an8855_pcs_ops;
 +	priv->pcs.neg_mode = true;
 +	priv->pcs.poll = true;
++
++	ret = an8855_sw_register_nvmem(priv);
++	if (ret)
++		return ret;
 +
 +	dev_set_drvdata(&mdiodev->dev, priv);
 +
@@ -2085,10 +2132,10 @@ index 000000000000..ed7003b406cf
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/net/dsa/an8855.h b/drivers/net/dsa/an8855.h
 new file mode 100644
-index 000000000000..832e53114082
+index 000000000000..02abd23e34f2
 --- /dev/null
 +++ b/drivers/net/dsa/an8855.h
-@@ -0,0 +1,492 @@
+@@ -0,0 +1,624 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +/*
 + * Copyright (C) 2023 Min Yao <min.yao@airoha.com>
@@ -2105,6 +2152,28 @@ index 000000000000..832e53114082
 +#define AN8855_NUM_FDB_RECORDS		2048
 +#define AN8855_GPHY_SMI_ADDR_DEFAULT	1
 +#define AN8855_PORT_VID_DEFAULT		1
++#define AN8855_EFUSE_CELL		50
++
++/* MII Registers */
++#define AN8855_PHY_SELECT_PAGE		0x1f
++/* Mask speculation based on page up to 0x4 */
++#define   AN8855_PHY_PAGE		GENMASK(2, 0)
++#define   AN8855_PHY_PAGE_STANDARD	FIELD_PREP_CONST(AN8855_PHY_PAGE, 0x0)
++#define   AN8855_PHY_PAGE_EXTENDED_1	FIELD_PREP_CONST(AN8855_PHY_PAGE, 0x1)
++#define   AN8855_PHY_PAGE_EXTENDED_4	FIELD_PREP_CONST(AN8855_PHY_PAGE, 0x4)
++
++/* MII Registers Page 4 */
++#define AN8855_PBUS_MODE		0x10
++#define   AN8855_PBUS_MODE_ADDR_FIXED	0x0
++#define AN8855_PBUS_MODE_ADDR_INCR	BIT(15)
++#define AN8855_PBUS_WR_ADDR_HIGH	0x11
++#define AN8855_PBUS_WR_ADDR_LOW		0x12
++#define AN8855_PBUS_WR_DATA_HIGH	0x13
++#define AN8855_PBUS_WR_DATA_LOW		0x14
++#define AN8855_PBUS_RD_ADDR_HIGH	0x15
++#define AN8855_PBUS_RD_ADDR_LOW		0x16
++#define AN8855_PBUS_RD_DATA_HIGH	0x17
++#define AN8855_PBUS_RD_DATA_LOW		0x18
 +
 +/*	AN8855_SCU			0x10000000 */
 +#define AN8855_RG_GPIO_LED_MODE		0x10000054
@@ -2461,76 +2530,186 @@ index 000000000000..832e53114082
 +/* HSGMII/SGMII Configuration register */
 +/*	AN8855_HSGMII_AN_CSR_BASE	0x10220000 */
 +#define AN8855_SGMII_REG_AN0		0x10220000
-+#define   AN8855_SGMII_AN_ENABLE	BIT(12)
-+#define   AN8855_SGMII_AN_RESTART	BIT(9)
++/*	  AN8855_SGMII_AN_ENABLE	BMCR_ANENABLE */
++/*	  AN8855_SGMII_AN_RESTART	BMCR_ANRESTART */
 +#define AN8855_SGMII_REG_AN_13		0x10220034
++#define   AN8855_SGMII_REMOTE_FAULT_DIS	BIT(8)
++#define   AN8855_SGMII_IF_MODE		GENMASK(5, 0)
 +#define AN8855_SGMII_REG_AN_FORCE_CL37	0x10220060
++#define   AN8855_RG_FORCE_AN_DONE	BIT(0)
 +
 +/*	AN8855_HSGMII_CSR_PCS_BASE	0x10220000 */
 +#define AN8855_RG_HSGMII_PCS_CTROL_1	0x10220a00
++#define   AN8855_RG_TBI_10B_MODE	BIT(30)
 +#define AN8855_RG_AN_SGMII_MODE_FORCE	0x10220a24
++#define   AN8855_RG_FORCE_CUR_SGMII_MODE GENMASK(5, 4)
++#define   AN8855_RG_FORCE_CUR_SGMII_SEL	BIT(0)
 +
 +/*	AN8855_MULTI_SGMII_CSR_BASE	0x10224000 */
 +#define AN8855_SGMII_STS_CTRL_0		0x10224018
++#define   AN8855_RG_LINK_MODE_P0	GENMASK(5, 4)
++#define   AN8855_RG_LINK_MODE_P0_SPEED_2500 FIELD_PREP_CONST(AN8855_RG_LINK_MODE_P0, 0x3)
++#define   AN8855_RG_LINK_MODE_P0_SPEED_1000 FIELD_PREP_CONST(AN8855_RG_LINK_MODE_P0, 0x2)
++#define   AN8855_RG_LINK_MODE_P0_SPEED_100 FIELD_PREP_CONST(AN8855_RG_LINK_MODE_P0, 0x1)
++#define   AN8855_RG_LINK_MODE_P0_SPEED_10 FIELD_PREP_CONST(AN8855_RG_LINK_MODE_P0, 0x0)
++#define   AN8855_RG_FORCE_SPD_MODE_P0	BIT(2)
 +#define AN8855_MSG_RX_CTRL_0		0x10224100
 +#define AN8855_MSG_RX_LIK_STS_0		0x10224514
++#define   AN8855_RG_DPX_STS_P3		BIT(24)
++#define   AN8855_RG_DPX_STS_P2		BIT(16)
++#define   AN8855_RG_EEE1G_STS_P1	BIT(12)
++#define   AN8855_RG_DPX_STS_P1		BIT(8)
++#define   AN8855_RG_TXFC_STS_P0		BIT(2)
++#define   AN8855_RG_RXFC_STS_P0		BIT(1)
++#define   AN8855_RG_DPX_STS_P0		BIT(0)
 +#define AN8855_MSG_RX_LIK_STS_2		0x1022451c
++#define   AN8855_RG_RXFC_AN_BYPASS_P3	BIT(11)
++#define   AN8855_RG_RXFC_AN_BYPASS_P2	BIT(10)
++#define   AN8855_RG_RXFC_AN_BYPASS_P1	BIT(9)
++#define   AN8855_RG_TXFC_AN_BYPASS_P3	BIT(7)
++#define   AN8855_RG_TXFC_AN_BYPASS_P2	BIT(6)
++#define   AN8855_RG_TXFC_AN_BYPASS_P1	BIT(5)
++#define   AN8855_RG_DPX_AN_BYPASS_P3	BIT(3)
++#define   AN8855_RG_DPX_AN_BYPASS_P2	BIT(2)
++#define   AN8855_RG_DPX_AN_BYPASS_P1	BIT(1)
++#define   AN8855_RG_DPX_AN_BYPASS_P0	BIT(0)
 +#define AN8855_PHY_RX_FORCE_CTRL_0	0x10224520
++#define   AN8855_RG_FORCE_TXC_SEL	BIT(4)
 +
 +/*	AN8855_XFI_CSR_PCS_BASE		0x10225000 */
 +#define AN8855_RG_USXGMII_AN_CONTROL_0	0x10225bf8
 +
 +/*	AN8855_MULTI_PHY_RA_CSR_BASE	0x10226000 */
 +#define AN8855_RG_RATE_ADAPT_CTRL_0	0x10226000
++#define   AN8855_RG_RATE_ADAPT_RX_BYPASS BIT(27)
++#define   AN8855_RG_RATE_ADAPT_TX_BYPASS BIT(26)
++#define   AN8855_RG_RATE_ADAPT_RX_EN	BIT(4)
++#define   AN8855_RG_RATE_ADAPT_TX_EN	BIT(0)
 +#define AN8855_RATE_ADP_P0_CTRL_0	0x10226100
++#define   AN8855_RG_P0_DIS_MII_MODE	BIT(31)
++#define   AN8855_RG_P0_MII_MODE		BIT(28)
++#define   AN8855_RG_P0_MII_RA_RX_EN	BIT(3)
++#define   AN8855_RG_P0_MII_RA_TX_EN	BIT(2)
++#define   AN8855_RG_P0_MII_RA_RX_MODE	BIT(1)
++#define   AN8855_RG_P0_MII_RA_TX_MODE	BIT(0)
 +#define AN8855_MII_RA_AN_ENABLE		0x10226300
++#define   AN8855_RG_P0_RA_AN_EN		BIT(0)
 +
 +/*	AN8855_QP_DIG_CSR_BASE		0x1022a000 */
 +#define AN8855_QP_CK_RST_CTRL_4		0x1022a310
 +#define AN8855_QP_DIG_MODE_CTRL_0	0x1022a324
++#define   AN8855_RG_SGMII_MODE		GENMASK(5, 4)
++#define   AN8855_RG_SGMII_AN_EN		BIT(0)
 +#define AN8855_QP_DIG_MODE_CTRL_1	0x1022a330
++#define   AN8855_RG_TPHY_SPEED		GENMASK(3, 2)
 +
 +/*	AN8855_SERDES_WRAPPER_BASE	0x1022c000 */
 +#define AN8855_USGMII_CTRL_0		0x1022c000
 +
 +/*	AN8855_QP_PMA_TOP_BASE		0x1022e000 */
 +#define AN8855_PON_RXFEDIG_CTRL_0	0x1022e100
++#define   AN8855_RG_QP_EQ_RX500M_CK_SEL	BIT(12)
 +#define AN8855_PON_RXFEDIG_CTRL_9	0x1022e124
++#define   AN8855_RG_QP_EQ_LEQOSC_DLYCNT	GENMASK(2, 0)
 +
 +#define AN8855_SS_LCPLL_PWCTL_SETTING_2	0x1022e208
++#define   AN8855_RG_NCPO_ANA_MSB	GENMASK(17, 16)
 +#define AN8855_SS_LCPLL_TDC_FLT_2	0x1022e230
++#define   AN8855_RG_LCPLL_NCPO_VALUE	GENMASK(30, 0)
 +#define AN8855_SS_LCPLL_TDC_FLT_5	0x1022e23c
++#define   AN8855_RG_LCPLL_NCPO_CHG	BIT(24)
 +#define AN8855_SS_LCPLL_TDC_PCW_1	0x1022e248
++#define  AN8855_RG_LCPLL_PON_HRDDS_PCW_NCPO_GPON GENMASK(30, 0)
 +#define AN8855_INTF_CTRL_8		0x1022e320
 +#define AN8855_INTF_CTRL_9		0x1022e324
 +#define AN8855_INTF_CTRL_10		0x1022e328
++#define   AN8855_RG_DA_QP_TX_FIR_C2_SEL	BIT(29)
++#define   AN8855_RG_DA_QP_TX_FIR_C2_FORCE GENMASK(28, 24)
++#define   AN8855_RG_DA_QP_TX_FIR_C1_SEL	BIT(21)
++#define   AN8855_RG_DA_QP_TX_FIR_C1_FORCE GENMASK(20, 16)
 +#define AN8855_INTF_CTRL_11		0x1022e32c
++#define   AN8855_RG_DA_QP_TX_FIR_C0B_SEL BIT(6)
++#define   AN8855_RG_DA_QP_TX_FIR_C0B_FORCE GENMASK(5, 0)
 +#define AN8855_PLL_CTRL_0		0x1022e400
++#define   AN8855_RG_PHYA_AUTO_INIT	BIT(0)
 +#define AN8855_PLL_CTRL_2		0x1022e408
++#define   AN8855_RG_DA_QP_PLL_SDM_IFM_INTF BIT(30)
++#define   AN8855_RG_DA_QP_PLL_RICO_SEL_INTF BIT(29)
++#define   AN8855_RG_DA_QP_PLL_POSTDIV_EN_INTF BIT(28)
++#define   AN8855_RG_DA_QP_PLL_PHY_CK_EN_INTF BIT(27)
++#define   AN8855_RG_DA_QP_PLL_PFD_OFFSET_EN_INTRF BIT(26)
++#define   AN8855_RG_DA_QP_PLL_PFD_OFFSET_INTF GENMASK(25, 24)
++#define   AN8855_RG_DA_QP_PLL_PCK_SEL_INTF BIT(22)
++#define   AN8855_RG_DA_QP_PLL_KBAND_PREDIV_INTF GENMASK(21, 20)
++#define   AN8855_RG_DA_QP_PLL_IR_INTF	GENMASK(19, 16)
++#define   AN8855_RG_DA_QP_PLL_ICOIQ_EN_INTF BIT(14)
++#define   AN8855_RG_DA_QP_PLL_FBKSEL_INTF GENMASK(13, 12)
++#define   AN8855_RG_DA_QP_PLL_BR_INTF	GENMASK(10, 8)
++#define   AN8855_RG_DA_QP_PLL_BPD_INTF	GENMASK(7, 6)
++#define   AN8855_RG_DA_QP_PLL_BPA_INTF	GENMASK(4, 2)
++#define   AN8855_RG_DA_QP_PLL_BC_INTF	GENMASK(1, 0)
 +#define AN8855_PLL_CTRL_3		0x1022e40c
++#define   AN8855_RG_DA_QP_PLL_SSC_PERIOD_INTF GENMASK(31, 16)
++#define   AN8855_RG_DA_QP_PLL_SSC_DELTA_INTF GENMASK(15, 0)
 +#define AN8855_PLL_CTRL_4		0x1022e410
++#define   AN8855_RG_DA_QP_PLL_SDM_HREN_INTF GENMASK(4, 3)
++#define   AN8855_RG_DA_QP_PLL_ICOLP_EN_INTF BIT(2)
++#define   AN8855_RG_DA_QP_PLL_SSC_DIR_DLY_INTF GENMASK(1, 0)
 +#define AN8855_PLL_CK_CTRL_0		0x1022e414
++#define   AN8855_RG_DA_QP_PLL_TDC_TXCK_SEL_INTF BIT(9)
++#define   AN8855_RG_DA_QP_PLL_SDM_DI_EN_INTF BIT(8)
 +#define AN8855_RX_DLY_0			0x1022e614
++#define   AN8855_RG_QP_RX_SAOSC_EN_H_DLY GENMASK(13, 8)
++#define   AN8855_RG_QP_RX_PI_CAL_EN_H_DLY GENMASK(7, 0)
 +#define AN8855_RX_CTRL_2		0x1022e630
++#define   AN8855_RG_QP_RX_EQ_EN_H_DLY	GENMASK(28, 16)
 +#define AN8855_RX_CTRL_5		0x1022e63c
++#define   AN8855_RG_FREDET_CHK_CYCLE	GENMASK(29, 10)
 +#define AN8855_RX_CTRL_6		0x1022e640
++#define   AN8855_RG_FREDET_GOLDEN_CYCLE	GENMASK(19, 0)
 +#define AN8855_RX_CTRL_7		0x1022e644
++#define   AN8855_RG_FREDET_TOLERATE_CYCLE GENMASK(19, 0)
 +#define AN8855_RX_CTRL_8		0x1022e648
++#define   AN8855_RG_DA_QP_SAOSC_DONE_TIME GENMASK(27, 16)
++#define   AN8855_RG_DA_QP_LEQOS_EN_TIME	GENMASK(14, 0)
 +#define AN8855_RX_CTRL_26		0x1022e690
++#define   AN8855_RG_QP_EQ_RETRAIN_ONLY_EN BIT(26)
++#define   AN8855_RG_LINK_NE_EN		BIT(24)
++#define   AN8855_RG_LINK_ERRO_EN	BIT(23)
 +#define AN8855_RX_CTRL_42		0x1022e6d0
++#define   AN8855_RG_QP_EQ_EN_DLY	GENMASK(12, 0)
 +
 +/*	AN8855_QP_ANA_CSR_BASE		0x1022f000 */
 +#define AN8855_RG_QP_RX_DAC_EN		0x1022f000
++#define   AN8855_RG_QP_SIGDET_HF	GENMASK(17, 16)
 +#define AN8855_RG_QP_RXAFE_RESERVE	0x1022f004
++#define   AN8855_RG_QP_CDR_PD_10B_EN	BIT(11)
 +#define AN8855_RG_QP_CDR_LPF_BOT_LIM	0x1022f008
++#define   AN8855_RG_QP_CDR_LPF_KP_GAIN	GENMASK(26, 24)
++#define   AN8855_RG_QP_CDR_LPF_KI_GAIN	GENMASK(22, 20)
 +#define AN8855_RG_QP_CDR_LPF_MJV_LIM	0x1022f00c
++#define   AN8855_RG_QP_CDR_LPF_RATIO	GENMASK(5, 4)
 +#define AN8855_RG_QP_CDR_LPF_SETVALUE	0x1022f014
++#define   AN8855_RG_QP_CDR_PR_BUF_IN_SR	GENMASK(31, 29)
++#define   AN8855_RG_QP_CDR_PR_BETA_SEL	GENMASK(28, 25)
 +#define AN8855_RG_QP_CDR_PR_CKREF_DIV1	0x1022f018
++#define   AN8855_RG_QP_CDR_PR_KBAND_DIV	GENMASK(26, 24)
++#define   AN8855_RG_QP_CDR_PR_DAC_BAND	GENMASK(12, 8)
 +#define AN8855_RG_QP_CDR_PR_KBAND_DIV_PCIE 0x1022f01c
++#define   AN8855_RG_QP_CDR_PR_XFICK_EN	BIT(30)
++#define   AN8855_RG_QP_CDR_PR_KBAND_PCIE_MODE BIT(6)
++#define   AN8855_RG_QP_CDR_PR_KBAND_DIV_PCIE_MASK GENMASK(5, 0)
 +#define AN8855_RG_QP_CDR_FORCE_IBANDLPF_R_OFF 0x1022f020
-+#define AN8855_RG_QP_TX_MODE_16B_EN	0x1022f028
++#define   AN8855_RG_QP_CDR_PHYCK_SEL	GENMASK(17, 16)
++#define   AN8855_RG_QP_CDR_PHYCK_RSTB	BIT(13)
++#define   AN8855_RG_QP_CDR_PHYCK_DIV	GENMASK(12, 6)
++#define AN8855_RG_QP_TX_MODE		0x1022f028
++#define   AN8855_RG_QP_TX_RESERVE	GENMASK(31, 16)
++#define   AN8855_RG_QP_TX_MODE_16B_EN	BIT(0)
 +#define AN8855_RG_QP_PLL_IPLL_DIG_PWR_SEL 0x1022f03c
 +#define AN8855_RG_QP_PLL_SDM_ORD	0x1022f040
++#define   AN8855_RG_QP_PLL_SSC_PHASE_INI BIT(4)
++#define   AN8855_RG_QP_PLL_SSC_TRI_EN	BIT(3)
 +
 +/*	AN8855_ETHER_SYS_BASE		0x1028c800 */
 +#define AN8855_RG_GPHY_AFE_PWD		0x1028c840
