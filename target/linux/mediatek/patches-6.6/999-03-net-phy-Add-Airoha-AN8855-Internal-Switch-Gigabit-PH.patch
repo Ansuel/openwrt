@@ -1,4 +1,4 @@
-From 4aec1c78870286e069ab775304cf0d99cc40f51b Mon Sep 17 00:00:00 2001
+From 92a987d7f3f08761033e4d82caddc8c67a0c4c83 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Mon, 21 Oct 2024 13:34:39 +0200
 Subject: [PATCH 3/3] net: phy: Add Airoha AN8855 Internal Switch Gigabit PHY
@@ -13,8 +13,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  MAINTAINERS                  |   1 +
  drivers/net/phy/Kconfig      |   5 +
  drivers/net/phy/Makefile     |   1 +
- drivers/net/phy/air_an8855.c | 275 +++++++++++++++++++++++++++++++++++
- 4 files changed, 282 insertions(+)
+ drivers/net/phy/air_an8855.c | 264 +++++++++++++++++++++++++++++++++++
+ 4 files changed, 271 insertions(+)
  create mode 100644 drivers/net/phy/air_an8855.c
 
 # diff --git a/MAINTAINERS b/MAINTAINERS
@@ -34,16 +34,16 @@ index ee3ea0b56d48..1d474038ea7f 100644
 --- a/drivers/net/phy/Kconfig
 +++ b/drivers/net/phy/Kconfig
 @@ -79,6 +79,11 @@ config SFP
- 
- comment "MII PHY device drivers"
+ 	help
+ 	  Currently supports the Airoha EN8801SC PHY.
  
 +config AIR_AN8855_PHY
 +	tristate "Airoha AN8855 Internal Gigabit PHY"
 +	help
 +	  Currently supports the internal Airoha AN8855 Switch PHY.
 +
- config AIROHA_EN8801SC_PHY
- 	tristate "Airoha EN8801SC Gigabit PHY"
+ config AIR_EN8811H_PHY
+ 	tristate "Airoha EN8811H 2.5 Gigabit PHY"
  	help
 diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
 index 90f886844381..baba7894785b 100644
@@ -59,11 +59,14 @@ index 90f886844381..baba7894785b 100644
  obj-$(CONFIG_AMCC_QT2025_PHY)	+= qt2025.o
 diff --git a/drivers/net/phy/air_an8855.c b/drivers/net/phy/air_an8855.c
 new file mode 100644
-index 000000000000..da4fd9b7be21
+index 000000000000..6edad9df2b8e
 --- /dev/null
 +++ b/drivers/net/phy/air_an8855.c
-@@ -0,0 +1,275 @@
+@@ -0,0 +1,264 @@
 +// SPDX-License-Identifier: GPL-2.0+
++/*
++ * Copyright (C) 2024 Christian Marangi <ansuelsmth@gmail.com>
++ */
 +
 +#include <linux/phy.h>
 +#include <linux/module.h>
@@ -78,7 +81,7 @@ index 000000000000..da4fd9b7be21
 +
 +/* MII Registers Page 1 */
 +#define AN8855_PHY_EXT_REG_14			0x14
-+#define   AN8855_PHY_EN_DOWN_SHFIT		BIT(4)
++#define   AN8855_PHY_EN_DOWN_SHIFT		BIT(4)
 +
 +/* R50 Calibration regs in MDIO_MMD_VEND1 */
 +#define AN8855_PHY_R500HM_RSEL_TX_AB		0x174
@@ -191,39 +194,25 @@ index 000000000000..da4fd9b7be21
 +
 +static int an8855_get_downshift(struct phy_device *phydev, u8 *data)
 +{
-+	int saved_page;
 +	int val;
-+	int ret;
 +
-+	saved_page = phy_select_page(phydev, AN8855_PHY_PAGE_EXTENDED_1);
-+	if (saved_page >= 0)
-+		val = __phy_read(phydev, AN8855_PHY_EXT_REG_14);
-+	ret = phy_restore_page(phydev, saved_page, val);
-+	if (ret)
-+		return ret;
++	val = phy_read_paged(phydev, AN8855_PHY_PAGE_EXTENDED_1, AN8855_PHY_EXT_REG_14);
++	if (val < 0)
++		return val;
 +
-+	*data = val & AN8855_PHY_EXT_REG_14 ? DOWNSHIFT_DEV_DEFAULT_COUNT :
-+					      DOWNSHIFT_DEV_DISABLE;
++	*data = val & AN8855_PHY_EN_DOWN_SHIFT ? DOWNSHIFT_DEV_DEFAULT_COUNT :
++						 DOWNSHIFT_DEV_DISABLE;
 +
 +	return 0;
 +}
 +
 +static int an8855_set_downshift(struct phy_device *phydev, u8 cnt)
 +{
-+	int saved_page;
-+	int ret;
++	u16 ds = cnt != DOWNSHIFT_DEV_DISABLE ? AN8855_PHY_EN_DOWN_SHIFT : 0;
 +
-+	saved_page = phy_select_page(phydev, AN8855_PHY_PAGE_EXTENDED_1);
-+	if (saved_page >= 0) {
-+		if (cnt != DOWNSHIFT_DEV_DISABLE)
-+			ret = __phy_set_bits(phydev, AN8855_PHY_EXT_REG_14,
-+					   AN8855_PHY_EN_DOWN_SHFIT);
-+		else
-+			ret = __phy_clear_bits(phydev, AN8855_PHY_EXT_REG_14,
-+					     AN8855_PHY_EN_DOWN_SHFIT);
-+	}
-+
-+	return phy_restore_page(phydev, saved_page, ret);
++	return phy_modify_paged(phydev, AN8855_PHY_PAGE_EXTENDED_1,
++				AN8855_PHY_EXT_REG_14, AN8855_PHY_EN_DOWN_SHIFT,
++				ds);
 +}
 +
 +static int an8855_config_init(struct phy_device *phydev)
@@ -237,7 +226,7 @@ index 000000000000..da4fd9b7be21
 +		return ret;
 +
 +	/* Apply calibration values, if needed. BIT(0) signal this */
-+	if (phydev->dev_flags & BIT(0)) {
++	if (phydev->dev_flags & BIT(0) && priv) {
 +		u8 *calibration_data = priv->calibration_data;
 +
 +		ret = phy_modify_mmd(phydev, MDIO_MMD_VEND1, AN8855_PHY_R500HM_RSEL_TX_AB,

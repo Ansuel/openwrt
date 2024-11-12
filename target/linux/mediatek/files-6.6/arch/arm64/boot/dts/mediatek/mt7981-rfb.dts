@@ -179,6 +179,22 @@
 			shift_sel_port3_tx_d: shift-sel-port3-tx-d@58 {
 				reg = <0x58 0x4>;
 			};
+
+			shift_sel_port4_tx_a: shift-sel-port4-tx-a@5c {
+				reg = <0x5c 0x4>;
+			};
+
+			shift_sel_port4_tx_b: shift-sel-port4-tx-b@60 {
+				reg = <0x60 0x4>;
+			};
+
+			shift_sel_port4_tx_c: shift-sel-port4-tx-c@64 {
+				reg = <0x64 0x4>;
+			};
+
+			shift_sel_port4_tx_d: shift-sel-port4-tx-d@68 {
+				reg = <0x68 0x4>;
+			};
 		};
 
 		ports {
@@ -211,6 +227,13 @@
 				label = "lan4";
 				phy-mode = "internal";
 				phy-handle = <&internal_phy4>;
+			};
+
+			port@4 {
+				reg = <4>;
+				label = "wan";
+				phy-mode = "internal";
+				phy-handle = <&internal_phy5>;
 			};
 
 			port@5 {
@@ -268,6 +291,16 @@
 						<&shift_sel_port3_tx_b>,
 						<&shift_sel_port3_tx_c>,
 						<&shift_sel_port3_tx_d>;
+				nvmem-cell-names = "tx_a", "tx_b", "tx_c", "tx_d";
+			};
+
+			internal_phy5: phy@5 {
+				reg = <5>;
+
+				nvmem-cells = <&shift_sel_port4_tx_a>,
+						<&shift_sel_port4_tx_b>,
+						<&shift_sel_port4_tx_c>,
+						<&shift_sel_port4_tx_d>;
 				nvmem-cell-names = "tx_a", "tx_b", "tx_c", "tx_d";
 			};
 		};
