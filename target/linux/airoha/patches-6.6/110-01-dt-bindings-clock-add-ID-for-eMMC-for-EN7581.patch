@@ -1,0 +1,25 @@
+From ff6e577d79633ca5c541c93e89819a4eea85ae82 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Wed, 11 Dec 2024 11:04:48 +0100
+Subject: [PATCH 1/4] dt-bindings: clock: add ID for eMMC for EN7581
+
+Add ID for eMMC for EN7581. This is to control clock selection of eMMC
+between 200MHz and 150MHz.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ include/dt-bindings/clock/en7523-clk.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+--- a/include/dt-bindings/clock/en7523-clk.h
++++ b/include/dt-bindings/clock/en7523-clk.h
+@@ -11,7 +11,8 @@
+ #define EN7523_CLK_NPU		5
+ #define EN7523_CLK_CRYPTO	6
+ #define EN7523_CLK_PCIE		7
++#define EN7581_CLK_EMMC		8
+ 
+-#define EN7523_NUM_CLOCKS	8
++#define EN7523_NUM_CLOCKS	9
+ 
+ #endif /* _DT_BINDINGS_CLOCK_AIROHA_EN7523_H_ */

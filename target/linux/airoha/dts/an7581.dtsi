@@ -436,10 +436,12 @@
 		};
 
 		mmc0: mmc@1fa0e000 {
-			compatible = "mediatek,mt7622-mmc";
+			compatible = "airoha,an7581-mmc";
 			reg = <0x0 0x1fa0e000 0x0 0x1000>,
 			      <0x0 0x1fa0c000 0x0 0x60>;
 			interrupts = <GIC_SPI 170 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scuclk EN7581_CLK_EMMC>;
+			clock-names = "source";
 			bus-width = <4>;
 			max-frequency = <52000000>;
 			disable-wp;
