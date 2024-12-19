@@ -545,6 +545,21 @@
 			};
 		};
 
+		syscon@1fa70000 {
+			compatible = "airoha,hsgmii", "syscon";
+			reg = <0x0 0x1fa70000 0x0 0x8000>;
+		};
+
+		syscon@1fa7a000 {
+			compatible = "airoha,xsi_pma_phya", "syscon";
+			reg = <0x0 0x1fa7a000 0x0 0x1000>;
+		};
+
+		syscon@1fa7b000 {
+			compatible = "airoha,xsi_pma_phyd", "syscon";
+			reg = <0x0 0x1fa7b000 0x0 0x1000>;
+		};
+
 		eth: ethernet@1fb50000 {
 			compatible = "airoha,en7581-eth";
 			reg = <0 0x1fb50000 0 0x2600>,
