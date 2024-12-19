@@ -207,10 +207,24 @@
 	status = "okay";
 };
 
+&gdm2 {
+	status = "okay";
+
+	phy_mode = "2500base-x";
+	phy-handle = <&an8811>;
+};
+
 &switch {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mdio_pins>;
 	status = "okay";
+};
+
+&mdio {
+	an8811: ethernet-phy@f {
+		reg = <0xf>;
+		phy-mode = "2500base-x";
+	};
 };
 
 &gsw_phy1 {

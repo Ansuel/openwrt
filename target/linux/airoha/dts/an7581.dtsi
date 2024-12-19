@@ -607,6 +607,13 @@
 					pause;
 				};
 			};
+
+			gdm2: ethernet@2 {
+				compatible = "airoha,eth-mac";
+				reg = <2>;
+
+				status = "disabled";
+			};
 		};
 
 		switch: switch@1fb58000 {
@@ -670,7 +677,7 @@
 				};
 			};
 
-			mdio {
+			mdio: mdio {
 				#address-cells = <1>;
 				#size-cells = <0>;
 
