@@ -1,0 +1,95 @@
+From 3f7667b9a678441182632aefbef6a91fd6ee4eb2 Mon Sep 17 00:00:00 2001
+Message-ID: <3f7667b9a678441182632aefbef6a91fd6ee4eb2.1735736065.git.lorenzo@kernel.org>
+In-Reply-To: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
+References: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Tue, 31 Dec 2024 00:13:58 +0100
+Subject: [PATCH net-next 11/14] net: ethernet: mtk_eth_soc: Move mtk_flow_data
+ in mtk_ppe.h
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/mediatek/mtk_ppe.h       | 31 +++++++++++++++++++
+ .../net/ethernet/mediatek/mtk_ppe_offload.c   | 31 -------------------
+ 2 files changed, 31 insertions(+), 31 deletions(-)
+
+--- a/drivers/net/ethernet/mediatek/mtk_ppe.h
++++ b/drivers/net/ethernet/mediatek/mtk_ppe.h
+@@ -308,6 +308,37 @@ struct mtk_flow_entry {
+ 	u64 packets, bytes;
+ };
+ 
++struct mtk_flow_data {
++	struct ethhdr eth;
++
++	union {
++		struct {
++			__be32 src_addr;
++			__be32 dst_addr;
++		} v4;
++
++		struct {
++			struct in6_addr src_addr;
++			struct in6_addr dst_addr;
++		} v6;
++	};
++
++	__be16 src_port;
++	__be16 dst_port;
++
++	u16 vlan_in;
++
++	struct {
++		u16 id;
++		__be16 proto;
++		u8 num;
++	} vlan;
++	struct {
++		u16 sid;
++		u8 num;
++	} pppoe;
++};
++
+ struct mtk_mib_entry {
+ 	u32	byt_cnt_l;
+ 	u16	byt_cnt_h;
+--- a/drivers/net/ethernet/mediatek/mtk_ppe_offload.c
++++ b/drivers/net/ethernet/mediatek/mtk_ppe_offload.c
+@@ -13,37 +13,6 @@
+ #include "mtk_eth_soc.h"
+ #include "mtk_wed.h"
+ 
+-struct mtk_flow_data {
+-	struct ethhdr eth;
+-
+-	union {
+-		struct {
+-			__be32 src_addr;
+-			__be32 dst_addr;
+-		} v4;
+-
+-		struct {
+-			struct in6_addr src_addr;
+-			struct in6_addr dst_addr;
+-		} v6;
+-	};
+-
+-	__be16 src_port;
+-	__be16 dst_port;
+-
+-	u16 vlan_in;
+-
+-	struct {
+-		u16 id;
+-		__be16 proto;
+-		u8 num;
+-	} vlan;
+-	struct {
+-		u16 sid;
+-		u8 num;
+-	} pppoe;
+-};
+-
+ static const struct rhashtable_params mtk_flow_ht_params = {
+ 	.head_offset = offsetof(struct mtk_flow_entry, node),
+ 	.key_offset = offsetof(struct mtk_flow_entry, cookie),

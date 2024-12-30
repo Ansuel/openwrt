@@ -1,0 +1,631 @@
+From efb90f23f5f32fc20c442918e349b89e19d1dfc0 Mon Sep 17 00:00:00 2001
+Message-ID: <efb90f23f5f32fc20c442918e349b89e19d1dfc0.1735736065.git.lorenzo@kernel.org>
+In-Reply-To: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
+References: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Wed, 4 Dec 2024 17:47:00 +0100
+Subject: [PATCH net-next 09/14] net: airoha: Introduce basic PPE
+ initialization via NPU
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/mediatek/Makefile      |   4 +-
+ drivers/net/ethernet/mediatek/airoha_eth.c  |   7 +-
+ drivers/net/ethernet/mediatek/airoha_eth.h  | 114 ++++++
+ drivers/net/ethernet/mediatek/airoha_ppe.c  | 366 ++++++++++++++++++++
+ drivers/net/ethernet/mediatek/airoha_regs.h |  23 +-
+ 5 files changed, 505 insertions(+), 9 deletions(-)
+ create mode 100644 drivers/net/ethernet/mediatek/airoha_ppe.c
+
+--- a/drivers/net/ethernet/mediatek/Makefile
++++ b/drivers/net/ethernet/mediatek/Makefile
+@@ -11,4 +11,6 @@ mtk_eth-$(CONFIG_NET_MEDIATEK_SOC_WED) +
+ endif
+ obj-$(CONFIG_NET_MEDIATEK_SOC_WED) += mtk_wed_ops.o
+ obj-$(CONFIG_NET_MEDIATEK_STAR_EMAC) += mtk_star_emac.o
+-obj-$(CONFIG_NET_AIROHA) += airoha_eth.o
++
++obj-$(CONFIG_NET_AIROHA) += airoha-eth.o
++airoha-eth-y := airoha_eth.o airoha_ppe.o
+--- a/drivers/net/ethernet/mediatek/airoha_eth.c
++++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+@@ -3,9 +3,6 @@
+  * Copyright (c) 2024 AIROHA Inc
+  * Author: Lorenzo Bianconi <lorenzo@kernel.org>
+  */
+-#include <linux/of.h>
+-#include <linux/of_net.h>
+-#include <linux/platform_device.h>
+ #include <linux/tcp.h>
+ #include <linux/u64_stats_sync.h>
+ #include <net/dsa.h>
+@@ -1318,6 +1315,9 @@ static int airoha_hw_init(struct platfor
+ 			return err;
+ 	}
+ 
++	if (airoha_ppe_init(eth))
++		dev_err(eth->dev, "ppe initialization failed\n");
++
+ 	set_bit(DEV_STATE_INITIALIZED, &eth->state);
+ 
+ 	return 0;
+@@ -2379,6 +2379,7 @@ static void airoha_remove(struct platfor
+ 	}
+ 	free_netdev(eth->napi_dev);
+ 
++	airoha_ppe_deinit(eth);
+ 	platform_set_drvdata(pdev, NULL);
+ }
+ 
+--- a/drivers/net/ethernet/mediatek/airoha_eth.h
++++ b/drivers/net/ethernet/mediatek/airoha_eth.h
+@@ -11,8 +11,13 @@
+ #include <linux/iopoll.h>
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
++#include <linux/of.h>
++#include <linux/of_net.h>
++#include <linux/of_platform.h>
++#include <linux/platform_device.h>
+ #include <linux/reset.h>
+ 
++#define AIROHA_NPU_NUM_CORES		8
+ #define AIROHA_MAX_NUM_GDM_PORTS	1
+ #define AIROHA_MAX_NUM_QDMA		2
+ #define AIROHA_MAX_NUM_RSTS		3
+@@ -43,6 +48,12 @@
+ #define QDMA_METER_IDX(_n)		((_n) & 0xff)
+ #define QDMA_METER_GROUP(_n)		(((_n) >> 8) & 0x3)
+ 
++#define PPE_SRAM_NUM_ENTRIES		(16 * 1024)
++#define PPE_DRAM_NUM_ENTRIES		(16 * 1024)
++#define PPE_NUM_ENTRIES			(PPE_SRAM_NUM_ENTRIES + PPE_DRAM_NUM_ENTRIES)
++#define PPE_EN7581_ENTRY_SIZE		80
++#define PPE_EN7581_DRAM_OFFSET		(PPE_EN7581_ENTRY_SIZE * PPE_SRAM_NUM_ENTRIES)
++
+ enum {
+ 	QDMA_INT_REG_IDX0,
+ 	QDMA_INT_REG_IDX1,
+@@ -130,6 +141,46 @@ enum trtcm_param {
+ 	TRTCM_METER_MODE = BIT(2),
+ };
+ 
++enum {
++	NPU_OP_SET = 1,
++	NPU_OP_SET_NO_WAIT,
++	NPU_OP_GET,
++	NPU_OP_GET_NO_WAIT,
++};
++
++enum {
++	NPU_FUNC_WIFI,
++	NPU_FUNC_TUNNEL,
++	NPU_FUNC_NOTIFY,
++	NPU_FUNC_DBA,
++	NPU_FUNC_TR471,
++	NPU_FUNC_PPE,
++};
++
++enum {
++	NPU_MBOX_ERROR,
++	NPU_MBOX_SUCCESS,
++};
++
++enum {
++	PPE_FUNC_SET_WAIT,
++	PPE_FUNC_SET_WAIT_HWNAT_INIT,
++	PPE_FUNC_SET_WAIT_HWNAT_DEINIT,
++	PPE_FUNC_SET_WAIT_API,
++};
++
++enum {
++	PPE2_SRAM_SET_ENTRY,
++	PPE_SRAM_SET_ENTRY,
++	PPE_SRAM_SET_VAL,
++	PPE_SRAM_RESET_VAL,
++};
++
++enum {
++	QDMA_WAN_ETHER = 1,
++	QDMA_WAN_PON_XDSL,
++};
++
+ #define MIN_TOKEN_SIZE				4096
+ #define MAX_TOKEN_SIZE_OFFSET			17
+ #define TRTCM_TOKEN_RATE_MASK			GENMASK(23, 6)
+@@ -198,6 +249,44 @@ struct airoha_hw_stats {
+ 	u64 rx_len[7];
+ };
+ 
++struct npu_mbox_metadata {
++	union {
++		struct {
++			u16 wait_rsp:1;
++			u16 done:1;
++			u16 status:3;
++			u16 static_buf:1;
++			u16 rsv:5;
++			u16 func_id:4;
++		};
++		u16 data;
++	};
++};
++
++#define PPE_TYPE_L2B_IPV4	2
++#define PPE_TYPE_L2B_IPV4_IPV6	3
++
++struct ppe_mbox_data {
++	u32 func_type;
++	u32 func_id;
++	union {
++		struct {
++			u8 cds;
++			u8 xpon_hal_api;
++			u8 wan_xsi;
++			u8 ct_joyme4;
++			int ppe_type;
++			int wan_mode;
++			int wan_sel;
++		} init_info;
++		struct {
++			int func_id;
++			u32 size;
++			u32 data;
++		} set_info;
++	};
++};
++
+ struct airoha_qdma {
+ 	struct airoha_eth *eth;
+ 	void __iomem *regs;
+@@ -233,12 +322,34 @@ struct airoha_gdm_port {
+ 	u64 fwd_tx_packets;
+ };
+ 
++struct airoha_npu {
++	struct platform_device *pdev;
++	struct device_node *np;
++
++	void __iomem *base;
++
++	struct airoha_npu_core {
++		struct airoha_npu *npu;
++		struct mutex mbox_mutex;
++	} cores[AIROHA_NPU_NUM_CORES];
++};
++
++struct airoha_ppe {
++	struct airoha_eth *eth;
++
++	void *foe;
++	dma_addr_t foe_dma;
++};
++
+ struct airoha_eth {
+ 	struct device *dev;
+ 
+ 	unsigned long state;
+ 	void __iomem *fe_regs;
+ 
++	struct airoha_npu *npu;
++	struct airoha_ppe *ppe;
++
+ 	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
+ 	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
+ 
+@@ -274,4 +385,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
+ #define airoha_qdma_clear(qdma, offset, val)			\
+ 	airoha_rmw((qdma)->regs, (offset), (val), 0)
+ 
++int airoha_ppe_init(struct airoha_eth *eth);
++void airoha_ppe_deinit(struct airoha_eth *eth);
++
+ #endif /* AIROHA_ETH_H */
+--- /dev/null
++++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
+@@ -0,0 +1,366 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2024 AIROHA Inc
++ * Author: Lorenzo Bianconi <lorenzo@kernel.org>
++ */
++
++#include <linux/firmware.h>
++#include <linux/of_reserved_mem.h>
++
++#include "airoha_regs.h"
++#include "airoha_eth.h"
++
++#define NPU_EN7581_FIRMWARE_DATA		"airoha/en7581_npu_data.bin"
++#define NPU_EN7581_FIRMWARE_RV32		"airoha/en7581_npu_rv32.bin"
++#define NPU_EN7581_FIRMWARE_RV32_MAX_SIZE	0x200000
++#define NPU_EN7581_FIRMWARE_DATA_MAX_SIZE	0x10000
++
++#define REG_NPU_LOCAL_SRAM		0x0
++
++#define NPU_CLUSTER_BASE_ADDR		0x306000
++
++#define REG_CR_BOOT_TRIGGER		(NPU_CLUSTER_BASE_ADDR + 0x000)
++#define REG_CR_BOOT_CONFIG		(NPU_CLUSTER_BASE_ADDR + 0x004)
++#define REG_CR_BOOT_BASE(_n)		(NPU_CLUSTER_BASE_ADDR + 0x020 + ((_n) << 2))
++
++#define NPU_MBOX_BASE_ADDR		0x30c000
++
++#define REG_CR_MBOX_INT_STATUS		(NPU_MBOX_BASE_ADDR + 0x000)
++#define MBOX_INT_STATUS_MASK		BIT(8)
++
++#define REG_CR_MBOX_INT_MASK(_n)	(NPU_MBOX_BASE_ADDR + 0x004 + ((_n) << 2))
++#define REG_CR_MBQ0_CTRL(_n)		(NPU_MBOX_BASE_ADDR + 0x030 + ((_n) << 2))
++#define REG_CR_MBQ8_CTRL(_n)		(NPU_MBOX_BASE_ADDR + 0x0b0 + ((_n) << 2))
++#define REG_CR_NPU_MIB(_n)		(NPU_MBOX_BASE_ADDR + 0x140 + ((_n) << 2))
++
++#define NPU_TIMER_BASE_ADDR		0x310100
++#define REG_WDT_TIMER_CTRL(_n)		(NPU_TIMER_BASE_ADDR + ((_n) * 0x100))
++#define WDT_EN_MASK			BIT(25)
++#define WDT_INTR_MASK			BIT(21)
++
++static u32 airoha_npu_rr(struct airoha_npu *npu, u32 reg)
++{
++	return readl(npu->base + reg);
++}
++
++static void airoha_npu_wr(struct airoha_npu *npu, u32 reg, u32 val)
++{
++	writel(val, npu->base + reg);
++}
++
++static int airoha_npu_send_msg(struct airoha_npu *npu, int func_id,
++			       void *p, int size)
++{
++	int i, ret, timeout = 10000; /* 100ms */
++	struct device *dev = &npu->pdev->dev;
++	struct npu_mbox_metadata meta = {
++		.wait_rsp = 1,
++		.func_id = func_id,
++	};
++	u16 core = 0; /* FIXME */
++	u32 val, offset = core << 4;
++	dma_addr_t dma_addr;
++	void *addr;
++
++	addr = kzalloc(size, GFP_KERNEL | GFP_DMA);
++	if (!addr)
++		return -ENOMEM;
++
++	memcpy(addr, p, size);
++	dma_addr = dma_map_single(dev, addr, size, DMA_TO_DEVICE);
++	ret = dma_mapping_error(dev, dma_addr);
++	if (ret)
++		goto out;
++
++	mutex_lock(&npu->cores[core].mbox_mutex);
++
++	airoha_npu_wr(npu, REG_CR_MBQ0_CTRL(0) + offset, dma_addr);
++	airoha_npu_wr(npu, REG_CR_MBQ0_CTRL(1) + offset, size);
++	val = airoha_npu_rr(npu, REG_CR_MBQ0_CTRL(2) + offset);
++	airoha_npu_wr(npu, REG_CR_MBQ0_CTRL(2) + offset, val + 1);
++	airoha_npu_wr(npu, REG_CR_MBQ0_CTRL(3) + offset, meta.data);
++
++	for (i = 0; i < timeout; i++) {
++		meta.data = airoha_npu_rr(npu, REG_CR_MBQ0_CTRL(3) + offset);
++		if (meta.done) {
++			ret = meta.status == NPU_MBOX_SUCCESS ? 0 : -EINVAL;
++			break;
++		}
++		usleep_range(100, 150);
++	}
++
++	mutex_unlock(&npu->cores[core].mbox_mutex);
++
++	dma_unmap_single(dev, dma_addr, size, DMA_TO_DEVICE);
++out:
++	kfree(addr);
++
++	return ret;
++}
++
++static int airoha_npu_run_firmware(struct airoha_npu *npu, struct reserved_mem *rmem)
++{
++	struct device *dev = &npu->pdev->dev;
++	const struct firmware *fw;
++	void __iomem *addr;
++	int ret;
++
++	ret = request_firmware(&fw, NPU_EN7581_FIRMWARE_RV32, dev);
++	if (ret)
++		return ret;
++
++	if (fw->size > NPU_EN7581_FIRMWARE_RV32_MAX_SIZE) {
++		dev_err(dev, "%s: fw size too overlimit (%ld)\n",
++			NPU_EN7581_FIRMWARE_RV32, fw->size);
++		ret = -E2BIG;
++		goto out;
++	}
++
++	addr = devm_ioremap(dev, rmem->base, rmem->size);
++	if (!addr) {
++		ret = -ENOMEM;
++		goto out;
++	}
++
++	memcpy_toio(addr, fw->data, fw->size);
++	release_firmware(fw);
++
++	ret = request_firmware(&fw, NPU_EN7581_FIRMWARE_DATA, dev);
++	if (ret)
++		return ret;
++
++	if (fw->size > NPU_EN7581_FIRMWARE_DATA_MAX_SIZE) {
++		dev_err(dev, "%s: fw size too overlimit (%ld)\n",
++			NPU_EN7581_FIRMWARE_DATA, fw->size);
++		ret = -E2BIG;
++		goto out;
++	}
++
++	memcpy_toio(npu->base + REG_NPU_LOCAL_SRAM, fw->data, fw->size);
++out:
++	release_firmware(fw);
++
++	return ret;
++}
++
++static irqreturn_t airoha_npu_mbox_handler(int irq, void *npu_instance)
++{
++	struct airoha_npu *npu = npu_instance;
++	struct npu_mbox_metadata meta;
++
++	/* clear mbox interrupt status */
++	airoha_npu_wr(npu, REG_CR_MBOX_INT_STATUS, MBOX_INT_STATUS_MASK);
++
++	/* acknowledge npu */
++	meta.data = airoha_npu_rr(npu, REG_CR_MBQ8_CTRL(3));
++	meta.status = 0;
++	meta.done = 1;
++	airoha_npu_wr(npu, REG_CR_MBQ8_CTRL(3), meta.data);
++
++	return IRQ_HANDLED;
++}
++
++static int airoha_npu_ppe_init(struct airoha_npu *npu)
++{
++	struct ppe_mbox_data ppe_data = {
++		.func_type = NPU_OP_SET,
++		.func_id = PPE_FUNC_SET_WAIT_HWNAT_INIT,
++		.init_info = {
++			.ppe_type = PPE_TYPE_L2B_IPV4_IPV6,
++			.wan_mode = QDMA_WAN_ETHER,
++		},
++	};
++
++	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
++				   sizeof(struct ppe_mbox_data));
++}
++
++static int airoha_npu_ppe_deinit(struct airoha_npu *npu)
++{
++	struct ppe_mbox_data ppe_data = {
++		.func_type = NPU_OP_SET,
++		.func_id = PPE_FUNC_SET_WAIT_HWNAT_DEINIT,
++	};
++
++	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
++				   sizeof(struct ppe_mbox_data));
++}
++
++static int airoha_npu_flush_ppe_sram_entries(struct airoha_npu *npu,
++					     struct airoha_ppe *ppe)
++{
++	struct ppe_mbox_data ppe_data = {
++		.func_type = NPU_OP_SET,
++		.func_id = PPE_FUNC_SET_WAIT_API,
++		.set_info = {
++			.func_id = PPE_SRAM_RESET_VAL,
++			.data = ppe->foe_dma,
++			.size = PPE_SRAM_NUM_ENTRIES,
++		},
++	};
++
++	memset(ppe->foe, 0, PPE_SRAM_NUM_ENTRIES * PPE_EN7581_ENTRY_SIZE);
++
++	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
++				   sizeof(struct ppe_mbox_data));
++}
++
++static struct airoha_npu *airoha_npu_init(struct airoha_eth *eth)
++{
++	struct reserved_mem *rmem;
++	int i, irq, err = -ENODEV;
++	struct airoha_npu *npu;
++	struct device_node *np;
++
++	npu = devm_kzalloc(eth->dev, sizeof(*npu), GFP_KERNEL);
++	if(!npu)
++		return ERR_PTR(-ENOMEM);
++
++	npu->np = of_parse_phandle(eth->dev->of_node, "airoha,npu", 0);
++	if (!npu->np)
++		return ERR_PTR(-ENODEV);
++
++	npu->pdev = of_find_device_by_node(npu->np);
++	if (!npu->pdev)
++		goto error_of_node_put;
++
++	get_device(&npu->pdev->dev);
++
++	npu->base = devm_platform_ioremap_resource(npu->pdev, 0);
++	if (IS_ERR(npu->base))
++		goto error_put_dev;
++
++	np = of_parse_phandle(npu->np, "memory-region", 0);
++	if (!np)
++		goto error_put_dev;
++
++	rmem = of_reserved_mem_lookup(np);
++	of_node_put(np);
++
++	if (!rmem)
++		goto error_put_dev;
++
++	irq = platform_get_irq(npu->pdev, 0);
++	if (irq < 0) {
++		err = irq;
++		goto error_put_dev;
++	}
++
++	err = devm_request_irq(&npu->pdev->dev, irq, airoha_npu_mbox_handler,
++			       IRQF_SHARED, "airoha-npu-mbox", npu);
++	if (err)
++		goto error_put_dev;
++
++	for (i = 0; i < ARRAY_SIZE(npu->cores); i++) {
++		struct airoha_npu_core *core = &npu->cores[i];
++
++		mutex_init(&core->mbox_mutex);
++		core->npu = npu;
++	}
++
++	if (dma_set_coherent_mask(&npu->pdev->dev, 0xbfffffff))
++		dev_err(&npu->pdev->dev,
++			"failed coherent DMA configuration\n");
++
++	err = airoha_npu_run_firmware(npu, rmem);
++	if (err)
++		goto error_put_dev;
++
++	airoha_npu_wr(npu, REG_CR_NPU_MIB(10),
++		      rmem->base + NPU_EN7581_FIRMWARE_RV32_MAX_SIZE);
++	airoha_npu_wr(npu, REG_CR_NPU_MIB(11), 0x40000); /* SRAM 256K */
++	airoha_npu_wr(npu, REG_CR_NPU_MIB(12), 0);
++	airoha_npu_wr(npu, REG_CR_NPU_MIB(21), 1);
++	msleep(100);
++
++	/* setting booting address */
++	for (i = 0; i < AIROHA_NPU_NUM_CORES; i++)
++		airoha_npu_wr(npu, REG_CR_BOOT_BASE(i), rmem->base);
++	usleep_range(1000, 2000);
++
++	/* enable NPU cores */
++	/* do not start core3 since it is used for WiFi offloading */
++	airoha_npu_wr(npu, REG_CR_BOOT_CONFIG, 0xf7);
++	airoha_npu_wr(npu, REG_CR_BOOT_TRIGGER, 0x1);
++	msleep(100);
++
++	return npu;
++
++error_put_dev:
++	put_device(&npu->pdev->dev);
++error_of_node_put:
++	of_node_put(npu->np);
++
++	return ERR_PTR(err);
++}
++
++static void airoha_npu_deinit(struct airoha_npu *npu)
++{
++	put_device(&npu->pdev->dev);
++	of_node_put(npu->np);
++}
++
++int airoha_ppe_init(struct airoha_eth *eth)
++{
++	struct airoha_npu *npu;
++	struct airoha_ppe *ppe;
++	int err;
++
++	ppe = devm_kzalloc(eth->dev, sizeof(*ppe), GFP_KERNEL);
++	if (!ppe)
++		return -ENOMEM;
++
++	ppe->foe = dmam_alloc_coherent(eth->dev,
++				       PPE_NUM_ENTRIES * PPE_EN7581_ENTRY_SIZE,
++				       &ppe->foe_dma, GFP_KERNEL);
++	if (!ppe->foe)
++		return -ENOMEM;
++
++	memset(ppe->foe, 0, PPE_NUM_ENTRIES * PPE_EN7581_ENTRY_SIZE);
++	ppe->eth = eth;
++
++	airoha_fe_wr(eth, REG_PPE1_TB_BASE,
++		     ppe->foe_dma + PPE_EN7581_DRAM_OFFSET);
++	airoha_fe_wr(eth, REG_PPE2_TB_BASE,
++		     ppe->foe_dma + PPE_EN7581_DRAM_OFFSET);
++	airoha_fe_rmw(eth, REG_PPE1_BND_AGE0,
++		      PPE1_BIND_AGE0_DELTA_NON_L4 |
++		      PPE1_BIND_AGE0_DELTA_UDP,
++		      FIELD_PREP(PPE1_BIND_AGE0_DELTA_NON_L4, 1) |
++		      FIELD_PREP(PPE1_BIND_AGE0_DELTA_UDP, 12));
++	airoha_fe_rmw(eth, REG_PPE1_BND_AGE1,
++		      PPE1_BIND_AGE1_DELTA_TCP_FIN |
++		      PPE1_BIND_AGE1_DELTA_TCP,
++		      FIELD_PREP(PPE1_BIND_AGE1_DELTA_TCP_FIN, 1) |
++		      FIELD_PREP(PPE1_BIND_AGE1_DELTA_TCP, 7));
++	eth->ppe = ppe;
++
++	npu = airoha_npu_init(eth);
++	if (IS_ERR(npu))
++		return PTR_ERR(npu);
++
++	eth->npu = npu;
++	err = airoha_npu_ppe_init(npu);
++	if (err)
++		goto error;
++
++	err = airoha_npu_flush_ppe_sram_entries(npu, ppe);
++	if (err)
++		goto error;
++
++	return 0;
++
++error:
++	airoha_npu_deinit(npu);
++	eth->npu = NULL;
++
++	return err;
++}
++
++void airoha_ppe_deinit(struct airoha_eth *eth)
++{
++	if (eth->npu) {
++		airoha_npu_ppe_deinit(eth->npu);
++		airoha_npu_deinit(eth->npu);
++	}
++}
+--- a/drivers/net/ethernet/mediatek/airoha_regs.h
++++ b/drivers/net/ethernet/mediatek/airoha_regs.h
+@@ -13,6 +13,7 @@
+ #define CDM1_BASE			0x0400
+ #define GDM1_BASE			0x0500
+ #define PPE1_BASE			0x0c00
++#define PPE2_BASE			0x1c00
+ 
+ #define CDM2_BASE			0x1400
+ #define GDM2_BASE			0x1500
+@@ -190,11 +191,23 @@
+ #define REG_FE_GDM_RX_ETH_L511_CNT_L(_n)	(GDM_BASE(_n) + 0x198)
+ #define REG_FE_GDM_RX_ETH_L1023_CNT_L(_n)	(GDM_BASE(_n) + 0x19c)
+ 
+-#define REG_PPE1_TB_HASH_CFG		(PPE1_BASE + 0x250)
+-#define PPE1_SRAM_TABLE_EN_MASK		BIT(0)
+-#define PPE1_SRAM_HASH1_EN_MASK		BIT(8)
+-#define PPE1_DRAM_TABLE_EN_MASK		BIT(16)
+-#define PPE1_DRAM_HASH1_EN_MASK		BIT(24)
++#define REG_PPE1_TB_BASE			(PPE1_BASE + 0x220)
++
++#define REG_PPE1_BND_AGE0			(PPE1_BASE + 0x23c)
++#define PPE1_BIND_AGE0_DELTA_NON_L4		GENMASK(30, 16)
++#define PPE1_BIND_AGE0_DELTA_UDP		GENMASK(14, 0)
++
++#define REG_PPE1_BND_AGE1			(PPE1_BASE + 0x240)
++#define PPE1_BIND_AGE1_DELTA_TCP_FIN		GENMASK(30, 16)
++#define PPE1_BIND_AGE1_DELTA_TCP		GENMASK(14, 0)
++
++#define REG_PPE1_TB_HASH_CFG			(PPE1_BASE + 0x250)
++#define PPE1_SRAM_TABLE_EN_MASK			BIT(0)
++#define PPE1_SRAM_HASH1_EN_MASK			BIT(8)
++#define PPE1_DRAM_TABLE_EN_MASK			BIT(16)
++#define PPE1_DRAM_HASH1_EN_MASK			BIT(24)
++
++#define REG_PPE2_TB_BASE			(PPE2_BASE + 0x220)
+ 
+ #define REG_FE_GDM_TX_OK_PKT_CNT_H(_n)		(GDM_BASE(_n) + 0x280)
+ #define REG_FE_GDM_TX_OK_BYTE_CNT_H(_n)		(GDM_BASE(_n) + 0x284)

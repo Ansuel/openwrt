@@ -1,0 +1,152 @@
+From daf5f46bcd118295060af88c3dc7cf26a5eb9a1f Mon Sep 17 00:00:00 2001
+Message-ID: <daf5f46bcd118295060af88c3dc7cf26a5eb9a1f.1735736065.git.lorenzo@kernel.org>
+In-Reply-To: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
+References: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Mon, 9 Dec 2024 11:53:06 +0100
+Subject: [PATCH net-next 10/14] net: airoha: Add NPU watchdog support
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/mediatek/Kconfig      |  1 +
+ drivers/net/ethernet/mediatek/airoha_eth.h |  1 +
+ drivers/net/ethernet/mediatek/airoha_ppe.c | 70 ++++++++++++++++++++++
+ 3 files changed, 72 insertions(+)
+
+--- a/drivers/net/ethernet/mediatek/Kconfig
++++ b/drivers/net/ethernet/mediatek/Kconfig
+@@ -11,6 +11,7 @@ config NET_AIROHA
+ 	tristate "Airoha SoC Gigabit Ethernet support"
+ 	depends on NET_DSA || !NET_DSA
+ 	select PAGE_POOL
++	select WANT_DEV_COREDUMP
+ 	help
+ 	  This driver supports the gigabit ethernet MACs in the
+ 	  Airoha SoC family.
+--- a/drivers/net/ethernet/mediatek/airoha_eth.h
++++ b/drivers/net/ethernet/mediatek/airoha_eth.h
+@@ -331,6 +331,7 @@ struct airoha_npu {
+ 	struct airoha_npu_core {
+ 		struct airoha_npu *npu;
+ 		struct mutex mbox_mutex;
++		struct work_struct wdt_work;
+ 	} cores[AIROHA_NPU_NUM_CORES];
+ };
+ 
+--- a/drivers/net/ethernet/mediatek/airoha_ppe.c
++++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
+@@ -4,6 +4,7 @@
+  * Author: Lorenzo Bianconi <lorenzo@kernel.org>
+  */
+ 
++#include <linux/devcoredump.h>
+ #include <linux/firmware.h>
+ #include <linux/of_reserved_mem.h>
+ 
+@@ -14,9 +15,13 @@
+ #define NPU_EN7581_FIRMWARE_RV32		"airoha/en7581_npu_rv32.bin"
+ #define NPU_EN7581_FIRMWARE_RV32_MAX_SIZE	0x200000
+ #define NPU_EN7581_FIRMWARE_DATA_MAX_SIZE	0x10000
++#define NPU_DUMP_SIZE				512
+ 
+ #define REG_NPU_LOCAL_SRAM		0x0
+ 
++#define NPU_PC_BASE_ADDR		0x305000
++#define REG_PC_DBG(_n)			(0x305000 + ((_n) * 0x100))
++
+ #define NPU_CLUSTER_BASE_ADDR		0x306000
+ 
+ #define REG_CR_BOOT_TRIGGER		(NPU_CLUSTER_BASE_ADDR + 0x000)
+@@ -48,6 +53,14 @@ static void airoha_npu_wr(struct airoha_
+ 	writel(val, npu->base + reg);
+ }
+ 
++static u32 airoha_npu_rmw(struct airoha_npu *npu, u32 reg, u32 mask, u32 val)
++{
++	val |= airoha_npu_rr(npu, reg) & ~mask;
++	airoha_npu_wr(npu, reg, val);
++
++	return val;
++}
++
+ static int airoha_npu_send_msg(struct airoha_npu *npu, int func_id,
+ 			       void *p, int size)
+ {
+@@ -205,6 +218,44 @@ static int airoha_npu_flush_ppe_sram_ent
+ 				   sizeof(struct ppe_mbox_data));
+ }
+ 
++static void airoha_npu_wdt_work(struct work_struct *work)
++{
++	struct airoha_npu_core *core;
++	struct airoha_npu *npu;
++	void *dump;
++	int c;
++
++	core = container_of(work, struct airoha_npu_core, wdt_work);
++	npu = core->npu;
++
++	dump = vzalloc(NPU_DUMP_SIZE);
++	if (!dump)
++		return;
++
++	c = core - &npu->cores[0];
++	snprintf(dump, NPU_DUMP_SIZE, "PC: %08x SP: %08x LR: %08x\n",
++		 airoha_npu_rr(npu, REG_PC_DBG(c)),
++		 airoha_npu_rr(npu, REG_PC_DBG(c) + 0x4),
++		 airoha_npu_rr(npu, REG_PC_DBG(c) + 0x8));
++
++	dev_coredumpv(&npu->pdev->dev, dump, NPU_DUMP_SIZE, GFP_KERNEL);
++}
++
++static irqreturn_t airoha_npu_wdt_handler(int irq, void *core_instance)
++{
++	struct airoha_npu_core *core = core_instance;
++	struct airoha_npu *npu = core->npu;
++	int c = core - &npu->cores[0];
++	u32 val;
++
++	airoha_npu_rmw(npu, REG_WDT_TIMER_CTRL(c), 0, WDT_INTR_MASK);
++	val = airoha_npu_rr(npu, REG_WDT_TIMER_CTRL(c));
++	if (FIELD_GET(WDT_EN_MASK, val))
++		schedule_work(&core->wdt_work);
++
++	return IRQ_HANDLED;
++}
++
+ static struct airoha_npu *airoha_npu_init(struct airoha_eth *eth)
+ {
+ 	struct reserved_mem *rmem;
+@@ -256,6 +307,20 @@ static struct airoha_npu *airoha_npu_ini
+ 
+ 		mutex_init(&core->mbox_mutex);
+ 		core->npu = npu;
++
++		irq = platform_get_irq(npu->pdev, i + 1);
++		if (irq < 0) {
++			err = irq;
++			goto error_put_dev;
++		}
++
++		err = devm_request_irq(&npu->pdev->dev, irq,
++				       airoha_npu_wdt_handler, IRQF_SHARED,
++				       "airoha-npu-wdt", core);
++		if (err)
++			goto error_put_dev;
++
++		INIT_WORK(&core->wdt_work, airoha_npu_wdt_work);
+ 	}
+ 
+ 	if (dma_set_coherent_mask(&npu->pdev->dev, 0xbfffffff))
+@@ -296,6 +361,11 @@ error_of_node_put:
+ 
+ static void airoha_npu_deinit(struct airoha_npu *npu)
+ {
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(npu->cores); i++)
++		cancel_work_sync(&npu->cores[i].wdt_work);
++
+ 	put_device(&npu->pdev->dev);
+ 	of_node_put(npu->np);
+ }
