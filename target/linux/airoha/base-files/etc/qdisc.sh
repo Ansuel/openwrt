@@ -11,6 +11,7 @@ GW=192.168.83.1
 RATE=100
 NSTRICT=2
 QUANTA="quanta 1514 1514 1514 1514 1514 3528"
+PRIOMAP="priomap 1 2 3 4 5 6 7 0"
 
 PORT0=6001
 PORT1=6002
@@ -47,7 +48,7 @@ for q in $(seq $N_DSA_PORTS); do
 		htb rate "$((RATE*q))mbit" ceil "$((RATE*q))mbit"
 	# ETS qdisc [1:x] (ETS bands associated to hw QoS per-channel queues)
 	tc qdisc replace dev $DEV parent 10:$q handle $q: 	\
-		ets bands 8 strict $NSTRICT $QUANTA
+		ets bands 8 strict $NSTRICT $QUANTA $PRIOMAP
 
 	# add CLSACT qdisc on DSA ports
 	tc qdisc add dev lan$q clsact

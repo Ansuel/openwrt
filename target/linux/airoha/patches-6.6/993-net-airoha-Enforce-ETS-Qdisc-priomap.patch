@@ -1,0 +1,52 @@
+From e0b7ec128cb1387abaac0c2eb9a5151b3d10545f Mon Sep 17 00:00:00 2001
+Message-ID: <e0b7ec128cb1387abaac0c2eb9a5151b3d10545f.1736704409.git.lorenzo@kernel.org>
+In-Reply-To: <7d0da8f862340c5f42f0062b8560b8d0971a6ac4.1736704409.git.lorenzo@kernel.org>
+References: <7d0da8f862340c5f42f0062b8560b8d0971a6ac4.1736704409.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sun, 12 Jan 2025 17:14:54 +0100
+Subject: [PATCH net-next 3/3] net: airoha: Enforce ETS Qdisc priomap
+
+EN7581 SoC supports fixed QoS band priority where WRR queues have lowest
+priorities with respect to SP ones.
+E.g: WRR0, WRR1, .., WRRm, SP0, SP1, .., SPn
+
+Enforce ETS Qdisc priomap according to the hw capabilities.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/mediatek/airoha_eth.c | 17 +++++++++++++++--
+ 1 file changed, 15 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/ethernet/mediatek/airoha_eth.c
++++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+@@ -1865,7 +1865,7 @@ static int airoha_qdma_set_tx_ets_sched(
+ 	struct tc_ets_qopt_offload_replace_params *p = &opt->replace_params;
+ 	enum tx_sched_mode mode = TC_SCH_SP;
+ 	u16 w[AIROHA_NUM_QOS_QUEUES] = {};
+-	int i, nstrict = 0;
++	int i, nstrict = 0, nwrr, qidx;
+ 
+ 	if (p->bands > AIROHA_NUM_QOS_QUEUES)
+ 		return -EINVAL;
+@@ -1879,7 +1879,20 @@ static int airoha_qdma_set_tx_ets_sched(
+ 	if (nstrict == AIROHA_NUM_QOS_QUEUES - 1)
+ 		return -EINVAL;
+ 
+-	for (i = 0; i < p->bands - nstrict; i++)
++	/* EN7581 SoC supports fixed QoS band priority where WRR queues have
++	 * lowest priorities with respect to SP ones.
++	 * e.g: WRR0, WRR1, .., WRRm, SP0, SP1, .., SPn
++	 */
++	nwrr = p->bands - nstrict;
++	qidx = nstrict && nwrr ? nstrict : 0;
++	for (i = 1; i <= p->bands; i++) {
++		if (p->priomap[i % AIROHA_NUM_QOS_QUEUES] != qidx)
++			return -EINVAL;
++
++		qidx = i == nwrr ? 0 : qidx + 1;
++	}
++
++	for (i = 0; i < nwrr; i++)
+ 		w[i] = p->weights[nstrict + i];
+ 
+ 	if (!nstrict)
