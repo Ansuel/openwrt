@@ -1,0 +1,154 @@
+From d158ebb5d126e1b1099f44cecd813147877e9c46 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 17 Jan 2025 10:06:05 +0100
+Subject: [PATCH 1/9] net: airoha: rework handling of GDM port enable/disable
+
+In preparation for phylink support, rework handling of GDM port
+enable/disable and change only the relevant port.
+
+This is done to stop other interface ((like the internal switch
+interface) to affect other GDM port by disabling them.
+
+A new logic is implemented where each GDM port have a type.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/ethernet/mediatek/airoha_eth.c | 51 ++++++++++------------
+ drivers/net/ethernet/mediatek/airoha_eth.h |  5 ++-
+ 2 files changed, 27 insertions(+), 29 deletions(-)
+
+diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
+index df4832f59c2b..13a2c54e1d76 100644
+--- a/drivers/net/ethernet/mediatek/airoha_eth.c
++++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+@@ -62,6 +62,22 @@ static void airoha_qdma_irq_disable(struct airoha_qdma *qdma, int index,
+ 	airoha_qdma_set_irqmask(qdma, index, mask, 0);
+ }
+ 
++static enum airoha_gdm_port_type airoha_get_gdm_port_type(struct airoha_gdm_port *port)
++{
++	/* TODO handle USB port on GDM4 and PCIE1 port on GDM3 */
++	switch (port->id) {
++	case 4:
++		return XSI_ETH_PORT; /* ETH port */
++	case 3:
++		return XSI_PCIE0_PORT;
++	case 2:
++		return XSI_AE_PORT; /* PON port */
++	case 1:
++	default:
++		return INTERNAL_SWITCH_PORT;
++	}
++}
++
+ static bool airhoa_is_lan_gdm_port(struct airoha_gdm_port *port)
+ {
+ 	/* GDM1 port on EN7581 SoC is connected to the lan dsa switch.
+@@ -99,7 +115,8 @@ static void airoha_set_gdm_port_fwd_cfg(struct airoha_eth *eth, u32 addr,
+ 		      FIELD_PREP(GDM_UCFQ_MASK, val));
+ }
+ 
+-static int airoha_set_gdm_port(struct airoha_eth *eth, int port, bool enable)
++static int airoha_set_gdm_port(struct airoha_eth *eth,
++			       enum airoha_gdm_port_type port, bool enable)
+ {
+ 	u32 val = enable ? FE_PSE_PORT_PPE1 : FE_PSE_PORT_DROP;
+ 	u32 vip_port, cfg_addr;
+@@ -121,6 +138,8 @@ static int airoha_set_gdm_port(struct airoha_eth *eth, int port, bool enable)
+ 		vip_port = XSI_ETH_VIP_PORT_MASK;
+ 		cfg_addr = REG_GDM_FWD_CFG(4);
+ 		break;
++	case INTERNAL_SWITCH_PORT:
++		return 0;
+ 	default:
+ 		return -EINVAL;
+ 	}
+@@ -138,31 +157,6 @@ static int airoha_set_gdm_port(struct airoha_eth *eth, int port, bool enable)
+ 	return 0;
+ }
+ 
+-static int airoha_set_gdm_ports(struct airoha_eth *eth, bool enable)
+-{
+-	const int port_list[] = {
+-		XSI_PCIE0_PORT,
+-		XSI_PCIE1_PORT,
+-		XSI_USB_PORT,
+-		XSI_ETH_PORT
+-	};
+-	int i, err;
+-
+-	for (i = 0; i < ARRAY_SIZE(port_list); i++) {
+-		err = airoha_set_gdm_port(eth, port_list[i], enable);
+-		if (err)
+-			goto error;
+-	}
+-
+-	return 0;
+-
+-error:
+-	for (i--; i >= 0; i--)
+-		airoha_set_gdm_port(eth, port_list[i], false);
+-
+-	return err;
+-}
+-
+ static void airoha_fe_maccr_init(struct airoha_eth *eth)
+ {
+ 	int p;
+@@ -1538,7 +1532,7 @@ static int airoha_dev_open(struct net_device *dev)
+ 	int err;
+ 
+ 	netif_tx_start_all_queues(dev);
+-	err = airoha_set_gdm_ports(qdma->eth, true);
++	err = airoha_set_gdm_port(qdma->eth, port->type, true);
+ 	if (err)
+ 		return err;
+ 
+@@ -1563,7 +1557,7 @@ static int airoha_dev_stop(struct net_device *dev)
+ 	int i, err;
+ 
+ 	netif_tx_disable(dev);
+-	err = airoha_set_gdm_ports(qdma->eth, false);
++	err = airoha_set_gdm_port(qdma->eth, port->type, false);
+ 	if (err)
+ 		return err;
+ 
+@@ -2336,6 +2330,7 @@ static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
+ 	port->qdma = qdma;
+ 	port->dev = dev;
+ 	port->id = id;
++	port->type = airoha_get_gdm_port_type(port);
+ 	eth->ports[index] = port;
+ 
+ 	return register_netdev(dev);
+diff --git a/drivers/net/ethernet/mediatek/airoha_eth.h b/drivers/net/ethernet/mediatek/airoha_eth.h
+index d7252494423a..332ae7bb5113 100644
+--- a/drivers/net/ethernet/mediatek/airoha_eth.h
++++ b/drivers/net/ethernet/mediatek/airoha_eth.h
+@@ -69,12 +69,14 @@ enum {
+ 	QDMA_INT_REG_MAX
+ };
+ 
+-enum {
++enum airoha_gdm_port_type {
+ 	XSI_PCIE0_PORT,
+ 	XSI_PCIE1_PORT,
+ 	XSI_USB_PORT,
+ 	XSI_AE_PORT,
+ 	XSI_ETH_PORT,
++
++	INTERNAL_SWITCH_PORT,
+ };
+ 
+ enum {
+@@ -441,6 +443,7 @@ struct airoha_qdma {
+ };
+ 
+ struct airoha_gdm_port {
++	enum airoha_gdm_port_type type;
+ 	struct airoha_qdma *qdma;
+ 	struct net_device *dev;
+ 	int id;
+-- 
+2.47.1
+

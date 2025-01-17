@@ -1,0 +1,43 @@
+From f605f99e7c7ec320881bcf28ed2554aed4b10b7b Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 17 Jan 2025 16:25:58 +0100
+Subject: [PATCH 9/9] HACK FORCE QDMA1 FOR EVERY GDM
+
+GDM4 require QDMA1 up probably to a forward misconfiguration. Force to
+QDMA1 for now.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/ethernet/mediatek/airoha_eth.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
+index 40b4d097e35f..b73e1768806d 100644
+--- a/drivers/net/ethernet/mediatek/airoha_eth.c
++++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+@@ -1589,9 +1589,11 @@ static int airoha_dev_stop(struct net_device *dev)
+ 	if (err)
+ 		return err;
+ 
++	/* TODO don't stop as GDM4 use it
+ 	airoha_qdma_clear(qdma, REG_QDMA_GLOBAL_CFG,
+ 			  GLOBAL_CFG_TX_DMA_EN_MASK |
+ 			  GLOBAL_CFG_RX_DMA_EN_MASK);
++	*/
+ 
+ 	for (i = 0; i < ARRAY_SIZE(qdma->q_tx); i++) {
+ 		if (!qdma->q_tx[i].ndesc)
+@@ -2508,7 +2510,9 @@ static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
+ 		return -ENOMEM;
+ 	}
+ 
+-	qdma = &eth->qdma[index % AIROHA_MAX_NUM_QDMA];
++	// qdma = &eth->qdma[index % AIROHA_MAX_NUM_QDMA];
++	/* TODO Force QDMA1 as GDM4 use QDMA1 instead of QDMA2 */
++	qdma = &eth->qdma[0];
+ 	dev->netdev_ops = &airoha_netdev_ops;
+ 	dev->ethtool_ops = &airoha_ethtool_ops;
+ 	dev->max_mtu = AIROHA_MAX_MTU;
+-- 
+2.47.1
+

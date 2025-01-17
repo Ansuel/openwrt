@@ -216,6 +216,14 @@
 	status = "okay";
 };
 
+&gdm4 {
+	status = "okay";
+
+	sfp = <&sfp1>;
+	managed = "in-band-status";
+	phy-mode = "usxgmii";
+};
+
 &switch {
 	pinctrl-names = "default";
 	pinctrl-0 = <&mdio_pins>;

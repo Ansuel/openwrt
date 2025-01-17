@@ -332,6 +332,10 @@
 		};
 	};
 
+	sfp1: sfp1 {
+		compatible = "sff,sfp";
+	};
+
 	soc {
 		compatible = "simple-bus";
 		#address-cells = <2>;
@@ -413,6 +417,33 @@
 			status = "disabled";
 		};
 
+		eth_pcs: pcs@1fa09000 {
+			compatible = "airoha,an7581-pcs";
+			reg = <0x0 0x1fa09000 0x0 0x1000>,
+			      <0x0 0x1fa70000 0x0 0x60>,
+			      <0x0 0x1fa70a00 0x0 0x164>,
+			      <0x0 0x1fa74000 0x0 0x450>,
+			      <0x0 0x1fa76000 0x0 0x300>,
+			      <0x0 0x1fa75000 0x0 0x1000>;
+			reg-names = "xfi_mac", "hsgmii_an", "hsgmii_pcs",
+				    "multi_sgmii", "hsgmii_rate_adp",
+				    "usxgmii";
+			airoha,xfi-pma = <&eth_xfi_pma>;
+			airoha,xfi-ana = <&eth_xfi_ana>;
+
+			status = "okay";
+		};
+
+		eth_xfi_ana: xfi-ana@1fa7a000 {
+			compatible = "airoha,an7581-xfi-ana", "syscon";
+			reg = <0x0 0x1fa7a000 0x0 0x1000>;
+		};
+
+		eth_xfi_pma: xfi-pma@1fa7b000 {
+			compatible = "airoha,an7581-xfi-pma", "syscon";
+			reg = <0x0 0x1fa7b000 0x0 0x1000>;
+		};
+
 		chip_scu: syscon@1fa20000 {
 			compatible = "airoha,en7581-chip-scu", "syscon";
 			reg = <0x0 0x1fa20000 0x0 0x388>;
@@ -424,7 +455,7 @@
 		};
 
 		scuclk: clock-controller@1fa20000 {
-			compatible = "airoha,en7581-scu";
+			compatible = "airoha,en7581-scu", "syscon";
 			reg = <0x0 0x1fb00000 0x0 0x970>;
 			#clock-cells = <1>;
 			#reset-cells = <1>;
@@ -714,6 +745,14 @@
 					full-duplex;
 					pause;
 				};
+			};
+
+			gdm4: ethernet@4 {
+				compatible = "airoha,eth-mac";
+				reg = <4>;
+				pcs = <&eth_pcs>;
+
+				status = "disabled";
 			};
 		};
 

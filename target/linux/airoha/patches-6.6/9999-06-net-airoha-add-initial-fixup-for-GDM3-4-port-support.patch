@@ -1,0 +1,77 @@
+From a3cd6eb3259282a68b608fc923121460c0d3d2f7 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 17 Jan 2025 10:35:41 +0100
+Subject: [PATCH 6/9] net: airoha: add initial fixup for GDM3/4 port support
+
+GDM3 and GDM4 require different configuration for max long frame
+definition, needs the QDMA to strip CRC on RX and require the SPORT to
+be enabled to correctly be identified.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/ethernet/mediatek/airoha_eth.c  | 12 ++++++++++--
+ drivers/net/ethernet/mediatek/airoha_regs.h |  1 +
+ 2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
+index c96d859a5b4d..d19077c5bcd7 100644
+--- a/drivers/net/ethernet/mediatek/airoha_eth.c
++++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+@@ -159,9 +159,13 @@ static int airoha_set_gdm_port(struct airoha_eth *eth,
+ 
+ static void airoha_fe_maccr_init(struct airoha_eth *eth)
+ {
++	unsigned int long_frame_size = 4004;
+ 	int p;
+ 
+ 	for (p = 1; p <= ARRAY_SIZE(eth->ports); p++) {
++		if (p > 2)
++			long_frame_size = 2000;
++
+ 		airoha_fe_set(eth, REG_GDM_FWD_CFG(p),
+ 			      GDM_TCP_CKSUM | GDM_UDP_CKSUM | GDM_IP4_CKSUM |
+ 			      GDM_DROP_CRC_ERR);
+@@ -170,7 +174,7 @@ static void airoha_fe_maccr_init(struct airoha_eth *eth)
+ 		airoha_fe_rmw(eth, REG_GDM_LEN_CFG(p),
+ 			      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
+ 			      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
+-			      FIELD_PREP(GDM_LONG_LEN_MASK, 4004));
++			      FIELD_PREP(GDM_LONG_LEN_MASK, long_frame_size));
+ 	}
+ 
+ 	airoha_fe_rmw(eth, REG_CDM1_VLAN_CTRL, CDM1_VLAN_MASK,
+@@ -543,6 +547,9 @@ static int airoha_fe_init(struct airoha_eth *eth)
+ 	airoha_fe_set(eth, REG_GDM_FWD_CFG(3), GDM_PAD_EN);
+ 	airoha_fe_set(eth, REG_GDM_FWD_CFG(4), GDM_PAD_EN);
+ 
++	airoha_fe_set(eth, REG_GDM_FWD_CFG(3), GDM_STRIP_CRC);
++	airoha_fe_set(eth, REG_GDM_FWD_CFG(4), GDM_STRIP_CRC);
++
+ 	airoha_fe_crsn_qsel_init(eth);
+ 
+ 	airoha_fe_clear(eth, REG_FE_CPORT_CFG, FE_CPORT_QUEUE_XFC_MASK);
+@@ -1543,7 +1550,8 @@ static int airoha_dev_open(struct net_device *dev)
+ 	if (err)
+ 		return err;
+ 
+-	if (netdev_uses_dsa(dev))
++	/* It seems GDM3 and GDM4 needs SPORT enabled to correctly work */
++	if (netdev_uses_dsa(dev) || port->id > 2)
+ 		airoha_fe_set(qdma->eth, REG_GDM_INGRESS_CFG(port->id),
+ 			      GDM_STAG_EN_MASK);
+ 	else
+diff --git a/drivers/net/ethernet/mediatek/airoha_regs.h b/drivers/net/ethernet/mediatek/airoha_regs.h
+index 957a95a86001..b0b0c4d9520f 100644
+--- a/drivers/net/ethernet/mediatek/airoha_regs.h
++++ b/drivers/net/ethernet/mediatek/airoha_regs.h
+@@ -125,6 +125,7 @@
+ #define GDM_IP4_CKSUM			BIT(22)
+ #define GDM_TCP_CKSUM			BIT(21)
+ #define GDM_UDP_CKSUM			BIT(20)
++#define GDM_STRIP_CRC			BIT(16)
+ #define GDM_UCFQ_MASK			GENMASK(15, 12)
+ #define GDM_BCFQ_MASK			GENMASK(11, 8)
+ #define GDM_MCFQ_MASK			GENMASK(7, 4)
+-- 
+2.47.1
+
