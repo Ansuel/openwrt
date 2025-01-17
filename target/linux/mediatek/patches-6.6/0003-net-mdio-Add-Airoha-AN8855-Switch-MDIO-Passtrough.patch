@@ -1,0 +1,174 @@
+From 42e33c77099fc7426ca3b59246c0bed7fb30342e Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sat, 7 Dec 2024 02:09:17 +0100
+Subject: [PATCH 3/6] net: mdio: Add Airoha AN8855 Switch MDIO Passtrough
+
+Add Airoha AN8855 Switch driver to register a MDIO passtrough as switch
+address is shared with the internal PHYs and require additional page
+handling.
+
+This requires the upper Switch MFD to be probed and init to actually
+work.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/mdio/Kconfig       |   9 +++
+ drivers/net/mdio/Makefile      |   1 +
+ drivers/net/mdio/mdio-an8855.c | 113 +++++++++++++++++++++++++++++++++
+ 3 files changed, 123 insertions(+)
+ create mode 100644 drivers/net/mdio/mdio-an8855.c
+
+diff --git a/drivers/net/mdio/Kconfig b/drivers/net/mdio/Kconfig
+index 4a7a303be2f7..64fc5c3ef38b 100644
+--- a/drivers/net/mdio/Kconfig
++++ b/drivers/net/mdio/Kconfig
+@@ -61,6 +61,15 @@ config MDIO_XGENE
+ 	  This module provides a driver for the MDIO busses found in the
+ 	  APM X-Gene SoC's.
+ 
++config MDIO_AN8855
++	tristate "Airoha AN8855 Switch MDIO bus controller"
++	depends on MFD_AIROHA_AN8855
++	depends on OF_MDIO
++	help
++	  This module provides a driver for the Airoha AN8855 Switch
++	  that require a MDIO passtrough as switch address is shared
++	  with the internal PHYs and require additional page handling.
++
+ config MDIO_ASPEED
+ 	tristate "ASPEED MDIO bus controller"
+ 	depends on ARCH_ASPEED || COMPILE_TEST
+diff --git a/drivers/net/mdio/Makefile b/drivers/net/mdio/Makefile
+index 1015f0db4531..546c4e55b475 100644
+--- a/drivers/net/mdio/Makefile
++++ b/drivers/net/mdio/Makefile
+@@ -5,6 +5,7 @@ obj-$(CONFIG_ACPI_MDIO)		+= acpi_mdio.o
+ obj-$(CONFIG_FWNODE_MDIO)	+= fwnode_mdio.o
+ obj-$(CONFIG_OF_MDIO)		+= of_mdio.o
+ 
++obj-$(CONFIG_MDIO_AN8855)		+= mdio-an8855.o
+ obj-$(CONFIG_MDIO_ASPEED)		+= mdio-aspeed.o
+ obj-$(CONFIG_MDIO_BCM_IPROC)		+= mdio-bcm-iproc.o
+ obj-$(CONFIG_MDIO_BCM_UNIMAC)		+= mdio-bcm-unimac.o
+diff --git a/drivers/net/mdio/mdio-an8855.c b/drivers/net/mdio/mdio-an8855.c
+new file mode 100644
+index 000000000000..d8a856352842
+--- /dev/null
++++ b/drivers/net/mdio/mdio-an8855.c
+@@ -0,0 +1,113 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * MDIO passthrough driver for Airoha AN8855 Switch
++ */
++
++#include <linux/mfd/airoha-an8855-mfd.h>
++#include <linux/module.h>
++#include <linux/of_mdio.h>
++#include <linux/platform_device.h>
++
++static int an855_phy_restore_page(struct an8855_mfd_priv *priv,
++				  int phy) __must_hold(&priv->bus->mdio_lock)
++{
++	/* Check PHY page only for addr shared with switch */
++	if (phy != priv->switch_addr)
++		return 0;
++
++	/* Don't restore page if it's not set to switch page */
++	if (priv->current_page != FIELD_GET(AN8855_PHY_PAGE,
++					    AN8855_PHY_PAGE_EXTENDED_4))
++		return 0;
++
++	/* Restore page to 0, PHY might change page right after but that
++	 * will be ignored as it won't be a switch page.
++	 */
++	return an8855_mii_set_page(priv, phy, AN8855_PHY_PAGE_STANDARD);
++}
++
++static int an8855_phy_read(struct mii_bus *bus, int phy, int regnum)
++{
++	struct an8855_mfd_priv *priv = bus->priv;
++	struct mii_bus *real_bus = priv->bus;
++	int ret;
++
++	mutex_lock_nested(&real_bus->mdio_lock, MDIO_MUTEX_NESTED);
++
++	ret = an855_phy_restore_page(priv, phy);
++	if (ret)
++		goto exit;
++
++	ret = __mdiobus_read(real_bus, phy, regnum);
++exit:
++	mutex_unlock(&real_bus->mdio_lock);
++
++	return ret;
++}
++
++static int an8855_phy_write(struct mii_bus *bus, int phy, int regnum, u16 val)
++{
++	struct an8855_mfd_priv *priv = bus->priv;
++	struct mii_bus *real_bus = priv->bus;
++	int ret;
++
++	mutex_lock_nested(&real_bus->mdio_lock, MDIO_MUTEX_NESTED);
++
++	ret = an855_phy_restore_page(priv, phy);
++	if (ret)
++		goto exit;
++
++	ret = __mdiobus_write(real_bus, phy, regnum, val);
++exit:
++	mutex_unlock(&real_bus->mdio_lock);
++
++	return ret;
++}
++
++static int an8855_mdio_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct an8855_mfd_priv *priv;
++	struct mii_bus *bus;
++	int ret;
++
++	/* Get priv of MFD */
++	priv = dev_get_drvdata(dev->parent);
++
++	bus = devm_mdiobus_alloc(dev);
++	if (!bus)
++		return -ENOMEM;
++
++	bus->priv = priv;
++	bus->name = KBUILD_MODNAME "-mii";
++	snprintf(bus->id, MII_BUS_ID_SIZE, KBUILD_MODNAME "-%d",
++		 priv->switch_addr);
++	bus->parent = dev;
++	bus->read = an8855_phy_read;
++	bus->write = an8855_phy_write;
++
++	ret = devm_of_mdiobus_register(dev, bus, dev->of_node);
++	if (ret)
++		dev_err(dev, "failed to register MDIO bus: %d", ret);
++
++	return ret;
++}
++
++static const struct of_device_id an8855_mdio_ids[] = {
++	{ .compatible = "airoha,an8855-mdio", },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, an8855_mdio_ids);
++
++static struct platform_driver an8855_mdio_driver = {
++	.probe	= an8855_mdio_probe,
++	.driver = {
++		.name = "an8855-mdio",
++		.of_match_table = an8855_mdio_ids,
++	},
++};
++module_platform_driver(an8855_mdio_driver);
++
++MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
++MODULE_DESCRIPTION("Driver for AN8855 Mdio passthrough");
++MODULE_LICENSE("GPL");
+-- 
+2.45.2
+

@@ -78,7 +78,7 @@ new file mode 100644
 index 000000000000..140a77837aae
 --- /dev/null
 +++ b/drivers/net/dsa/an8855.c
-@@ -0,0 +1,2138 @@
+@@ -0,0 +1,2585 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Airoha AN8855 DSA Switch driver
@@ -104,58 +104,24 @@ index 000000000000..140a77837aae
 +#include "an8855.h"
 +
 +static const struct an8855_mib_desc an8855_mib[] = {
-+	MIB_DESC(1, 0x00, "TxDrop"),
-+	MIB_DESC(1, 0x04, "TxCrcErr"),
-+	MIB_DESC(1, 0x08, "TxUnicast"),
-+	MIB_DESC(1, 0x0c, "TxMulticast"),
-+	MIB_DESC(1, 0x10, "TxBroadcast"),
-+	MIB_DESC(1, 0x14, "TxCollision"),
-+	MIB_DESC(1, 0x18, "TxSingleCollision"),
-+	MIB_DESC(1, 0x1c, "TxMultipleCollision"),
-+	MIB_DESC(1, 0x20, "TxDeferred"),
-+	MIB_DESC(1, 0x24, "TxLateCollision"),
-+	MIB_DESC(1, 0x28, "TxExcessiveCollistion"),
-+	MIB_DESC(1, 0x2c, "TxPause"),
-+	MIB_DESC(1, 0x30, "TxPktSz64"),
-+	MIB_DESC(1, 0x34, "TxPktSz65To127"),
-+	MIB_DESC(1, 0x38, "TxPktSz128To255"),
-+	MIB_DESC(1, 0x3c, "TxPktSz256To511"),
-+	MIB_DESC(1, 0x40, "TxPktSz512To1023"),
-+	MIB_DESC(1, 0x44, "TxPktSz1024To1518"),
-+	MIB_DESC(1, 0x48, "TxPktSz1519ToMax"),
-+	MIB_DESC(2, 0x4c, "TxBytes"),
-+	MIB_DESC(1, 0x54, "TxOversizeDrop"),
-+	MIB_DESC(2, 0x58, "TxBadPktBytes"),
-+	MIB_DESC(1, 0x80, "RxDrop"),
-+	MIB_DESC(1, 0x84, "RxFiltering"),
-+	MIB_DESC(1, 0x88, "RxUnicast"),
-+	MIB_DESC(1, 0x8c, "RxMulticast"),
-+	MIB_DESC(1, 0x90, "RxBroadcast"),
-+	MIB_DESC(1, 0x94, "RxAlignErr"),
-+	MIB_DESC(1, 0x98, "RxCrcErr"),
-+	MIB_DESC(1, 0x9c, "RxUnderSizeErr"),
-+	MIB_DESC(1, 0xa0, "RxFragErr"),
-+	MIB_DESC(1, 0xa4, "RxOverSzErr"),
-+	MIB_DESC(1, 0xa8, "RxJabberErr"),
-+	MIB_DESC(1, 0xac, "RxPause"),
-+	MIB_DESC(1, 0xb0, "RxPktSz64"),
-+	MIB_DESC(1, 0xb4, "RxPktSz65To127"),
-+	MIB_DESC(1, 0xb8, "RxPktSz128To255"),
-+	MIB_DESC(1, 0xbc, "RxPktSz256To511"),
-+	MIB_DESC(1, 0xc0, "RxPktSz512To1023"),
-+	MIB_DESC(1, 0xc4, "RxPktSz1024To1518"),
-+	MIB_DESC(1, 0xc8, "RxPktSz1519ToMax"),
-+	MIB_DESC(2, 0xcc, "RxBytes"),
-+	MIB_DESC(1, 0xd4, "RxCtrlDrop"),
-+	MIB_DESC(1, 0xd8, "RxIngressDrop"),
-+	MIB_DESC(1, 0xdc, "RxArlDrop"),
-+	MIB_DESC(1, 0xe0, "FlowControlDrop"),
-+	MIB_DESC(1, 0xe4, "WredDrop"),
-+	MIB_DESC(1, 0xe8, "MirrorDrop"),
-+	MIB_DESC(2, 0xec, "RxBadPktBytes"),
-+	MIB_DESC(1, 0xf4, "RxsFlowSamplingPktDrop"),
-+	MIB_DESC(1, 0xf8, "RxsFlowTotalPktDrop"),
-+	MIB_DESC(1, 0xfc, "PortControlDrop"),
++	MIB_DESC(1, AN8855_PORT_MIB_TX_DROP, "TxDrop"),
++	MIB_DESC(1, AN8855_PORT_MIB_TX_CRC_ERR, "TxCrcErr"),
++	MIB_DESC(1, AN8855_PORT_MIB_TX_COLLISION, "TxCollision"),
++	MIB_DESC(1, AN8855_PORT_MIB_TX_OVERSIZE_DROP, "TxOversizeDrop"),
++	MIB_DESC(2, AN8855_PORT_MIB_TX_BAD_PKT_BYTES, "TxBadPktBytes"),
++	MIB_DESC(1, AN8855_PORT_MIB_RX_DROP, "RxDrop"),
++	MIB_DESC(1, AN8855_PORT_MIB_RX_FILTERING, "RxFiltering"),
++	MIB_DESC(1, AN8855_PORT_MIB_RX_CRC_ERR, "RxCrcErr"),
++	MIB_DESC(1, AN8855_PORT_MIB_RX_CTRL_DROP, "RxCtrlDrop"),
++	MIB_DESC(1, AN8855_PORT_MIB_RX_INGRESS_DROP, "RxIngressDrop"),
++	MIB_DESC(1, AN8855_PORT_MIB_RX_ARL_DROP, "RxArlDrop"),
++	MIB_DESC(1, AN8855_PORT_MIB_FLOW_CONTROL_DROP, "FlowControlDrop"),
++	MIB_DESC(1, AN8855_PORT_MIB_WRED_DROP, "WredDrop"),
++	MIB_DESC(1, AN8855_PORT_MIB_MIRROR_DROP, "MirrorDrop"),
++	MIB_DESC(2, AN8855_PORT_MIB_RX_BAD_PKT_BYTES, "RxBadPktBytes"),
++	MIB_DESC(1, AN8855_PORT_MIB_RXS_FLOW_SAMPLING_PKT_DROP, "RxsFlowSamplingPktDrop"),
++	MIB_DESC(1, AN8855_PORT_MIB_RXS_FLOW_TOTAL_PKT_DROP, "RxsFlowTotalPktDrop"),
++	MIB_DESC(1, AN8855_PORT_MIB_PORT_CONTROL_DROP, "PortControlDrop"),
 +};
 +
 +static int an8855_mii_set_page(struct mii_bus *bus, u8 phy_id, u8 page)
@@ -365,15 +331,18 @@ index 000000000000..140a77837aae
 +{
 +	int ret;
 +
-+	ret = regmap_write(priv->regmap, AN8855_MIB_CCR, AN8855_CCR_MIB_ENABLE);
++	ret = regmap_write(priv->regmap, AN8855_MIB_CCR,
++			   AN8855_CCR_MIB_ENABLE);
 +	if (ret)
 +		return ret;
 +
-+	return regmap_write(priv->regmap, AN8855_MIB_CCR, AN8855_CCR_MIB_ACTIVATE);
++	return regmap_write(priv->regmap, AN8855_MIB_CCR,
++			    AN8855_CCR_MIB_ACTIVATE);
 +}
 +
 +static void an8855_fdb_write(struct an8855_priv *priv, u16 vid,
-+			     u8 port_mask, const u8 *mac, bool add)
++			     u8 port_mask, const u8 *mac,
++			     bool add) __must_hold(&priv->reg_mutex)
 +{
 +	u32 mac_reg[2] = { };
 +	u32 reg;
@@ -392,6 +361,7 @@ index 000000000000..140a77837aae
 +	if (add)
 +		reg |= AN8855_ATWD_VLD;
 +	reg |= FIELD_PREP(AN8855_ATWD_VID, vid);
++	reg |= FIELD_PREP(AN8855_ATWD_FID, AN8855_FID_BRIDGED);
 +	regmap_write(priv->regmap, AN8855_ATWD, reg);
 +	regmap_write(priv->regmap, AN8855_ATWD2,
 +		     FIELD_PREP(AN8855_ATWD2_PORT, port_mask));
@@ -420,7 +390,8 @@ index 000000000000..140a77837aae
 +	fdb->noarp = !!FIELD_GET(AN8855_ATRD0_ARP, reg[0]);
 +}
 +
-+static int an8855_fdb_cmd(struct an8855_priv *priv, u32 cmd, u32 *rsp)
++static int an8855_fdb_cmd(struct an8855_priv *priv, u32 cmd,
++			  u32 *rsp) __must_hold(&priv->reg_mutex)
 +{
 +	u32 val;
 +	int ret;
@@ -443,7 +414,7 @@ index 000000000000..140a77837aae
 +}
 +
 +static void
-+an8855_stp_state_set(struct dsa_switch *ds, int port, u8 state)
++an8855_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
 +{
 +	struct dsa_port *dp = dsa_to_port(ds, port);
 +	struct an8855_priv *priv = ds->priv;
@@ -472,11 +443,77 @@ index 000000000000..140a77837aae
 +		break;
 +	}
 +
-+	regmap_update_bits(priv->regmap, AN8855_SSP_P(port), AN8855_FID_PST,
-+			   stp_state);
++	regmap_update_bits(priv->regmap, AN8855_SSP_P(port),
++			   AN8855_FID_PST_MASK(AN8855_FID_BRIDGED),
++			   AN8855_FID_PST_VAL(AN8855_FID_BRIDGED, stp_state));
 +
-+	regmap_update_bits(priv->regmap, AN8855_AGDIS, BIT(port),
-+			   learning ? 0 : BIT(port));
++	regmap_update_bits(priv->regmap, AN8855_PSC_P(port), AN8855_SA_DIS,
++			   learning ? 0 : AN8855_SA_DIS);
++}
++
++static void an8855_port_fast_age(struct dsa_switch *ds, int port)
++{
++	struct an8855_priv *priv = ds->priv;
++	int ret;
++
++	/* Set to clean Dynamic entry */
++	ret = regmap_write(priv->regmap, AN8855_ATA2, AN8855_ATA2_TYPE);
++	if (ret)
++		return;
++
++	/* Set Port */
++	ret = regmap_write(priv->regmap, AN8855_ATWD2,
++			   FIELD_PREP(AN8855_ATWD2_PORT, BIT(port)));
++	if (ret)
++		return;
++
++	/* Flush Dynamic entry at port */
++	an8855_fdb_cmd(priv, AN8855_ATC_MAT(AND8855_FDB_MAT_MAC_TYPE_PORT) |
++		       AN8855_FDB_FLUSH, NULL);
++}
++
++static int an8855_update_port_member(struct dsa_switch *ds, int port,
++				     const struct net_device *bridge_dev,
++				     bool join)
++{
++	struct an8855_priv *priv = ds->priv;
++	bool isolated, other_isolated;
++	struct dsa_port *dp;
++	u32 port_mask = 0;
++	int ret;
++
++	isolated = !!(priv->port_isolated_map & BIT(port));
++
++	dsa_switch_for_each_user_port(dp, ds) {
++		if (dp->index == port)
++			continue;
++
++		if (!dsa_port_offloads_bridge_dev(dp, bridge_dev))
++			continue;
++
++		other_isolated = !!(priv->port_isolated_map & BIT(dp->index));
++		port_mask |= BIT(dp->index);
++		/* Add/remove this port to the portvlan mask of the other
++		 * ports in the bridge
++		 */
++		if (join && !(isolated && other_isolated))
++			ret = regmap_set_bits(priv->regmap,
++					      AN8855_PORTMATRIX_P(dp->index),
++					      FIELD_PREP(AN8855_USER_PORTMATRIX,
++							 BIT(port)));
++		else
++			ret = regmap_clear_bits(priv->regmap,
++						AN8855_PORTMATRIX_P(dp->index),
++						FIELD_PREP(AN8855_USER_PORTMATRIX,
++							   BIT(port)));
++		if (ret)
++			return ret;
++	}
++
++	/* Add/remove all other ports to this port's portvlan mask */
++	return regmap_update_bits(priv->regmap, AN8855_PORTMATRIX_P(port),
++				  AN8855_USER_PORTMATRIX,
++				  join ? port_mask : ~port_mask);
 +}
 +
 +static int an8855_port_pre_bridge_flags(struct dsa_switch *ds, int port,
@@ -484,7 +521,7 @@ index 000000000000..140a77837aae
 +					struct netlink_ext_ack *extack)
 +{
 +	if (flags.mask & ~(BR_LEARNING | BR_FLOOD | BR_MCAST_FLOOD |
-+			   BR_BCAST_FLOOD))
++			   BR_BCAST_FLOOD | BR_ISOLATED))
 +		return -EINVAL;
 +
 +	return 0;
@@ -498,8 +535,8 @@ index 000000000000..140a77837aae
 +	int ret;
 +
 +	if (flags.mask & BR_LEARNING) {
-+		ret = regmap_update_bits(priv->regmap, AN8855_AGDIS, BIT(port),
-+					 flags.val & BR_LEARNING ? 0 : BIT(port));
++		ret = regmap_update_bits(priv->regmap, AN8855_PSC_P(port), AN8855_SA_DIS,
++					 flags.val & BR_LEARNING ? 0 : AN8855_SA_DIS);
 +		if (ret)
 +			return ret;
 +	}
@@ -525,7 +562,39 @@ index 000000000000..140a77837aae
 +			return ret;
 +	}
 +
++	if (flags.mask & BR_ISOLATED) {
++		struct dsa_port *dp = dsa_to_port(ds, port);
++		struct net_device *bridge_dev = dsa_port_bridge_dev_get(dp);
++
++		if (flags.val & BR_ISOLATED)
++			priv->port_isolated_map |= BIT(port);
++		else
++			priv->port_isolated_map &= ~BIT(port);
++
++		ret = an8855_update_port_member(ds, port, bridge_dev, true);
++		if (ret)
++			return ret;
++	}
++
 +	return 0;
++}
++
++static int an8855_set_ageing_time(struct dsa_switch *ds, unsigned int msecs)
++{
++	struct an8855_priv *priv = ds->priv;
++	u32 age_count, age_unit, val;
++
++	/* Convert msec in AN8855_L2_AGING_MS_CONSTANT counter */
++	val = msecs / AN8855_L2_AGING_MS_CONSTANT;
++	/* Derive the count unit */
++	age_unit = val / FIELD_MAX(AN8855_AGE_UNIT);
++	/* Get the count in unit, age_unit is always incremented by 1 internally */
++	age_count = val / (age_unit + 1);
++
++	return regmap_update_bits(priv->regmap, AN8855_AAC,
++				  AN8855_AGE_CNT | AN8855_AGE_UNIT,
++				  FIELD_PREP(AN8855_AGE_CNT, age_count) |
++				  FIELD_PREP(AN8855_AGE_UNIT, age_unit));
 +}
 +
 +static int an8855_port_bridge_join(struct dsa_switch *ds, int port,
@@ -534,64 +603,34 @@ index 000000000000..140a77837aae
 +				   struct netlink_ext_ack *extack)
 +{
 +	struct an8855_priv *priv = ds->priv;
-+	u32 port_mask = BIT(AN8855_CPU_PORT);
-+	struct dsa_port *dp;
 +	int ret;
 +
-+	dsa_switch_for_each_port(dp, ds) {
-+		if (dp->index == port)
-+			continue;
++	ret = an8855_update_port_member(ds, port, bridge.dev, true);
++	if (ret)
++		return ret;
 +
-+		if (dsa_port_is_cpu(dp))
-+			continue;
-+
-+		if (!dsa_port_offloads_bridge_dev(dp, bridge.dev))
-+			continue;
-+
-+		/* Add this port to the portvlan mask of the other
-+		 * ports in the bridge
-+		 */
-+		port_mask |= BIT(dp->index);
-+		ret = regmap_set_bits(priv->regmap, AN8855_PORTMATRIX_P(dp->index),
-+				      FIELD_PREP(AN8855_PORTMATRIX, port));
-+		if (ret)
-+			return ret;
-+	}
-+
-+	/* Add all other ports to this port's portvlan mask */
-+	return regmap_update_bits(priv->regmap, AN8855_PORTMATRIX_P(port),
-+				  AN8855_PORTMATRIX, port_mask);
++	/* Set to fallback mode for independent VLAN learning if in a bridge */
++	return regmap_update_bits(priv->regmap, AN8855_PCR_P(port),
++				  AN8855_PORT_VLAN,
++				  FIELD_PREP(AN8855_PORT_VLAN,
++					     AN8855_PORT_FALLBACK_MODE));
 +}
 +
 +static void an8855_port_bridge_leave(struct dsa_switch *ds, int port,
 +				     struct dsa_bridge bridge)
 +{
 +	struct an8855_priv *priv = ds->priv;
-+	struct dsa_port *dp;
-+	u32 port_mask = 0;
 +
-+	dsa_switch_for_each_port(dp, ds) {
-+		if (dp->index == port)
-+			continue;
++	an8855_update_port_member(ds, port, bridge.dev, false);
 +
-+		if (dsa_port_is_cpu(dp))
-+			continue;
-+
-+		if (!dsa_port_offloads_bridge_dev(dp, bridge.dev))
-+			continue;
-+
-+		/* Remove this port from the portvlan mask of the other
-+		 * ports in the bridge
-+		 */
-+		port_mask |= BIT(dp->index);
-+		regmap_clear_bits(priv->regmap, AN8855_PORTMATRIX_P(dp->index),
-+				  FIELD_PREP(AN8855_PORTMATRIX, port));
-+	}
-+
-+	/* Remove all other ports from this port's portvlan mask */
-+	regmap_update_bits(priv->regmap, AN8855_PORTMATRIX_P(port),
-+			   AN8855_PORTMATRIX,
-+			   FIELD_PREP(AN8855_PORTMATRIX, ~port_mask));
++	/* When a port is removed from the bridge, the port would be set up
++	 * back to the default as is at initial boot which is a VLAN-unaware
++	 * port.
++	 */
++	regmap_update_bits(priv->regmap, AN8855_PCR_P(port),
++			   AN8855_PORT_VLAN,
++			   FIELD_PREP(AN8855_PORT_VLAN,
++				      AN8855_PORT_MATRIX_MODE));
 +}
 +
 +static int an8855_port_fdb_add(struct dsa_switch *ds, int port,
@@ -602,8 +641,12 @@ index 000000000000..140a77837aae
 +	u8 port_mask = BIT(port);
 +	int ret;
 +
++	/* Set the vid to the port vlan id if no vid is set */
++	if (!vid)
++		vid = AN8855_PORT_VID_DEFAULT;
++
 +	mutex_lock(&priv->reg_mutex);
-+	an8855_fdb_write(priv, vid, port_mask, addr, 1);
++	an8855_fdb_write(priv, vid, port_mask, addr, true);
 +	ret = an8855_fdb_cmd(priv, AN8855_FDB_WRITE, NULL);
 +	mutex_unlock(&priv->reg_mutex);
 +
@@ -618,8 +661,12 @@ index 000000000000..140a77837aae
 +	u8 port_mask = BIT(port);
 +	int ret;
 +
++	/* Set the vid to the port vlan id if no vid is set */
++	if (!vid)
++		vid = AN8855_PORT_VID_DEFAULT;
++
 +	mutex_lock(&priv->reg_mutex);
-+	an8855_fdb_write(priv, vid, port_mask, addr, 0);
++	an8855_fdb_write(priv, vid, port_mask, addr, false);
 +	ret = an8855_fdb_cmd(priv, AN8855_FDB_WRITE, NULL);
 +	mutex_unlock(&priv->reg_mutex);
 +
@@ -639,7 +686,7 @@ index 000000000000..140a77837aae
 +
 +	/* Load search port */
 +	ret = regmap_write(priv->regmap, AN8855_ATWD2,
-+			   FIELD_PREP(AN8855_ATWD2_PORT, port));
++			   FIELD_PREP(AN8855_ATWD2_PORT, BIT(port)));
 +	if (ret)
 +		goto exit;
 +	ret = an8855_fdb_cmd(priv, AN8855_ATC_MAT(AND8855_FDB_MAT_MAC_PORT) |
@@ -696,7 +743,7 @@ index 000000000000..140a77837aae
 +}
 +
 +static int an8855_vlan_cmd(struct an8855_priv *priv, enum an8855_vlan_cmd cmd,
-+			   u16 vid)
++			   u16 vid) __must_hold(&priv->reg_mutex)
 +{
 +	u32 val;
 +	int ret;
@@ -712,7 +759,7 @@ index 000000000000..140a77837aae
 +}
 +
 +static int an8855_vlan_add(struct an8855_priv *priv, u8 port, u16 vid,
-+			   bool untagged)
++			   bool untagged) __must_hold(&priv->reg_mutex)
 +{
 +	u32 port_mask;
 +	u32 val;
@@ -733,7 +780,8 @@ index 000000000000..140a77837aae
 +	 */
 +	val = (val & AN8855_VA0_ETAG) | AN8855_VA0_IVL_MAC |
 +	      AN8855_VA0_VTAG_EN | AN8855_VA0_VLAN_VALID |
-+	      FIELD_PREP(AN8855_VA0_PORT, port_mask);
++	      FIELD_PREP(AN8855_VA0_PORT, port_mask) |
++	      FIELD_PREP(AN8855_VA0_FID, AN8855_FID_BRIDGED);
 +	ret = regmap_write(priv->regmap, AN8855_VAWD0, val);
 +	if (ret)
 +		return ret;
@@ -763,7 +811,8 @@ index 000000000000..140a77837aae
 +	return an8855_vlan_cmd(priv, AN8855_VTCR_WR_VID, vid);
 +}
 +
-+static int an8855_vlan_del(struct an8855_priv *priv, u8 port, u16 vid)
++static int an8855_vlan_del(struct an8855_priv *priv, u8 port,
++			   u16 vid) __must_hold(&priv->reg_mutex)
 +{
 +	u32 port_mask;
 +	u32 val;
@@ -807,7 +856,8 @@ index 000000000000..140a77837aae
 +static int an8855_port_set_vlan_mode(struct an8855_priv *priv, int port,
 +				     enum an8855_port_mode port_mode,
 +				     enum an8855_vlan_port_eg_tag eg_tag,
-+				     enum an8855_vlan_port_attr vlan_attr)
++				     enum an8855_vlan_port_attr vlan_attr,
++				     enum an8855_vlan_port_acc_frm acc_frm)
 +{
 +	int ret;
 +
@@ -818,9 +868,26 @@ index 000000000000..140a77837aae
 +		return ret;
 +
 +	return regmap_update_bits(priv->regmap, AN8855_PVC_P(port),
-+				  AN8855_PVC_EG_TAG | AN8855_VLAN_ATTR,
++				  AN8855_PVC_EG_TAG | AN8855_VLAN_ATTR | AN8855_ACC_FRM,
 +				  FIELD_PREP(AN8855_PVC_EG_TAG, eg_tag) |
-+				  FIELD_PREP(AN8855_VLAN_ATTR, vlan_attr));
++				  FIELD_PREP(AN8855_VLAN_ATTR, vlan_attr) |
++				  FIELD_PREP(AN8855_ACC_FRM, acc_frm));
++}
++
++static int an8855_port_set_pid(struct an8855_priv *priv, int port,
++			       u16 pid)
++{
++	int ret;
++
++	ret = regmap_update_bits(priv->regmap, AN8855_PPBV1_P(port),
++				 AN8855_PPBV_G0_PORT_VID,
++				 FIELD_PREP(AN8855_PPBV_G0_PORT_VID, pid));
++	if (ret)
++		return ret;
++
++	return regmap_update_bits(priv->regmap, AN8855_PVID_P(port),
++				  AN8855_G0_PORT_VID,
++				  FIELD_PREP(AN8855_G0_PORT_VID, pid));
 +}
 +
 +static int an8855_port_vlan_filtering(struct dsa_switch *ds, int port,
@@ -828,6 +895,7 @@ index 000000000000..140a77837aae
 +				      struct netlink_ext_ack *extack)
 +{
 +	struct an8855_priv *priv = ds->priv;
++	u32 val;
 +	int ret;
 +
 +	/* The port is being kept as VLAN-unaware port when bridge is
@@ -836,15 +904,27 @@ index 000000000000..140a77837aae
 +	 * for becoming a VLAN-aware port.
 +	 */
 +	if (vlan_filtering) {
++		u32 acc_frm;
 +		/* CPU port is set to fallback mode to let untagged
 +		 * frames pass through.
 +		 */
 +		ret = an8855_port_set_vlan_mode(priv, AN8855_CPU_PORT,
 +						AN8855_PORT_FALLBACK_MODE,
-+						AN8855_VLAN_EG_DISABLED,
-+						AN8855_VLAN_USER);
++						AN8855_VLAN_EG_CONSISTENT,
++						AN8855_VLAN_USER,
++						AN8855_VLAN_ACC_ALL);
 +		if (ret)
 +			return ret;
++
++		ret = regmap_read(priv->regmap, AN8855_PVID_P(port), &val);
++		if (ret)
++			return ret;
++
++		/* Only accept tagged frames if PVID is not set */
++		if (FIELD_GET(AN8855_G0_PORT_VID, val) != AN8855_PORT_VID_DEFAULT)
++			acc_frm = AN8855_VLAN_ACC_TAGGED;
++		else
++			acc_frm = AN8855_VLAN_ACC_ALL;
 +
 +		/* Trapped into security mode allows packet forwarding through VLAN
 +		 * table lookup.
@@ -854,20 +934,36 @@ index 000000000000..140a77837aae
 +		ret = an8855_port_set_vlan_mode(priv, port,
 +						AN8855_PORT_SECURITY_MODE,
 +						AN8855_VLAN_EG_DISABLED,
-+						AN8855_VLAN_USER);
++						AN8855_VLAN_USER,
++						acc_frm);
 +		if (ret)
 +			return ret;
 +	} else {
 +		bool disable_cpu_vlan = true;
 +		struct dsa_port *dp;
++		u32 port_mode;
++
++		/* This is called after .port_bridge_leave when leaving a VLAN-aware
++		 * bridge. Don't set standalone ports to fallback mode.
++		 */
++		if (dsa_port_bridge_dev_get(dsa_to_port(ds, port)))
++			port_mode = AN8855_PORT_FALLBACK_MODE;
++		else
++			port_mode = AN8855_PORT_MATRIX_MODE;
 +
 +		/* When a port is removed from the bridge, the port would be set up
 +		 * back to the default as is at initial boot which is a VLAN-unaware
 +		 * port.
 +		 */
-+		ret = an8855_port_set_vlan_mode(priv, port, AN8855_PORT_MATRIX_MODE,
++		ret = an8855_port_set_vlan_mode(priv, port, port_mode,
 +						AN8855_VLAN_EG_CONSISTENT,
-+						AN8855_VLAN_TRANSPARENT);
++						AN8855_VLAN_TRANSPARENT,
++						AN8855_VLAN_ACC_ALL);
++		if (ret)
++			return ret;
++
++		/* Restore default PVID */
++		ret = an8855_port_set_pid(priv, port, AN8855_PORT_VID_DEFAULT);
 +		if (ret)
 +			return ret;
 +
@@ -882,7 +978,8 @@ index 000000000000..140a77837aae
 +			ret = an8855_port_set_vlan_mode(priv, AN8855_CPU_PORT,
 +							AN8855_PORT_MATRIX_MODE,
 +							AN8855_VLAN_EG_CONSISTENT,
-+							AN8855_VLAN_TRANSPARENT);
++							AN8855_VLAN_USER,
++							AN8855_VLAN_ACC_ALL);
 +			if (ret)
 +				return ret;
 +		}
@@ -898,6 +995,7 @@ index 000000000000..140a77837aae
 +	bool untagged = vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED;
 +	bool pvid = vlan->flags & BRIDGE_VLAN_INFO_PVID;
 +	struct an8855_priv *priv = ds->priv;
++	u32 val;
 +	int ret;
 +
 +	mutex_lock(&priv->reg_mutex);
@@ -907,9 +1005,35 @@ index 000000000000..140a77837aae
 +		return ret;
 +
 +	if (pvid) {
-+		ret = regmap_update_bits(priv->regmap, AN8855_PVID_P(port),
-+					 AN8855_G0_PORT_VID,
-+					 FIELD_PREP(AN8855_G0_PORT_VID, vlan->vid));
++		/* Accept all frames if PVID is set */
++		regmap_update_bits(priv->regmap, AN8855_PVC_P(port), AN8855_ACC_FRM,
++				   FIELD_PREP(AN8855_ACC_FRM, AN8855_VLAN_ACC_ALL));
++
++		/* Only configure PVID if VLAN filtering is enabled */
++		if (dsa_port_is_vlan_filtering(dsa_to_port(ds, port))) {
++			ret = an8855_port_set_pid(priv, port, vlan->vid);
++			if (ret)
++				return ret;
++		}
++	} else if (vlan->vid) {
++		ret = regmap_read(priv->regmap, AN8855_PVID_P(port), &val);
++		if (ret)
++			return ret;
++
++		if (FIELD_GET(AN8855_G0_PORT_VID, val) != vlan->vid)
++			return 0;
++
++		/* This VLAN is overwritten without PVID, so unset it */
++		if (dsa_port_is_vlan_filtering(dsa_to_port(ds, port))) {
++			ret = regmap_update_bits(priv->regmap, AN8855_PVC_P(port),
++						 AN8855_ACC_FRM,
++						 FIELD_PREP(AN8855_ACC_FRM,
++							    AN8855_VLAN_ACC_TAGGED));
++			if (ret)
++				return ret;
++		}
++
++		ret = an8855_port_set_pid(priv, port, AN8855_PORT_VID_DEFAULT);
 +		if (ret)
 +			return ret;
 +	}
@@ -933,16 +1057,159 @@ index 000000000000..140a77837aae
 +	ret = regmap_read(priv->regmap, AN8855_PVID_P(port), &val);
 +	if (ret)
 +		return ret;
++
++	/* PVID is being restored to the default whenever the PVID port
++	 * is being removed from the VLAN.
++	 */
 +	if (FIELD_GET(AN8855_G0_PORT_VID, val) == vlan->vid) {
-+		ret = regmap_update_bits(priv->regmap, AN8855_PVID_P(port),
-+					 AN8855_G0_PORT_VID,
-+					 FIELD_PREP(AN8855_G0_PORT_VID,
-+						    AN8855_PORT_VID_DEFAULT));
++		/* Only accept tagged frames if the port is VLAN-aware */
++		if (dsa_port_is_vlan_filtering(dsa_to_port(ds, port))) {
++			ret = regmap_update_bits(priv->regmap, AN8855_PVC_P(port),
++						 AN8855_ACC_FRM,
++						 FIELD_PREP(AN8855_ACC_FRM,
++							    AN8855_VLAN_ACC_TAGGED));
++			if (ret)
++				return ret;
++		}
++
++		ret = an8855_port_set_pid(priv, port, AN8855_PORT_VID_DEFAULT);
 +		if (ret)
 +			return ret;
 +	}
 +
 +	return 0;
++}
++
++static int
++an8855_port_mdb_add(struct dsa_switch *ds, int port,
++		    const struct switchdev_obj_port_mdb *mdb,
++		    struct dsa_db db)
++{
++	struct an8855_priv *priv = ds->priv;
++	const u8 *addr = mdb->addr;
++	u16 vid = mdb->vid;
++	u8 port_mask = 0;
++	u32 val;
++	int ret;
++
++	/* Set the vid to the port vlan id if no vid is set */
++	if (!vid)
++		vid = AN8855_PORT_VID_DEFAULT;
++
++	mutex_lock(&priv->reg_mutex);
++
++	an8855_fdb_write(priv, vid, 0, addr, false);
++	if (!an8855_fdb_cmd(priv, AN8855_FDB_READ, NULL)) {
++		ret = regmap_read(priv->regmap, AN8855_ATRD3, &val);
++		if (ret)
++			goto exit;
++
++		port_mask = FIELD_GET(AN8855_ATRD3_PORTMASK, val);
++	}
++
++	port_mask |= BIT(port);
++	an8855_fdb_write(priv, vid, port_mask, addr, true);
++	ret = an8855_fdb_cmd(priv, AN8855_FDB_WRITE, NULL);
++
++exit:
++	mutex_unlock(&priv->reg_mutex);
++
++	return ret;
++}
++
++static int
++an8855_port_mdb_del(struct dsa_switch *ds, int port,
++		    const struct switchdev_obj_port_mdb *mdb,
++		    struct dsa_db db)
++{
++	struct an8855_priv *priv = ds->priv;
++	const u8 *addr = mdb->addr;
++	u16 vid = mdb->vid;
++	u8 port_mask = 0;
++	u32 val;
++	int ret;
++
++	/* Set the vid to the port vlan id if no vid is set */
++	if (!vid)
++		vid = AN8855_PORT_VID_DEFAULT;
++
++	mutex_lock(&priv->reg_mutex);
++
++	an8855_fdb_write(priv, vid, 0, addr, 0);
++	if (!an8855_fdb_cmd(priv, AN8855_FDB_READ, NULL)) {
++		ret = regmap_read(priv->regmap, AN8855_ATRD3, &val);
++		if (ret)
++			goto exit;
++
++		port_mask = FIELD_GET(AN8855_ATRD3_PORTMASK, val);
++	}
++
++	port_mask &= ~BIT(port);
++	an8855_fdb_write(priv, vid, port_mask, addr, port_mask ? true : false);
++	ret = an8855_fdb_cmd(priv, AN8855_FDB_WRITE, NULL);
++
++exit:
++	mutex_unlock(&priv->reg_mutex);
++
++	return ret;
++}
++
++static int
++an8855_port_change_mtu(struct dsa_switch *ds, int port, int new_mtu)
++{
++	struct an8855_priv *priv = ds->priv;
++	int length;
++	u32 val;
++
++	/* When a new MTU is set, DSA always set the CPU port's MTU to the
++	 * largest MTU of the slave ports. Because the switch only has a global
++	 * RX length register, only allowing CPU port here is enough.
++	 */
++	if (!dsa_is_cpu_port(ds, port))
++		return 0;
++
++	/* RX length also includes Ethernet header, MTK tag, and FCS length */
++	length = new_mtu + ETH_HLEN + MTK_TAG_LEN + ETH_FCS_LEN;
++	if (length <= 1522)
++		val = AN8855_MAX_RX_PKT_1518_1522;
++	else if (length <= 1536)
++		val = AN8855_MAX_RX_PKT_1536;
++	else if (length <= 1552)
++		val = AN8855_MAX_RX_PKT_1552;
++	else if (length <= 3072)
++		val = AN8855_MAX_RX_JUMBO_3K;
++	else if (length <= 4096)
++		val = AN8855_MAX_RX_JUMBO_4K;
++	else if (length <= 5120)
++		val = AN8855_MAX_RX_JUMBO_5K;
++	else if (length <= 6144)
++		val = AN8855_MAX_RX_JUMBO_6K;
++	else if (length <= 7168)
++		val = AN8855_MAX_RX_JUMBO_7K;
++	else if (length <= 8192)
++		val = AN8855_MAX_RX_JUMBO_8K;
++	else if (length <= 9216)
++		val = AN8855_MAX_RX_JUMBO_9K;
++	else if (length <= 12288)
++		val = AN8855_MAX_RX_JUMBO_12K;
++	else if (length <= 15360)
++		val = AN8855_MAX_RX_JUMBO_15K;
++	else
++		val = AN8855_MAX_RX_JUMBO_16K;
++
++	/* Enable JUMBO packet */
++	if (length > 1552)
++		val |= AN8855_MAX_RX_PKT_JUMBO;
++
++	return regmap_update_bits(priv->regmap, AN8855_GMACCR,
++				  AN8855_MAX_RX_JUMBO | AN8855_MAX_RX_PKT_LEN,
++				  val);
++}
++
++static int
++an8855_port_max_mtu(struct dsa_switch *ds, int port)
++{
++	return AN8855_MAX_MTU;
 +}
 +
 +static void
@@ -959,24 +1226,32 @@ index 000000000000..140a77837aae
 +}
 +
 +static void
++an8855_read_port_stats(struct an8855_priv *priv, int port, u32 offset, u8 size,
++		       uint64_t *data)
++{
++	u32 val, reg = AN8855_PORT_MIB_COUNTER(port) + offset;
++
++	regmap_read(priv->regmap, reg, &val);
++	*data = val;
++
++	if (size == 2) {
++		regmap_read(priv->regmap, reg + 4, &val);
++		*data |= (u64)val << 32;
++	}
++}
++
++static void
 +an8855_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t *data)
 +{
 +	struct an8855_priv *priv = ds->priv;
 +	const struct an8855_mib_desc *mib;
-+	u32 reg, i, val;
-+	u32 hi;
++	int i;
 +
 +	for (i = 0; i < ARRAY_SIZE(an8855_mib); i++) {
 +		mib = &an8855_mib[i];
-+		reg = AN8855_PORT_MIB_COUNTER(port) + mib->offset;
 +
-+		regmap_read(priv->regmap, reg, &val);
-+		if (mib->size == 2)
-+			regmap_read(priv->regmap, reg + 4, &hi);
-+
-+		data[i] = val;
-+		if (mib->size == 2)
-+			data[i] |= (u64)hi << 32;
++		an8855_read_port_stats(priv, port, mib->offset, mib->size,
++				       data + i);
 +	}
 +}
 +
@@ -987,6 +1262,133 @@ index 000000000000..140a77837aae
 +		return 0;
 +
 +	return ARRAY_SIZE(an8855_mib);
++}
++
++static void
++an8855_get_eth_mac_stats(struct dsa_switch *ds, int port,
++			 struct ethtool_eth_mac_stats *mac_stats)
++{
++	struct an8855_priv *priv = ds->priv;
++
++	/* MIB counter doesn't provide a FramesTransmittedOK but instead
++	 * provide stats for Unicast, Broadcast and Multicast frames separately.
++	 * To simulate a global frame counter, read Unicast and addition Multicast
++	 * and Broadcast later
++	 */
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_UNICAST, 1,
++			       &mac_stats->FramesTransmittedOK);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_SINGLE_COLLISION, 1,
++			       &mac_stats->SingleCollisionFrames);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_MULTIPLE_COLLISION, 1,
++			       &mac_stats->MultipleCollisionFrames);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_UNICAST, 1,
++			       &mac_stats->FramesReceivedOK);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_BYTES, 2,
++			       &mac_stats->OctetsTransmittedOK);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_ALIGN_ERR, 1,
++			       &mac_stats->AlignmentErrors);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_DEFERRED, 1,
++			       &mac_stats->FramesWithDeferredXmissions);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_LATE_COLLISION, 1,
++			       &mac_stats->LateCollisions);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_EXCESSIVE_COLLISION, 1,
++			       &mac_stats->FramesAbortedDueToXSColls);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_BYTES, 2,
++			       &mac_stats->OctetsReceivedOK);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_MULTICAST, 1,
++			       &mac_stats->MulticastFramesXmittedOK);
++	mac_stats->FramesTransmittedOK += mac_stats->MulticastFramesXmittedOK;
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_BROADCAST, 1,
++			       &mac_stats->BroadcastFramesXmittedOK);
++	mac_stats->FramesTransmittedOK += mac_stats->BroadcastFramesXmittedOK;
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_MULTICAST, 1,
++			       &mac_stats->MulticastFramesReceivedOK);
++	mac_stats->FramesReceivedOK += mac_stats->MulticastFramesReceivedOK;
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_BROADCAST, 1,
++			       &mac_stats->BroadcastFramesReceivedOK);
++	mac_stats->FramesReceivedOK += mac_stats->BroadcastFramesReceivedOK;
++}
++
++static const struct ethtool_rmon_hist_range an8855_rmon_ranges[] = {
++	{ 0, 64 },
++	{ 65, 127 },
++	{ 128, 255 },
++	{ 256, 511 },
++	{ 512, 1023 },
++	{ 1024, 1518 },
++	{ 1519, AN8855_MAX_MTU },
++	{}
++};
++
++static void an8855_get_rmon_stats(struct dsa_switch *ds, int port,
++				  struct ethtool_rmon_stats *rmon_stats,
++				  const struct ethtool_rmon_hist_range **ranges)
++{
++	struct an8855_priv *priv = ds->priv;
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_UNDER_SIZE_ERR, 1,
++			       &rmon_stats->undersize_pkts);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_OVER_SZ_ERR, 1,
++			       &rmon_stats->oversize_pkts);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_FRAG_ERR, 1,
++			       &rmon_stats->fragments);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_JABBER_ERR, 1,
++			       &rmon_stats->jabbers);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_PKT_SZ_64, 1,
++			       &rmon_stats->hist[0]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_PKT_SZ_65_TO_127, 1,
++			       &rmon_stats->hist[1]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_PKT_SZ_128_TO_255, 1,
++			       &rmon_stats->hist[2]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_PKT_SZ_256_TO_511, 1,
++			       &rmon_stats->hist[3]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_PKT_SZ_512_TO_1023, 1,
++			       &rmon_stats->hist[4]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_PKT_SZ_1024_TO_1518, 1,
++			       &rmon_stats->hist[5]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_PKT_SZ_1519_TO_MAX, 1,
++			       &rmon_stats->hist[6]);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_PKT_SZ_64, 1,
++			       &rmon_stats->hist_tx[0]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_PKT_SZ_65_TO_127, 1,
++			       &rmon_stats->hist_tx[1]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_PKT_SZ_128_TO_255, 1,
++			       &rmon_stats->hist_tx[2]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_PKT_SZ_256_TO_511, 1,
++			       &rmon_stats->hist_tx[3]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_PKT_SZ_512_TO_1023, 1,
++			       &rmon_stats->hist_tx[4]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_PKT_SZ_1024_TO_1518, 1,
++			       &rmon_stats->hist_tx[5]);
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_PKT_SZ_1519_TO_MAX, 1,
++			       &rmon_stats->hist_tx[6]);
++
++	*ranges = an8855_rmon_ranges;
++}
++
++static void an8855_get_eth_ctrl_stats(struct dsa_switch *ds, int port,
++				      struct ethtool_eth_ctrl_stats *ctrl_stats)
++{
++	struct an8855_priv *priv = ds->priv;
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_TX_PAUSE, 1,
++			       &ctrl_stats->MACControlFramesTransmitted);
++
++	an8855_read_port_stats(priv, port, AN8855_PORT_MIB_RX_PAUSE, 1,
++			       &ctrl_stats->MACControlFramesReceived);
 +}
 +
 +static int an8855_port_mirror_add(struct dsa_switch *ds, int port,
@@ -1217,6 +1619,26 @@ index 000000000000..140a77837aae
 +	return ret;
 +}
 +
++static int
++an8855_setup_pvid_vlan(struct an8855_priv *priv)
++{
++	u32 val;
++	int ret;
++
++	/* Validate the entry with independent learning, keep the original
++	 * ingress tag attribute.
++	 */
++	val = AN8855_VA0_IVL_MAC | AN8855_VA0_EG_CON |
++	      FIELD_PREP(AN8855_VA0_FID, AN8855_FID_BRIDGED) |
++	      AN8855_VA0_PORT | AN8855_VA0_VLAN_VALID;
++	ret = regmap_write(priv->regmap, AN8855_VAWD0, val);
++	if (ret)
++		return ret;
++
++	return an8855_vlan_cmd(priv, AN8855_VTCR_WR_VID,
++			       AN8855_PORT_VID_DEFAULT);
++}
++
 +static int an8855_setup(struct dsa_switch *ds)
 +{
 +	struct an8855_priv *priv = ds->priv;
@@ -1233,15 +1655,21 @@ index 000000000000..140a77837aae
 +	if (ret)
 +		return ret;
 +
-+	dsa_switch_for_each_port(dp, ds) {
++	dsa_switch_for_each_user_port(dp, ds) {
++		/* Disable MAC by default on all user ports */
++		ret = an8855_port_set_status(priv, dp->index, false);
++		if (ret)
++			return ret;
++
 +		/* Individual user ports get connected to CPU port only */
-+		ret = regmap_update_bits(priv->regmap, AN8855_PORTMATRIX_P(dp->index),
-+					 AN8855_PORTMATRIX, BIT(AN8855_CPU_PORT));
++		ret = regmap_write(priv->regmap, AN8855_PORTMATRIX_P(dp->index),
++				   FIELD_PREP(AN8855_PORTMATRIX, BIT(AN8855_CPU_PORT)));
 +		if (ret)
 +			return ret;
 +
 +		/* Disable Learning on user ports */
-+		ret = regmap_set_bits(priv->regmap, AN8855_AGDIS, BIT(dp->index));
++		ret = regmap_set_bits(priv->regmap, AN8855_PSC_P(dp->index),
++				      AN8855_SA_DIS);
 +		if (ret)
 +			return ret;
 +
@@ -1260,18 +1688,8 @@ index 000000000000..140a77837aae
 +		if (ret)
 +			return ret;
 +
-+		/* Enable consistent egress tag */
-+		ret = regmap_update_bits(priv->regmap, AN8855_PVC_P(dp->index),
-+					 AN8855_PVC_EG_TAG,
-+					 FIELD_PREP(AN8855_PVC_EG_TAG,
-+						    AN8855_VLAN_EG_CONSISTENT));
-+		if (ret)
-+			return ret;
-+	}
-+
-+	/* Disable MAC by default on all user ports */
-+	dsa_switch_for_each_user_port(dp, ds) {
-+		ret = an8855_port_set_status(priv, dp->index, false);
++		/* Set default PVID to on all user ports */
++		ret = an8855_port_set_pid(priv, dp->index, AN8855_PORT_VID_DEFAULT);
 +		if (ret)
 +			return ret;
 +	}
@@ -1303,8 +1721,17 @@ index 000000000000..140a77837aae
 +	if (ret)
 +		return ret;
 +
++	/* CPU port is set to fallback mode to let untagged
++	 * frames pass through.
++	 */
++	ret = regmap_update_bits(priv->regmap, AN8855_PCR_P(AN8855_CPU_PORT),
++				 AN8855_PORT_VLAN,
++				 FIELD_PREP(AN8855_PORT_VLAN, AN8855_PORT_FALLBACK_MODE));
++	if (ret)
++		return ret;
++
 +	/* Enable Learning on CPU port */
-+	ret = regmap_clear_bits(priv->regmap, AN8855_AGDIS, BIT(AN8855_CPU_PORT));
++	ret = regmap_clear_bits(priv->regmap, AN8855_PSC_P(AN8855_CPU_PORT), AN8855_SA_DIS);
 +	if (ret)
 +		return ret;
 +
@@ -1329,6 +1756,20 @@ index 000000000000..140a77837aae
 +	if (ret)
 +		return ret;
 +
++	dsa_switch_for_each_port(dp, ds) {
++		/* Enable consistent egress tag (for VLAN unware VLAN-passtrough) */
++		ret = regmap_update_bits(priv->regmap, AN8855_PVC_P(dp->index),
++					 AN8855_PVC_EG_TAG,
++					 FIELD_PREP(AN8855_PVC_EG_TAG, AN8855_VLAN_EG_CONSISTENT));
++		if (ret)
++			return ret;
++	}
++
++	/* Setup VLAN for Default PVID */
++	ret = an8855_setup_pvid_vlan(priv);
++	if (ret)
++		return ret;
++
 +	ret = regmap_clear_bits(priv->regmap, AN8855_CKGCR,
 +				AN8855_CKG_LNKDN_GLB_STOP | AN8855_CKG_LNKDN_PORT_STOP);
 +	if (ret)
@@ -1345,6 +1786,12 @@ index 000000000000..140a77837aae
 +	ret = an8855_fdb_cmd(priv, AN8855_FDB_FLUSH, NULL);
 +	if (ret < 0)
 +		return ret;
++
++	/* Set min a max ageing value supported */
++	ds->ageing_time_min = AN8855_L2_AGING_MS_CONSTANT;
++	ds->ageing_time_max = FIELD_MAX(AN8855_AGE_CNT) *
++			      FIELD_MAX(AN8855_AGE_UNIT) *
++			      AN8855_L2_AGING_MS_CONSTANT;
 +
 +	return 0;
 +}
@@ -2046,28 +2493,37 @@ index 000000000000..140a77837aae
 +static const struct dsa_switch_ops an8855_switch_ops = {
 +	.get_tag_protocol = an8855_get_tag_protocol,
 +	.setup = an8855_setup,
++	.get_phy_flags = en8855_get_phy_flags,
++	.phylink_get_caps = an8855_phylink_get_caps,
 +	.get_strings = an8855_get_strings,
 +	.get_ethtool_stats = an8855_get_ethtool_stats,
 +	.get_sset_count = an8855_get_sset_count,
++	.get_eth_mac_stats = an8855_get_eth_mac_stats,
++	.get_eth_ctrl_stats = an8855_get_eth_ctrl_stats,
++	.get_rmon_stats = an8855_get_rmon_stats,
 +	.port_enable = an8855_port_enable,
 +	.port_disable = an8855_port_disable,
-+	.port_stp_state_set = an8855_stp_state_set,
-+	.port_pre_bridge_flags = an8855_port_pre_bridge_flags,
-+	.port_bridge_flags = an8855_port_bridge_flags,
++	.get_mac_eee = an8855_get_mac_eee,
++	.set_mac_eee = an8855_set_mac_eee,
++	.set_ageing_time = an8855_set_ageing_time,
 +	.port_bridge_join = an8855_port_bridge_join,
 +	.port_bridge_leave = an8855_port_bridge_leave,
-+	.port_fdb_add = an8855_port_fdb_add,
-+	.port_fdb_del = an8855_port_fdb_del,
-+	.port_fdb_dump = an8855_port_fdb_dump,
++	.port_fast_age = an8855_port_fast_age,
++	.port_stp_state_set = an8855_port_stp_state_set,
++	.port_pre_bridge_flags = an8855_port_pre_bridge_flags,
++	.port_bridge_flags = an8855_port_bridge_flags,
 +	.port_vlan_filtering = an8855_port_vlan_filtering,
 +	.port_vlan_add = an8855_port_vlan_add,
 +	.port_vlan_del = an8855_port_vlan_del,
++	.port_fdb_add = an8855_port_fdb_add,
++	.port_fdb_del = an8855_port_fdb_del,
++	.port_fdb_dump = an8855_port_fdb_dump,
++	.port_mdb_add = an8855_port_mdb_add,
++	.port_mdb_del = an8855_port_mdb_del,
++	.port_change_mtu = an8855_port_change_mtu,
++	.port_max_mtu = an8855_port_max_mtu,
 +	.port_mirror_add = an8855_port_mirror_add,
 +	.port_mirror_del = an8855_port_mirror_del,
-+	.phylink_get_caps = an8855_phylink_get_caps,
-+	.get_phy_flags = en8855_get_phy_flags,
-+	.get_mac_eee = an8855_get_mac_eee,
-+	.set_mac_eee = an8855_set_mac_eee,
 +};
 +
 +static int an8855_read_switch_id(struct an8855_priv *priv)
@@ -2186,15 +2642,7 @@ index 000000000000..140a77837aae
 +
 +	dev_set_drvdata(priv->dev, priv);
 +
-+	return dsa_register_switch(priv->ds);
-+}
-+
-+static void
-+an8855_sw_remove(struct mdio_device *mdiodev)
-+{
-+	struct an8855_priv *priv = dev_get_drvdata(&mdiodev->dev);
-+
-+	dsa_unregister_switch(priv->ds);
++	return devm_dsa_register_switch(priv->dev, priv->ds);
 +}
 +
 +static const struct of_device_id an8855_of_match[] = {
@@ -2204,7 +2652,6 @@ index 000000000000..140a77837aae
 +
 +static struct mdio_driver an8855_mdio_driver = {
 +	.probe = an8855_sw_probe,
-+	.remove = an8855_sw_remove,
 +	.mdiodrv.driver = {
 +		.name = "an8855",
 +		.of_match_table = an8855_of_match,
@@ -2219,10 +2666,10 @@ index 000000000000..140a77837aae
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/net/dsa/an8855.h b/drivers/net/dsa/an8855.h
 new file mode 100644
-index 000000000000..8e57e47fa4b3
+index 000000000000..632c0e511bc3
 --- /dev/null
 +++ b/drivers/net/dsa/an8855.h
-@@ -0,0 +1,638 @@
+@@ -0,0 +1,753 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +/*
 + * Copyright (C) 2023 Min Yao <min.yao@airoha.com>
@@ -2238,14 +2685,18 @@ index 000000000000..8e57e47fa4b3
 +#define AN8855_CPU_PORT			5
 +#define AN8855_NUM_FDB_RECORDS		2048
 +#define AN8855_GPHY_SMI_ADDR_DEFAULT	1
-+#define AN8855_PORT_VID_DEFAULT		1
++#define AN8855_PORT_VID_DEFAULT		0
 +#define AN8855_EFUSE_CELL		50
++
++#define MTK_TAG_LEN			4
++#define AN8855_MAX_MTU			(15360 - ETH_HLEN - ETH_FCS_LEN - MTK_TAG_LEN)
++
++#define AN8855_L2_AGING_MS_CONSTANT	1024
 +
 +#define AN8855_PHY_FLAGS_EN_CALIBRATION	BIT(0)
 +
 +/* MII Registers */
 +#define AN8855_PHY_SELECT_PAGE		0x1f
-+/* Mask speculation based on page up to 0x4 */
 +#define   AN8855_PHY_PAGE		GENMASK(2, 0)
 +#define   AN8855_PHY_PAGE_STANDARD	FIELD_PREP_CONST(AN8855_PHY_PAGE, 0x0)
 +#define   AN8855_PHY_PAGE_EXTENDED_1	FIELD_PREP_CONST(AN8855_PHY_PAGE, 0x1)
@@ -2285,11 +2736,11 @@ index 000000000000..8e57e47fa4b3
 +#define   AN8855_EFUSE_R50O		GENMASK(30, 24)
 +
 +#define AN8855_CREV			0x10005000
-+#define	  AN8855_ID			0x8855
++#define   AN8855_ID			0x8855
 +
 +/* Register for system reset */
 +#define AN8855_RST_CTRL			0x100050c0
-+#define	  AN8855_SYS_CTRL_SYS_RST	BIT(31)
++#define   AN8855_SYS_CTRL_SYS_RST	BIT(31)
 +
 +#define AN8855_INT_MASK			0x100050f0
 +#define   AN8855_INT_SYS		BIT(15)
@@ -2304,8 +2755,17 @@ index 000000000000..8e57e47fa4b3
 +
 +/* Registers to mac forward control for unknown frames */
 +#define AN8855_MFC			0x10200010
-+#define	  AN8855_CPU_EN			BIT(15)
-+#define	  AN8855_CPU_PORT_IDX		GENMASK(12, 8)
++#define   AN8855_CPU_EN			BIT(15)
++#define   AN8855_CPU_PORT_IDX		GENMASK(12, 8)
++
++#define AN8855_AAC			0x102000a0
++#define   AN8855_MAC_AUTO_FLUSH		BIT(28)
++/* Control Address Table Age time.
++ * (AN8855_AGE_CNT + 1) * ( AN8855_AGE_UNIT + 1 ) * AN8855_L2_AGING_MS_CONSTANT
++ */
++#define   AN8855_AGE_CNT		GENMASK(20, 12)
++/* Value in seconds. Value is always incremented of 1 */
++#define   AN8855_AGE_UNIT		GENMASK(10, 0)
 +
 +/* Registers for ARL Unknown Unicast Forward control */
 +#define AN8855_UNUF			0x102000b4
@@ -2320,13 +2780,13 @@ index 000000000000..8e57e47fa4b3
 +#define AN8855_AGDIS			0x102000c0
 +
 +/* Registers for mirror port control */
-+#define	AN8855_MIR			0x102000cc
-+#define	  AN8855_MIRROR_EN		BIT(7)
-+#define	  AN8855_MIRROR_PORT		GENMASK(4, 0)
++#define AN8855_MIR			0x102000cc
++#define   AN8855_MIRROR_EN		BIT(7)
++#define   AN8855_MIRROR_PORT		GENMASK(4, 0)
 +
 +/* Registers for BPDU and PAE frame control*/
 +#define AN8855_BPC			0x102000D0
-+#define	  AN8855_BPDU_PORT_FW		GENMASK(2, 0)
++#define   AN8855_BPDU_PORT_FW		GENMASK(2, 0)
 +
 +enum an8855_bpdu_port_fw {
 +	AN8855_BPDU_FOLLOW_MFC = 0,
@@ -2338,13 +2798,13 @@ index 000000000000..8e57e47fa4b3
 +
 +/* Register for address table control */
 +#define AN8855_ATC			0x10200300
-+#define	  AN8855_ATC_BUSY		BIT(31)
-+#define	  AN8855_ATC_HASH		GENMASK(24, 16)
-+#define	  AN8855_ATC_HIT		GENMASK(15, 12)
-+#define	  AN8855_ATC_MAT_MASK		GENMASK(11, 7)
-+#define	  AN8855_ATC_MAT(x)		FIELD_PREP(AN8855_ATC_MAT_MASK, x)
-+#define	  AN8855_ATC_SAT		GENMASK(5, 4)
-+#define	  AN8855_ATC_CMD		GENMASK(2, 0)
++#define   AN8855_ATC_BUSY		BIT(31)
++#define   AN8855_ATC_HASH		GENMASK(24, 16)
++#define   AN8855_ATC_HIT		GENMASK(15, 12)
++#define   AN8855_ATC_MAT_MASK		GENMASK(11, 7)
++#define   AN8855_ATC_MAT(x)		FIELD_PREP(AN8855_ATC_MAT_MASK, x)
++#define   AN8855_ATC_SAT		GENMASK(5, 4)
++#define   AN8855_ATC_CMD		GENMASK(2, 0)
 +
 +enum an8855_fdb_mat_cmds {
 +	AND8855_FDB_MAT_ALL = 0,
@@ -2389,18 +2849,21 @@ index 000000000000..8e57e47fa4b3
 +#define AN8855_ATA2			0x10200308
 +#define   AN8855_ATA2_MAC4		GENMASK(31, 24)
 +#define   AN8855_ATA2_MAC5		GENMASK(23, 16)
++#define   AN8855_ATA2_UNAUTH		BIT(10)
++#define   AN8855_ATA2_TYPE		BIT(9) /* 1: dynamic, 0: static */
++#define   AN8855_ATA2_AGE		GENMASK(8, 0)
 +
 +/* Register for address table write data */
 +#define AN8855_ATWD			0x10200324
-+#define   AN8855_ATWD_VLD		BIT(0) /* vid LOAD */
-+#define   AN8855_ATWD_LEAKY		BIT(1)
-+#define   AN8855_ATWD_UPRI		GENMASK(4, 2)
-+#define   AN8855_ATWD_SA_FWD		GENMASK(7, 5)
-+#define   AN8855_ATWD_SA_MIR		GENMASK(9, 8)
-+#define   AN8855_ATWD_EG_TAG		GENMASK(14, 12)
-+#define   AN8855_ATWD_IVL		BIT(15)
-+#define   AN8855_ATWD_VID		GENMASK(27, 16)
 +#define   AN8855_ATWD_FID		GENMASK(31, 28)
++#define   AN8855_ATWD_VID		GENMASK(27, 16)
++#define   AN8855_ATWD_IVL		BIT(15)
++#define   AN8855_ATWD_EG_TAG		GENMASK(14, 12)
++#define   AN8855_ATWD_SA_MIR		GENMASK(9, 8)
++#define   AN8855_ATWD_SA_FWD		GENMASK(7, 5)
++#define   AN8855_ATWD_UPRI		GENMASK(4, 2)
++#define   AN8855_ATWD_LEAKY		BIT(1)
++#define   AN8855_ATWD_VLD		BIT(0) /* vid LOAD */
 +#define AN8855_ATWD2			0x10200328
 +#define   AN8855_ATWD2_PORT		GENMASK(7, 0)
 +
@@ -2408,16 +2871,16 @@ index 000000000000..8e57e47fa4b3
 +#define AN8855_ATRDS			0x10200330
 +#define   AN8855_ATRD_SEL		GENMASK(1, 0)
 +#define AN8855_ATRD0			0x10200334
-+#define   AN8855_ATRD0_LIVE		BIT(0)
-+#define   AN8855_ATRD0_ARP		GENMASK(2, 1)
-+#define   AN8855_ATRD0_TYPE		GENMASK(4, 3)
-+#define   AN8855_ATRD0_IVL		BIT(9)
-+#define   AN8855_ATRD0_VID		GENMASK(21, 16)
 +#define   AN8855_ATRD0_FID		GENMASK(28, 25)
++#define   AN8855_ATRD0_VID		GENMASK(21, 10)
++#define   AN8855_ATRD0_IVL		BIT(9)
++#define   AN8855_ATRD0_TYPE		GENMASK(4, 3)
++#define   AN8855_ATRD0_ARP		GENMASK(2, 1)
++#define   AN8855_ATRD0_LIVE		BIT(0)
 +#define AN8855_ATRD1			0x10200338
 +#define   AN8855_ATRD1_MAC4		GENMASK(31, 24)
 +#define   AN8855_ATRD1_MAC5		GENMASK(23, 16)
-+#define   AN8855_ATRD1_AGING		GENMASK(11, 3)
++#define   AN8855_ATRD1_AGING		GENMASK(10, 3)
 +#define AN8855_ATRD2			0x1020033c
 +#define   AN8855_ATRD2_MAC0		GENMASK(31, 24)
 +#define   AN8855_ATRD2_MAC1		GENMASK(23, 16)
@@ -2434,9 +2897,9 @@ index 000000000000..8e57e47fa4b3
 +
 +/* Register for vlan table control */
 +#define AN8855_VTCR			0x10200600
-+#define	  AN8855_VTCR_BUSY		BIT(31)
-+#define	  AN8855_VTCR_FUNC		GENMASK(15, 12)
-+#define	  AN8855_VTCR_VID		GENMASK(11, 0)
++#define   AN8855_VTCR_BUSY		BIT(31)
++#define   AN8855_VTCR_FUNC		GENMASK(15, 12)
++#define   AN8855_VTCR_VID		GENMASK(11, 0)
 +
 +enum an8855_vlan_cmd {
 +	/* Read/Write the specified VID entry from VAWD register based
@@ -2458,11 +2921,18 @@ index 000000000000..8e57e47fa4b3
 +						AN8855_VA0_ETAG_PORT_SHIFT(port))
 +#define   AN8855_VA0_ETAG_PORT_VAL(port, val) (FIELD_PREP(AN8855_VA0_ETAG_PORT, (val)) << \
 +						AN8855_VA0_ETAG_PORT_SHIFT(port))
-+#define	  AN8855_VA0_VTAG_EN		BIT(10) /* Per VLAN Egress Tag Control */
-+#define	  AN8855_VA0_IVL_MAC		BIT(5) /* Independent VLAN Learning */
-+#define	  AN8855_VA0_VLAN_VALID		BIT(0) /* VLAN Entry Valid */
++#define   AN8855_VA0_EG_CON		BIT(11)
++#define   AN8855_VA0_VTAG_EN		BIT(10) /* Per VLAN Egress Tag Control */
++#define   AN8855_VA0_IVL_MAC		BIT(5) /* Independent VLAN Learning */
++#define	  AN8855_VA0_FID		GENMASK(4, 1)
++#define   AN8855_VA0_VLAN_VALID		BIT(0) /* VLAN Entry Valid */
 +#define AN8855_VAWD1			0x10200608
-+#define	  AN8855_VA1_PORT_STAG		BIT(1)
++#define   AN8855_VA1_PORT_STAG		BIT(1)
++
++enum an8855_fid {
++	AN8855_FID_STANDALONE = 0,
++	AN8855_FID_BRIDGED = 1,
++};
 +
 +/* Same register field of VAWD0 */
 +#define AN8855_VARD0			0x10200618
@@ -2475,7 +2945,13 @@ index 000000000000..8e57e47fa4b3
 +
 +/* Register for port STP state control */
 +#define AN8855_SSP_P(x)			(0x10208000 + ((x) * 0x200))
-+#define	 AN8855_FID_PST			GENMASK(1, 0)
++/* Up to 16 FID supported, each with the same mask */
++#define	  AN8855_FID_PST		GENMASK(1, 0)
++#define   AN8855_FID_PST_SHIFT(fid)	(2 * (fid))
++#define   AN8855_FID_PST_MASK(fid)	(AN8855_FID_PST << \
++						AN8855_FID_PST_SHIFT(fid))
++#define   AN8855_FID_PST_VAL(fid, val)	(FIELD_PREP(AN8855_FID_PST, (val)) << \
++						AN8855_FID_PST_SHIFT(fid))
 +
 +enum an8855_stp_state {
 +	AN8855_STP_DISABLED = 0,
@@ -2487,11 +2963,11 @@ index 000000000000..8e57e47fa4b3
 +
 +/* Register for port control */
 +#define AN8855_PCR_P(x)			(0x10208004 + ((x) * 0x200))
-+#define	  AN8855_EG_TAG			GENMASK(29, 28)
-+#define	  AN8855_PORT_PRI		GENMASK(26, 24)
-+#define	  AN8855_PORT_TX_MIR		BIT(20)
-+#define	  AN8855_PORT_RX_MIR		BIT(16)
-+#define	  AN8855_PORT_VLAN		GENMASK(1, 0)
++#define   AN8855_EG_TAG			GENMASK(29, 28)
++#define   AN8855_PORT_PRI		GENMASK(26, 24)
++#define   AN8855_PORT_TX_MIR		BIT(20)
++#define   AN8855_PORT_RX_MIR		BIT(16)
++#define   AN8855_PORT_VLAN		GENMASK(1, 0)
 +
 +enum an8855_port_mode {
 +	/* Port Matrix Mode: Frames are forwarded by the PCR_MATRIX members. */
@@ -2517,14 +2993,15 @@ index 000000000000..8e57e47fa4b3
 +
 +/* Register for port security control */
 +#define AN8855_PSC_P(x)			(0x1020800c + ((x) * 0x200))
-+#define	  AN8855_SA_DIS			BIT(4)
++#define   AN8855_SA_DIS			BIT(4)
 +
 +/* Register for port vlan control */
 +#define AN8855_PVC_P(x)			(0x10208010 + ((x) * 0x200))
-+#define	  AN8855_PVC_EG_TAG		GENMASK(10, 8)
-+#define	  AN8855_PORT_SPEC_REPLACE_MODE	BIT(11)
-+#define	  AN8855_VLAN_ATTR		GENMASK(7, 6)
-+#define	  AN8855_PORT_SPEC_TAG		BIT(5)
++#define   AN8855_PORT_SPEC_REPLACE_MODE	BIT(11)
++#define   AN8855_PVC_EG_TAG		GENMASK(10, 8)
++#define   AN8855_VLAN_ATTR		GENMASK(7, 6)
++#define   AN8855_PORT_SPEC_TAG		BIT(5)
++#define   AN8855_ACC_FRM		GENMASK(1, 0)
 +
 +enum an8855_vlan_port_eg_tag {
 +	AN8855_VLAN_EG_DISABLED = 0,
@@ -2541,78 +3018,162 @@ index 000000000000..8e57e47fa4b3
 +	AN8855_VLAN_TRANSPARENT = 3,
 +};
 +
++enum an8855_vlan_port_acc_frm {
++	AN8855_VLAN_ACC_ALL = 0,
++	AN8855_VLAN_ACC_TAGGED = 1,
++	AN8855_VLAN_ACC_UNTAGGED = 2,
++};
++
++#define AN8855_PPBV1_P(x)		(0x10208014 + ((x) * 0x200))
++#define   AN8855_PPBV_G0_PORT_VID	GENMASK(11, 0)
++
 +#define AN8855_PORTMATRIX_P(x)		(0x10208044 + ((x) * 0x200))
-+#define   AN8855_PORTMATRIX		GENMASK(6, 0)
++#define   AN8855_PORTMATRIX		GENMASK(5, 0)
++/* Port matrix without the CPU port that should never be removed */
++#define   AN8855_USER_PORTMATRIX	GENMASK(4, 0)
 +
 +/* Register for port PVID */
 +#define AN8855_PVID_P(x)		(0x10208048 + ((x) * 0x200))
-+#define	  AN8855_G0_PORT_VID		GENMASK(11, 0)
++#define   AN8855_G0_PORT_VID		GENMASK(11, 0)
 +
 +/* Register for port MAC control register */
 +#define AN8855_PMCR_P(x)		(0x10210000 + ((x) * 0x200))
-+#define	  AN8855_PMCR_FORCE_MODE	BIT(31)
++#define   AN8855_PMCR_FORCE_MODE	BIT(31)
 +#define   AN8855_PMCR_FORCE_SPEED	GENMASK(30, 28)
-+#define	  AN8855_PMCR_FORCE_SPEED_5000	FIELD_PREP_CONST(AN8855_PMCR_FORCE_SPEED, 0x4)
-+#define	  AN8855_PMCR_FORCE_SPEED_2500	FIELD_PREP_CONST(AN8855_PMCR_FORCE_SPEED, 0x3)
-+#define	  AN8855_PMCR_FORCE_SPEED_1000	FIELD_PREP_CONST(AN8855_PMCR_FORCE_SPEED, 0x2)
-+#define	  AN8855_PMCR_FORCE_SPEED_100	FIELD_PREP_CONST(AN8855_PMCR_FORCE_SPEED, 0x1)
-+#define	  AN8855_PMCR_FORCE_SPEED_10	FIELD_PREP_CONST(AN8855_PMCR_FORCE_SPEED, 0x1)
-+#define	  AN8855_PMCR_FORCE_FDX		BIT(25)
-+#define	  AN8855_PMCR_FORCE_LNK		BIT(24)
-+#define	  AN8855_PMCR_IFG_XMIT		GENMASK(21, 20)
-+#define	  AN8855_PMCR_EXT_PHY		BIT(19)
-+#define	  AN8855_PMCR_MAC_MODE		BIT(18)
-+#define	  AN8855_PMCR_TX_EN		BIT(16)
-+#define	  AN8855_PMCR_RX_EN		BIT(15)
-+#define	  AN8855_PMCR_BACKOFF_EN	BIT(12)
-+#define	  AN8855_PMCR_BACKPR_EN		BIT(11)
-+#define	  AN8855_PMCR_FORCE_EEE5G	BIT(9)
-+#define	  AN8855_PMCR_FORCE_EEE2P5G	BIT(8)
-+#define	  AN8855_PMCR_FORCE_EEE1G	BIT(7)
-+#define	  AN8855_PMCR_FORCE_EEE100	BIT(6)
-+#define	  AN8855_PMCR_TX_FC_EN		BIT(5)
-+#define	  AN8855_PMCR_RX_FC_EN		BIT(4)
++#define   AN8855_PMCR_FORCE_SPEED_5000	FIELD_PREP_CONST(AN8855_PMCR_FORCE_SPEED, 0x4)
++#define   AN8855_PMCR_FORCE_SPEED_2500	FIELD_PREP_CONST(AN8855_PMCR_FORCE_SPEED, 0x3)
++#define   AN8855_PMCR_FORCE_SPEED_1000	FIELD_PREP_CONST(AN8855_PMCR_FORCE_SPEED, 0x2)
++#define   AN8855_PMCR_FORCE_SPEED_100	FIELD_PREP_CONST(AN8855_PMCR_FORCE_SPEED, 0x1)
++#define   AN8855_PMCR_FORCE_SPEED_10	FIELD_PREP_CONST(AN8855_PMCR_FORCE_SPEED, 0x1)
++#define   AN8855_PMCR_FORCE_FDX		BIT(25)
++#define   AN8855_PMCR_FORCE_LNK		BIT(24)
++#define   AN8855_PMCR_IFG_XMIT		GENMASK(21, 20)
++#define   AN8855_PMCR_EXT_PHY		BIT(19)
++#define   AN8855_PMCR_MAC_MODE		BIT(18)
++#define   AN8855_PMCR_TX_EN		BIT(16)
++#define   AN8855_PMCR_RX_EN		BIT(15)
++#define   AN8855_PMCR_BACKOFF_EN	BIT(12)
++#define   AN8855_PMCR_BACKPR_EN		BIT(11)
++#define   AN8855_PMCR_FORCE_EEE5G	BIT(9)
++#define   AN8855_PMCR_FORCE_EEE2P5G	BIT(8)
++#define   AN8855_PMCR_FORCE_EEE1G	BIT(7)
++#define   AN8855_PMCR_FORCE_EEE100	BIT(6)
++#define   AN8855_PMCR_TX_FC_EN		BIT(5)
++#define   AN8855_PMCR_RX_FC_EN		BIT(4)
 +
 +#define AN8855_PMSR_P(x)		(0x10210010 + (x) * 0x200)
-+#define	  AN8855_PMSR_SPEED		GENMASK(30, 28)
-+#define	  AN8855_PMSR_SPEED_5000	FIELD_PREP_CONST(AN8855_PMSR_SPEED, 0x4)
-+#define	  AN8855_PMSR_SPEED_2500	FIELD_PREP_CONST(AN8855_PMSR_SPEED, 0x3)
-+#define	  AN8855_PMSR_SPEED_1000	FIELD_PREP_CONST(AN8855_PMSR_SPEED, 0x2)
-+#define	  AN8855_PMSR_SPEED_100		FIELD_PREP_CONST(AN8855_PMSR_SPEED, 0x1)
-+#define	  AN8855_PMSR_SPEED_10		FIELD_PREP_CONST(AN8855_PMSR_SPEED, 0x0)
-+#define	  AN8855_PMSR_DPX		BIT(25)
-+#define	  AN8855_PMSR_LNK		BIT(24)
-+#define	  AN8855_PMSR_EEE1G		BIT(7)
-+#define	  AN8855_PMSR_EEE100M		BIT(6)
-+#define	  AN8855_PMSR_RX_FC		BIT(5)
-+#define	  AN8855_PMSR_TX_FC		BIT(4)
++#define   AN8855_PMSR_SPEED		GENMASK(30, 28)
++#define   AN8855_PMSR_SPEED_5000	FIELD_PREP_CONST(AN8855_PMSR_SPEED, 0x4)
++#define   AN8855_PMSR_SPEED_2500	FIELD_PREP_CONST(AN8855_PMSR_SPEED, 0x3)
++#define   AN8855_PMSR_SPEED_1000	FIELD_PREP_CONST(AN8855_PMSR_SPEED, 0x2)
++#define   AN8855_PMSR_SPEED_100		FIELD_PREP_CONST(AN8855_PMSR_SPEED, 0x1)
++#define   AN8855_PMSR_SPEED_10		FIELD_PREP_CONST(AN8855_PMSR_SPEED, 0x0)
++#define   AN8855_PMSR_DPX		BIT(25)
++#define   AN8855_PMSR_LNK		BIT(24)
++#define   AN8855_PMSR_EEE1G		BIT(7)
++#define   AN8855_PMSR_EEE100M		BIT(6)
++#define   AN8855_PMSR_RX_FC		BIT(5)
++#define   AN8855_PMSR_TX_FC		BIT(4)
 +
 +#define AN8855_PMEEECR_P(x)		(0x10210004 + (x) * 0x200)
-+#define	  AN8855_LPI_MODE_EN		BIT(31)
-+#define	  AN8855_WAKEUP_TIME_2500	GENMASK(23, 16)
-+#define	  AN8855_WAKEUP_TIME_1000	GENMASK(15, 8)
-+#define	  AN8855_WAKEUP_TIME_100	GENMASK(7, 0)
++#define   AN8855_LPI_MODE_EN		BIT(31)
++#define   AN8855_WAKEUP_TIME_2500	GENMASK(23, 16)
++#define   AN8855_WAKEUP_TIME_1000	GENMASK(15, 8)
++#define   AN8855_WAKEUP_TIME_100	GENMASK(7, 0)
 +#define AN8855_PMEEECR2_P(x)		(0x10210008 + (x) * 0x200)
-+#define	  AN8855_WAKEUP_TIME_5000	GENMASK(7, 0)
++#define   AN8855_WAKEUP_TIME_5000	GENMASK(7, 0)
 +
-+#define AN8855_CKGCR			(0x10213e1c)
++#define AN8855_GMACCR			0x10213e00
++#define   AN8855_MAX_RX_JUMBO		GENMASK(7, 4)
++/* 2K for 0x0, 0x1, 0x2 */
++#define   AN8855_MAX_RX_JUMBO_2K	FIELD_PREP_CONST(AN8855_MAX_RX_JUMBO, 0x0)
++#define   AN8855_MAX_RX_JUMBO_3K	FIELD_PREP_CONST(AN8855_MAX_RX_JUMBO, 0x3)
++#define   AN8855_MAX_RX_JUMBO_4K	FIELD_PREP_CONST(AN8855_MAX_RX_JUMBO, 0x4)
++#define   AN8855_MAX_RX_JUMBO_5K	FIELD_PREP_CONST(AN8855_MAX_RX_JUMBO, 0x5)
++#define   AN8855_MAX_RX_JUMBO_6K	FIELD_PREP_CONST(AN8855_MAX_RX_JUMBO, 0x6)
++#define   AN8855_MAX_RX_JUMBO_7K	FIELD_PREP_CONST(AN8855_MAX_RX_JUMBO, 0x7)
++#define   AN8855_MAX_RX_JUMBO_8K	FIELD_PREP_CONST(AN8855_MAX_RX_JUMBO, 0x8)
++#define   AN8855_MAX_RX_JUMBO_9K	FIELD_PREP_CONST(AN8855_MAX_RX_JUMBO, 0x9)
++#define   AN8855_MAX_RX_JUMBO_12K	FIELD_PREP_CONST(AN8855_MAX_RX_JUMBO, 0xa)
++#define   AN8855_MAX_RX_JUMBO_15K	FIELD_PREP_CONST(AN8855_MAX_RX_JUMBO, 0xb)
++#define   AN8855_MAX_RX_JUMBO_16K	FIELD_PREP_CONST(AN8855_MAX_RX_JUMBO, 0xc)
++#define   AN8855_MAX_RX_PKT_LEN		GENMASK(1, 0)
++#define   AN8855_MAX_RX_PKT_1518_1522	FIELD_PREP_CONST(AN8855_MAX_RX_PKT_LEN, 0x0)
++#define   AN8855_MAX_RX_PKT_1536	FIELD_PREP_CONST(AN8855_MAX_RX_PKT_LEN, 0x1)
++#define   AN8855_MAX_RX_PKT_1552	FIELD_PREP_CONST(AN8855_MAX_RX_PKT_LEN, 0x2)
++#define   AN8855_MAX_RX_PKT_JUMBO	FIELD_PREP_CONST(AN8855_MAX_RX_PKT_LEN, 0x3)
++
++#define AN8855_CKGCR			0x10213e1c
 +#define   AN8855_LPI_TXIDLE_THD_MASK	GENMASK(31, 14)
 +#define   AN8855_CKG_LNKDN_PORT_STOP	BIT(1)
 +#define   AN8855_CKG_LNKDN_GLB_STOP	BIT(0)
 +
 +/* Register for MIB */
 +#define AN8855_PORT_MIB_COUNTER(x)	(0x10214000 + (x) * 0x200)
++/* Each define is an offset of AN8855_PORT_MIB_COUNTER */
++#define   AN8855_PORT_MIB_TX_DROP	0x00
++#define   AN8855_PORT_MIB_TX_CRC_ERR	0x04
++#define   AN8855_PORT_MIB_TX_UNICAST	0x08
++#define   AN8855_PORT_MIB_TX_MULTICAST	0x0c
++#define   AN8855_PORT_MIB_TX_BROADCAST	0x10
++#define   AN8855_PORT_MIB_TX_COLLISION	0x14
++#define   AN8855_PORT_MIB_TX_SINGLE_COLLISION 0x18
++#define   AN8855_PORT_MIB_TX_MULTIPLE_COLLISION 0x1c
++#define   AN8855_PORT_MIB_TX_DEFERRED	0x20
++#define   AN8855_PORT_MIB_TX_LATE_COLLISION 0x24
++#define   AN8855_PORT_MIB_TX_EXCESSIVE_COLLISION 0x28
++#define   AN8855_PORT_MIB_TX_PAUSE	0x2c
++#define   AN8855_PORT_MIB_TX_PKT_SZ_64	0x30
++#define   AN8855_PORT_MIB_TX_PKT_SZ_65_TO_127 0x34
++#define   AN8855_PORT_MIB_TX_PKT_SZ_128_TO_255 0x38
++#define   AN8855_PORT_MIB_TX_PKT_SZ_256_TO_511 0x3
++#define   AN8855_PORT_MIB_TX_PKT_SZ_512_TO_1023 0x40
++#define   AN8855_PORT_MIB_TX_PKT_SZ_1024_TO_1518 0x44
++#define   AN8855_PORT_MIB_TX_PKT_SZ_1519_TO_MAX 0x48
++#define   AN8855_PORT_MIB_TX_BYTES	0x4c /* 64 bytes */
++#define   AN8855_PORT_MIB_TX_OVERSIZE_DROP 0x54
++#define   AN8855_PORT_MIB_TX_BAD_PKT_BYTES 0x58 /* 64 bytes */
++#define   AN8855_PORT_MIB_RX_DROP	0x80
++#define   AN8855_PORT_MIB_RX_FILTERING	0x84
++#define   AN8855_PORT_MIB_RX_UNICAST	0x88
++#define   AN8855_PORT_MIB_RX_MULTICAST	0x8c
++#define   AN8855_PORT_MIB_RX_BROADCAST	0x90
++#define   AN8855_PORT_MIB_RX_ALIGN_ERR	0x94
++#define   AN8855_PORT_MIB_RX_CRC_ERR	0x98
++#define   AN8855_PORT_MIB_RX_UNDER_SIZE_ERR 0x9c
++#define   AN8855_PORT_MIB_RX_FRAG_ERR	0xa0
++#define   AN8855_PORT_MIB_RX_OVER_SZ_ERR 0xa4
++#define   AN8855_PORT_MIB_RX_JABBER_ERR	0xa8
++#define   AN8855_PORT_MIB_RX_PAUSE	0xac
++#define   AN8855_PORT_MIB_RX_PKT_SZ_64	0xb0
++#define   AN8855_PORT_MIB_RX_PKT_SZ_65_TO_127 0xb4
++#define   AN8855_PORT_MIB_RX_PKT_SZ_128_TO_255 0xb8
++#define   AN8855_PORT_MIB_RX_PKT_SZ_256_TO_511 0xbc
++#define   AN8855_PORT_MIB_RX_PKT_SZ_512_TO_1023 0xc0
++#define   AN8855_PORT_MIB_RX_PKT_SZ_1024_TO_1518 0xc4
++#define   AN8855_PORT_MIB_RX_PKT_SZ_1519_TO_MAX 0xc8
++#define   AN8855_PORT_MIB_RX_BYTES	0xcc /* 64 bytes */
++#define   AN8855_PORT_MIB_RX_CTRL_DROP	0xd4
++#define   AN8855_PORT_MIB_RX_INGRESS_DROP 0xd8
++#define   AN8855_PORT_MIB_RX_ARL_DROP	0xdc
++#define   AN8855_PORT_MIB_FLOW_CONTROL_DROP 0xe0
++#define   AN8855_PORT_MIB_WRED_DROP	0xe4
++#define   AN8855_PORT_MIB_MIRROR_DROP	0xe8
++#define   AN8855_PORT_MIB_RX_BAD_PKT_BYTES 0xec /* 64 bytes */
++#define   AN8855_PORT_MIB_RXS_FLOW_SAMPLING_PKT_DROP 0xf4
++#define   AN8855_PORT_MIB_RXS_FLOW_TOTAL_PKT_DROP 0xf8
++#define   AN8855_PORT_MIB_PORT_CONTROL_DROP 0xfc
 +#define AN8855_MIB_CCR			0x10213e30
-+#define	 AN8855_CCR_MIB_ENABLE		BIT(31)
-+#define	 AN8855_CCR_RX_OCT_CNT_GOOD	BIT(7)
-+#define	 AN8855_CCR_RX_OCT_CNT_BAD	BIT(6)
-+#define	 AN8855_CCR_TX_OCT_CNT_GOOD	BIT(5)
-+#define	 AN8855_CCR_TX_OCT_CNT_BAD	BIT(4)
-+#define	 AN8855_CCR_RX_OCT_CNT_GOOD_2	BIT(3)
-+#define	 AN8855_CCR_RX_OCT_CNT_BAD_2	BIT(2)
-+#define	 AN8855_CCR_TX_OCT_CNT_GOOD_2	BIT(1)
-+#define	 AN8855_CCR_TX_OCT_CNT_BAD_2	BIT(0)
-+#define	 AN8855_CCR_MIB_ACTIVATE	(AN8855_CCR_MIB_ENABLE | \
++#define   AN8855_CCR_MIB_ENABLE		BIT(31)
++#define   AN8855_CCR_RX_OCT_CNT_GOOD	BIT(7)
++#define   AN8855_CCR_RX_OCT_CNT_BAD	BIT(6)
++#define   AN8855_CCR_TX_OCT_CNT_GOOD	BIT(5)
++#define   AN8855_CCR_TX_OCT_CNT_BAD	BIT(4)
++#define   AN8855_CCR_RX_OCT_CNT_GOOD_2	BIT(3)
++#define   AN8855_CCR_RX_OCT_CNT_BAD_2	BIT(2)
++#define   AN8855_CCR_TX_OCT_CNT_GOOD_2	BIT(1)
++#define   AN8855_CCR_TX_OCT_CNT_BAD_2	BIT(0)
++#define   AN8855_CCR_MIB_ACTIVATE	(AN8855_CCR_MIB_ENABLE | \
 +					 AN8855_CCR_RX_OCT_CNT_GOOD | \
 +					 AN8855_CCR_RX_OCT_CNT_BAD | \
 +					 AN8855_CCR_TX_OCT_CNT_GOOD | \
@@ -2631,8 +3192,8 @@ index 000000000000..8e57e47fa4b3
 +/* HSGMII/SGMII Configuration register */
 +/*	AN8855_HSGMII_AN_CSR_BASE	0x10220000 */
 +#define AN8855_SGMII_REG_AN0		0x10220000
-+/*	  AN8855_SGMII_AN_ENABLE	BMCR_ANENABLE */
-+/*	  AN8855_SGMII_AN_RESTART	BMCR_ANRESTART */
++/*        AN8855_SGMII_AN_ENABLE	BMCR_ANENABLE */
++/*        AN8855_SGMII_AN_RESTART	BMCR_ANRESTART */
 +#define AN8855_SGMII_REG_AN_13		0x10220034
 +#define   AN8855_SGMII_REMOTE_FAULT_DIS	BIT(8)
 +#define   AN8855_SGMII_IF_MODE		GENMASK(5, 0)
@@ -2856,6 +3417,7 @@ index 000000000000..8e57e47fa4b3
 +
 +	u8 mirror_rx;
 +	u8 mirror_tx;
++	u8 port_isolated_map;
 +
 +	bool phy_require_calib;
 +};

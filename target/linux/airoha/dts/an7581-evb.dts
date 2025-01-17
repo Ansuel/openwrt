@@ -150,7 +150,7 @@
 
 &spi_nand {
 	partitions {
-		compatible = "airoha,fixed-partitions";
+		compatible = "fixed-partitions";
 		#address-cells = <1>;
 		#size-cells = <1>;
 
@@ -175,10 +175,18 @@
 			reg = <0x5080000 0x00800000>;
 		};
 
-		art@ffffffff {
-			compatible = "airoha,dynamic-art";
+		/* empty space */
+
+		art@f300000 {
 			label = "art";
-			reg = <0xffffffff 0x00300000>;
+			reg = <0xf300000 0x00300000>;
+		};
+
+		/* Reserved space for proprietary BMT for First Stage BL */
+		reserved_bmt@f600000 {
+			label = "rserved_bmt"
+			reg = <0xf600000 0xa00000>
+			read-only;
 		};
 	};
 };

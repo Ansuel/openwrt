@@ -34,7 +34,8 @@ mediatek_setup_interfaces()
 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" wan
 		;;
 	mediatek,mt7981-rfb)
-		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" "wan"
+		# ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" "wan"
+		ucidef_set_interface_lan "lan4"
 		;;
 	asus,tuf-ax4200|\
 	jdcloud,re-cp-03|\
