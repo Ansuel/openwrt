@@ -4451,8 +4451,8 @@ CONFIG_PACKAGE_wpad-basic=y
 # CONFIG_PACKAGE_chat is not set
 # CONFIG_PACKAGE_ds-lite is not set
 # CONFIG_PACKAGE_etherwake is not set
-CONFIG_PACKAGE_ethtool=y
-# CONFIG_PACKAGE_ethtool-full is not set
+# CONFIG_PACKAGE_ethtool is not set
+CONFIG_PACKAGE_ethtool-full=y
 # CONFIG_PACKAGE_gre is not set
 # CONFIG_PACKAGE_iperf is not set
 CONFIG_PACKAGE_iperf3=y
