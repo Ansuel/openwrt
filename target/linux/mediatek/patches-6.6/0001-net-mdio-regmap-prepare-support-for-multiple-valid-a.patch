@@ -1,0 +1,67 @@
+From 24cbc18982257b4a86b491bbc0ae35f4aa60b3dd Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 9 Jan 2025 15:12:46 +0100
+Subject: [PATCH 1/7] net: mdio: regmap: prepare support for multiple valid
+ addr
+
+Rework the valid_addr and convert it to a mask in preparation for mdio
+regmap to support multiple valid addr in the case the regmap can support
+it.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/mdio/mdio-regmap.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/mdio/mdio-regmap.c b/drivers/net/mdio/mdio-regmap.c
+index 8a742a8d6387..810ba0a736f0 100644
+--- a/drivers/net/mdio/mdio-regmap.c
++++ b/drivers/net/mdio/mdio-regmap.c
+@@ -19,7 +19,7 @@
+ 
+ struct mdio_regmap_priv {
+ 	struct regmap *regmap;
+-	u8 valid_addr;
++	u32 valid_addr_mask;
+ };
+ 
+ static int mdio_regmap_read_c22(struct mii_bus *bus, int addr, int regnum)
+@@ -28,7 +28,7 @@ static int mdio_regmap_read_c22(struct mii_bus *bus, int addr, int regnum)
+ 	unsigned int val;
+ 	int ret;
+ 
+-	if (ctx->valid_addr != addr)
++	if (!(ctx->valid_addr_mask & BIT(addr)))
+ 		return -ENODEV;
+ 
+ 	ret = regmap_read(ctx->regmap, regnum, &val);
+@@ -43,7 +43,7 @@ static int mdio_regmap_write_c22(struct mii_bus *bus, int addr, int regnum,
+ {
+ 	struct mdio_regmap_priv *ctx = bus->priv;
+ 
+-	if (ctx->valid_addr != addr)
++	if (!(ctx->valid_addr_mask & BIT(addr)))
+ 		return -ENODEV;
+ 
+ 	return regmap_write(ctx->regmap, regnum, val);
+@@ -65,7 +65,7 @@ struct mii_bus *devm_mdio_regmap_register(struct device *dev,
+ 
+ 	mr = mii->priv;
+ 	mr->regmap = config->regmap;
+-	mr->valid_addr = config->valid_addr;
++	mr->valid_addr_mask = BIT(config->valid_addr);
+ 
+ 	mii->name = DRV_NAME;
+ 	strscpy(mii->id, config->name, MII_BUS_ID_SIZE);
+@@ -74,7 +74,7 @@ struct mii_bus *devm_mdio_regmap_register(struct device *dev,
+ 	mii->write = mdio_regmap_write_c22;
+ 
+ 	if (config->autoscan)
+-		mii->phy_mask = ~BIT(config->valid_addr);
++		mii->phy_mask = ~mr->valid_addr_mask;
+ 	else
+ 		mii->phy_mask = ~0;
+ 
+-- 
+2.47.1
+

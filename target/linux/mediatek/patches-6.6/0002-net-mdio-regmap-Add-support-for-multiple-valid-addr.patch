@@ -1,0 +1,98 @@
+From 4186c8c45c91eec5809a0e4694caeff5a5f85907 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 9 Jan 2025 15:30:56 +0100
+Subject: [PATCH 2/7] net: mdio: regmap: Add support for multiple valid addr
+
+Add support for multiple valid addr for mdio regmap. This can be done by
+defining the new valid_addr_mask value in the mdio regmap config.
+
+In such case, the PHY address is appended to the regmap regnum right
+after the first 16 bit of the PHY register used for the read/write
+operation.
+
+The passed regmap will then extract the address from the passed regnum
+and execute the needed operations accordingly.
+
+Notice that if valid_addr_mask, the unique valid_addr in config is
+ignored.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/mdio/mdio-regmap.c   | 14 +++++++++++++-
+ include/linux/mdio/mdio-regmap.h |  9 +++++++++
+ 2 files changed, 22 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/mdio/mdio-regmap.c b/drivers/net/mdio/mdio-regmap.c
+index 810ba0a736f0..8bfcd9e415c8 100644
+--- a/drivers/net/mdio/mdio-regmap.c
++++ b/drivers/net/mdio/mdio-regmap.c
+@@ -20,6 +20,7 @@
+ struct mdio_regmap_priv {
+ 	struct regmap *regmap;
+ 	u32 valid_addr_mask;
++	bool append_addr;
+ };
+ 
+ static int mdio_regmap_read_c22(struct mii_bus *bus, int addr, int regnum)
+@@ -31,6 +32,9 @@ static int mdio_regmap_read_c22(struct mii_bus *bus, int addr, int regnum)
+ 	if (!(ctx->valid_addr_mask & BIT(addr)))
+ 		return -ENODEV;
+ 
++	if (ctx->append_addr)
++		regnum |= FIELD_PREP(MDIO_REGMAP_PHY_ADDR, addr);
++
+ 	ret = regmap_read(ctx->regmap, regnum, &val);
+ 	if (ret < 0)
+ 		return ret;
+@@ -46,6 +50,9 @@ static int mdio_regmap_write_c22(struct mii_bus *bus, int addr, int regnum,
+ 	if (!(ctx->valid_addr_mask & BIT(addr)))
+ 		return -ENODEV;
+ 
++	if (ctx->append_addr)
++		regnum |= FIELD_PREP(MDIO_REGMAP_PHY_ADDR, addr);
++
+ 	return regmap_write(ctx->regmap, regnum, val);
+ }
+ 
+@@ -65,7 +72,12 @@ struct mii_bus *devm_mdio_regmap_register(struct device *dev,
+ 
+ 	mr = mii->priv;
+ 	mr->regmap = config->regmap;
+-	mr->valid_addr_mask = BIT(config->valid_addr);
++	if (config->valid_addr_mask) {
++		mr->valid_addr_mask = config->valid_addr_mask;
++		mr->append_addr = true;
++	} else {
++		mr->valid_addr_mask = BIT(config->valid_addr);
++	}
+ 
+ 	mii->name = DRV_NAME;
+ 	strscpy(mii->id, config->name, MII_BUS_ID_SIZE);
+diff --git a/include/linux/mdio/mdio-regmap.h b/include/linux/mdio/mdio-regmap.h
+index 679d9069846b..8c7061e39ccb 100644
+--- a/include/linux/mdio/mdio-regmap.h
++++ b/include/linux/mdio/mdio-regmap.h
+@@ -12,11 +12,20 @@
+ struct device;
+ struct regmap;
+ 
++/* If a non empty valid_addr_mask is passed, PHY address and
++ * read/write register are encoded in the regmap register
++ * by placing the register in the first 16 bits and the PHY address
++ * right after.
++ */
++#define MDIO_REGMAP_PHY_ADDR		GENMASK(20, 16)
++#define MDIO_REGMAP_PHY_REG		GENMASK(15, 0)
++
+ struct mdio_regmap_config {
+ 	struct device *parent;
+ 	struct regmap *regmap;
+ 	char name[MII_BUS_ID_SIZE];
+ 	u8 valid_addr;
++	u32 valid_addr_mask;
+ 	bool autoscan;
+ };
+ 
+-- 
+2.47.1
+

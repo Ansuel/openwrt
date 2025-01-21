@@ -1,0 +1,136 @@
+From 25ad5174e1bd0bcc119a21959031169a2a9bfea6 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sat, 7 Dec 2024 02:21:41 +0100
+Subject: [PATCH 5/7] nvmem: an8855: Add support for Airoha AN8855 Switch EFUSE
+
+Add support for Airoha AN8855 Switch EFUSE. These EFUSE might be used
+for calibration data for the internal switch PHYs.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ MAINTAINERS                  |  1 +
+ drivers/nvmem/Kconfig        | 11 +++++++
+ drivers/nvmem/Makefile       |  2 ++
+ drivers/nvmem/an8855-efuse.c | 63 ++++++++++++++++++++++++++++++++++++
+ 4 files changed, 77 insertions(+)
+ create mode 100644 drivers/nvmem/an8855-efuse.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 3d30eb197d35..ac8cdef1ed58 100644
+# --- a/MAINTAINERS
+# +++ b/MAINTAINERS
+# @@ -724,6 +724,7 @@ F:	Documentation/devicetree/bindings/net/dsa/airoha,an8855-switch.yaml
+#  F:	Documentation/devicetree/bindings/nvmem/airoha,an8855-efuse.yaml
+#  F:	drivers/mfd/airoha-an8855.c
+#  F:	drivers/net/mdio/mdio-an8855.c
+# +F:	drivers/nvmem/an8855-efuse.c
+ 
+#  AIROHA ETHERNET DRIVER
+#  M:	Lorenzo Bianconi <lorenzo@kernel.org>
+diff --git a/drivers/nvmem/Kconfig b/drivers/nvmem/Kconfig
+index 8671b7c974b9..ca96c6ea685a 100644
+--- a/drivers/nvmem/Kconfig
++++ b/drivers/nvmem/Kconfig
+@@ -28,6 +28,17 @@ source "drivers/nvmem/layouts/Kconfig"
+ 
+ # Devices
+ 
++config NVMEM_AN8855_EFUSE
++	tristate "Airoha AN8855 eFuse support"
++	depends on MFD_AIROHA_AN8855 || COMPILE_TEST
++	help
++	  Say y here to enable support for reading eFuses on Airoha AN8855
++	  Switch. These are e.g. used to store factory programmed
++	  calibration data required for the PHY.
++
++	  This driver can also be built as a module. If so, the module will
++	  be called nvmem-an8855-efuse.
++
+ config NVMEM_APPLE_EFUSES
+ 	tristate "Apple eFuse support"
+ 	depends on ARCH_APPLE || COMPILE_TEST
+diff --git a/drivers/nvmem/Makefile b/drivers/nvmem/Makefile
+index 5b77bbb6488b..c732132c0e45 100644
+--- a/drivers/nvmem/Makefile
++++ b/drivers/nvmem/Makefile
+@@ -10,6 +10,8 @@ nvmem_layouts-y			:= layouts.o
+ obj-y				+= layouts/
+ 
+ # Devices
++obj-$(CONFIG_NVMEM_AN8855_EFUSE)	+= nvmem-an8855-efuse.o
++nvmem-an8855-efuse-y 			:= an8855-efuse.o
+ obj-$(CONFIG_NVMEM_APPLE_EFUSES)	+= nvmem-apple-efuses.o
+ nvmem-apple-efuses-y 			:= apple-efuses.o
+ obj-$(CONFIG_NVMEM_BCM_OCOTP)		+= nvmem-bcm-ocotp.o
+diff --git a/drivers/nvmem/an8855-efuse.c b/drivers/nvmem/an8855-efuse.c
+new file mode 100644
+index 000000000000..7940453d6e58
+--- /dev/null
++++ b/drivers/nvmem/an8855-efuse.c
+@@ -0,0 +1,63 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ *  Airoha AN8855 Switch EFUSE Driver
++ */
++
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/nvmem-provider.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++
++#define AN8855_EFUSE_CELL		50
++
++#define AN8855_EFUSE_DATA0		0x1000a500
++#define   AN8855_EFUSE_R50O		GENMASK(30, 24)
++
++static int an8855_efuse_read(void *context, unsigned int offset,
++			     void *val, size_t bytes)
++{
++	struct regmap *regmap = context;
++
++	return regmap_bulk_read(regmap, AN8855_EFUSE_DATA0 + offset,
++				val, bytes / sizeof(u32));
++}
++
++static int an8855_efuse_probe(struct platform_device *pdev)
++{
++	struct nvmem_config an8855_nvmem_config = {
++		.name = "an8855-efuse",
++		.size = AN8855_EFUSE_CELL * sizeof(u32),
++		.stride = sizeof(u32),
++		.word_size = sizeof(u32),
++		.reg_read = an8855_efuse_read,
++	};
++	struct device *dev = &pdev->dev;
++	struct nvmem_device *nvmem;
++
++	/* Assign NVMEM priv to MFD regmap */
++	an8855_nvmem_config.priv = dev_get_regmap(dev->parent, NULL);
++	an8855_nvmem_config.dev = dev;
++	nvmem = devm_nvmem_register(dev, &an8855_nvmem_config);
++
++	return PTR_ERR_OR_ZERO(nvmem);
++}
++
++static const struct of_device_id an8855_efuse_of_match[] = {
++	{ .compatible = "airoha,an8855-efuse", },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, an8855_efuse_of_match);
++
++static struct platform_driver an8855_efuse_driver = {
++	.probe = an8855_efuse_probe,
++	.driver = {
++		.name = "an8855-efuse",
++		.of_match_table = an8855_efuse_of_match,
++	},
++};
++module_platform_driver(an8855_efuse_driver);
++
++MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
++MODULE_DESCRIPTION("Driver for AN8855 Switch EFUSE");
++MODULE_LICENSE("GPL");
+-- 
+2.47.1
+

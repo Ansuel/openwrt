@@ -1,0 +1,122 @@
+From 3c351780a0366545796e1e29ad698ec0552e092e Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sat, 7 Dec 2024 02:09:17 +0100
+Subject: [PATCH 4/7] net: mdio: Add Airoha AN8855 Switch MDIO Passtrough
+
+Add Airoha AN8855 Switch driver to register a MDIO passtrough as switch
+address is shared with the internal PHYs and require additional page
+handling.
+
+This requires the upper Switch MFD to be probed and init to actually
+work.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ MAINTAINERS                    |  1 +
+ drivers/net/mdio/Kconfig       |  9 +++++++
+ drivers/net/mdio/Makefile      |  1 +
+ drivers/net/mdio/mdio-an8855.c | 47 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 58 insertions(+)
+ create mode 100644 drivers/net/mdio/mdio-an8855.c
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index db32a0dd5ca1..3d30eb197d35 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+# @@ -723,6 +723,7 @@ F:	Documentation/devicetree/bindings/net/airoha,an8855-phy.yaml
+#  F:	Documentation/devicetree/bindings/net/dsa/airoha,an8855-switch.yaml
+#  F:	Documentation/devicetree/bindings/nvmem/airoha,an8855-efuse.yaml
+#  F:	drivers/mfd/airoha-an8855.c
+# +F:	drivers/net/mdio/mdio-an8855.c
+ 
+#  AIROHA ETHERNET DRIVER
+#  M:	Lorenzo Bianconi <lorenzo@kernel.org>
+diff --git a/drivers/net/mdio/Kconfig b/drivers/net/mdio/Kconfig
+index 4a7a303be2f7..3d417948e73a 100644
+--- a/drivers/net/mdio/Kconfig
++++ b/drivers/net/mdio/Kconfig
+@@ -61,6 +61,16 @@ config MDIO_XGENE
+ 	  This module provides a driver for the MDIO busses found in the
+ 	  APM X-Gene SoC's.
+ 
++config MDIO_AN8855
++	tristate "Airoha AN8855 Switch MDIO bus controller"
++	depends on MFD_AIROHA_AN8855
++	depends on OF_MDIO
++	select MDIO_REGMAP
++	help
++	  This module provides a driver for the Airoha AN8855 Switch
++	  that requires a MDIO passtrough as switch address is shared
++	  with the internal PHYs and requires additional page handling.
++
+ config MDIO_ASPEED
+ 	tristate "ASPEED MDIO bus controller"
+ 	depends on ARCH_ASPEED || COMPILE_TEST
+diff --git a/drivers/net/mdio/Makefile b/drivers/net/mdio/Makefile
+index 1015f0db4531..546c4e55b475 100644
+--- a/drivers/net/mdio/Makefile
++++ b/drivers/net/mdio/Makefile
+@@ -5,6 +5,7 @@ obj-$(CONFIG_ACPI_MDIO)		+= acpi_mdio.o
+ obj-$(CONFIG_FWNODE_MDIO)	+= fwnode_mdio.o
+ obj-$(CONFIG_OF_MDIO)		+= of_mdio.o
+ 
++obj-$(CONFIG_MDIO_AN8855)		+= mdio-an8855.o
+ obj-$(CONFIG_MDIO_ASPEED)		+= mdio-aspeed.o
+ obj-$(CONFIG_MDIO_BCM_IPROC)		+= mdio-bcm-iproc.o
+ obj-$(CONFIG_MDIO_BCM_UNIMAC)		+= mdio-bcm-unimac.o
+diff --git a/drivers/net/mdio/mdio-an8855.c b/drivers/net/mdio/mdio-an8855.c
+new file mode 100644
+index 000000000000..736f7daafa0b
+--- /dev/null
++++ b/drivers/net/mdio/mdio-an8855.c
+@@ -0,0 +1,47 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ * MDIO passthrough driver for Airoha AN8855 Switch
++ */
++
++#include <linux/mdio/mdio-regmap.h>
++#include <linux/module.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++
++static int an8855_mdio_probe(struct platform_device *pdev)
++{
++	struct mdio_regmap_config mrc = { };
++	struct device *dev = &pdev->dev;
++	struct mii_bus *bus;
++
++	mrc.regmap = dev_get_regmap(dev->parent, "phy");
++	mrc.parent = dev;
++	mrc.valid_addr_mask = GENMASK(31, 0);
++	mrc.autoscan = true;
++	snprintf(mrc.name, MII_BUS_ID_SIZE, KBUILD_MODNAME);
++
++	bus = devm_mdio_regmap_register(dev, &mrc);
++	if (IS_ERR(bus))
++		return dev_err_probe(dev, PTR_ERR(bus), "failed to register MDIO bus\n");
++
++	return 0;
++}
++
++static const struct of_device_id an8855_mdio_of_match[] = {
++	{ .compatible = "airoha,an8855-mdio", },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, an8855_mdio_of_match);
++
++static struct platform_driver an8855_mdio_driver = {
++	.probe	= an8855_mdio_probe,
++	.driver = {
++		.name = "an8855-mdio",
++		.of_match_table = an8855_mdio_of_match,
++	},
++};
++module_platform_driver(an8855_mdio_driver);
++
++MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
++MODULE_DESCRIPTION("Driver for AN8855 MDIO passthrough");
++MODULE_LICENSE("GPL");
+-- 
+2.47.1
+
