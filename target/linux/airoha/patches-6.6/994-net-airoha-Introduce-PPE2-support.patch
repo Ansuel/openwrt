@@ -1,0 +1,239 @@
+From 60ebf7ea1deb7450f67307f664900b5a8651f377 Mon Sep 17 00:00:00 2001
+Message-ID: <60ebf7ea1deb7450f67307f664900b5a8651f377.1737546121.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Wed, 22 Jan 2025 11:45:53 +0100
+Subject: [PATCH net-next] net: airoha: Introduce PPE2 support
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/mediatek/airoha_eth.h  |  2 +
+ drivers/net/ethernet/mediatek/airoha_ppe.c  | 71 ++++++++++++++-------
+ drivers/net/ethernet/mediatek/airoha_regs.h | 66 +++++++++----------
+ 3 files changed, 83 insertions(+), 56 deletions(-)
+
+diff --git a/drivers/net/ethernet/mediatek/airoha_eth.h b/drivers/net/ethernet/mediatek/airoha_eth.h
+index bfb6d50209f0..79850dff5ebc 100644
+--- a/drivers/net/ethernet/mediatek/airoha_eth.h
++++ b/drivers/net/ethernet/mediatek/airoha_eth.h
+@@ -52,7 +52,9 @@
+ #define QDMA_METER_IDX(_n)		((_n) & 0xff)
+ #define QDMA_METER_GROUP(_n)		(((_n) >> 8) & 0x3)
+ 
++#define PPE_NUM				2
+ #define PPE_SRAM_NUM_ENTRIES		(16 * 1024)
++#define PPE1_SRAM_NUM_ENTRIES		(8 * 1024)
+ #define PPE_DRAM_NUM_ENTRIES		(16 * 1024)
+ #define PPE_NUM_ENTRIES			(PPE_SRAM_NUM_ENTRIES + PPE_DRAM_NUM_ENTRIES)
+ #define PPE_HASH_MASK			(PPE_NUM_ENTRIES - 1)
+diff --git a/drivers/net/ethernet/mediatek/airoha_ppe.c b/drivers/net/ethernet/mediatek/airoha_ppe.c
+index eb6c659c8ee4..f62ef4b46e1c 100644
+--- a/drivers/net/ethernet/mediatek/airoha_ppe.c
++++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
+@@ -69,6 +69,11 @@ static u32 airoha_npu_rmw(struct airoha_npu *npu, u32 reg, u32 mask, u32 val)
+ 	return val;
+ }
+ 
++static bool airoha_ppe2_is_enabled(struct airoha_eth *eth)
++{
++	return airoha_fe_rr(eth, REG_PPE2_GLO_CFG) & PPE2_EN_MASK;
++}
++
+ static int airoha_npu_send_msg(struct airoha_npu *npu, int func_id,
+ 			       void *p, int size)
+ {
+@@ -217,7 +222,10 @@ static int airoha_npu_flush_ppe_sram_entries(struct airoha_npu *npu,
+ 		},
+ 	};
+ 
+-	memset(ppe->foe, 0, PPE_SRAM_TABLE_SIZE);
++	if (airoha_ppe2_is_enabled(ppe->eth))
++		memset(ppe->foe, 0, PPE_SRAM_TABLE_SIZE / 2);
++	else
++		memset(ppe->foe, 0, PPE_SRAM_TABLE_SIZE);
+ 
+ 	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
+ 				   sizeof(struct ppe_mbox_data));
+@@ -603,20 +611,24 @@ static struct airoha_foe_entry *airoha_ppe_foe_get_entry(struct airoha_ppe *ppe,
+ 	if (hash < PPE_SRAM_NUM_ENTRIES) {
+ 		u32 *hwe = ppe->foe + hash * PPE_ENTRY_SIZE;
+ 		struct airoha_eth *eth = ppe->eth;
++		bool ppe2;
+ 		u32 val;
+ 		int i;
+ 
+-		airoha_fe_wr(ppe->eth, REG_PPE1_RAM_CTRL,
+-			     FIELD_PREP(PPE1_SRAM_CTRL_ENTRY_MASK, hash) |
+-			     PPE1_SRAM_CTRL_REQ_MASK);
++		ppe2 = airoha_ppe2_is_enabled(ppe->eth) &&
++		       hash >= PPE1_SRAM_NUM_ENTRIES;
++		airoha_fe_wr(ppe->eth, REG_PPE_RAM_CTRL(ppe2),
++			     FIELD_PREP(PPE_SRAM_CTRL_ENTRY_MASK, hash) |
++			     PPE_SRAM_CTRL_REQ_MASK);
+ 		if (read_poll_timeout_atomic(airoha_fe_rr, val,
+-					     val & PPE1_SRAM_CTRL_ACK_MASK,
++					     val & PPE_SRAM_CTRL_ACK_MASK,
+ 					     10, 100, false, eth,
+-					     REG_PPE1_RAM_CTRL))
++					     REG_PPE_RAM_CTRL(ppe2)))
+ 			return NULL;
+ 
+ 		for (i = 0; i < PPE_ENTRY_SIZE / 4; i++)
+-			hwe[i] = airoha_fe_rr(eth, REG_PPE1_RAM_ENTRY(i));
++			hwe[i] = airoha_fe_rr(eth,
++					      REG_PPE_RAM_ENTRY(ppe2, i));
+ 	}
+ 
+ 	return ppe->foe + hash * PPE_ENTRY_SIZE;
+@@ -642,14 +654,19 @@ static int airoha_ppe_foe_commit_entry(struct airoha_ppe *ppe,
+ 			.func_type = NPU_OP_SET,
+ 			.func_id = PPE_FUNC_SET_WAIT_API,
+ 			.set_info = {
+-				.func_id = PPE_SRAM_SET_ENTRY,
+ 				.data = addr,
+ 				.size = PPE_ENTRY_SIZE,
+ 			},
+ 		};
+ 		struct airoha_eth *eth = ppe->eth;
++		bool ppe2;
+ 		int err;
+ 
++		ppe2 = airoha_ppe2_is_enabled(ppe->eth) &&
++		       hash >= PPE1_SRAM_NUM_ENTRIES;
++		ppe_data.set_info.func_id = ppe2 ? PPE2_SRAM_SET_ENTRY
++						 : PPE_SRAM_SET_ENTRY;
++
+ 		err = airoha_npu_send_msg(eth->npu, NPU_FUNC_PPE, &ppe_data,
+ 					  sizeof(struct ppe_mbox_data));
+ 		if (err)
+@@ -1124,7 +1141,7 @@ int airoha_ppe_init(struct airoha_eth *eth)
+ {
+ 	struct airoha_npu *npu;
+ 	struct airoha_ppe *ppe;
+-	int err;
++	int err, i;
+ 
+ 	ppe = devm_kzalloc(eth->dev, sizeof(*ppe), GFP_KERNEL);
+ 	if (!ppe)
+@@ -1160,21 +1177,27 @@ int airoha_ppe_init(struct airoha_eth *eth)
+ 	if (err)
+ 		goto error_npu_deinit;
+ 
+-	airoha_fe_wr(eth, REG_PPE1_TB_BASE,
+-		     ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
+-	airoha_fe_wr(eth, REG_PPE2_TB_BASE,
+-		     ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
+-	airoha_fe_rmw(eth, REG_PPE1_BND_AGE0,
+-		      PPE1_BIND_AGE0_DELTA_NON_L4 |
+-		      PPE1_BIND_AGE0_DELTA_UDP,
+-		      FIELD_PREP(PPE1_BIND_AGE0_DELTA_NON_L4, 1) |
+-		      FIELD_PREP(PPE1_BIND_AGE0_DELTA_UDP, 12));
+-	airoha_fe_rmw(eth, REG_PPE1_BND_AGE1,
+-		      PPE1_BIND_AGE1_DELTA_TCP_FIN |
+-		      PPE1_BIND_AGE1_DELTA_TCP,
+-		      FIELD_PREP(PPE1_BIND_AGE1_DELTA_TCP_FIN, 1) |
+-		      FIELD_PREP(PPE1_BIND_AGE1_DELTA_TCP, 7));
+-	airoha_fe_set(eth, REG_PPE1_TB_CFG, PPE1_TB_ENTRY_SIZE_MASK);
++	for (i = 0; i < PPE_NUM; i++) {
++		airoha_fe_wr(eth, REG_PPE_TB_BASE(i),
++			ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
++		airoha_fe_rmw(eth, REG_PPE_BND_AGE0(i),
++			PPE_BIND_AGE0_DELTA_NON_L4 |
++			PPE_BIND_AGE0_DELTA_UDP,
++			FIELD_PREP(PPE_BIND_AGE0_DELTA_NON_L4, 1) |
++			FIELD_PREP(PPE_BIND_AGE0_DELTA_UDP, 12));
++		airoha_fe_rmw(eth, REG_PPE_BND_AGE1(i),
++			PPE_BIND_AGE1_DELTA_TCP_FIN |
++			PPE_BIND_AGE1_DELTA_TCP,
++			FIELD_PREP(PPE_BIND_AGE1_DELTA_TCP_FIN, 1) |
++			FIELD_PREP(PPE_BIND_AGE1_DELTA_TCP, 7));
++		airoha_fe_rmw(eth, REG_PPE_TB_CFG(i),
++			      PPE_SRAM_TB_NUM_ENTRY_MASK |
++			      PPE_TB_ENTRY_SIZE_MASK |
++			      PPE_DRAM_TB_NUM_ENTRY_MASK,
++			      FIELD_PREP(PPE_SRAM_TB_NUM_ENTRY_MASK, 3) |
++			      PPE_TB_ENTRY_SIZE_MASK |
++			      FIELD_PREP(PPE_SRAM_TB_NUM_ENTRY_MASK, 4));
++	}
+ 
+ 	err = airoha_npu_flush_ppe_sram_entries(npu, ppe);
+ 	if (err)
+diff --git a/drivers/net/ethernet/mediatek/airoha_regs.h b/drivers/net/ethernet/mediatek/airoha_regs.h
+index 443f0e804455..5647c3affc7a 100644
+--- a/drivers/net/ethernet/mediatek/airoha_regs.h
++++ b/drivers/net/ethernet/mediatek/airoha_regs.h
+@@ -192,38 +192,40 @@
+ #define REG_FE_GDM_RX_ETH_L511_CNT_L(_n)	(GDM_BASE(_n) + 0x198)
+ #define REG_FE_GDM_RX_ETH_L1023_CNT_L(_n)	(GDM_BASE(_n) + 0x19c)
+ 
+-#define REG_PPE1_TB_CFG				(PPE1_BASE + 0x21c)
+-#define PPE1_SRAM_TB_NUM_ENTRY_MASK		GENMASK(26, 24)
+-#define PPE1_TB_ENTRY_SIZE_MASK			BIT(3)
+-#define PPE1_DRAM_TB_NUM_ENTRY_MASK		GENMASK(2, 0)
+-
+-#define REG_PPE1_TB_BASE			(PPE1_BASE + 0x220)
+-
+-#define REG_PPE1_BND_AGE0			(PPE1_BASE + 0x23c)
+-#define PPE1_BIND_AGE0_DELTA_NON_L4		GENMASK(30, 16)
+-#define PPE1_BIND_AGE0_DELTA_UDP		GENMASK(14, 0)
+-
+-#define REG_PPE1_BND_AGE1			(PPE1_BASE + 0x240)
+-#define PPE1_BIND_AGE1_DELTA_TCP_FIN		GENMASK(30, 16)
+-#define PPE1_BIND_AGE1_DELTA_TCP		GENMASK(14, 0)
+-
+-#define REG_PPE1_TB_HASH_CFG			(PPE1_BASE + 0x250)
+-#define PPE1_DRAM_HASH1_EN_MASK			BIT(24)
+-#define PPE1_DRAM_TABLE_EN_MASK			BIT(16)
+-#define PPE1_SRAM_HASH1_EN_MASK			BIT(8)
+-#define PPE1_SRAM_TABLE_EN_MASK			BIT(0)
+-
+-#define REG_PPE1_RAM_CTRL			(PPE1_BASE + 0x31c)
+-#define PPE1_SRAM_CTRL_ACK_MASK			BIT(31)
+-#define PPE1_SRAM_CTRL_DUAL_SUCESS_MASK		BIT(30)
+-#define PPE1_SRAM_CTRL_ENTRY_MASK		GENMASK(23, 8)
+-#define PPE1_SRAM_WR_DUAL_DIRECTION_MASK	BIT(2)
+-#define PPE1_SRAM_CTRL_WR_MASK			BIT(1)
+-#define PPE1_SRAM_CTRL_REQ_MASK			BIT(0)
+-
+-#define REG_PPE1_RAM_ENTRY(_n)			(PPE1_BASE + 0x320 + ((_n) << 2))
+-
+-#define REG_PPE2_TB_BASE			(PPE2_BASE + 0x220)
++#define REG_PPE_TB_CFG(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x21c)
++#define PPE_SRAM_TB_NUM_ENTRY_MASK		GENMASK(26, 24)
++#define PPE_TB_ENTRY_SIZE_MASK			BIT(3)
++#define PPE_DRAM_TB_NUM_ENTRY_MASK		GENMASK(2, 0)
++
++#define REG_PPE_TB_BASE(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x220)
++
++#define REG_PPE_BND_AGE0(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x23c)
++#define PPE_BIND_AGE0_DELTA_NON_L4		GENMASK(30, 16)
++#define PPE_BIND_AGE0_DELTA_UDP			GENMASK(14, 0)
++
++#define REG_PPE_BND_AGE1(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x240)
++#define PPE_BIND_AGE1_DELTA_TCP_FIN		GENMASK(30, 16)
++#define PPE_BIND_AGE1_DELTA_TCP			GENMASK(14, 0)
++
++#define REG_PPE_TB_HASH_CFG(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x250)
++#define PPE_DRAM_HASH1_EN_MASK			BIT(24)
++#define PPE_DRAM_TABLE_EN_MASK			BIT(16)
++#define PPE_SRAM_HASH1_EN_MASK			BIT(8)
++#define PPE_SRAM_TABLE_EN_MASK			BIT(0)
++
++#define REG_PPE_RAM_CTRL(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x31c)
++#define PPE_SRAM_CTRL_ACK_MASK			BIT(31)
++#define PPE_SRAM_CTRL_DUAL_SUCESS_MASK		BIT(30)
++#define PPE_SRAM_CTRL_ENTRY_MASK		GENMASK(23, 8)
++#define PPE_SRAM_WR_DUAL_DIRECTION_MASK		BIT(2)
++#define PPE_SRAM_CTRL_WR_MASK			BIT(1)
++#define PPE_SRAM_CTRL_REQ_MASK			BIT(0)
++
++#define REG_PPE_RAM_BASE(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x320)
++#define REG_PPE_RAM_ENTRY(_m, _n)		(REG_PPE_RAM_BASE(_m) + ((_n) << 2))
++
++#define REG_PPE2_GLO_CFG			(PPE2_BASE + 0x200)
++#define PPE2_EN_MASK				BIT(0)
+ 
+ #define REG_FE_GDM_TX_OK_PKT_CNT_H(_n)		(GDM_BASE(_n) + 0x280)
+ #define REG_FE_GDM_TX_OK_BYTE_CNT_H(_n)		(GDM_BASE(_n) + 0x284)
+-- 
+2.48.1
+
