@@ -1,10 +1,10 @@
-From daf5f46bcd118295060af88c3dc7cf26a5eb9a1f Mon Sep 17 00:00:00 2001
-Message-ID: <daf5f46bcd118295060af88c3dc7cf26a5eb9a1f.1735736065.git.lorenzo@kernel.org>
-In-Reply-To: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
-References: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
+From 75032104eab44e05b53b07e41e7e548de4e91862 Mon Sep 17 00:00:00 2001
+Message-ID: <75032104eab44e05b53b07e41e7e548de4e91862.1737538986.git.lorenzo@kernel.org>
+In-Reply-To: <145c37c8a556ede0f74af7595e13b35eb9dee73c.1737538986.git.lorenzo@kernel.org>
+References: <145c37c8a556ede0f74af7595e13b35eb9dee73c.1737538986.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 9 Dec 2024 11:53:06 +0100
-Subject: [PATCH net-next 10/14] net: airoha: Add NPU watchdog support
+Subject: [PATCH net-next 2/6] net: airoha: Add NPU watchdog support
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
@@ -13,6 +13,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/ethernet/mediatek/airoha_ppe.c | 70 ++++++++++++++++++++++
  3 files changed, 72 insertions(+)
 
+diff --git a/drivers/net/ethernet/mediatek/Kconfig b/drivers/net/ethernet/mediatek/Kconfig
+index 95c4405b7d7b..aa7ef9434de5 100644
 --- a/drivers/net/ethernet/mediatek/Kconfig
 +++ b/drivers/net/ethernet/mediatek/Kconfig
 @@ -11,6 +11,7 @@ config NET_AIROHA
@@ -23,16 +25,20 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	help
  	  This driver supports the gigabit ethernet MACs in the
  	  Airoha SoC family.
+diff --git a/drivers/net/ethernet/mediatek/airoha_eth.h b/drivers/net/ethernet/mediatek/airoha_eth.h
+index ffa1c0b321b5..d4abc2c1ab9e 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -331,6 +331,7 @@ struct airoha_npu {
+@@ -332,6 +332,7 @@ struct airoha_npu {
  	struct airoha_npu_core {
  		struct airoha_npu *npu;
- 		struct mutex mbox_mutex;
+ 		spinlock_t lock;
 +		struct work_struct wdt_work;
  	} cores[AIROHA_NPU_NUM_CORES];
  };
  
+diff --git a/drivers/net/ethernet/mediatek/airoha_ppe.c b/drivers/net/ethernet/mediatek/airoha_ppe.c
+index ecac213aec10..11cf2206f48e 100644
 --- a/drivers/net/ethernet/mediatek/airoha_ppe.c
 +++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
 @@ -4,6 +4,7 @@
@@ -57,7 +63,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define NPU_CLUSTER_BASE_ADDR		0x306000
  
  #define REG_CR_BOOT_TRIGGER		(NPU_CLUSTER_BASE_ADDR + 0x000)
-@@ -48,6 +53,14 @@ static void airoha_npu_wr(struct airoha_
+@@ -48,6 +53,14 @@ static void airoha_npu_wr(struct airoha_npu *npu, u32 reg, u32 val)
  	writel(val, npu->base + reg);
  }
  
@@ -72,7 +78,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static int airoha_npu_send_msg(struct airoha_npu *npu, int func_id,
  			       void *p, int size)
  {
-@@ -205,6 +218,44 @@ static int airoha_npu_flush_ppe_sram_ent
+@@ -202,6 +215,44 @@ static int airoha_npu_flush_ppe_sram_entries(struct airoha_npu *npu,
  				   sizeof(struct ppe_mbox_data));
  }
  
@@ -117,9 +123,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static struct airoha_npu *airoha_npu_init(struct airoha_eth *eth)
  {
  	struct reserved_mem *rmem;
-@@ -256,6 +307,20 @@ static struct airoha_npu *airoha_npu_ini
+@@ -253,6 +304,20 @@ static struct airoha_npu *airoha_npu_init(struct airoha_eth *eth)
  
- 		mutex_init(&core->mbox_mutex);
+ 		spin_lock_init(&core->lock);
  		core->npu = npu;
 +
 +		irq = platform_get_irq(npu->pdev, i + 1);
@@ -138,7 +144,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	}
  
  	if (dma_set_coherent_mask(&npu->pdev->dev, 0xbfffffff))
-@@ -296,6 +361,11 @@ error_of_node_put:
+@@ -293,6 +358,11 @@ static struct airoha_npu *airoha_npu_init(struct airoha_eth *eth)
  
  static void airoha_npu_deinit(struct airoha_npu *npu)
  {
@@ -150,3 +156,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	put_device(&npu->pdev->dev);
  	of_node_put(npu->np);
  }
+-- 
+2.48.1
+

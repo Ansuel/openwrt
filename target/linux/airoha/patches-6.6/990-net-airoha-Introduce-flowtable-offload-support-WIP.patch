@@ -1,19 +1,19 @@
-From 20a3b9ba8affcfbaf366265f2970175f26089648 Mon Sep 17 00:00:00 2001
-Message-ID: <20a3b9ba8affcfbaf366265f2970175f26089648.1735736065.git.lorenzo@kernel.org>
-In-Reply-To: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
-References: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
+From 680822f6ff8dc4078a0e7a03584acfaa9cfd7882 Mon Sep 17 00:00:00 2001
+Message-ID: <680822f6ff8dc4078a0e7a03584acfaa9cfd7882.1737538986.git.lorenzo@kernel.org>
+In-Reply-To: <145c37c8a556ede0f74af7595e13b35eb9dee73c.1737538986.git.lorenzo@kernel.org>
+References: <145c37c8a556ede0f74af7595e13b35eb9dee73c.1737538986.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 27 Dec 2024 15:20:48 +0100
-Subject: [PATCH net-next 12/14] net: airoha: Introduce flowtable offload
- support (WIP)
+Subject: [PATCH net-next 4/6] net: airoha: Introduce flowtable offload support
+ (WIP)
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
  drivers/net/ethernet/mediatek/airoha_eth.c  |  57 +-
- drivers/net/ethernet/mediatek/airoha_eth.h  | 143 +++++
- drivers/net/ethernet/mediatek/airoha_ppe.c  | 661 +++++++++++++++++++-
+ drivers/net/ethernet/mediatek/airoha_eth.h  | 141 +++++
+ drivers/net/ethernet/mediatek/airoha_ppe.c  | 662 +++++++++++++++++++-
  drivers/net/ethernet/mediatek/airoha_regs.h |  11 +
- 4 files changed, 865 insertions(+), 7 deletions(-)
+ 4 files changed, 864 insertions(+), 7 deletions(-)
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
@@ -27,7 +27,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <uapi/linux/ppp_defs.h>
  
  #include "airoha_regs.h"
-@@ -650,6 +648,7 @@ static int airoha_qdma_rx_process(struct
+@@ -651,6 +649,7 @@ static int airoha_qdma_rx_process(struct
  	while (done < budget) {
  		struct airoha_queue_entry *e = &q->entry[q->tail];
  		struct airoha_qdma_desc *desc = &q->desc[q->tail];
@@ -35,7 +35,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		dma_addr_t dma_addr = le32_to_cpu(desc->addr);
  		u32 desc_ctrl = le32_to_cpu(desc->ctrl);
  		struct sk_buff *skb;
-@@ -694,6 +693,16 @@ static int airoha_qdma_rx_process(struct
+@@ -695,6 +694,16 @@ static int airoha_qdma_rx_process(struct
  		skb->protocol = eth_type_trans(skb, skb->dev);
  		skb->ip_summed = CHECKSUM_UNNECESSARY;
  		skb_record_rx_queue(skb, qid);
@@ -47,12 +47,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
 +		reason = FIELD_GET(AIROHA_RXD4_PPE_CPU_REASON, msg1);
 +		if (reason == MTK_PPE_CPU_REASON_HIT_UNBIND_RATE_REACHED)
-+			airoha_ppe_check_skb(eth->ppe, skb, hash);
++			airoha_ppe_check_skb(eth->ppe, hash);
 +
  		napi_gro_receive(&q->napi, skb);
  
  		done++;
-@@ -2085,6 +2094,47 @@ static int airoha_tc_htb_alloc_leaf_queu
+@@ -2114,6 +2123,47 @@ static int airoha_tc_htb_alloc_leaf_queu
  	return 0;
  }
  
@@ -100,7 +100,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_tc_remove_htb_queue(struct airoha_gdm_port *port, int queue)
  {
  	struct net_device *dev = port->dev;
-@@ -2168,6 +2218,9 @@ static int airoha_dev_tc_setup(struct ne
+@@ -2197,6 +2247,9 @@ static int airoha_dev_tc_setup(struct ne
  		return airoha_tc_setup_qdisc_ets(port, type_data);
  	case TC_SETUP_QDISC_HTB:
  		return airoha_tc_setup_qdisc_htb(port, type_data);
@@ -123,18 +123,15 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  #define AIROHA_NPU_NUM_CORES		8
  #define AIROHA_MAX_NUM_GDM_PORTS	1
-@@ -51,8 +55,10 @@
+@@ -51,6 +55,7 @@
  #define PPE_SRAM_NUM_ENTRIES		(16 * 1024)
  #define PPE_DRAM_NUM_ENTRIES		(16 * 1024)
  #define PPE_NUM_ENTRIES			(PPE_SRAM_NUM_ENTRIES + PPE_DRAM_NUM_ENTRIES)
 +#define PPE_HASH_MASK			(PPE_NUM_ENTRIES - 1)
- #define PPE_EN7581_ENTRY_SIZE		80
- #define PPE_EN7581_DRAM_OFFSET		(PPE_EN7581_ENTRY_SIZE * PPE_SRAM_NUM_ENTRIES)
-+#define PPE_EN7581_HASH_OFFSET		1
- 
- enum {
- 	QDMA_INT_REG_IDX0,
-@@ -287,6 +293,132 @@ struct ppe_mbox_data {
+ #define PPE_ENTRY_SIZE			80
+ #define PPE_SRAM_TABLE_SIZE		(PPE_SRAM_NUM_ENTRIES * PPE_ENTRY_SIZE)
+ #define PPE_TABLE_SIZE			(PPE_NUM_ENTRIES * PPE_ENTRY_SIZE)
+@@ -288,6 +293,132 @@ struct ppe_mbox_data {
  	};
  };
  
@@ -267,7 +264,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  struct airoha_qdma {
  	struct airoha_eth *eth;
  	void __iomem *regs;
-@@ -335,11 +467,17 @@ struct airoha_npu {
+@@ -336,11 +467,17 @@ struct airoha_npu {
  	} cores[AIROHA_NPU_NUM_CORES];
  };
  
@@ -285,7 +282,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_eth {
-@@ -350,6 +488,7 @@ struct airoha_eth {
+@@ -351,6 +488,7 @@ struct airoha_eth {
  
  	struct airoha_npu *npu;
  	struct airoha_ppe *ppe;
@@ -293,12 +290,11 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
-@@ -386,6 +525,10 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -387,6 +525,9 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
-+void airoha_ppe_check_skb(struct airoha_ppe *ppe, struct sk_buff *skb,
-+			  u16 hash);
++void airoha_ppe_check_skb(struct airoha_ppe *ppe, u16 hash);
 +int airoha_ppe_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
 +				 void *cb_priv);
  int airoha_ppe_init(struct airoha_eth *eth);
@@ -328,7 +324,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static u32 airoha_npu_rr(struct airoha_npu *npu, u32 reg)
  {
  	return readl(npu->base + reg);
-@@ -370,10 +377,636 @@ static void airoha_npu_deinit(struct air
+@@ -367,6 +374,633 @@ static void airoha_npu_deinit(struct air
  	of_node_put(npu->np);
  }
  
@@ -549,7 +545,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	hash = (hash >> 24) | ((hash & 0xffffff) << 8);
 +	hash ^= hv1 ^ hv2 ^ hv3;
 +	hash ^= hash >> 16;
-+	hash <<= __ffs(PPE_EN7581_HASH_OFFSET);
 +	hash &= PPE_NUM_ENTRIES - 1;
 +
 +	return hash;
@@ -559,7 +554,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +							 u32 hash)
 +{
 +	if (hash < PPE_SRAM_NUM_ENTRIES) {
-+		u32 *hwe = ppe->foe + hash * PPE_EN7581_ENTRY_SIZE;
++		u32 *hwe = ppe->foe + hash * PPE_ENTRY_SIZE;
 +		struct airoha_eth *eth = ppe->eth;
 +		u32 val;
 +		int i;
@@ -573,21 +568,21 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +					     REG_PPE1_RAM_CTRL))
 +			return NULL;
 +
-+		for (i = 0; i < PPE_EN7581_ENTRY_SIZE / 4; i++)
++		for (i = 0; i < PPE_ENTRY_SIZE / 4; i++)
 +			hwe[i] = airoha_fe_rr(eth, REG_PPE1_RAM_ENTRY(i));
 +	}
 +
-+	return ppe->foe + hash * PPE_EN7581_ENTRY_SIZE;
++	return ppe->foe + hash * PPE_ENTRY_SIZE;
 +}
 +
 +static int airoha_ppe_foe_commit_entry(struct airoha_ppe *ppe,
 +				       struct airoha_foe_entry *e,
 +				       u32 hash)
 +{
-+	struct airoha_foe_entry *hwe = ppe->foe + hash * PPE_EN7581_ENTRY_SIZE;
++	struct airoha_foe_entry *hwe = ppe->foe + hash * PPE_ENTRY_SIZE;
 +	u16 ts = airoha_ppe_get_timestamp(ppe);
 +
-+	memcpy(&hwe->data, &e->data, PPE_EN7581_ENTRY_SIZE - sizeof(hwe->ib1));
++	memcpy(&hwe->data, &e->data, PPE_ENTRY_SIZE - sizeof(hwe->ib1));
 +	wmb();
 +
 +	e->ib1 &= ~MTK_FOE_IB1_BIND_TIMESTAMP;
@@ -595,14 +590,14 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	hwe->ib1 = e->ib1;
 +
 +	if (hash < PPE_SRAM_NUM_ENTRIES) {
-+		dma_addr_t addr = ppe->foe_dma + hash * PPE_EN7581_ENTRY_SIZE;
++		dma_addr_t addr = ppe->foe_dma + hash * PPE_ENTRY_SIZE;
 +		struct ppe_mbox_data ppe_data = {
 +			.func_type = NPU_OP_SET,
 +			.func_id = PPE_FUNC_SET_WAIT_API,
 +			.set_info = {
 +				.func_id = PPE_SRAM_SET_ENTRY,
 +				.data = addr,
-+				.size = PPE_EN7581_ENTRY_SIZE,
++				.size = PPE_ENTRY_SIZE,
 +			},
 +		};
 +		struct airoha_eth *eth = ppe->eth;
@@ -647,6 +642,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	struct airoha_flow_table_entry *e;
 +	struct airoha_foe_entry *hwe;
 +	struct hlist_node *n;
++	u32 index;
 +
 +	spin_lock_bh(&ppe_lock);
 +
@@ -657,9 +653,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	if (FIELD_GET(MTK_FOE_IB1_STATE, hwe->ib1) == MTK_FOE_STATE_BIND)
 +		goto unlock;
 +
-+	hlist_for_each_entry_safe(e, n,
-+				  &ppe->foe_flow[hash / PPE_EN7581_HASH_OFFSET],
-+				  list) {
++	index = airoha_ppe_foe_get_entry_hash(hwe);
++	hlist_for_each_entry_safe(e, n, &ppe->foe_flow[index], list) {
 +		if (airoha_ppe_foe_compare_entry(e, hwe)) {
 +			airoha_ppe_foe_commit_entry(ppe, &e->data, hash);
 +			e->hash = hash;
@@ -678,7 +673,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	e->hash = 0xffff;
 +
 +	spin_lock_bh(&ppe_lock);
-+	hlist_add_head(&e->list, &ppe->foe_flow[hash / PPE_EN7581_HASH_OFFSET]);
++	hlist_add_head(&e->list, &ppe->foe_flow[hash]);
 +	spin_unlock_bh(&ppe_lock);
 +
 +	return 0;
@@ -938,10 +933,13 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	if (!tc_can_offload(dev) || type != TC_SETUP_CLSFLOWER)
 +		return -EOPNOTSUPP;
 +
++	if (!port->qdma->eth->npu)
++		return -EOPNOTSUPP; 
++
 +	return airoha_ppe_flow_offload_cmd(port, cls);
 +}
 +
-+void airoha_ppe_check_skb(struct airoha_ppe *ppe, struct sk_buff *skb, u16 hash)
++void airoha_ppe_check_skb(struct airoha_ppe *ppe, u16 hash)
 +{
 +	u16 now, diff;
 +
@@ -960,18 +958,13 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  int airoha_ppe_init(struct airoha_eth *eth)
  {
  	struct airoha_npu *npu;
- 	struct airoha_ppe *ppe;
-+	u32 foe_flow_size;
- 	int err;
- 
- 	ppe = devm_kzalloc(eth->dev, sizeof(*ppe), GFP_KERNEL);
-@@ -405,24 +1038,38 @@ int airoha_ppe_init(struct airoha_eth *e
- 		      FIELD_PREP(PPE1_BIND_AGE1_DELTA_TCP, 7));
+@@ -386,14 +1020,26 @@ int airoha_ppe_init(struct airoha_eth *e
+ 	ppe->eth = eth;
  	eth->ppe = ppe;
  
-+	foe_flow_size = (PPE_NUM_ENTRIES / PPE_EN7581_HASH_OFFSET) *
-+			sizeof(*ppe->foe_flow);
-+	ppe->foe_flow = devm_kzalloc(eth->dev, foe_flow_size, GFP_KERNEL);
++	ppe->foe_flow = devm_kzalloc(eth->dev,
++				     PPE_NUM_ENTRIES * sizeof(*ppe->foe_flow),
++				     GFP_KERNEL);
 +	if (!ppe->foe_flow)
 +		return -ENOMEM;
 +
@@ -993,6 +986,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 -		goto error;
 +		goto error_npu_deinit;
  
+ 	airoha_fe_wr(eth, REG_PPE1_TB_BASE,
+ 		     ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
+@@ -413,13 +1059,15 @@ int airoha_ppe_init(struct airoha_eth *e
+ 
  	err = airoha_npu_flush_ppe_sram_entries(npu, ppe);
  	if (err)
 -		goto error;
@@ -1009,7 +1006,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return err;
  }
-@@ -433,4 +1080,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -430,4 +1078,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_ppe_deinit(eth->npu);
  		airoha_npu_deinit(eth->npu);
  	}
@@ -1025,9 +1022,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define REG_FE_WAN_MAC_H		0x0030
  #define REG_FE_LAN_MAC_H		0x0040
  
-@@ -207,6 +208,16 @@
- #define PPE1_DRAM_TABLE_EN_MASK			BIT(16)
- #define PPE1_DRAM_HASH1_EN_MASK			BIT(24)
+@@ -212,6 +213,16 @@
+ #define PPE1_SRAM_HASH1_EN_MASK			BIT(8)
+ #define PPE1_SRAM_TABLE_EN_MASK			BIT(0)
  
 +#define REG_PPE1_RAM_CTRL			(PPE1_BASE + 0x31c)
 +#define PPE1_SRAM_CTRL_ACK_MASK			BIT(31)

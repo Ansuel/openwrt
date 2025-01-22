@@ -1,17 +1,16 @@
-From 959fb8babc749f4b3c6e99b7fbcf2efd2ccb9af5 Mon Sep 17 00:00:00 2001
-Message-ID: <959fb8babc749f4b3c6e99b7fbcf2efd2ccb9af5.1735736065.git.lorenzo@kernel.org>
-In-Reply-To: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
-References: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
+From a5d33d71fde5369f9d819c606d2a03e6ff080f65 Mon Sep 17 00:00:00 2001
+Message-ID: <a5d33d71fde5369f9d819c606d2a03e6ff080f65.1737538986.git.lorenzo@kernel.org>
+In-Reply-To: <145c37c8a556ede0f74af7595e13b35eb9dee73c.1737538986.git.lorenzo@kernel.org>
+References: <145c37c8a556ede0f74af7595e13b35eb9dee73c.1737538986.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 1 Jan 2025 13:51:51 +0100
-Subject: [PATCH net-next 14/14] net: airoha: Introduce ppe debugfs support
- (WIP)
+Subject: [PATCH net-next 6/6] net: airoha: Introduce ppe debugfs support (WIP)
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
  drivers/net/ethernet/mediatek/airoha_eth.h |   2 +
- drivers/net/ethernet/mediatek/airoha_ppe.c | 118 +++++++++++++++++++++
- 2 files changed, 120 insertions(+)
+ drivers/net/ethernet/mediatek/airoha_ppe.c | 121 +++++++++++++++++++++
+ 2 files changed, 123 insertions(+)
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
@@ -34,7 +33,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/devcoredump.h>
  #include <linux/firmware.h>
  #include <linux/ip.h>
-@@ -1002,6 +1003,118 @@ void airoha_ppe_check_skb(struct airoha_
+@@ -1001,6 +1002,121 @@ void airoha_ppe_check_skb(struct airoha_
  	airoha_ppe_foe_insert_entry(ppe, hash);
  }
  
@@ -54,6 +53,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		u32 ib2;
 +
 +		hwe = airoha_ppe_foe_get_entry(ppe, i);
++		if (!hwe)
++			continue;
++
 +		state = FIELD_GET(MTK_FOE_IB1_STATE, hwe->ib1);
 +		if (!state)
 +			continue;
@@ -120,8 +122,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
 +		seq_printf(m, " eth=%pM->%pM etype=%04x"
 +			      " vlan=%d,%d ib1=%08x ib2=%08x\n",
-+			   h_source, h_dest, ntohs(l2->etype),
-+			   l2->vlan1, l2->vlan2, hwe->ib1, ib2);
++			   h_source, h_dest, l2->etype, l2->vlan1,
++			   l2->vlan2, hwe->ib1, ib2);
 +	}
 +
 +	return 0;
@@ -153,7 +155,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  int airoha_ppe_init(struct airoha_eth *eth)
  {
  	struct airoha_npu *npu;
-@@ -1063,6 +1176,10 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -1061,6 +1177,10 @@ int airoha_ppe_init(struct airoha_eth *e
  	if (err)
  		goto error_npu_deinit;
  
@@ -164,7 +166,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return 0;
  
  error_npu_deinit:
-@@ -1081,4 +1198,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -1079,4 +1199,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_deinit(eth->npu);
  	}
  	rhashtable_destroy(&eth->flow_table);

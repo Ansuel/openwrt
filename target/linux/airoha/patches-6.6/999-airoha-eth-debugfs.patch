@@ -1,6 +1,6 @@
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -2243,6 +2243,129 @@ static const struct ethtool_ops airoha_e
+@@ -2272,6 +2272,129 @@ static const struct ethtool_ops airoha_e
  	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
  };
  
@@ -130,7 +130,7 @@
  static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
  {
  	const __be32 *id_ptr = of_get_property(np, "reg", NULL);
-@@ -2315,6 +2438,10 @@ static int airoha_alloc_gdm_port(struct
+@@ -2344,6 +2467,10 @@ static int airoha_alloc_gdm_port(struct
  	port->id = id;
  	eth->ports[index] = port;
  
@@ -141,15 +141,15 @@
  	return register_netdev(dev);
  }
  
-@@ -2374,6 +2501,7 @@ static int airoha_probe(struct platform_
+@@ -2403,6 +2530,7 @@ static int airoha_probe(struct platform_
  	strscpy(eth->napi_dev->name, "qdma_eth", sizeof(eth->napi_dev->name));
  	platform_set_drvdata(pdev, eth);
  
 +	eth->debugfs_dir = debugfs_create_dir("airoha-eth", NULL);
  	err = airoha_hw_init(pdev, eth);
  	if (err)
- 		goto error;
-@@ -2433,6 +2561,7 @@ static void airoha_remove(struct platfor
+ 		goto error_hw_cleanup;
+@@ -2467,6 +2595,7 @@ static void airoha_remove(struct platfor
  	free_netdev(eth->napi_dev);
  
  	airoha_ppe_deinit(eth);
@@ -186,7 +186,7 @@
  u32 airoha_rr(void __iomem *base, u32 offset);
 --- a/drivers/net/ethernet/mediatek/airoha_ppe.c
 +++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -1106,10 +1106,13 @@ DEFINE_SHOW_ATTRIBUTE(airoha_ppe_debugfs
+@@ -1108,10 +1108,13 @@ DEFINE_SHOW_ATTRIBUTE(airoha_ppe_debugfs
  
  static int airoha_ppe_debugfs_init(struct airoha_ppe *ppe)
  {
@@ -203,7 +203,7 @@
  			    &airoha_ppe_debugfs_foe_bind_fops);
  
  	return 0;
-@@ -1198,5 +1201,4 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -1199,5 +1202,4 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_deinit(eth->npu);
  	}
  	rhashtable_destroy(&eth->flow_table);
