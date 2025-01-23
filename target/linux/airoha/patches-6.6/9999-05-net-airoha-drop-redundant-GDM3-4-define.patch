@@ -13,11 +13,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/ethernet/mediatek/airoha_regs.h | 8 +-------
  2 files changed, 3 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
-index 7e8f919b8a0d..c96d859a5b4d 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -540,8 +540,8 @@ static int airoha_fe_init(struct airoha_eth *eth)
+@@ -540,8 +540,8 @@ static int airoha_fe_init(struct airoha_
  		      FIELD_PREP(IP_ASSEMBLE_PORT_MASK, 0) |
  		      FIELD_PREP(IP_ASSEMBLE_NBQ_MASK, 22));
  
@@ -28,8 +26,6 @@ index 7e8f919b8a0d..c96d859a5b4d 100644
  
  	airoha_fe_crsn_qsel_init(eth);
  
-diff --git a/drivers/net/ethernet/mediatek/airoha_regs.h b/drivers/net/ethernet/mediatek/airoha_regs.h
-index 30c96f679735..957a95a86001 100644
 --- a/drivers/net/ethernet/mediatek/airoha_regs.h
 +++ b/drivers/net/ethernet/mediatek/airoha_regs.h
 @@ -120,6 +120,7 @@
@@ -40,7 +36,7 @@ index 30c96f679735..957a95a86001 100644
  #define GDM_DROP_CRC_ERR		BIT(23)
  #define GDM_IP4_CKSUM			BIT(22)
  #define GDM_TCP_CKSUM			BIT(21)
-@@ -246,13 +247,6 @@
+@@ -253,13 +254,6 @@
  #define MBI_RX_AGE_SEL_MASK		GENMASK(26, 25)
  #define MBI_TX_AGE_SEL_MASK		GENMASK(18, 17)
  
@@ -54,6 +50,3 @@ index 30c96f679735..957a95a86001 100644
  #define REG_GDM4_SRC_PORT_SET		(GDM4_BASE + 0x23c)
  #define GDM4_SPORT_OFF2_MASK		GENMASK(19, 16)
  #define GDM4_SPORT_OFF1_MASK		GENMASK(15, 12)
--- 
-2.47.1
-

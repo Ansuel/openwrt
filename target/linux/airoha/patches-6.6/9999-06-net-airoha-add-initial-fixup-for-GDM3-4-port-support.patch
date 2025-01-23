@@ -13,11 +13,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/ethernet/mediatek/airoha_regs.h |  1 +
  2 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
-index c96d859a5b4d..d19077c5bcd7 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -159,9 +159,13 @@ static int airoha_set_gdm_port(struct airoha_eth *eth,
+@@ -159,9 +159,13 @@ static int airoha_set_gdm_port(struct ai
  
  static void airoha_fe_maccr_init(struct airoha_eth *eth)
  {
@@ -31,7 +29,7 @@ index c96d859a5b4d..d19077c5bcd7 100644
  		airoha_fe_set(eth, REG_GDM_FWD_CFG(p),
  			      GDM_TCP_CKSUM | GDM_UDP_CKSUM | GDM_IP4_CKSUM |
  			      GDM_DROP_CRC_ERR);
-@@ -170,7 +174,7 @@ static void airoha_fe_maccr_init(struct airoha_eth *eth)
+@@ -170,7 +174,7 @@ static void airoha_fe_maccr_init(struct
  		airoha_fe_rmw(eth, REG_GDM_LEN_CFG(p),
  			      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
  			      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
@@ -40,7 +38,7 @@ index c96d859a5b4d..d19077c5bcd7 100644
  	}
  
  	airoha_fe_rmw(eth, REG_CDM1_VLAN_CTRL, CDM1_VLAN_MASK,
-@@ -543,6 +547,9 @@ static int airoha_fe_init(struct airoha_eth *eth)
+@@ -543,6 +547,9 @@ static int airoha_fe_init(struct airoha_
  	airoha_fe_set(eth, REG_GDM_FWD_CFG(3), GDM_PAD_EN);
  	airoha_fe_set(eth, REG_GDM_FWD_CFG(4), GDM_PAD_EN);
  
@@ -50,7 +48,7 @@ index c96d859a5b4d..d19077c5bcd7 100644
  	airoha_fe_crsn_qsel_init(eth);
  
  	airoha_fe_clear(eth, REG_FE_CPORT_CFG, FE_CPORT_QUEUE_XFC_MASK);
-@@ -1543,7 +1550,8 @@ static int airoha_dev_open(struct net_device *dev)
+@@ -1544,7 +1551,8 @@ static int airoha_dev_open(struct net_de
  	if (err)
  		return err;
  
@@ -60,8 +58,6 @@ index c96d859a5b4d..d19077c5bcd7 100644
  		airoha_fe_set(qdma->eth, REG_GDM_INGRESS_CFG(port->id),
  			      GDM_STAG_EN_MASK);
  	else
-diff --git a/drivers/net/ethernet/mediatek/airoha_regs.h b/drivers/net/ethernet/mediatek/airoha_regs.h
-index 957a95a86001..b0b0c4d9520f 100644
 --- a/drivers/net/ethernet/mediatek/airoha_regs.h
 +++ b/drivers/net/ethernet/mediatek/airoha_regs.h
 @@ -125,6 +125,7 @@
@@ -72,6 +68,3 @@ index 957a95a86001..b0b0c4d9520f 100644
  #define GDM_UCFQ_MASK			GENMASK(15, 12)
  #define GDM_BCFQ_MASK			GENMASK(11, 8)
  #define GDM_MCFQ_MASK			GENMASK(7, 4)
--- 
-2.47.1
-

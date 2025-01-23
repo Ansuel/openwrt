@@ -52,7 +52,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		napi_gro_receive(&q->napi, skb);
  
  		done++;
-@@ -2114,6 +2123,47 @@ static int airoha_tc_htb_alloc_leaf_queu
+@@ -2101,6 +2110,47 @@ static int airoha_tc_htb_alloc_leaf_queu
  	return 0;
  }
  
@@ -100,7 +100,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_tc_remove_htb_queue(struct airoha_gdm_port *port, int queue)
  {
  	struct net_device *dev = port->dev;
-@@ -2197,6 +2247,9 @@ static int airoha_dev_tc_setup(struct ne
+@@ -2184,6 +2234,9 @@ static int airoha_dev_tc_setup(struct ne
  		return airoha_tc_setup_qdisc_ets(port, type_data);
  	case TC_SETUP_QDISC_HTB:
  		return airoha_tc_setup_qdisc_htb(port, type_data);
@@ -131,7 +131,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define PPE_ENTRY_SIZE			80
  #define PPE_SRAM_TABLE_SIZE		(PPE_SRAM_NUM_ENTRIES * PPE_ENTRY_SIZE)
  #define PPE_TABLE_SIZE			(PPE_NUM_ENTRIES * PPE_ENTRY_SIZE)
-@@ -288,6 +293,132 @@ struct ppe_mbox_data {
+@@ -288,6 +293,135 @@ struct ppe_mbox_data {
  	};
  };
  
@@ -165,7 +165,13 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +#define AIROHA_FOE_IB2_PORT_AG		GENMASK(23, 13)
 +#define AIROHA_FOE_IB2_DSCP		GENMASK(31, 24)
 +
-+#define AIORHA_FOE_UDF_TS_ID		GENMASK(23, 16)
++#define AIROHA_FOE_TUNNEL_ID		GENMASK(5, 0)
++#define AIROHA_FOE_TUNNEL		BIT(6)
++#define AIROHA_FOE_DPI			BIT(7)
++#define AIROHA_FOE_QID			GENMASK(10, 8)
++#define AIROHA_FOE_CHANNEL		GENMASK(15, 11)
++#define AIROHA_FOE_SHAPER_ID		GENMASK(23, 16)
++#define AIROHA_FOE_ACTDP		GENMASK(31, 24)
 +
 +struct airoha_foe_bridge {
 +	u32 dest_mac_hi;
@@ -178,7 +184,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	u32 ib2;
 +
 +	u32 rsv[5];
-+	u32 udf;
++
++	u32 data;
 +
 +	struct airoha_foe_mac_info l2;
 +};
@@ -190,12 +197,11 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
 +	struct mtk_ipv4_tuple new_tuple;
 +
-+	u32 rsv0[2];
-+	u32 udf;
++	u32 rsv[2];
++
++	u32 data;
 +
 +	struct airoha_foe_mac_info l2;
-+
-+	u32 rsv1[4];
 +};
 +
 +struct airoha_foe_ipv4_dslite {
@@ -206,12 +212,11 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	u8 flow_label[3];
 +	u8 priority;
 +
-+	u32 rsv0[4];
-+	u32 udf;
++	u32 rsv[4];
++
++	u32 data;
 +
 +	struct airoha_foe_mac_info l2;
-+
-+	u32 rsv1[4];
 +};
 +
 +struct airoha_foe_ipv6 {
@@ -230,13 +235,11 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		u32 ports;
 +	};
 +
-+	u32 udf;
++	u32 data;
 +
 +	u32 ib2;
 +
 +	struct airoha_foe_mac_info l2;
-+
-+	u32 rsv[3];
 +};
 +
 +struct airoha_foe_entry {
@@ -264,7 +267,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  struct airoha_qdma {
  	struct airoha_eth *eth;
  	void __iomem *regs;
-@@ -336,11 +467,17 @@ struct airoha_npu {
+@@ -336,11 +470,17 @@ struct airoha_npu {
  	} cores[AIROHA_NPU_NUM_CORES];
  };
  
@@ -282,7 +285,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_eth {
-@@ -351,6 +488,7 @@ struct airoha_eth {
+@@ -351,6 +491,7 @@ struct airoha_eth {
  
  	struct airoha_npu *npu;
  	struct airoha_ppe *ppe;
@@ -290,7 +293,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
-@@ -387,6 +525,9 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -387,6 +528,9 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
@@ -324,7 +327,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static u32 airoha_npu_rr(struct airoha_npu *npu, u32 reg)
  {
  	return readl(npu->base + reg);
-@@ -367,6 +374,633 @@ static void airoha_npu_deinit(struct air
+@@ -367,6 +374,643 @@ static void airoha_npu_deinit(struct air
  	of_node_put(npu->np);
  }
  
@@ -403,10 +406,11 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
 +static int airoha_ppe_foe_entry_prepare(struct airoha_gdm_port *port,
 +					struct airoha_foe_entry *hwe, int type,
-+					int l4proto, u8 *src_mac, u8 *dest_mac)
++					int l4proto, struct net_device *dev,
++					u8 *src_mac, u8 *dest_mac)
 +{
 +	struct airoha_foe_mac_info *l2;
-+	u32 val, pse_port;
++	u32 ports_pad, val, pse_port;
 +
 +	memset(hwe, 0, sizeof(*hwe));
 +
@@ -416,30 +420,38 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	      MTK_FOE_IB1_BIND_TTL;
 +	hwe->ib1 = val;
 +
-+	pse_port = netdev_uses_dsa(port->dev) ? 0 : 5;
++	pse_port = dev && netdev_uses_dsa(dev) ? 0 : 5;
 +	val = FIELD_PREP(AIROHA_FOE_IB2_NBQ, 9) |
-+	      FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT, pse_port);
++	      FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT, pse_port) |
++	      FIELD_PREP(AIROHA_FOE_IB2_PORT_AG, 0x1f);
++	if (is_multicast_ether_addr(dest_mac))
++		val |= AIROHA_FOE_IB2_MULTICAST;
++
++	ports_pad = 0xa5a5a500 | (l4proto & 0xff);
++	if (type == MTK_PPE_PKT_TYPE_IPV4_ROUTE)
++		hwe->ipv4.orig_tuple.ports = ports_pad;
++	if (type == MTK_PPE_PKT_TYPE_IPV6_ROUTE_3T)
++		hwe->ipv6.ports = ports_pad;
 +
 +	if (type >= MTK_PPE_PKT_TYPE_IPV4_DSLITE) {
 +		hwe->ipv6.ib2 = val;
-+		hwe->ipv6.udf &= ~AIORHA_FOE_UDF_TS_ID;
-+		hwe->ipv6.udf |= FIELD_PREP(AIORHA_FOE_UDF_TS_ID, 0x7f);
++		hwe->ipv6.data &= ~AIROHA_FOE_SHAPER_ID;
++		hwe->ipv6.data |= FIELD_PREP(AIROHA_FOE_SHAPER_ID, 0x7f);
 +		l2 = &hwe->ipv6.l2;
 +	} else {
 +		hwe->ipv4.ib2 = val;
-+		hwe->ipv4.udf &= ~AIORHA_FOE_UDF_TS_ID;
-+		hwe->ipv4.udf |= FIELD_PREP(AIORHA_FOE_UDF_TS_ID, 0x7f);
++		hwe->ipv4.data &= ~AIROHA_FOE_SHAPER_ID;
++		hwe->ipv4.data |= FIELD_PREP(AIROHA_FOE_SHAPER_ID, 0x7f);
 +		l2 = &hwe->ipv4.l2;
 +	}
-+
 +
 +	l2->dest_mac_hi = get_unaligned_be32(dest_mac);
 +	l2->dest_mac_lo = get_unaligned_be16(dest_mac + 4);
 +
 +	if (type >= MTK_PPE_PKT_TYPE_IPV6_ROUTE_3T) {
-+		l2->etype = ETH_P_IPV6;
 +		l2->data &= ~AIROHA_FOE_MAC_DATA_SMAC_ID;
 +		l2->data |= FIELD_PREP(AIROHA_FOE_MAC_DATA_SMAC_ID, 0xf);
++		l2->etype = ETH_P_IPV6;
 +	} else {
 +		l2->src_mac_hi = get_unaligned_be32(src_mac);
 +		l2->src_mac_lo = get_unaligned_be16(src_mac + 4);
@@ -630,7 +642,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		return false;
 +
 +	if (type > MTK_PPE_PKT_TYPE_IPV4_DSLITE)
-+		len = offsetof(struct airoha_foe_entry, ipv6.udf);
++		len = offsetof(struct airoha_foe_entry, ipv6.data);
 +	else
 +		len = offsetof(struct airoha_foe_entry, ipv4.ib2);
 +
@@ -787,7 +799,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		return -EINVAL;
 +
 +	err = airoha_ppe_foe_entry_prepare(port, &hwe, offload_type, l4proto,
-+					   data.eth.h_source, data.eth.h_dest);
++					   odev, data.eth.h_source,
++					   data.eth.h_dest);
 +	if (err)
 +		return err;
 +
@@ -958,7 +971,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  int airoha_ppe_init(struct airoha_eth *eth)
  {
  	struct airoha_npu *npu;
-@@ -386,14 +1020,26 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -386,14 +1030,26 @@ int airoha_ppe_init(struct airoha_eth *e
  	ppe->eth = eth;
  	eth->ppe = ppe;
  
@@ -988,7 +1001,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	airoha_fe_wr(eth, REG_PPE1_TB_BASE,
  		     ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
-@@ -413,13 +1059,15 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -413,13 +1069,15 @@ int airoha_ppe_init(struct airoha_eth *e
  
  	err = airoha_npu_flush_ppe_sram_entries(npu, ppe);
  	if (err)
@@ -1006,7 +1019,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return err;
  }
-@@ -430,4 +1078,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -430,4 +1088,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_ppe_deinit(eth->npu);
  		airoha_npu_deinit(eth->npu);
  	}

@@ -19,11 +19,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/ethernet/mediatek/airoha_regs.h | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/airoha_regs.h b/drivers/net/ethernet/mediatek/airoha_regs.h
-index e448b66b5334..30c96f679735 100644
 --- a/drivers/net/ethernet/mediatek/airoha_regs.h
 +++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -249,11 +249,11 @@
+@@ -256,11 +256,11 @@
  #define REG_GDM3_FWD_CFG		GDM3_BASE
  #define GDM3_PAD_EN_MASK		BIT(28)
  
@@ -37,6 +35,3 @@ index e448b66b5334..30c96f679735 100644
  #define GDM4_SPORT_OFF2_MASK		GENMASK(19, 16)
  #define GDM4_SPORT_OFF1_MASK		GENMASK(15, 12)
  #define GDM4_SPORT_OFF0_MASK		GENMASK(11, 8)
--- 
-2.47.1
-
