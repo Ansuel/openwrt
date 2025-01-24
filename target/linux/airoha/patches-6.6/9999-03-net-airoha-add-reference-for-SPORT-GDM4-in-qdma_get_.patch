@@ -14,11 +14,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/ethernet/mediatek/airoha_eth.c | 5 ++++-
  1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
-index 651c10ce2e04..7e8f919b8a0d 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -619,8 +619,11 @@ static int airoha_qdma_get_gdm_port(struct airoha_eth *eth,
+@@ -620,8 +620,11 @@ static int airoha_qdma_get_gdm_port(stru
  
  	sport = FIELD_GET(QDMA_ETH_RXMSG_SPORT_MASK, msg1);
  	switch (sport) {
@@ -31,6 +29,3 @@ index 651c10ce2e04..7e8f919b8a0d 100644
  		break;
  	case 0x2 ... 0x4:
  		port = sport - 1;
--- 
-2.47.1
-

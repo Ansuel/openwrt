@@ -19,7 +19,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -62,6 +62,22 @@ static void airoha_qdma_irq_disable(stru
+@@ -63,6 +63,22 @@ static void airoha_qdma_irq_disable(stru
  	airoha_qdma_set_irqmask(qdma, index, mask, 0);
  }
  
@@ -42,7 +42,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  static bool airhoa_is_lan_gdm_port(struct airoha_gdm_port *port)
  {
  	/* GDM1 port on EN7581 SoC is connected to the lan dsa switch.
-@@ -99,7 +115,8 @@ static void airoha_set_gdm_port_fwd_cfg(
+@@ -100,7 +116,8 @@ static void airoha_set_gdm_port_fwd_cfg(
  		      FIELD_PREP(GDM_UCFQ_MASK, val));
  }
  
@@ -52,7 +52,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  {
  	u32 val = enable ? FE_PSE_PORT_PPE1 : FE_PSE_PORT_DROP;
  	u32 vip_port, cfg_addr;
-@@ -121,6 +138,8 @@ static int airoha_set_gdm_port(struct ai
+@@ -122,6 +139,8 @@ static int airoha_set_gdm_port(struct ai
  		vip_port = XSI_ETH_VIP_PORT_MASK;
  		cfg_addr = REG_GDM_FWD_CFG(4);
  		break;
@@ -61,7 +61,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	default:
  		return -EINVAL;
  	}
-@@ -138,31 +157,6 @@ static int airoha_set_gdm_port(struct ai
+@@ -139,31 +158,6 @@ static int airoha_set_gdm_port(struct ai
  	return 0;
  }
  
@@ -93,7 +93,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  static void airoha_fe_maccr_init(struct airoha_eth *eth)
  {
  	int p;
-@@ -1539,7 +1533,7 @@ static int airoha_dev_open(struct net_de
+@@ -1555,7 +1549,7 @@ static int airoha_dev_open(struct net_de
  	int err;
  
  	netif_tx_start_all_queues(dev);
@@ -102,7 +102,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	if (err)
  		return err;
  
-@@ -1564,7 +1558,7 @@ static int airoha_dev_stop(struct net_de
+@@ -1580,7 +1574,7 @@ static int airoha_dev_stop(struct net_de
  	int err;
  
  	netif_tx_disable(dev);
@@ -111,17 +111,17 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	if (err)
  		return err;
  
-@@ -2343,6 +2337,7 @@ static int airoha_alloc_gdm_port(struct
+@@ -2422,6 +2416,7 @@ static int airoha_alloc_gdm_port(struct
  	port->qdma = qdma;
  	port->dev = dev;
  	port->id = id;
 +	port->type = airoha_get_gdm_port_type(port);
  	eth->ports[p] = port;
  
- 	return register_netdev(dev);
+ 	err = airoha_metadata_dst_alloc(port);
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -71,12 +71,14 @@ enum {
+@@ -74,12 +74,14 @@ enum {
  	QDMA_INT_REG_MAX
  };
  
@@ -137,7 +137,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  };
  
  enum {
-@@ -446,6 +448,7 @@ struct airoha_qdma {
+@@ -449,6 +451,7 @@ struct airoha_qdma {
  };
  
  struct airoha_gdm_port {

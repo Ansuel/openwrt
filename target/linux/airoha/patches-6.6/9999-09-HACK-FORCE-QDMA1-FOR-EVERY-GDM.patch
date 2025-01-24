@@ -13,7 +13,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -1590,9 +1590,11 @@ static int airoha_dev_stop(struct net_de
+@@ -1606,9 +1606,11 @@ static int airoha_dev_stop(struct net_de
  	if (err)
  		return err;
  
@@ -25,7 +25,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  	if (port->type != INTERNAL_SWITCH_PORT)
  		phylink_stop(port->phylink);
-@@ -2515,7 +2517,9 @@ static int airoha_alloc_gdm_port(struct
+@@ -2594,7 +2596,9 @@ static int airoha_alloc_gdm_port(struct
  		return -ENOMEM;
  	}
  

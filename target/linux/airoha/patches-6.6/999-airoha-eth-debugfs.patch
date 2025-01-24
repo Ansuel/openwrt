@@ -1,6 +1,6 @@
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -2481,6 +2481,129 @@ static int airoha_setup_phylink(struct n
+@@ -2560,6 +2560,129 @@ static int airoha_setup_phylink(struct n
  	return 0;
  }
  
@@ -130,7 +130,7 @@
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2572,6 +2695,10 @@ static int airoha_alloc_gdm_port(struct
+@@ -2655,6 +2778,10 @@ static int airoha_alloc_gdm_port(struct
  			     mac_addr[5]);
  	}
  
@@ -141,7 +141,7 @@
  	return register_netdev(dev);
  }
  
-@@ -2631,6 +2758,7 @@ static int airoha_probe(struct platform_
+@@ -2714,6 +2841,7 @@ static int airoha_probe(struct platform_
  	strscpy(eth->napi_dev->name, "qdma_eth", sizeof(eth->napi_dev->name));
  	platform_set_drvdata(pdev, eth);
  
@@ -149,7 +149,7 @@
  	err = airoha_hw_init(pdev, eth);
  	if (err)
  		goto error_hw_cleanup;
-@@ -2706,6 +2834,7 @@ static void airoha_remove(struct platfor
+@@ -2787,6 +2915,7 @@ static void airoha_remove(struct platfor
  	free_netdev(eth->napi_dev);
  
  	airoha_ppe_deinit(eth);
@@ -167,7 +167,7 @@
  #include <linux/etherdevice.h>
  #include <linux/iopoll.h>
  #include <linux/kernel.h>
-@@ -195,6 +196,7 @@ enum {
+@@ -198,6 +199,7 @@ enum {
  #define MAX_TOKEN_SIZE_OFFSET			17
  #define TRTCM_TOKEN_RATE_MASK			GENMASK(23, 6)
  #define TRTCM_TOKEN_RATE_FRACTION_MASK		GENMASK(5, 0)
@@ -175,7 +175,7 @@
  
  struct airoha_queue_entry {
  	union {
-@@ -512,6 +514,8 @@ struct airoha_eth {
+@@ -517,6 +519,8 @@ struct airoha_eth {
  
  	struct airoha_qdma qdma[AIROHA_MAX_NUM_QDMA];
  	struct airoha_gdm_port *ports[AIROHA_MAX_NUM_GDM_PORTS];

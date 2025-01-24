@@ -15,19 +15,20 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -4,9 +4,11 @@
+@@ -4,10 +4,12 @@
   * Author: Lorenzo Bianconi <lorenzo@kernel.org>
   */
  #include <linux/tcp.h>
 +#include <linux/pcs/pcs-airoha.h>
  #include <linux/u64_stats_sync.h>
+ #include <net/dst_metadata.h>
  #include <net/page_pool/helpers.h>
  #include <uapi/linux/ppp_defs.h>
 +#include <linux/regmap.h>
  
  #include "airoha_regs.h"
  #include "airoha_eth.h"
-@@ -1546,6 +1548,17 @@ static int airoha_dev_open(struct net_de
+@@ -1562,6 +1564,17 @@ static int airoha_dev_open(struct net_de
  	struct airoha_qdma *qdma = port->qdma;
  	int err;
  
@@ -45,7 +46,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	netif_tx_start_all_queues(dev);
  	err = airoha_set_gdm_port(qdma->eth, port->type, true);
  	if (err)
-@@ -1581,19 +1594,32 @@ static int airoha_dev_stop(struct net_de
+@@ -1597,19 +1610,32 @@ static int airoha_dev_stop(struct net_de
  			  GLOBAL_CFG_TX_DMA_EN_MASK |
  			  GLOBAL_CFG_RX_DMA_EN_MASK);
  
@@ -79,9 +80,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  	return 0;
  }
-@@ -2281,6 +2307,178 @@ static const struct ethtool_ops airoha_e
- 	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
- };
+@@ -2360,6 +2386,178 @@ static void airoha_metadata_dst_free(str
+ 	}
+ }
  
 +static struct phylink_pcs *airoha_phylink_mac_select_pcs(struct phylink_config *config,
 +							 phy_interface_t interface)
@@ -258,9 +259,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2355,6 +2553,21 @@ static int airoha_alloc_gdm_port(struct
- 	port->type = airoha_get_gdm_port_type(port);
- 	eth->ports[p] = port;
+@@ -2438,6 +2636,21 @@ static int airoha_alloc_gdm_port(struct
+ 	if (err)
+ 		return err;
  
 +	if (port->type != INTERNAL_SWITCH_PORT) {
 +		const u8 *mac_addr = dev->dev_addr;
@@ -280,21 +281,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	return register_netdev(dev);
  }
  
-@@ -2450,6 +2663,11 @@ error_hw_cleanup:
- 
- 		if (port && port->dev->reg_state == NETREG_REGISTERED)
- 			unregister_netdev(port->dev);
-+
-+		if (port->type != INTERNAL_SWITCH_PORT) {
-+			phylink_destroy(port->phylink);
-+			airoha_pcs_destroy(port->pcs);
-+		}
- 	}
- 	free_netdev(eth->napi_dev);
- 	platform_set_drvdata(pdev, NULL);
-@@ -2475,6 +2693,11 @@ static void airoha_remove(struct platfor
- 
+@@ -2561,6 +2774,11 @@ static void airoha_remove(struct platfor
  		airoha_dev_stop(port->dev);
+ 		airoha_metadata_dst_free(port);
  		unregister_netdev(port->dev);
 +
 +		if (port->type != INTERNAL_SWITCH_PORT) {
@@ -306,7 +295,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -453,6 +453,11 @@ struct airoha_gdm_port {
+@@ -456,6 +456,11 @@ struct airoha_gdm_port {
  	struct net_device *dev;
  	int id;
  

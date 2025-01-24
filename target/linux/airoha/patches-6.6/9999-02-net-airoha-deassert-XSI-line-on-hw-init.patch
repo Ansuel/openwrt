@@ -13,7 +13,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -1308,6 +1308,10 @@ static int airoha_hw_init(struct platfor
+@@ -1324,6 +1324,10 @@ static int airoha_hw_init(struct platfor
  	if (err)
  		return err;
  
