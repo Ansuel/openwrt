@@ -281,9 +281,9 @@ index d19077c5bcd7..e38ded230e09 100644
 +	return 0;
 +}
 +
- static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
+ static int airoha_alloc_gdm_port(struct airoha_eth *eth,
+ 				 struct device_node *np, int index)
  {
- 	const __be32 *id_ptr = of_get_property(np, "reg", NULL);
 @@ -2348,6 +2568,23 @@ static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
  	port->type = airoha_get_gdm_port_type(port);
  	eth->ports[index] = port;
@@ -336,15 +336,6 @@ diff --git a/drivers/net/ethernet/mediatek/airoha_eth.h b/drivers/net/ethernet/m
 index 332ae7bb5113..87234846cb0b 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -22,7 +22,7 @@
- #include "mtk_ppe.h"
- 
- #define AIROHA_NPU_NUM_CORES		8
--#define AIROHA_MAX_NUM_GDM_PORTS	1
-+#define AIROHA_MAX_NUM_GDM_PORTS	4
- #define AIROHA_MAX_NUM_QDMA		2
- #define AIROHA_MAX_NUM_RSTS		3
- #define AIROHA_MAX_NUM_XSI_RSTS		5
 @@ -448,6 +448,11 @@ struct airoha_gdm_port {
  	struct net_device *dev;
  	int id;
