@@ -327,7 +327,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static u32 airoha_npu_rr(struct airoha_npu *npu, u32 reg)
  {
  	return readl(npu->base + reg);
-@@ -367,6 +374,643 @@ static void airoha_npu_deinit(struct air
+@@ -367,6 +374,656 @@ static void airoha_npu_deinit(struct air
  	of_node_put(npu->np);
  }
  
@@ -404,10 +404,24 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	return 0;
 +}
 +
-+static int airoha_ppe_foe_entry_prepare(struct airoha_gdm_port *port,
-+					struct airoha_foe_entry *hwe, int type,
-+					int l4proto, struct net_device *dev,
-+					u8 *src_mac, u8 *dest_mac)
++static int airoha_get_dsa_port(struct net_device **dev)
++{
++#if IS_ENABLED(CONFIG_NET_DSA)
++	struct dsa_port *dp = dsa_port_from_netdev(*dev);
++
++	if (IS_ERR(dp))
++		return -ENODEV;
++
++	*dev = dsa_port_to_master(dp);
++	return dp->index;
++#else
++	return -ENODEV;
++#endif
++}
++
++static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
++					struct net_device *dev, int type,
++					int l4proto, u8 *src_mac, u8 *dest_mac)
 +{
 +	struct airoha_foe_mac_info *l2;
 +	u32 ports_pad, val, pse_port;
@@ -420,7 +434,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	      MTK_FOE_IB1_BIND_TTL;
 +	hwe->ib1 = val;
 +
-+	pse_port = dev && netdev_uses_dsa(dev) ? 0 : 5;
++	pse_port = airoha_get_dsa_port(&dev) >= 0 ? 0 : 5;
 +	val = FIELD_PREP(AIROHA_FOE_IB2_NBQ, 9) |
 +	      FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT, pse_port) |
 +	      FIELD_PREP(AIROHA_FOE_IB2_PORT_AG, 0x1f);
@@ -798,9 +812,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	    !is_valid_ether_addr(data.eth.h_dest))
 +		return -EINVAL;
 +
-+	err = airoha_ppe_foe_entry_prepare(port, &hwe, offload_type, l4proto,
-+					   odev, data.eth.h_source,
-+					   data.eth.h_dest);
++	err = airoha_ppe_foe_entry_prepare(&hwe, odev, offload_type, l4proto,
++					   data.eth.h_source, data.eth.h_dest);
 +	if (err)
 +		return err;
 +
@@ -947,7 +960,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		return -EOPNOTSUPP;
 +
 +	if (!port->qdma->eth->npu)
-+		return -EOPNOTSUPP; 
++		return -EOPNOTSUPP;
 +
 +	return airoha_ppe_flow_offload_cmd(port, cls);
 +}
@@ -971,7 +984,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  int airoha_ppe_init(struct airoha_eth *eth)
  {
  	struct airoha_npu *npu;
-@@ -386,14 +1030,26 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -386,14 +1043,26 @@ int airoha_ppe_init(struct airoha_eth *e
  	ppe->eth = eth;
  	eth->ppe = ppe;
  
@@ -1001,7 +1014,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	airoha_fe_wr(eth, REG_PPE1_TB_BASE,
  		     ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
-@@ -413,13 +1069,15 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -413,13 +1082,15 @@ int airoha_ppe_init(struct airoha_eth *e
  
  	err = airoha_npu_flush_ppe_sram_entries(npu, ppe);
  	if (err)
@@ -1019,7 +1032,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return err;
  }
-@@ -430,4 +1088,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -430,4 +1101,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_ppe_deinit(eth->npu);
  		airoha_npu_deinit(eth->npu);
  	}
