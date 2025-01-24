@@ -1,7 +1,7 @@
-From 67c1ff10205800cebb5b98f8f96d0eaa61afc1fa Mon Sep 17 00:00:00 2001
+From 4a8bc3c4ecfdadd21511a3b9d635785f5416aaf9 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Mon, 21 Oct 2024 13:24:54 +0200
-Subject: [PATCH 6/7] net: dsa: Add Airoha AN8855 5-Port Gigabit DSA Switch
+Subject: [PATCH 12/13] net: dsa: Add Airoha AN8855 5-Port Gigabit DSA Switch
  driver
 
 Add Airoha AN8855 5-Port Gigabit DSA switch. Switch can support
@@ -14,14 +14,14 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  MAINTAINERS              |    2 +
  drivers/net/dsa/Kconfig  |    9 +
  drivers/net/dsa/Makefile |    1 +
- drivers/net/dsa/an8855.c | 2294 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/an8855.c | 2297 ++++++++++++++++++++++++++++++++++++++
  drivers/net/dsa/an8855.h |  771 +++++++++++++
- 5 files changed, 3077 insertions(+)
+ 5 files changed, 3080 insertions(+)
  create mode 100644 drivers/net/dsa/an8855.c
  create mode 100644 drivers/net/dsa/an8855.h
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index ac8cdef1ed58..7058a618f5a3 100644
+# diff --git a/MAINTAINERS b/MAINTAINERS
+# index ac8cdef1ed58..7058a618f5a3 100644
 # --- a/MAINTAINERS
 # +++ b/MAINTAINERS
 # @@ -723,6 +723,8 @@ F:	Documentation/devicetree/bindings/net/airoha,an8855-phy.yaml
@@ -34,7 +34,7 @@ index ac8cdef1ed58..7058a618f5a3 100644
 #  F:	drivers/nvmem/an8855-efuse.c
  
 diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 2d10b4d6cfbb..99b1569ba35b 100644
+index 2d10b4d6cfbb..12557c6dfc2e 100644
 --- a/drivers/net/dsa/Kconfig
 +++ b/drivers/net/dsa/Kconfig
 @@ -24,6 +24,15 @@ config NET_DSA_LOOP
@@ -47,8 +47,8 @@ index 2d10b4d6cfbb..99b1569ba35b 100644
 +	depends on NET_DSA
 +	select NET_DSA_TAG_MTK
 +	help
-+	  This enables support for the Airoha AN8855 Ethernet switch
-+	  chip.
++	  This enables support for the Ethernet switch inside the
++	  Airoha AN8855 chip.
 +
  source "drivers/net/dsa/hirschmann/Kconfig"
  
@@ -67,10 +67,10 @@ index cb9a97340e58..a74afb41a491 100644
  obj-$(CONFIG_NET_DSA_MT7530_MDIO) += mt7530-mdio.o
 diff --git a/drivers/net/dsa/an8855.c b/drivers/net/dsa/an8855.c
 new file mode 100644
-index 000000000000..da45aa1e83ac
+index 000000000000..5c69f298bf89
 --- /dev/null
 +++ b/drivers/net/dsa/an8855.c
-@@ -0,0 +1,2294 @@
+@@ -0,0 +1,2297 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Airoha AN8855 DSA Switch driver
@@ -1556,7 +1556,10 @@ index 000000000000..da45aa1e83ac
 +			      FIELD_MAX(AN8855_AGE_UNIT) *
 +			      AN8855_L2_AGING_MS_CONSTANT;
 +
-+	/* TODO: Enable assisted learning for fdb isolation */
++	/* User reported problem with WiFi roaming and
++	 * ethernet port. Enabling assisted learning fix
++	 * the issue.
++	 */
 +	ds->assisted_learning_on_cpu_port = true;
 +
 +	return 0;

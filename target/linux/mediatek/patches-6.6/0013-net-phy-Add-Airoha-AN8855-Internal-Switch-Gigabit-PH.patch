@@ -1,7 +1,7 @@
-From f1e20c2438d500fd76cae45a936e573f5c305341 Mon Sep 17 00:00:00 2001
+From cf55972c94a7bd34490e17d16f25b37b1226637a Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Mon, 21 Oct 2024 13:34:39 +0200
-Subject: [PATCH 7/7] net: phy: Add Airoha AN8855 Internal Switch Gigabit PHY
+Subject: [PATCH 13/13] net: phy: Add Airoha AN8855 Internal Switch Gigabit PHY
 
 Add support for Airoha AN8855 Internal Switch Gigabit PHY.
 
@@ -13,8 +13,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  MAINTAINERS                  |   1 +
  drivers/net/phy/Kconfig      |   5 +
  drivers/net/phy/Makefile     |   1 +
- drivers/net/phy/air_an8855.c | 266 +++++++++++++++++++++++++++++++++++
- 4 files changed, 273 insertions(+)
+ drivers/net/phy/air_an8855.c | 261 +++++++++++++++++++++++++++++++++++
+ 4 files changed, 268 insertions(+)
  create mode 100644 drivers/net/phy/air_an8855.c
 
 # diff --git a/MAINTAINERS b/MAINTAINERS
@@ -59,10 +59,10 @@ index e6145153e837..38ca7432780e 100644
  obj-$(CONFIG_AMCC_QT2025_PHY)	+= qt2025.o
 diff --git a/drivers/net/phy/air_an8855.c b/drivers/net/phy/air_an8855.c
 new file mode 100644
-index 000000000000..2e08f0d28359
+index 000000000000..9c54c604690f
 --- /dev/null
 +++ b/drivers/net/phy/air_an8855.c
-@@ -0,0 +1,266 @@
+@@ -0,0 +1,261 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +/*
 + * Copyright (C) 2024 Christian Marangi <ansuelsmth@gmail.com>
@@ -117,8 +117,6 @@ index 000000000000..2e08f0d28359
 +#define   AN8855_PHY_RG_AD_RESERVE0_D		GENMASK(7, 0)
 +
 +#define AN8855_PHY_ID				0xc0ff0410
-+
-+#define AN8855_PHY_FLAGS_EN_CALIBRATION		BIT(0)
 +
 +struct air_an8855_priv {
 +	bool needs_calibration;
@@ -209,9 +207,6 @@ index 000000000000..2e08f0d28359
 +	if (ret)
 +		return ret;
 +
-+	/* Apply calibration values, if needed.
-+	 * AN8855_PHY_FLAGS_EN_CALIBRATION signal this.
-+	 */
 +	if (priv->needs_calibration) {
 +		u8 calibration_data[4];
 +

@@ -1,7 +1,7 @@
-From 7809d7471fa09f3fe4f08da08f5b8fad2ac49f78 Mon Sep 17 00:00:00 2001
+From 7cec29898bc529a570a42c70511982a0b54263b6 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Sat, 7 Dec 2024 01:24:56 +0100
-Subject: [PATCH 3/7] mfd: an8855: Add support for Airoha AN8855 Switch MFD
+Subject: [PATCH 09/13] mfd: an8855: Add support for Airoha AN8855 Switch MFD
 
 Add support for Airoha AN8855 Switch MFD that provide support for a DSA
 switch and a NVMEM provider. Also provide support for a virtual MDIO
@@ -13,8 +13,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  MAINTAINERS                 |   1 +
  drivers/mfd/Kconfig         |  10 +
  drivers/mfd/Makefile        |   1 +
- drivers/mfd/airoha-an8855.c | 444 ++++++++++++++++++++++++++++++++++++
- 4 files changed, 456 insertions(+)
+ drivers/mfd/airoha-an8855.c | 445 ++++++++++++++++++++++++++++++++++++
+ 4 files changed, 457 insertions(+)
  create mode 100644 drivers/mfd/airoha-an8855.c
 
 # diff --git a/MAINTAINERS b/MAINTAINERS
@@ -64,10 +64,10 @@ index e057d6d6faef..bcbeb36ab19d 100644
  obj-$(CONFIG_ARCH_BCM2835)	+= bcm2835-pm.o
 diff --git a/drivers/mfd/airoha-an8855.c b/drivers/mfd/airoha-an8855.c
 new file mode 100644
-index 000000000000..bebece2dd8a6
+index 000000000000..0a6440bd4118
 --- /dev/null
 +++ b/drivers/mfd/airoha-an8855.c
-@@ -0,0 +1,444 @@
+@@ -0,0 +1,445 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +/*
 + * MFD driver for Airoha AN8855 Switch
@@ -460,6 +460,7 @@ index 000000000000..bebece2dd8a6
 +				     "regmap initialization failed\n");
 +
 +	regmap_phy = devm_regmap_init(dev, NULL, priv, &an8855_regmap_phy_config);
++	if (IS_ERR(regmap_phy))
 +		return dev_err_probe(dev, PTR_ERR(regmap_phy),
 +				     "regmap phy initialization failed\n");
 +
@@ -467,7 +468,7 @@ index 000000000000..bebece2dd8a6
 +	if (IS_ERR(reset_gpio))
 +		return PTR_ERR(reset_gpio);
 +
-+	if (!reset_gpio) {
++	if (reset_gpio) {
 +		usleep_range(100000, 150000);
 +		gpiod_set_value_cansleep(reset_gpio, 0);
 +		usleep_range(100000, 150000);

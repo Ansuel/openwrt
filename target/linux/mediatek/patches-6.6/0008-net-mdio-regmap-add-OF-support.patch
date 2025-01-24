@@ -1,0 +1,44 @@
+From 998549301af32d37eb12e85e902a3b541d430fb9 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Mon, 20 Jan 2025 23:53:12 +0100
+Subject: [PATCH 08/13] net: mdio: regmap: add OF support
+
+Permit to pass the device node pointer to mdio regmap config and permit
+mdio registration with an OF node to support DT PHY probe.
+
+With the device node pointer NULL, the normal mdio registration is used.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/mdio/mdio-regmap.c   | 2 +-
+ include/linux/mdio/mdio-regmap.h | 1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/mdio/mdio-regmap.c b/drivers/net/mdio/mdio-regmap.c
+index 8bfcd9e415c8..329839ab68e6 100644
+--- a/drivers/net/mdio/mdio-regmap.c
++++ b/drivers/net/mdio/mdio-regmap.c
+@@ -90,7 +90,7 @@ struct mii_bus *devm_mdio_regmap_register(struct device *dev,
+ 	else
+ 		mii->phy_mask = ~0;
+ 
+-	rc = devm_mdiobus_register(dev, mii);
++	rc = devm_of_mdiobus_register(dev, mii, config->np);
+ 	if (rc) {
+ 		dev_err(config->parent, "Cannot register MDIO bus![%s] (%d)\n", mii->id, rc);
+ 		return ERR_PTR(rc);
+diff --git a/include/linux/mdio/mdio-regmap.h b/include/linux/mdio/mdio-regmap.h
+index 8c7061e39ccb..23fc2dd9d752 100644
+--- a/include/linux/mdio/mdio-regmap.h
++++ b/include/linux/mdio/mdio-regmap.h
+@@ -22,6 +22,7 @@ struct regmap;
+ 
+ struct mdio_regmap_config {
+ 	struct device *parent;
++	struct device_node *np;
+ 	struct regmap *regmap;
+ 	char name[MII_BUS_ID_SIZE];
+ 	u8 valid_addr;
+-- 
+2.47.1
+

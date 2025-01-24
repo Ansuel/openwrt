@@ -1,7 +1,7 @@
-From 4186c8c45c91eec5809a0e4694caeff5a5f85907 Mon Sep 17 00:00:00 2001
+From b35fe35922d303e54a30386e3e16abb6d794f25a Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Thu, 9 Jan 2025 15:30:56 +0100
-Subject: [PATCH 2/7] net: mdio: regmap: Add support for multiple valid addr
+Subject: [PATCH 07/13] net: mdio: regmap: add support for multiple valid addr
 
 Add support for multiple valid addr for mdio regmap. This can be done by
 defining the new valid_addr_mask value in the mdio regmap config.

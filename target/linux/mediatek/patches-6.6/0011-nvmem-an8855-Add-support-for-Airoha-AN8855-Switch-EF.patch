@@ -1,7 +1,8 @@
-From 25ad5174e1bd0bcc119a21959031169a2a9bfea6 Mon Sep 17 00:00:00 2001
+From c6aa69824663ad532275808bc37fe80bfe8b7023 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Sat, 7 Dec 2024 02:21:41 +0100
-Subject: [PATCH 5/7] nvmem: an8855: Add support for Airoha AN8855 Switch EFUSE
+Subject: [PATCH 11/13] nvmem: an8855: Add support for Airoha AN8855 Switch
+ EFUSE
 
 Add support for Airoha AN8855 Switch EFUSE. These EFUSE might be used
 for calibration data for the internal switch PHYs.
@@ -15,8 +16,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  4 files changed, 77 insertions(+)
  create mode 100644 drivers/nvmem/an8855-efuse.c
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 3d30eb197d35..ac8cdef1ed58 100644
+# diff --git a/MAINTAINERS b/MAINTAINERS
+# index 3d30eb197d35..ac8cdef1ed58 100644
 # --- a/MAINTAINERS
 # +++ b/MAINTAINERS
 # @@ -724,6 +724,7 @@ F:	Documentation/devicetree/bindings/net/dsa/airoha,an8855-switch.yaml
@@ -64,7 +65,7 @@ index 5b77bbb6488b..c732132c0e45 100644
  obj-$(CONFIG_NVMEM_BCM_OCOTP)		+= nvmem-bcm-ocotp.o
 diff --git a/drivers/nvmem/an8855-efuse.c b/drivers/nvmem/an8855-efuse.c
 new file mode 100644
-index 000000000000..7940453d6e58
+index 000000000000..cd1564379098
 --- /dev/null
 +++ b/drivers/nvmem/an8855-efuse.c
 @@ -0,0 +1,63 @@
@@ -106,7 +107,7 @@ index 000000000000..7940453d6e58
 +	struct nvmem_device *nvmem;
 +
 +	/* Assign NVMEM priv to MFD regmap */
-+	an8855_nvmem_config.priv = dev_get_regmap(dev->parent, NULL);
++	an8855_nvmem_config.priv = dev_get_regmap(dev->parent, "switch");
 +	an8855_nvmem_config.dev = dev;
 +	nvmem = devm_nvmem_register(dev, &an8855_nvmem_config);
 +
