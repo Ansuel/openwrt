@@ -1,18 +1,21 @@
-From bf15274af40ee7c7c46c351bef4ce8eef1391748 Mon Sep 17 00:00:00 2001
+From 972fd20a633c3fe0cc76aafdf70d10268bb5447c Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 17 Jan 2025 13:23:13 +0100
-Subject: [PATCH 8/9] WIP net: airoha: add phylink support for GDM2/3/4
+Subject: [PATCH 2/3] WIP net: airoha: add phylink support for GDM2/3/4
 
 Add phylink support for GDM2/3/4 port that require configuration of the
 PCS to make the external PHY or attached SFP cage work.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c  | 225 +++++++++++++++++++-
+ drivers/net/ethernet/mediatek/airoha_eth.c  | 249 +++++++++++++++++++-
  drivers/net/ethernet/mediatek/airoha_eth.h  |   7 +-
- drivers/net/ethernet/mediatek/airoha_regs.h |  12 ++
- 3 files changed, 242 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mediatek/airoha_regs.h |  12 +
+ include/linux/pcs/pcs-airoha.h              |  23 +-
+ 4 files changed, 283 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
+index d19077c5bcd7..e38ded230e09 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
 @@ -4,10 +4,12 @@
@@ -28,7 +31,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  #include "airoha_regs.h"
  #include "airoha_eth.h"
-@@ -1562,6 +1564,17 @@ static int airoha_dev_open(struct net_de
+@@ -1545,6 +1547,17 @@ static int airoha_dev_open(struct net_device *dev)
  	struct airoha_qdma *qdma = port->qdma;
  	int err;
  
@@ -46,9 +49,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	netif_tx_start_all_queues(dev);
  	err = airoha_set_gdm_port(qdma->eth, port->type, true);
  	if (err)
-@@ -1597,19 +1610,32 @@ static int airoha_dev_stop(struct net_de
- 			  GLOBAL_CFG_TX_DMA_EN_MASK |
- 			  GLOBAL_CFG_RX_DMA_EN_MASK);
+@@ -1588,19 +1601,34 @@ static int airoha_dev_stop(struct net_device *dev)
+ 		netdev_tx_reset_subqueue(dev, i);
+ 	}
  
 +	if (port->type != INTERNAL_SWITCH_PORT)
 +		phylink_stop(port->phylink);
@@ -71,18 +74,20 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +	/* Update XFI mac address */
 +	if (port->type != INTERNAL_SWITCH_PORT) {
-+		regmap_write(port->xfi_mac, 0x64, mac_addr[0] << 24 |
-+			     mac_addr[1] << 16 | mac_addr[2] << 8 |
-+			     mac_addr[3]);
-+		regmap_write(port->xfi_mac, 0x60, mac_addr[4] << 8 |
-+			     mac_addr[5]);
++		regmap_write(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_MACADDRL,
++			     FIELD_PREP(AIROHA_PCS_XFI_MAC_MACADDRL,
++					mac_addr[0] << 24 | mac_addr[1] << 16 |
++					mac_addr[2] << 8 | mac_addr[3]));
++		regmap_write(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_MACADDRH,
++			     FIELD_PREP(AIROHA_PCS_XFI_MAC_MACADDRH,
++					mac_addr[4] << 8 | mac_addr[5]));
 +	}
  
  	return 0;
  }
-@@ -2360,6 +2386,178 @@ static void airoha_metadata_dst_free(str
- 	}
- }
+@@ -2275,6 +2303,198 @@ static const struct ethtool_ops airoha_ethtool_ops = {
+ 	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
+ };
  
 +static struct phylink_pcs *airoha_phylink_mac_select_pcs(struct phylink_config *config,
 +							 phy_interface_t interface)
@@ -100,18 +105,23 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +						    phylink_config);
 +	
 +	/* Frag disable */
-+	regmap_update_bits(port->xfi_mac, XFI_MAC_GIB_CFG, GENMASK(26, 22),
-+			   FIELD_PREP(GENMASK(26, 22), 31));
-+	regmap_update_bits(port->xfi_mac, XFI_MAC_GIB_CFG, GENMASK(21, 17),
-+			   FIELD_PREP(GENMASK(21, 17), 31));
++	regmap_update_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
++			   AIROHA_PCS_XFI_RX_FRAG_LEN,
++			   FIELD_PREP(AIROHA_PCS_XFI_RX_FRAG_LEN, 31));
++	regmap_update_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
++			   AIROHA_PCS_XFI_TX_FRAG_LEN,
++			   FIELD_PREP(AIROHA_PCS_XFI_TX_FRAG_LEN, 31));
 +
 +	/* IPG NUM */
-+	regmap_update_bits(port->xfi_mac, XFI_MAC_GIB_CFG, GENMASK(15, 10),
-+			   FIELD_PREP(GENMASK(15, 10), 10));
++	regmap_update_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
++			   AIROHA_PCS_XFI_IPG_NUM,
++			   FIELD_PREP(AIROHA_PCS_XFI_IPG_NUM, 10));
 +
 +	/* Enable TX/RX flow control */
-+	regmap_set_bits(port->xfi_mac, XFI_MAC_GIB_CFG, BIT(5));
-+	regmap_set_bits(port->xfi_mac, XFI_MAC_GIB_CFG, BIT(4));
++	regmap_set_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
++			AIROHA_PCS_XFI_TX_FC_EN);
++	regmap_set_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
++			AIROHA_PCS_XFI_RX_FC_EN);
 +
 +	return;
 +}
@@ -124,16 +134,23 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +	//fe protect
 +	/* MPI MBI disable */
-+	regmap_set_bits(port->xfi_mac, XFI_MAC_GIB_CFG, BIT(0) | BIT(1) | BIT(2) | BIT(3));
++	regmap_set_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
++			AIROHA_PCS_XFI_RXMPI_STOP |
++			AIROHA_PCS_XFI_RXMBI_STOP |
++			AIROHA_PCS_XFI_TXMPI_STOP |
++			AIROHA_PCS_XFI_TXMBI_STOP);
 +
 +	/* Write 1 to trigger reset and clear */
-+	regmap_clear_bits(port->xfi_mac, XFI_MAC_LOGIC_RST, BIT(0));
-+	regmap_set_bits(port->xfi_mac, XFI_MAC_LOGIC_RST, BIT(0));
++	regmap_clear_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_LOGIC_RST,
++			  AIROHA_PCS_XFI_MAC_LOGIC_RST);
++	regmap_set_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_LOGIC_RST,
++			AIROHA_PCS_XFI_MAC_LOGIC_RST);
 +
 +	msleep(1);
 +
 +	/* Clear XFI MAC counter */
-+	regmap_set_bits(port->xfi_mac, XFI_CNT_CLR, BIT(0));
++	regmap_set_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_CNT_CLR,
++			AIROHA_PCS_XFI_GLB_CNT_CLR);
 +
 +	return 0;
 +}
@@ -145,7 +162,11 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +						    phylink_config);
 +
 +	/* MPI MBI disable */
-+	regmap_set_bits(port->xfi_mac, XFI_MAC_GIB_CFG, BIT(0) | BIT(1) | BIT(2) | BIT(3));
++	regmap_set_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
++			AIROHA_PCS_XFI_RXMPI_STOP |
++			AIROHA_PCS_XFI_RXMBI_STOP |
++			AIROHA_PCS_XFI_TXMPI_STOP |
++			AIROHA_PCS_XFI_TXMBI_STOP);
 +
 +	return;
 +}
@@ -184,7 +205,11 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		      FIELD_PREP(GDMA4_SGMII0_RX_FRAG_SIZE, frag_size_rx));
 +
 +	/* BPI BMI enable */
-+	regmap_clear_bits(port->xfi_mac, 0x0, BIT(0) | BIT(1) | BIT(2) | BIT(3));
++	regmap_clear_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
++			  AIROHA_PCS_XFI_RXMPI_STOP |
++			  AIROHA_PCS_XFI_RXMBI_STOP |
++			  AIROHA_PCS_XFI_TXMPI_STOP |
++			  AIROHA_PCS_XFI_TXMBI_STOP);
 +
 +	return;
 +}
@@ -256,12 +281,12 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	return 0;
 +}
 +
- static int airoha_alloc_gdm_port(struct airoha_eth *eth,
- 				 struct device_node *np, int index)
+ static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
  {
-@@ -2438,6 +2636,21 @@ static int airoha_alloc_gdm_port(struct
- 	if (err)
- 		return err;
+ 	const __be32 *id_ptr = of_get_property(np, "reg", NULL);
+@@ -2348,6 +2568,23 @@ static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
+ 	port->type = airoha_get_gdm_port_type(port);
+ 	eth->ports[index] = port;
  
 +	if (port->type != INTERNAL_SWITCH_PORT) {
 +		const u8 *mac_addr = dev->dev_addr;
@@ -271,17 +296,31 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +			return err;
 +
 +		/* Setup XFI mac address */
-+		regmap_write(port->xfi_mac, 0x64, mac_addr[0] << 24 |
-+			     mac_addr[1] << 16 | mac_addr[2] << 8 |
-+			     mac_addr[3]);
-+		regmap_write(port->xfi_mac, 0x60, mac_addr[4] << 8 |
-+			     mac_addr[5]);
++		regmap_write(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_MACADDRL,
++			     FIELD_PREP(AIROHA_PCS_XFI_MAC_MACADDRL,
++					mac_addr[0] << 24 | mac_addr[1] << 16 |
++					mac_addr[2] << 8 | mac_addr[3]));
++		regmap_write(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_MACADDRH,
++			     FIELD_PREP(AIROHA_PCS_XFI_MAC_MACADDRH,
++					mac_addr[4] << 8 | mac_addr[5]));
 +	}
 +
  	return register_netdev(dev);
  }
  
-@@ -2561,6 +2774,11 @@ static void airoha_remove(struct platfor
+@@ -2442,6 +2679,11 @@ static int airoha_probe(struct platform_device *pdev)
+ 			airoha_metadata_dst_free(port);
+ 			unregister_netdev(port->dev);
+		}
++
++		if (port->type != INTERNAL_SWITCH_PORT) {
++			phylink_destroy(port->phylink);
++			airoha_pcs_destroy(port->pcs);
++		}
+ 	}
+ 	free_netdev(eth->napi_dev);
+ 	platform_set_drvdata(pdev, NULL);
+@@ -2467,6 +2709,11 @@ static void airoha_remove(struct platform_device *pdev)
  		airoha_dev_stop(port->dev);
  		airoha_metadata_dst_free(port);
  		unregister_netdev(port->dev);
@@ -293,9 +332,20 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	}
  	free_netdev(eth->napi_dev);
  
+diff --git a/drivers/net/ethernet/mediatek/airoha_eth.h b/drivers/net/ethernet/mediatek/airoha_eth.h
+index 332ae7bb5113..87234846cb0b 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -456,6 +456,11 @@ struct airoha_gdm_port {
+@@ -22,7 +22,7 @@
+ #include "mtk_ppe.h"
+ 
+ #define AIROHA_NPU_NUM_CORES		8
+-#define AIROHA_MAX_NUM_GDM_PORTS	1
++#define AIROHA_MAX_NUM_GDM_PORTS	4
+ #define AIROHA_MAX_NUM_QDMA		2
+ #define AIROHA_MAX_NUM_RSTS		3
+ #define AIROHA_MAX_NUM_XSI_RSTS		5
+@@ -448,6 +448,11 @@ struct airoha_gdm_port {
  	struct net_device *dev;
  	int id;
  
@@ -307,9 +357,11 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	struct airoha_hw_stats stats;
  
  	DECLARE_BITMAP(qos_sq_bmap, AIROHA_NUM_QOS_CHANNELS);
+diff --git a/drivers/net/ethernet/mediatek/airoha_regs.h b/drivers/net/ethernet/mediatek/airoha_regs.h
+index b0b0c4d9520f..71e2c6d9c345 100644
 --- a/drivers/net/ethernet/mediatek/airoha_regs.h
 +++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -266,6 +266,18 @@
+@@ -259,6 +259,18 @@
  #define IP_FRAGMENT_PORT_MASK		GENMASK(8, 5)
  #define IP_FRAGMENT_NBQ_MASK		GENMASK(4, 0)
  
@@ -328,3 +380,34 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  #define REG_MC_VLAN_EN			0x2100
  #define MC_VLAN_EN_MASK			BIT(0)
  
+diff --git a/include/linux/pcs/pcs-airoha.h b/include/linux/pcs/pcs-airoha.h
+index a438eb92a6e4..a914ec755c58 100644
+--- a/include/linux/pcs/pcs-airoha.h
++++ b/include/linux/pcs/pcs-airoha.h
+@@ -5,8 +5,23 @@
+ 
+ /* XFI_MAC */
+ #define AIROHA_PCS_XFI_MAC_XFI_GIB_CFG		0x0
++#define   AIROHA_PCS_XFI_RX_FRAG_LEN		GENMASK(26, 22)
++#define   AIROHA_PCS_XFI_TX_FRAG_LEN		GENMASK(21, 17)
++#define   AIROHA_PCS_XFI_IPG_NUM		GENMASK(15, 10)
+ #define   AIROHA_PCS_XFI_TX_FC_EN		BIT(5)
+ #define   AIROHA_PCS_XFI_RX_FC_EN		BIT(4)
++#define   AIROHA_PCS_XFI_RXMPI_STOP		BIT(3)
++#define   AIROHA_PCS_XFI_RXMBI_STOP		BIT(2)
++#define   AIROHA_PCS_XFI_TXMPI_STOP		BIT(1)
++#define   AIROHA_PCS_XFI_TXMBI_STOP		BIT(0)
++#define AIROHA_PCS_XFI_MAC_XFI_LOGIC_RST	0x10
++#define   AIROHA_PCS_XFI_MAC_LOGIC_RST		BIT(0)
++#define AIROHA_PCS_XFI_MAC_XFI_MACADDRH		0x60
++#define   AIROHA_PCS_XFI_MAC_MACADDRH		GENMASK(15, 0)
++#define AIROHA_PCS_XFI_MAC_XFI_MACADDRL		0x64
++#define   AIROHA_PCS_XFI_MAC_MACADDRL		GENMASK(31, 0)
++#define AIROHA_PCS_XFI_MAC_XFI_CNT_CLR		0x100
++#define   AIROHA_PCS_XFI_GLB_CNT_CLR		BIT(0)
+ 
+ struct phylink_pcs *airoha_pcs_create(struct device *dev);
+ void airoha_pcs_destroy(struct phylink_pcs *pcs);
+-- 
+2.47.1
+
