@@ -26,7 +26,30 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <uapi/linux/ppp_defs.h>
  
  #include "airoha_regs.h"
-@@ -638,6 +636,7 @@ static int airoha_qdma_rx_process(struct
+@@ -152,16 +150,18 @@ static void airoha_fe_maccr_init(struct
+ 	int p;
+ 
+ 	for (p = 1; p <= ARRAY_SIZE(eth->ports); p++) {
++		u32 pse_port = p == 1 ? FE_PSE_PORT_PPE1 : FE_PSE_PORT_PPE2;
++
+ 		airoha_fe_set(eth, REG_GDM_FWD_CFG(p),
+ 			      GDM_TCP_CKSUM | GDM_UDP_CKSUM | GDM_IP4_CKSUM |
+ 			      GDM_DROP_CRC_ERR);
+ 		airoha_fe_rmw(eth, REG_GDM_FWD_CFG(p),
+ 			      GDM_OCFQ_MASK | GDM_MCFQ_MASK |
+ 			      GDM_BCFQ_MASK | GDM_UCFQ_MASK,
+-			      FIELD_PREP(GDM_OCFQ_MASK, FE_PSE_PORT_PPE1) |
+-			      FIELD_PREP(GDM_MCFQ_MASK, FE_PSE_PORT_PPE1) |
+-			      FIELD_PREP(GDM_BCFQ_MASK, FE_PSE_PORT_PPE1) |
+-			      FIELD_PREP(GDM_UCFQ_MASK, FE_PSE_PORT_PPE1));
++			      FIELD_PREP(GDM_OCFQ_MASK, pse_port) |
++			      FIELD_PREP(GDM_MCFQ_MASK, pse_port) |
++			      FIELD_PREP(GDM_BCFQ_MASK, pse_port) |
++			      FIELD_PREP(GDM_UCFQ_MASK, pse_port));
+ 		airoha_fe_rmw(eth, REG_GDM_LEN_CFG(p),
+ 			      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
+ 			      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
+@@ -638,6 +638,7 @@ static int airoha_qdma_rx_process(struct
  	while (done < budget) {
  		struct airoha_queue_entry *e = &q->entry[q->tail];
  		struct airoha_qdma_desc *desc = &q->desc[q->tail];
@@ -34,7 +57,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		dma_addr_t dma_addr = le32_to_cpu(desc->addr);
  		u32 desc_ctrl = le32_to_cpu(desc->ctrl);
  		struct airoha_gdm_port *port;
-@@ -700,6 +699,15 @@ static int airoha_qdma_rx_process(struct
+@@ -700,6 +701,15 @@ static int airoha_qdma_rx_process(struct
  						  &port->dsa_meta[sptag]->dst);
  		}
  
@@ -50,7 +73,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		napi_gro_receive(&q->napi, skb);
  
  		done++;
-@@ -2146,6 +2154,47 @@ static int airoha_tc_htb_alloc_leaf_queu
+@@ -2146,6 +2156,47 @@ static int airoha_tc_htb_alloc_leaf_queu
  	return 0;
  }
  
@@ -98,7 +121,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_tc_remove_htb_queue(struct airoha_gdm_port *port, int queue)
  {
  	struct net_device *dev = port->dev;
-@@ -2229,6 +2278,9 @@ static int airoha_dev_tc_setup(struct ne
+@@ -2229,6 +2280,9 @@ static int airoha_dev_tc_setup(struct ne
  		return airoha_tc_setup_qdisc_ets(port, type_data);
  	case TC_SETUP_QDISC_HTB:
  		return airoha_tc_setup_qdisc_htb(port, type_data);

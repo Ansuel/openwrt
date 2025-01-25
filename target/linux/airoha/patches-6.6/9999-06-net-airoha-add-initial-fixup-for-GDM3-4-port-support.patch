@@ -15,21 +15,15 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -141,9 +141,13 @@ static int airoha_set_vip_for_gdm_port(s
- 
- static void airoha_fe_maccr_init(struct airoha_eth *eth)
- {
-+	unsigned int long_frame_size = 4004;
- 	int p;
+@@ -145,6 +145,7 @@ static void airoha_fe_maccr_init(struct
  
  	for (p = 1; p <= ARRAY_SIZE(eth->ports); p++) {
-+		if (p > 2)
-+			long_frame_size = 2000;
-+
+ 		u32 pse_port = p == 1 ? FE_PSE_PORT_PPE1 : FE_PSE_PORT_PPE2;
++		u32 long_frame_size = p > 2 ? 2000 : 4004;
+ 
  		airoha_fe_set(eth, REG_GDM_FWD_CFG(p),
  			      GDM_TCP_CKSUM | GDM_UDP_CKSUM | GDM_IP4_CKSUM |
- 			      GDM_DROP_CRC_ERR);
-@@ -157,7 +161,7 @@ static void airoha_fe_maccr_init(struct
+@@ -159,7 +160,7 @@ static void airoha_fe_maccr_init(struct
  		airoha_fe_rmw(eth, REG_GDM_LEN_CFG(p),
  			      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
  			      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
@@ -38,7 +32,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	}
  
  	airoha_fe_rmw(eth, REG_CDM1_VLAN_CTRL, CDM1_VLAN_MASK,
-@@ -530,6 +534,9 @@ static int airoha_fe_init(struct airoha_
+@@ -532,6 +533,9 @@ static int airoha_fe_init(struct airoha_
  	airoha_fe_set(eth, REG_GDM_FWD_CFG(3), GDM_PAD_EN);
  	airoha_fe_set(eth, REG_GDM_FWD_CFG(4), GDM_PAD_EN);
  
@@ -48,7 +42,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	airoha_fe_crsn_qsel_init(eth);
  
  	airoha_fe_clear(eth, REG_FE_CPORT_CFG, FE_CPORT_QUEUE_XFC_MASK);
-@@ -1548,7 +1555,8 @@ static int airoha_dev_open(struct net_de
+@@ -1550,7 +1554,8 @@ static int airoha_dev_open(struct net_de
  	if (err)
  		return err;
  
