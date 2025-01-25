@@ -83,9 +83,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  	return 0;
  }
-@@ -2356,6 +2384,198 @@ static void airoha_metadata_dst_free(str
- 	}
- }
+@@ -2275,6 +2303,204 @@ static const struct ethtool_ops airoha_ethtool_ops = {
+ 	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
+ };
  
 +static struct phylink_pcs *airoha_phylink_mac_select_pcs(struct phylink_config *config,
 +							 phy_interface_t interface)
@@ -261,6 +261,12 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +						MAC_10 | MAC_100 | MAC_1000 | MAC_2500FD |
 +						MAC_5000FD | MAC_10000FD;
 +
++	__set_bit(PHY_INTERFACE_MODE_SGMII,
++		  port->phylink_config.supported_interfaces);
++	__set_bit(PHY_INTERFACE_MODE_1000BASEX,
++		  port->phylink_config.supported_interfaces);
++	__set_bit(PHY_INTERFACE_MODE_2500BASEX,
++		  port->phylink_config.supported_interfaces);
 +	__set_bit(PHY_INTERFACE_MODE_USXGMII,
 +		  port->phylink_config.supported_interfaces);
 +
