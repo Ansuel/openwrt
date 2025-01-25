@@ -1,9 +1,17 @@
-From 83bf8cda2dce6e05d5afde2358b1cac14f6d5545 Mon Sep 17 00:00:00 2001
-Message-ID: <83bf8cda2dce6e05d5afde2358b1cac14f6d5545.1737722032.git.lorenzo@kernel.org>
+From ee9c4ad32066ca2ebb638cb52e7cf88d85c5da8f Mon Sep 17 00:00:00 2001
+Message-ID: <ee9c4ad32066ca2ebb638cb52e7cf88d85c5da8f.1737803595.git.lorenzo@kernel.org>
+In-Reply-To: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
+References: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 24 Jan 2025 13:32:20 +0100
-Subject: [PATCH net-next] net: dsa: mt7530: Enable cpu port sptag for EN7581
- SoC
+Subject: [PATCH net-next 2/9] net: dsa: mt7530: Enable cpu port sptag for
+ EN7581 SoC
+
+Packet Processor Engine (PPE) module used for hw acceleration on EN7581
+SoC, in order to properly parse packets, requires untagged packets.
+For this reason, enable CPU port STAG for EN7581 SoC.
+This is a preliminary patch to enable netfilter flowtable hw offloading
+on EN7581 SoC.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
@@ -11,11 +19,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/dsa/mt7530.h |  4 ++++
  2 files changed, 20 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 1c83af805209..e151b7345821 100644
 --- a/drivers/net/dsa/mt7530.c
 +++ b/drivers/net/dsa/mt7530.c
-@@ -3198,6 +3198,21 @@ static int mt7988_setup(struct dsa_switch *ds)
+@@ -3162,6 +3162,21 @@ static int mt7988_setup(struct dsa_switc
  	return mt7531_setup_common(ds);
  }
  
@@ -37,7 +43,7 @@ index 1c83af805209..e151b7345821 100644
  const struct dsa_switch_ops mt7530_switch_ops = {
  	.get_tag_protocol	= mtk_get_tag_protocol,
  	.setup			= mt753x_setup,
-@@ -3287,7 +3302,7 @@ const struct mt753x_info mt753x_table[] = {
+@@ -3250,7 +3265,7 @@ const struct mt753x_info mt753x_table[]
  	[ID_EN7581] = {
  		.id = ID_EN7581,
  		.pcs_ops = &mt7530_pcs_ops,
@@ -46,11 +52,9 @@ index 1c83af805209..e151b7345821 100644
  		.phy_read_c22 = mt7531_ind_c22_phy_read,
  		.phy_write_c22 = mt7531_ind_c22_phy_write,
  		.phy_read_c45 = mt7531_ind_c45_phy_read,
-diff --git a/drivers/net/dsa/mt7530.h b/drivers/net/dsa/mt7530.h
-index 448200689f49..349d72a35771 100644
 --- a/drivers/net/dsa/mt7530.h
 +++ b/drivers/net/dsa/mt7530.h
-@@ -627,6 +627,10 @@ enum mt7531_xtal_fsel {
+@@ -615,6 +615,10 @@ enum mt7531_xtal_fsel {
  #define  MT7531_GPIO12_RG_RXD3_MASK	GENMASK(19, 16)
  #define  MT7531_EXT_P_MDIO_12		(2 << 16)
  
@@ -61,6 +65,3 @@ index 448200689f49..349d72a35771 100644
  /* Registers for LED GPIO control (MT7530 only)
   * All registers follow this pattern:
   * [ 2: 0]  port 0
--- 
-2.48.1
-

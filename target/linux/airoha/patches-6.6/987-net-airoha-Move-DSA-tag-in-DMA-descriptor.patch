@@ -1,35 +1,43 @@
-From a243f4ca6a3027187e36ec83523416e48dd47ec2 Mon Sep 17 00:00:00 2001
-Message-ID: <a243f4ca6a3027187e36ec83523416e48dd47ec2.1737723520.git.lorenzo@kernel.org>
+From 1e82f12b417fa132b7338df50ddd5499bcbd3f26 Mon Sep 17 00:00:00 2001
+Message-ID: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 24 Jan 2025 10:49:46 +0100
-Subject: [PATCH net-next] net: airoha: Move DSA tag in DMA descriptor
+Subject: [PATCH net-next 1/9] net: airoha: Move DSA tag in DMA descriptor
+
+Packet Processor Engine (PPE) module reads DSA tags from the DMA descriptor
+and requires untagged DSA packets to properly parse them. Move DSA tag
+in the DMA descriptor on TX side and read DSA tag from DMA descriptor
+on RX side. In order to avoid skb reallocation, store tag in skb_dst on
+RX side.
+This is a preliminary patch to enable netfilter flowtable hw offloading
+on EN7581 SoC.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c  | 102 +++++++++++++++++++-
+ drivers/net/ethernet/mediatek/airoha_eth.c  | 107 +++++++++++++++++++-
  drivers/net/ethernet/mediatek/airoha_eth.h  |   7 ++
  drivers/net/ethernet/mediatek/airoha_regs.h |   2 +
- 3 files changed, 108 insertions(+), 3 deletions(-)
+ 3 files changed, 111 insertions(+), 5 deletions(-)
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -5,6 +5,7 @@
-  */
+@@ -9,6 +9,7 @@
  #include <linux/tcp.h>
  #include <linux/u64_stats_sync.h>
+ #include <net/dsa.h>
 +#include <net/dst_metadata.h>
  #include <net/page_pool/helpers.h>
+ #include <net/pkt_cls.h>
  #include <uapi/linux/ppp_defs.h>
- 
-@@ -652,6 +653,7 @@ static int airoha_qdma_rx_process(struct
- 		u32 hash, reason, msg1 = le32_to_cpu(desc->msg1);
+@@ -656,6 +657,7 @@ static int airoha_qdma_rx_process(struct
+ 		struct airoha_qdma_desc *desc = &q->desc[q->tail];
  		dma_addr_t dma_addr = le32_to_cpu(desc->addr);
  		u32 desc_ctrl = le32_to_cpu(desc->ctrl);
 +		struct airoha_gdm_port *port;
  		struct sk_buff *skb;
  		int len, p;
  
-@@ -679,6 +681,7 @@ static int airoha_qdma_rx_process(struct
+@@ -683,6 +685,7 @@ static int airoha_qdma_rx_process(struct
  			continue;
  		}
  
@@ -37,7 +45,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		skb = napi_build_skb(e->buf, q->buf_size);
  		if (!skb) {
  			page_pool_put_full_page(q->page_pool,
-@@ -690,11 +693,24 @@ static int airoha_qdma_rx_process(struct
+@@ -694,10 +697,26 @@ static int airoha_qdma_rx_process(struct
  		skb_reserve(skb, 2);
  		__skb_put(skb, len);
  		skb_mark_for_recycle(skb);
@@ -46,10 +54,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		skb->protocol = eth_type_trans(skb, skb->dev);
  		skb->ip_summed = CHECKSUM_UNNECESSARY;
  		skb_record_rx_queue(skb, qid);
- 
++
 +		if (netdev_uses_dsa(port->dev)) {
-+			/* PPE modules requires untagged packets to work
-+			 * properly, so add DSA tag in skb dst info.
++			/* PPE module requires untagged packets to work
++			 * properly and it provides DSA port index via the
++			 * DMA descriptor. Report DSA tag to the DSA stack
++			 * via skb dst info.
 +			 */
 +			u32 sptag = FIELD_GET(QDMA_ETH_RXMSG_SPTAG,
 +					      le32_to_cpu(desc->msg0));
@@ -60,10 +70,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +						  &port->dsa_meta[sptag]->dst);
 +		}
 +
- 		hash = FIELD_GET(AIROHA_RXD4_FOE_ENTRY, msg1);
- 		if (hash != AIROHA_RXD4_FOE_ENTRY)
- 			skb_set_hash(skb, jhash_1word(hash, 0),
-@@ -1638,26 +1654,64 @@ static u16 airoha_dev_select_queue(struc
+ 		napi_gro_receive(&q->napi, skb);
+ 
+ 		done++;
+@@ -1629,26 +1648,64 @@ static u16 airoha_dev_select_queue(struc
  	return queue < dev->num_tx_queues ? queue : 0;
  }
  
@@ -131,7 +141,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (skb->ip_summed == CHECKSUM_PARTIAL)
  		msg0 |= FIELD_PREP(QDMA_ETH_TXMSG_TCO_MASK, 1) |
  			FIELD_PREP(QDMA_ETH_TXMSG_UCO_MASK, 1) |
-@@ -1694,7 +1748,9 @@ static netdev_tx_t airoha_dev_xmit(struc
+@@ -1685,7 +1742,9 @@ static netdev_tx_t airoha_dev_xmit(struc
  		return NETDEV_TX_BUSY;
  	}
  
@@ -141,7 +151,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	for (i = 0; i < nr_frags; i++) {
  		struct airoha_qdma_desc *desc = &q->desc[index];
  		struct airoha_queue_entry *e = &q->entry[index];
-@@ -2272,6 +2328,37 @@ static const struct ethtool_ops airoha_e
+@@ -2206,6 +2265,37 @@ static const struct ethtool_ops airoha_e
  	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
  };
  
@@ -176,12 +186,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	}
 +}
 +
- static int airoha_alloc_gdm_port(struct airoha_eth *eth,
- 				 struct device_node *np, int index)
+ static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
  {
-@@ -2345,6 +2432,10 @@ static int airoha_alloc_gdm_port(struct
+ 	const __be32 *id_ptr = of_get_property(np, "reg", NULL);
+@@ -2278,6 +2368,10 @@ static int airoha_alloc_gdm_port(struct
  	port->id = id;
- 	eth->ports[p] = port;
+ 	eth->ports[index] = port;
  
 +	err = airoha_metadata_dst_alloc(port);
 +	if (err)
@@ -190,7 +200,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return register_netdev(dev);
  }
  
-@@ -2438,8 +2529,10 @@ error_hw_cleanup:
+@@ -2370,8 +2464,10 @@ error_hw_cleanup:
  	for (i = 0; i < ARRAY_SIZE(eth->ports); i++) {
  		struct airoha_gdm_port *port = eth->ports[i];
  
@@ -202,7 +212,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	}
  	free_netdev(eth->napi_dev);
  	platform_set_drvdata(pdev, NULL);
-@@ -2464,6 +2557,7 @@ static void airoha_remove(struct platfor
+@@ -2396,6 +2492,7 @@ static void airoha_remove(struct platfor
  			continue;
  
  		airoha_dev_stop(port->dev);
@@ -212,17 +222,17 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	free_netdev(eth->napi_dev);
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -24,6 +24,7 @@
- #define AIROHA_NPU_NUM_CORES		8
- #define AIROHA_MAX_NUM_GDM_PORTS	4
+@@ -15,6 +15,7 @@
+ 
+ #define AIROHA_MAX_NUM_GDM_PORTS	1
  #define AIROHA_MAX_NUM_QDMA		2
 +#define AIROHA_MAX_DSA_PORTS		7
  #define AIROHA_MAX_NUM_RSTS		3
  #define AIROHA_MAX_NUM_XSI_RSTS		5
  #define AIROHA_MAX_MTU			2000
-@@ -62,6 +63,10 @@
- #define PPE_SRAM_TABLE_SIZE		(PPE_SRAM_NUM_ENTRIES * PPE_ENTRY_SIZE)
- #define PPE_TABLE_SIZE			(PPE_NUM_ENTRIES * PPE_ENTRY_SIZE)
+@@ -43,6 +44,10 @@
+ #define QDMA_METER_IDX(_n)		((_n) & 0xff)
+ #define QDMA_METER_GROUP(_n)		(((_n) >> 8) & 0x3)
  
 +#define MTK_HDR_LEN			4
 +#define MTK_HDR_XMIT_TAGGED_TPID_8100	1
@@ -231,7 +241,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  enum {
  	QDMA_INT_REG_IDX0,
  	QDMA_INT_REG_IDX1,
-@@ -457,6 +462,8 @@ struct airoha_gdm_port {
+@@ -231,6 +236,8 @@ struct airoha_gdm_port {
  	/* qos stats counters */
  	u64 cpu_tx_packets;
  	u64 fwd_tx_packets;
@@ -239,10 +249,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	struct metadata_dst *dsa_meta[AIROHA_MAX_DSA_PORTS];
  };
  
- struct airoha_npu {
+ struct airoha_eth {
 --- a/drivers/net/ethernet/mediatek/airoha_regs.h
 +++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -653,6 +653,8 @@
+@@ -622,6 +622,8 @@
  #define QDMA_ETH_TXMSG_ACNT_G1_MASK	GENMASK(10, 6)	/* 0x1f do not count */
  #define QDMA_ETH_TXMSG_ACNT_G0_MASK	GENMASK(5, 0)	/* 0x3f do not count */
  

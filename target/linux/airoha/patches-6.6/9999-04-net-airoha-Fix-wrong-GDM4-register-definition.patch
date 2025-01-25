@@ -21,7 +21,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 
 --- a/drivers/net/ethernet/mediatek/airoha_regs.h
 +++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -256,11 +256,11 @@
+@@ -306,11 +306,11 @@
  #define REG_GDM3_FWD_CFG		GDM3_BASE
  #define GDM3_PAD_EN_MASK		BIT(28)
  

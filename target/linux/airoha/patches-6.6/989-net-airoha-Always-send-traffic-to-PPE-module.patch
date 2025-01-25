@@ -1,0 +1,130 @@
+From 23337f680e30e7c38786de0064e6a9d5b5bdb918 Mon Sep 17 00:00:00 2001
+Message-ID: <23337f680e30e7c38786de0064e6a9d5b5bdb918.1737803595.git.lorenzo@kernel.org>
+In-Reply-To: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
+References: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sat, 25 Jan 2025 12:06:24 +0100
+Subject: [PATCH net-next 3/9] net: airoha: Always send traffic to PPE module
+
+Always send traffic PPE module in order to be processed by hw
+accelerator.
+This is a preliminary patch to enable netfilter flowtable hw offloading
+on EN7581 SoC.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/mediatek/airoha_eth.c | 31 ++++++----------------
+ 1 file changed, 8 insertions(+), 23 deletions(-)
+
+--- a/drivers/net/ethernet/mediatek/airoha_eth.c
++++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+@@ -92,40 +92,23 @@ static void airoha_set_macaddr(struct ai
+ 	airoha_fe_wr(eth, REG_FE_MAC_LMAX(reg), val);
+ }
+ 
+-static void airoha_set_gdm_port_fwd_cfg(struct airoha_eth *eth, u32 addr,
+-					u32 val)
++static int airoha_set_vip_for_gdm_port(struct airoha_eth *eth, int port,
++				       bool enable)
+ {
+-	airoha_fe_rmw(eth, addr, GDM_OCFQ_MASK,
+-		      FIELD_PREP(GDM_OCFQ_MASK, val));
+-	airoha_fe_rmw(eth, addr, GDM_MCFQ_MASK,
+-		      FIELD_PREP(GDM_MCFQ_MASK, val));
+-	airoha_fe_rmw(eth, addr, GDM_BCFQ_MASK,
+-		      FIELD_PREP(GDM_BCFQ_MASK, val));
+-	airoha_fe_rmw(eth, addr, GDM_UCFQ_MASK,
+-		      FIELD_PREP(GDM_UCFQ_MASK, val));
+-}
+-
+-static int airoha_set_gdm_port(struct airoha_eth *eth, int port, bool enable)
+-{
+-	u32 val = enable ? FE_PSE_PORT_PPE1 : FE_PSE_PORT_DROP;
+-	u32 vip_port, cfg_addr;
++	u32 vip_port;
+ 
+ 	switch (port) {
+ 	case XSI_PCIE0_PORT:
+ 		vip_port = XSI_PCIE0_VIP_PORT_MASK;
+-		cfg_addr = REG_GDM_FWD_CFG(3);
+ 		break;
+ 	case XSI_PCIE1_PORT:
+ 		vip_port = XSI_PCIE1_VIP_PORT_MASK;
+-		cfg_addr = REG_GDM_FWD_CFG(3);
+ 		break;
+ 	case XSI_USB_PORT:
+ 		vip_port = XSI_USB_VIP_PORT_MASK;
+-		cfg_addr = REG_GDM_FWD_CFG(4);
+ 		break;
+ 	case XSI_ETH_PORT:
+ 		vip_port = XSI_ETH_VIP_PORT_MASK;
+-		cfg_addr = REG_GDM_FWD_CFG(4);
+ 		break;
+ 	default:
+ 		return -EINVAL;
+@@ -139,12 +122,10 @@ static int airoha_set_gdm_port(struct ai
+ 		airoha_fe_clear(eth, REG_FE_IFC_PORT_EN, vip_port);
+ 	}
+ 
+-	airoha_set_gdm_port_fwd_cfg(eth, cfg_addr, val);
+-
+ 	return 0;
+ }
+ 
+-static int airoha_set_gdm_ports(struct airoha_eth *eth, bool enable)
++static int airoha_set_vip_for_gdm_ports(struct airoha_eth *eth, bool enable)
+ {
+ 	const int port_list[] = {
+ 		XSI_PCIE0_PORT,
+@@ -155,7 +136,7 @@ static int airoha_set_gdm_ports(struct a
+ 	int i, err;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(port_list); i++) {
+-		err = airoha_set_gdm_port(eth, port_list[i], enable);
++		err = airoha_set_vip_for_gdm_port(eth, port_list[i], enable);
+ 		if (err)
+ 			goto error;
+ 	}
+@@ -164,7 +145,7 @@ static int airoha_set_gdm_ports(struct a
+ 
+ error:
+ 	for (i--; i >= 0; i--)
+-		airoha_set_gdm_port(eth, port_list[i], false);
++		airoha_set_vip_for_gdm_port(eth, port_list[i], false);
+ 
+ 	return err;
+ }
+@@ -177,8 +158,13 @@ static void airoha_fe_maccr_init(struct
+ 		airoha_fe_set(eth, REG_GDM_FWD_CFG(p),
+ 			      GDM_TCP_CKSUM | GDM_UDP_CKSUM | GDM_IP4_CKSUM |
+ 			      GDM_DROP_CRC_ERR);
+-		airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(p),
+-					    FE_PSE_PORT_CDM1);
++		airoha_fe_rmw(eth, REG_GDM_FWD_CFG(p),
++			      GDM_OCFQ_MASK | GDM_MCFQ_MASK |
++			      GDM_BCFQ_MASK | GDM_UCFQ_MASK,
++			      FIELD_PREP(GDM_OCFQ_MASK, FE_PSE_PORT_PPE1) |
++			      FIELD_PREP(GDM_MCFQ_MASK, FE_PSE_PORT_PPE1) |
++			      FIELD_PREP(GDM_BCFQ_MASK, FE_PSE_PORT_PPE1) |
++			      FIELD_PREP(GDM_UCFQ_MASK, FE_PSE_PORT_PPE1));
+ 		airoha_fe_rmw(eth, REG_GDM_LEN_CFG(p),
+ 			      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
+ 			      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
+@@ -1549,7 +1535,7 @@ static int airoha_dev_open(struct net_de
+ 	int err;
+ 
+ 	netif_tx_start_all_queues(dev);
+-	err = airoha_set_gdm_ports(qdma->eth, true);
++	err = airoha_set_vip_for_gdm_ports(qdma->eth, true);
+ 	if (err)
+ 		return err;
+ 
+@@ -1574,7 +1560,7 @@ static int airoha_dev_stop(struct net_de
+ 	int err;
+ 
+ 	netif_tx_disable(dev);
+-	err = airoha_set_gdm_ports(qdma->eth, false);
++	err = airoha_set_vip_for_gdm_ports(qdma->eth, false);
+ 	if (err)
+ 		return err;
+ 

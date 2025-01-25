@@ -1,10 +1,10 @@
-From 75032104eab44e05b53b07e41e7e548de4e91862 Mon Sep 17 00:00:00 2001
-Message-ID: <75032104eab44e05b53b07e41e7e548de4e91862.1737538986.git.lorenzo@kernel.org>
-In-Reply-To: <145c37c8a556ede0f74af7595e13b35eb9dee73c.1737538986.git.lorenzo@kernel.org>
-References: <145c37c8a556ede0f74af7595e13b35eb9dee73c.1737538986.git.lorenzo@kernel.org>
+From 243f9e3cc1492d7cd2f34fc6ab840ae0fdd66342 Mon Sep 17 00:00:00 2001
+Message-ID: <243f9e3cc1492d7cd2f34fc6ab840ae0fdd66342.1737803595.git.lorenzo@kernel.org>
+In-Reply-To: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
+References: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 9 Dec 2024 11:53:06 +0100
-Subject: [PATCH net-next 2/6] net: airoha: Add NPU watchdog support
+Subject: [PATCH net-next 5/9] net: airoha: Add NPU watchdog support
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
@@ -26,10 +26,10 @@ index 95c4405b7d7b..aa7ef9434de5 100644
  	  This driver supports the gigabit ethernet MACs in the
  	  Airoha SoC family.
 diff --git a/drivers/net/ethernet/mediatek/airoha_eth.h b/drivers/net/ethernet/mediatek/airoha_eth.h
-index ffa1c0b321b5..d4abc2c1ab9e 100644
+index 3b1852d6adb8..d50fd34e63a3 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -332,6 +332,7 @@ struct airoha_npu {
+@@ -339,6 +339,7 @@ struct airoha_npu {
  	struct airoha_npu_core {
  		struct airoha_npu *npu;
  		spinlock_t lock;

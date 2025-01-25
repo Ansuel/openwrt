@@ -1,9 +1,16 @@
-From 145c37c8a556ede0f74af7595e13b35eb9dee73c Mon Sep 17 00:00:00 2001
-Message-ID: <145c37c8a556ede0f74af7595e13b35eb9dee73c.1737538986.git.lorenzo@kernel.org>
+From e93430705299069c526722aedc8f157f92ea5c89 Mon Sep 17 00:00:00 2001
+Message-ID: <e93430705299069c526722aedc8f157f92ea5c89.1737803595.git.lorenzo@kernel.org>
+In-Reply-To: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
+References: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 4 Dec 2024 17:47:00 +0100
-Subject: [PATCH net-next 1/6] net: airoha: Introduce basic PPE initialization
+Subject: [PATCH net-next 4/9] net: airoha: Introduce basic PPE initialization
  via NPU
+
+Packet Processor Engine (PPE) and NPU modules are used to offload L2 and
+L3 traffic between Packet Switch Engine (PSE) module ports.
+This is a preliminary patch to enable netfilter flowtable hw offloading
+on EN7581 SoC.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
@@ -37,7 +44,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/tcp.h>
  #include <linux/u64_stats_sync.h>
  #include <net/dsa.h>
-@@ -1319,6 +1316,9 @@ static int airoha_hw_init(struct platfor
+@@ -1324,6 +1321,9 @@ static int airoha_hw_init(struct platfor
  			return err;
  	}
  
@@ -47,7 +54,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	set_bit(DEV_STATE_INITIALIZED, &eth->state);
  
  	return 0;
-@@ -2413,6 +2413,7 @@ static void airoha_remove(struct platfor
+@@ -2483,6 +2483,7 @@ static void airoha_remove(struct platfor
  	}
  	free_netdev(eth->napi_dev);
  
@@ -70,8 +77,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +#define AIROHA_NPU_NUM_CORES		8
  #define AIROHA_MAX_NUM_GDM_PORTS	1
  #define AIROHA_MAX_NUM_QDMA		2
- #define AIROHA_MAX_NUM_RSTS		3
-@@ -43,6 +48,13 @@
+ #define AIROHA_MAX_DSA_PORTS		7
+@@ -44,6 +49,13 @@
  #define QDMA_METER_IDX(_n)		((_n) & 0xff)
  #define QDMA_METER_GROUP(_n)		(((_n) >> 8) & 0x3)
  
@@ -82,10 +89,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +#define PPE_SRAM_TABLE_SIZE		(PPE_SRAM_NUM_ENTRIES * PPE_ENTRY_SIZE)
 +#define PPE_TABLE_SIZE			(PPE_NUM_ENTRIES * PPE_ENTRY_SIZE)
 +
- enum {
- 	QDMA_INT_REG_IDX0,
- 	QDMA_INT_REG_IDX1,
-@@ -130,6 +142,46 @@ enum trtcm_param {
+ #define MTK_HDR_LEN			4
+ #define MTK_HDR_XMIT_TAGGED_TPID_8100	1
+ #define MTK_HDR_XMIT_TAGGED_TPID_88A8	2
+@@ -135,6 +147,46 @@ enum trtcm_param {
  	TRTCM_METER_MODE = BIT(2),
  };
  
@@ -132,7 +139,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define MIN_TOKEN_SIZE				4096
  #define MAX_TOKEN_SIZE_OFFSET			17
  #define TRTCM_TOKEN_RATE_MASK			GENMASK(23, 6)
-@@ -198,6 +250,44 @@ struct airoha_hw_stats {
+@@ -203,6 +255,44 @@ struct airoha_hw_stats {
  	u64 rx_len[7];
  };
  
@@ -177,8 +184,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  struct airoha_qdma {
  	struct airoha_eth *eth;
  	void __iomem *regs;
-@@ -233,12 +323,34 @@ struct airoha_gdm_port {
- 	u64 fwd_tx_packets;
+@@ -240,12 +330,34 @@ struct airoha_gdm_port {
+ 	struct metadata_dst *dsa_meta[AIROHA_MAX_DSA_PORTS];
  };
  
 +struct airoha_npu {
@@ -212,7 +219,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
  
-@@ -274,4 +386,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -281,4 +393,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  

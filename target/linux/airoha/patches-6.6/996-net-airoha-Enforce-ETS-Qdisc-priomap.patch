@@ -19,7 +19,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -1878,7 +1878,7 @@ static int airoha_qdma_set_tx_ets_sched(
+@@ -1922,7 +1922,7 @@ static int airoha_qdma_set_tx_ets_sched(
  	struct tc_ets_qopt_offload_replace_params *p = &opt->replace_params;
  	enum tx_sched_mode mode = TC_SCH_SP;
  	u16 w[AIROHA_NUM_QOS_QUEUES] = {};
@@ -28,7 +28,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	if (p->bands > AIROHA_NUM_QOS_QUEUES)
  		return -EINVAL;
-@@ -1892,7 +1892,20 @@ static int airoha_qdma_set_tx_ets_sched(
+@@ -1936,7 +1936,20 @@ static int airoha_qdma_set_tx_ets_sched(
  	if (nstrict == AIROHA_NUM_QOS_QUEUES - 1)
  		return -EINVAL;
  

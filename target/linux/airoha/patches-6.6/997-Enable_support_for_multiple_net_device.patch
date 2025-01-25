@@ -8,9 +8,9 @@ Date:   Fri Jan 17 21:00:26 2025 +0100
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -2272,13 +2272,14 @@ static const struct ethtool_ops airoha_e
- 	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
- };
+@@ -2347,13 +2347,14 @@ static void airoha_metadata_dst_free(str
+ 	}
+ }
  
 -static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
 +static int airoha_alloc_gdm_port(struct airoha_eth *eth,
@@ -25,7 +25,7 @@ Date:   Fri Jan 17 21:00:26 2025 +0100
  	u32 id;
  
  	if (!id_ptr) {
-@@ -2287,14 +2288,14 @@ static int airoha_alloc_gdm_port(struct
+@@ -2362,14 +2363,14 @@ static int airoha_alloc_gdm_port(struct
  	}
  
  	id = be32_to_cpup(id_ptr);
@@ -42,16 +42,16 @@ Date:   Fri Jan 17 21:00:26 2025 +0100
  		dev_err(eth->dev, "duplicate gdm port id: %d\n", id);
  		return -EINVAL;
  	}
-@@ -2342,7 +2343,7 @@ static int airoha_alloc_gdm_port(struct
+@@ -2417,7 +2418,7 @@ static int airoha_alloc_gdm_port(struct
  	port->qdma = qdma;
  	port->dev = dev;
  	port->id = id;
 -	eth->ports[index] = port;
 +	eth->ports[p] = port;
  
- 	return register_netdev(dev);
- }
-@@ -2410,6 +2411,7 @@ static int airoha_probe(struct platform_
+ 	err = airoha_metadata_dst_alloc(port);
+ 	if (err)
+@@ -2489,6 +2490,7 @@ static int airoha_probe(struct platform_
  	for (i = 0; i < ARRAY_SIZE(eth->qdma); i++)
  		airoha_qdma_start_napi(&eth->qdma[i]);
  
@@ -59,7 +59,7 @@ Date:   Fri Jan 17 21:00:26 2025 +0100
  	for_each_child_of_node(pdev->dev.of_node, np) {
  		if (!of_device_is_compatible(np, "airoha,eth-mac"))
  			continue;
-@@ -2417,7 +2419,7 @@ static int airoha_probe(struct platform_
+@@ -2496,7 +2498,7 @@ static int airoha_probe(struct platform_
  		if (!of_device_is_available(np))
  			continue;
  
@@ -77,5 +77,5 @@ Date:   Fri Jan 17 21:00:26 2025 +0100
 -#define AIROHA_MAX_NUM_GDM_PORTS	1
 +#define AIROHA_MAX_NUM_GDM_PORTS	4
  #define AIROHA_MAX_NUM_QDMA		2
+ #define AIROHA_MAX_DSA_PORTS		7
  #define AIROHA_MAX_NUM_RSTS		3
- #define AIROHA_MAX_NUM_XSI_RSTS		5

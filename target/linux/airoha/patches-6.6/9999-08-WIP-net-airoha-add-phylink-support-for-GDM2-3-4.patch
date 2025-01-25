@@ -14,8 +14,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  include/linux/pcs/pcs-airoha.h              |  23 +-
  4 files changed, 283 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
-index d19077c5bcd7..e38ded230e09 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
 @@ -4,10 +4,12 @@
@@ -31,7 +29,7 @@ index d19077c5bcd7..e38ded230e09 100644
  
  #include "airoha_regs.h"
  #include "airoha_eth.h"
-@@ -1545,6 +1547,17 @@ static int airoha_dev_open(struct net_device *dev)
+@@ -1550,6 +1552,17 @@ static int airoha_dev_open(struct net_de
  	struct airoha_qdma *qdma = port->qdma;
  	int err;
  
@@ -47,11 +45,11 @@ index d19077c5bcd7..e38ded230e09 100644
 +	}
 +
  	netif_tx_start_all_queues(dev);
- 	err = airoha_set_gdm_port(qdma->eth, port->type, true);
+ 	err = airoha_set_vip_for_gdm_port(qdma->eth, port->type, true);
  	if (err)
-@@ -1588,19 +1601,34 @@ static int airoha_dev_stop(struct net_device *dev)
- 		netdev_tx_reset_subqueue(dev, i);
- 	}
+@@ -1585,19 +1598,34 @@ static int airoha_dev_stop(struct net_de
+ 			  GLOBAL_CFG_TX_DMA_EN_MASK |
+ 			  GLOBAL_CFG_RX_DMA_EN_MASK);
  
 +	if (port->type != INTERNAL_SWITCH_PORT)
 +		phylink_stop(port->phylink);
@@ -85,9 +83,9 @@ index d19077c5bcd7..e38ded230e09 100644
  
  	return 0;
  }
-@@ -2275,6 +2303,198 @@ static const struct ethtool_ops airoha_ethtool_ops = {
- 	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
- };
+@@ -2356,6 +2384,198 @@ static void airoha_metadata_dst_free(str
+ 	}
+ }
  
 +static struct phylink_pcs *airoha_phylink_mac_select_pcs(struct phylink_config *config,
 +							 phy_interface_t interface)
@@ -284,9 +282,9 @@ index d19077c5bcd7..e38ded230e09 100644
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2348,6 +2568,23 @@ static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
- 	port->type = airoha_get_gdm_port_type(port);
- 	eth->ports[index] = port;
+@@ -2434,6 +2654,23 @@ static int airoha_alloc_gdm_port(struct
+ 	if (err)
+ 		return err;
  
 +	if (port->type != INTERNAL_SWITCH_PORT) {
 +		const u8 *mac_addr = dev->dev_addr;
@@ -308,10 +306,10 @@ index d19077c5bcd7..e38ded230e09 100644
  	return register_netdev(dev);
  }
  
-@@ -2442,6 +2679,11 @@ static int airoha_probe(struct platform_device *pdev)
+@@ -2531,6 +2768,11 @@ error_hw_cleanup:
  			airoha_metadata_dst_free(port);
  			unregister_netdev(port->dev);
-		}
+ 		}
 +
 +		if (port->type != INTERNAL_SWITCH_PORT) {
 +			phylink_destroy(port->phylink);
@@ -320,7 +318,7 @@ index d19077c5bcd7..e38ded230e09 100644
  	}
  	free_netdev(eth->napi_dev);
  	platform_set_drvdata(pdev, NULL);
-@@ -2467,6 +2709,11 @@ static void airoha_remove(struct platform_device *pdev)
+@@ -2557,6 +2799,11 @@ static void airoha_remove(struct platfor
  		airoha_dev_stop(port->dev);
  		airoha_metadata_dst_free(port);
  		unregister_netdev(port->dev);
@@ -332,11 +330,9 @@ index d19077c5bcd7..e38ded230e09 100644
  	}
  	free_netdev(eth->napi_dev);
  
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.h b/drivers/net/ethernet/mediatek/airoha_eth.h
-index 332ae7bb5113..87234846cb0b 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -448,6 +448,11 @@ struct airoha_gdm_port {
+@@ -458,6 +458,11 @@ struct airoha_gdm_port {
  	struct net_device *dev;
  	int id;
  
@@ -348,11 +344,9 @@ index 332ae7bb5113..87234846cb0b 100644
  	struct airoha_hw_stats stats;
  
  	DECLARE_BITMAP(qos_sq_bmap, AIROHA_NUM_QOS_CHANNELS);
-diff --git a/drivers/net/ethernet/mediatek/airoha_regs.h b/drivers/net/ethernet/mediatek/airoha_regs.h
-index b0b0c4d9520f..71e2c6d9c345 100644
 --- a/drivers/net/ethernet/mediatek/airoha_regs.h
 +++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -259,6 +259,18 @@
+@@ -316,6 +316,18 @@
  #define IP_FRAGMENT_PORT_MASK		GENMASK(8, 5)
  #define IP_FRAGMENT_NBQ_MASK		GENMASK(4, 0)
  
@@ -371,8 +365,6 @@ index b0b0c4d9520f..71e2c6d9c345 100644
  #define REG_MC_VLAN_EN			0x2100
  #define MC_VLAN_EN_MASK			BIT(0)
  
-diff --git a/include/linux/pcs/pcs-airoha.h b/include/linux/pcs/pcs-airoha.h
-index a438eb92a6e4..a914ec755c58 100644
 --- a/include/linux/pcs/pcs-airoha.h
 +++ b/include/linux/pcs/pcs-airoha.h
 @@ -5,8 +5,23 @@
@@ -399,6 +391,3 @@ index a438eb92a6e4..a914ec755c58 100644
  
  struct phylink_pcs *airoha_pcs_create(struct device *dev);
  void airoha_pcs_destroy(struct phylink_pcs *pcs);
--- 
-2.47.1
-
