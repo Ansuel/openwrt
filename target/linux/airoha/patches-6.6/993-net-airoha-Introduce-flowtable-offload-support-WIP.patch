@@ -1,19 +1,17 @@
-From 78d7e2c233369f3f73f85607b442c4f3995f074e Mon Sep 17 00:00:00 2001
-Message-ID: <78d7e2c233369f3f73f85607b442c4f3995f074e.1737803595.git.lorenzo@kernel.org>
-In-Reply-To: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
-References: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
+From f1c2677b80b57ebc2dd45788fd77d65cfb6111ad Mon Sep 17 00:00:00 2001
+Message-ID: <f1c2677b80b57ebc2dd45788fd77d65cfb6111ad.1737827426.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 27 Dec 2024 15:20:48 +0100
-Subject: [PATCH net-next 7/9] net: airoha: Introduce flowtable offload support
+Subject: [PATCH net-next] net: airoha: Introduce flowtable offload support
  (WIP)
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
  drivers/net/ethernet/mediatek/airoha_eth.c  |  56 +-
  drivers/net/ethernet/mediatek/airoha_eth.h  | 146 ++++
- drivers/net/ethernet/mediatek/airoha_ppe.c  | 744 +++++++++++++++++++-
+ drivers/net/ethernet/mediatek/airoha_ppe.c  | 761 +++++++++++++++++++-
  drivers/net/ethernet/mediatek/airoha_regs.h | 107 ++-
- 4 files changed, 1006 insertions(+), 47 deletions(-)
+ 4 files changed, 1023 insertions(+), 47 deletions(-)
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
@@ -356,7 +354,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
  				   sizeof(struct ppe_mbox_data));
-@@ -367,11 +382,670 @@ static void airoha_npu_deinit(struct air
+@@ -367,11 +382,687 @@ static void airoha_npu_deinit(struct air
  	of_node_put(npu->np);
  }
  
@@ -452,8 +450,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +					struct net_device *dev, int type,
 +					int l4proto, u8 *src_mac, u8 *dest_mac)
 +{
++	int dsa_port = airoha_get_dsa_port(&dev);
 +	struct airoha_foe_mac_info *l2;
-+	u32 ports_pad, val, pse_port;
++	u32 ports_pad, val;
 +
 +	memset(hwe, 0, sizeof(*hwe));
 +
@@ -463,10 +462,21 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	      MTK_FOE_IB1_BIND_TTL;
 +	hwe->ib1 = val;
 +
-+	pse_port = airoha_get_dsa_port(&dev) >= 0 ? 0 : 5;
-+	val = FIELD_PREP(AIROHA_FOE_IB2_NBQ, 9) |
-+	      FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT, pse_port) |
-+	      FIELD_PREP(AIROHA_FOE_IB2_PORT_AG, 0x1f);
++	val = FIELD_PREP(AIROHA_FOE_IB2_PORT_AG, 0x1f);
++	if (dsa_port >= 0)
++		val |= FIELD_PREP(AIROHA_FOE_IB2_NBQ, dsa_port);
++	if (dev) {
++		struct airoha_gdm_port *port = netdev_priv(dev);
++		u8 pse_port;
++
++		pse_port = port->id == 4 ? FE_PSE_PORT_GDM4 : port->id;
++		val |= FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT, pse_port);
++	}
++
++	/* FIXME: implement QoS support setting pse_port to 2 (loopback)
++	 * for uplink and setting qos bit in ib2
++	 */
++
 +	if (is_multicast_ether_addr(dest_mac))
 +		val |= AIROHA_FOE_IB2_MULTICAST;
 +
@@ -494,12 +504,17 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	if (type >= MTK_PPE_PKT_TYPE_IPV6_ROUTE_3T) {
 +		l2->data &= ~AIROHA_FOE_MAC_DATA_SMAC_ID;
 +		l2->data |= FIELD_PREP(AIROHA_FOE_MAC_DATA_SMAC_ID, 0xf);
-+		l2->etype = ETH_P_IPV6;
 +	} else {
 +		l2->src_mac_hi = get_unaligned_be32(src_mac);
 +		l2->src_mac_lo = get_unaligned_be16(src_mac + 4);
-+		l2->etype = ETH_P_IP;
 +	}
++
++	if (dsa_port >= 0)
++		l2->etype = BIT(8) | BIT(dsa_port);
++	else if (type >= MTK_PPE_PKT_TYPE_IPV6_ROUTE_3T)
++		l2->etype = ETH_P_IPV6;
++	else
++		l2->etype = ETH_P_IP;
 +
 +	return 0;
 +}
@@ -1028,7 +1043,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	ppe = devm_kzalloc(eth->dev, sizeof(*ppe), GFP_KERNEL);
  	if (!ppe)
-@@ -386,40 +1060,60 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -386,40 +1077,60 @@ int airoha_ppe_init(struct airoha_eth *e
  	ppe->eth = eth;
  	eth->ppe = ppe;
  
@@ -1109,7 +1124,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return err;
  }
-@@ -430,4 +1124,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -430,4 +1141,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_ppe_deinit(eth->npu);
  		airoha_npu_deinit(eth->npu);
  	}
