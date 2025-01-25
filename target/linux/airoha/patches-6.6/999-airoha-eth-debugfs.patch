@@ -1,0 +1,211 @@
+--- a/drivers/net/ethernet/mediatek/airoha_eth.c
++++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+@@ -2576,6 +2576,129 @@ static int airoha_setup_phylink(struct n
+ 	return 0;
+ }
+ 
++static int airoha_xmit_rings_show(struct seq_file *s, void *data)
++{
++	struct airoha_gdm_port *port = s->private;
++	struct airoha_qdma *qdma = port->qdma;
++	int i;
++
++	seq_puts(s, "     queue | hw-queued |    weight |      head |      tail |\n");
++	for (i = 0; i < ARRAY_SIZE(qdma->q_tx); i++) {
++		struct airoha_queue *q = &qdma->q_tx[i];
++		u32 val, weight, channel;
++
++		if (!q->ndesc)
++			continue;
++
++		channel = i / AIROHA_NUM_QOS_QUEUES;
++		airoha_qdma_wr(qdma, REG_TXWRR_WEIGHT_CFG,
++			       FIELD_PREP(TWRR_CHAN_IDX_MASK, channel) |
++			       FIELD_PREP(TWRR_QUEUE_IDX_MASK,
++				          i % AIROHA_NUM_QOS_QUEUES));
++		if (read_poll_timeout(airoha_qdma_rr, val,
++				      val & TWRR_RW_CMD_DONE,
++				      USEC_PER_MSEC, 10 * USEC_PER_MSEC,
++				      true, qdma, REG_TXWRR_WEIGHT_CFG))
++			continue;
++
++		val = airoha_qdma_rr(port->qdma, REG_TXWRR_WEIGHT_CFG);
++		weight = FIELD_GET(TWRR_VALUE_MASK, val);
++
++		seq_printf(s, " %9d | %9d | %9d | %9d | %9d |\n",
++			   i, q->queued, weight, q->head % q->ndesc,
++			   q->tail % q->ndesc);
++	}
++
++	return 0;
++}
++DEFINE_SHOW_ATTRIBUTE(airoha_xmit_rings);
++
++static int airoha_tx_meter_show(struct seq_file *s, void *data)
++{
++	struct airoha_gdm_port *port = s->private;
++	u32 trtcm_cfg;
++	int i;
++
++	seq_puts(s, "   channel |      unit |       mode |      rate |       size\n");
++
++	trtcm_cfg = airoha_qdma_rr(port->qdma, REG_EGRESS_TRTCM_CFG);
++	for (i = 0; i < AIROHA_NUM_TX_RING; i++) {
++		u32 tick, unit, rate, bucket_size, rl_mode_cfg, val;
++		int err;
++
++		err = airoha_qdma_get_trtcm_param(port->qdma, i,
++						  REG_EGRESS_TRTCM_CFG,
++						  TRTCM_MISC_MODE,
++						  TRTCM_PEAK_MODE,
++						  &rl_mode_cfg, NULL);
++		if (err)
++			return err;
++
++		if (!(rl_mode_cfg & TRTCM_METER_MODE))
++			continue;
++
++		err = airoha_qdma_get_trtcm_param(port->qdma, i,
++						  REG_EGRESS_TRTCM_CFG,
++						  TRTCM_TOKEN_RATE_MODE,
++						  TRTCM_PEAK_MODE,
++						  &val, NULL);
++		if (err)
++			return err;
++
++		tick = FIELD_GET(INGRESS_FAST_TICK_MASK, trtcm_cfg);
++		if (rl_mode_cfg & TRTCM_TICK_SEL)
++			tick *= FIELD_GET(INGRESS_SLOW_TICK_RATIO_MASK,
++					  trtcm_cfg);
++		if (!tick)
++			return -EINVAL;
++
++		unit = (rl_mode_cfg & TRTCM_PKT_MODE) ? 1000000 / tick : 8000 / tick;
++		if (!unit)
++			return -EINVAL;
++
++		rate = FIELD_GET(TRTCM_TOKEN_RATE_MASK, val) * unit;
++		rate = rate + FIELD_GET(TRTCM_TOKEN_RATE_FRACTION_MASK, val);
++
++		err = airoha_qdma_get_trtcm_param(port->qdma, i,
++						  REG_EGRESS_TRTCM_CFG,
++						  TRTCM_BUCKETSIZE_SHIFT_MODE,
++						  TRTCM_PEAK_MODE, &val, NULL);
++		if (err)
++			return err;
++
++		bucket_size = 1 << FIELD_GET(TRTCM_TOKEN_BUCKET_SIZE_MASK, val);
++
++		seq_printf(s, " %9d | %9d |         %c%c | %9d |  %9d\n",
++			   i, unit,
++			   rl_mode_cfg & TRTCM_TICK_SEL ? 'S': 'F',
++			   rl_mode_cfg & TRTCM_PKT_MODE ? 'P': 'B',
++			   rate, bucket_size);
++	}
++
++	return 0;
++}
++DEFINE_SHOW_ATTRIBUTE(airoha_tx_meter);
++
++static int airoha_register_port_debugfs(struct airoha_gdm_port *port)
++{
++	struct airoha_eth *eth = port->qdma->eth;
++	int id = port->qdma - &eth->qdma[0];
++	struct dentry *root;
++	const char *name;
++
++	name = devm_kasprintf(eth->dev, GFP_KERNEL, "qdma:%d", id);
++	if (!name)
++		return -ENOMEM;
++
++	root = debugfs_create_dir(name, eth->debugfs_dir);
++	debugfs_create_file("qos-tx-meters", 0400, root, port,
++			    &airoha_tx_meter_fops);
++	debugfs_create_file("xmit-rings", 0400, root, port,
++			    &airoha_xmit_rings_fops);
++
++	return 0;
++}
++
+ static int airoha_alloc_gdm_port(struct airoha_eth *eth,
+ 				 struct device_node *np, int index)
+ {
+@@ -2671,6 +2794,10 @@ static int airoha_alloc_gdm_port(struct
+ 					mac_addr[4] << 8 | mac_addr[5]));
+ 	}
+ 
++	err = airoha_register_port_debugfs(port);
++	if (err)
++		return err;
++
+ 	return register_netdev(dev);
+ }
+ 
+@@ -2730,6 +2857,7 @@ static int airoha_probe(struct platform_
+ 	strscpy(eth->napi_dev->name, "qdma_eth", sizeof(eth->napi_dev->name));
+ 	platform_set_drvdata(pdev, eth);
+ 
++	eth->debugfs_dir = debugfs_create_dir("airoha-eth", NULL);
+ 	err = airoha_hw_init(pdev, eth);
+ 	if (err)
+ 		goto error_hw_cleanup;
+@@ -2808,6 +2936,7 @@ static void airoha_remove(struct platfor
+ 	free_netdev(eth->napi_dev);
+ 
+ 	airoha_ppe_deinit(eth);
++	debugfs_remove_recursive(eth->debugfs_dir);
+ 	platform_set_drvdata(pdev, NULL);
+ }
+ 
+--- a/drivers/net/ethernet/mediatek/airoha_eth.h
++++ b/drivers/net/ethernet/mediatek/airoha_eth.h
+@@ -7,6 +7,7 @@
+ #ifndef AIROHA_ETH_H
+ #define AIROHA_ETH_H
+ 
++#include <linux/debugfs.h>
+ #include <linux/etherdevice.h>
+ #include <linux/iopoll.h>
+ #include <linux/kernel.h>
+@@ -200,6 +201,7 @@ enum {
+ #define MAX_TOKEN_SIZE_OFFSET			17
+ #define TRTCM_TOKEN_RATE_MASK			GENMASK(23, 6)
+ #define TRTCM_TOKEN_RATE_FRACTION_MASK		GENMASK(5, 0)
++#define TRTCM_TOKEN_BUCKET_SIZE_MASK		GENMASK(5, 0)
+ 
+ struct airoha_queue_entry {
+ 	union {
+@@ -519,6 +521,8 @@ struct airoha_eth {
+ 
+ 	struct airoha_qdma qdma[AIROHA_MAX_NUM_QDMA];
+ 	struct airoha_gdm_port *ports[AIROHA_MAX_NUM_GDM_PORTS];
++
++	struct dentry *debugfs_dir;
+ };
+ 
+ u32 airoha_rr(void __iomem *base, u32 offset);
+--- a/drivers/net/ethernet/mediatek/airoha_ppe.c
++++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
+@@ -1148,10 +1148,13 @@ DEFINE_SHOW_ATTRIBUTE(airoha_ppe_debugfs
+ 
+ static int airoha_ppe_debugfs_init(struct airoha_ppe *ppe)
+ {
+-	ppe->debugfs_dir = debugfs_create_dir("ppe", NULL);
+-	debugfs_create_file("entries", S_IRUGO, ppe->debugfs_dir, ppe,
++	struct airoha_eth *eth = ppe->eth;
++	struct dentry *root;
++
++	root = debugfs_create_dir("ppe", eth->debugfs_dir);
++	debugfs_create_file("entries", S_IRUGO, root, ppe,
+ 			    &airoha_ppe_debugfs_foe_all_fops);
+-	debugfs_create_file("bind", S_IRUGO, ppe->debugfs_dir, ppe,
++	debugfs_create_file("bind", S_IRUGO, root, ppe,
+ 			    &airoha_ppe_debugfs_foe_bind_fops);
+ 
+ 	return 0;
+@@ -1245,5 +1248,4 @@ void airoha_ppe_deinit(struct airoha_eth
+ 		airoha_npu_deinit(eth->npu);
+ 	}
+ 	rhashtable_destroy(&eth->flow_table);
+-	debugfs_remove(eth->ppe->debugfs_dir);
+ }
