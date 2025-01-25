@@ -1,7 +1,7 @@
-From 218bd947d2c36170a32cc621b7c59cfeb2c5fa48 Mon Sep 17 00:00:00 2001
+From c8c13bb400e7d1aadabad09fa8304134451025aa Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 17 Jan 2025 12:40:32 +0100
-Subject: [PATCH] WIP net: pcs: airoha: add PCS driver for Airoha SoC
+Subject: [PATCH 1/2] WIP net: pcs: airoha: add PCS driver for Airoha SoC
 
 Add PCS driver for Airoha SoC for ethernet SERDES and permit usage of
 external PHY or connected SFP cage. Supported modes are USXGMII, HSGMII
@@ -15,9 +15,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
  drivers/net/pcs/Kconfig        |    6 +
  drivers/net/pcs/Makefile       |    1 +
- drivers/net/pcs/pcs-airoha.c   | 2502 ++++++++++++++++++++++++++++++++
+ drivers/net/pcs/pcs-airoha.c   | 2747 ++++++++++++++++++++++++++++++++
  include/linux/pcs/pcs-airoha.h |   14 +
- 4 files changed, 2523 insertions(+)
+ 4 files changed, 2768 insertions(+)
  create mode 100644 drivers/net/pcs/pcs-airoha.c
  create mode 100644 include/linux/pcs/pcs-airoha.h
 
@@ -48,7 +48,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  obj-$(CONFIG_PCS_XPCS)		+= pcs_xpcs.o
 --- /dev/null
 +++ b/drivers/net/pcs/pcs-airoha.c
-@@ -0,0 +1,2502 @@
+@@ -0,0 +1,2747 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2024 AIROHA Inc
@@ -71,15 +71,76 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define   AIROHA_SCU_SSR_ETH_XSI_HSGMII		FIELD_PREP_CONST(AIROHA_SCU_SSR_ETH_XSI_SEL, 0x2)
 +
 +/* HSGMII_AN */
-+#define HSGMII_SGMII_AN         0x0
++#define AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_0	0x0
++#define   AIROHA_PCS_HSGMII_AN_SGMII_RA_ENABLE	BIT(12)
++#define AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_13	0x34
++#define   AIROHA_PCS_HSGMII_AN_SGMII_IF_MODE_5_0 GENMASK(5, 0)
++#define     AIROHA_PCS_HSGMII_AN_SGMII_COMPAT_EN BIT(5)
++#define     AIROHA_PCS_HSGMII_AN_DUPLEX_FORCE_MODE BIT(4)
++#define     AIROHA_PCS_HSGMII_AN_SPEED_FORCE_MODE GENMASK(3, 2)
++#define     AIROHA_PCS_HSGMII_AN_SIDEBAND_FORCE	BIT(1)
++#define     AIROHA_PCS_HSGMII_AN_SGMII_EN	BIT(0)
++#define AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_FORCE_CL37 0x60
++#define   AIROHA_PCS_HSGMII_AN_FORCE_AN_DONE	BIT(0)
 +
 +/* HSGMII_PCS */
-+#define HSGMII_XSGMII_INIT      0x0
++#define AIROHA_PCS_HSGMII_PCS_CTROL_1		0x0
++#define   AIROHA_PCS_TBI_10B_MODE		BIT(30)
++#define   AIROHA_PCS_SGMII_SEND_AN_ERR_EN	BIT(24)
++#define AIROHA_PCS_HSGMII_PCS_CTROL_3		0x8
++#define   AIROHA_PCS_HSGMII_PCS_LINK_STSTIME	GENMASK(19, 0)
++#define AIROHA_PCS_HSGMII_PCS_CTROL_6		0x14
++#define   AIROHA_PCS_HSGMII_PCS_SGMII_SPD_FORCE_1000 BIT(12)
++#define   AIROHA_PCS_HSGMII_PCS_MAC_MODE	BIT(8)
++#define   AIROHA_PCS_HSGMII_PCS_TX_ENABLE	BIT(4)
++#define   AIROHA_PCS_HSGMII_PCS_FORCE_RATEADAPT	BIT(1)
++#define   AIROHA_PCS_HSGMII_PCS_MODE2_EN	BIT(0)
++#define AIROHA_PCS_HSGMII_PCS_MODE_INTERRUPT	0x20
++#define   AIROHA_PCS_HSGMII_MODE2_REMOVE_FAULT_OCCUR_INT_CLEAR BIT(11)
++#define   AIROHA_PCS_HSGMII_MODE2_REMOVE_FAULT_OCCUR_INT BIT(10)
++#define   AIROHA_PCS_HSGMII_MODE2_REMOVE_FAULT_OCCUR_INT BIT(10)
++#define   AIROHA_PCS_HSGMII_MODE2_AN_CL37_TIMERDONE_INT_CLEAR BIT(9)
++#define   AIROHA_PCS_HSGMII_MODE2_AN_CL37_TIMERDONE_INT BIT(8)
++#define   AIROHA_PCS_HSGMII_MODE2_AN_MIS_INT_CLEAR BIT(5)
++#define   AIROHA_PCS_HSGMII_MODE2_AN_MIS_INT	BIT(4)
++#define   AIROHA_PCS_HSGMII_MODE2_RX_SYN_DONE_INT_CLEAR BIT(3)
++#define   AIROHA_PCS_HSGMII_MODE2_AN_DONE_INT_CLEAR BIT(2)
++#define   AIROHA_PCS_HSGMII_MODE2_RX_SYN_DONE_INT BIT(1)
++#define   AIROHA_PCS_HSGMII_MODE2_AN_DONE_INT	BIT(0)
++#define ARIOHA_PCS_HSGMII_PCS_STATE_2		0x104
++#define   AIROHA_PCS_HSGMII_PCS_RX_SYNC		BIT(5)
++#define   AIROHA_PCS_HSGMII_PCS_AN_DONE		BIT(0)
++#define AIROHA_PCS_HSGMII_PCS_INT_STATE		0x15c
++#define   AIROHA_PCS_HSGMII_PCS_MODE2_REMOTE_FAULT_OCCUR_INT BIT(4)
++#define   AIROHA_PCS_HSGMII_PCS_MODE2_AN_MLS	BIT(3)
++#define   AIROHA_PCS_HSGMII_PCS_MODE2_AN_CL37_TIMERDONE_INT BIT(2)
++#define   AIROHA_PCS_HSGMII_PCS_MODE2_RX_SYNC	BIT(1)
++#define   AIROHA_PCS_HSGMII_PCS_MODE2_AN_DONE	BIT(0)
 +
 +/* MULTI_SGMII */
-+#define AIROHA_PCS_HSGMII_HSGMII_INIT		0x18
-+#define AIROHA_PCS_HSGMII_USXGMII_INIT		0x100
++#define AIROHA_PCS_MULTI_HSGMII_INTERRUPT_EN_0	0x14
++#define   AIROHA_PCS_MULTI_HSGMII_PCS_INT_EN_0	BIT(0)
++#define AIROHA_PCS_MULTI_HSGMII_SGMII_STS_CTRL_0 0x18
++#define   AIROHA_PCS_LINK_MODE_P0		GENMASK(5, 4)
++#define   AIROHA_PCS_LINK_MODE_P0_2_5G		FIELD_PREP_CONST(AIROHA_PCS_LINK_MODE_P0, 0x3)
++#define   AIROHA_PCS_LINK_MODE_P0_1G		FIELD_PREP_CONST(AIROHA_PCS_LINK_MODE_P0, 0x2)
++#define   AIROHA_PCS_LINK_MODE_P0_100M		FIELD_PREP_CONST(AIROHA_PCS_LINK_MODE_P0, 0x1)
++#define   AIROHA_PCS_LINK_MODE_P0_10M		FIELD_PREP_CONST(AIROHA_PCS_LINK_MODE_P0, 0x0)
++#define   AIROHA_PCS_FORCE_SPD_MODE_P0		BIT(2)
++#define AIROHA_PCS_MULTI_HSGMII_MSG_RX_CTRL_0	0x100
 +#define   AIROHA_PCS_HSGMII_XFI_SEL		BIT(28)
++#define AIROHA_PCS_MULTI_HSGMII_INTERRUPT_SEL	0x14c
++#define   AIROHA_PCS_HSGMII_PCS_INT		BIT(0)
++#define AIROHA_PCS_MULTI_HSGMII_MSG_RX_STS_15	0x43c
++#define   AIROHA_PCS_LINK_STS_P0		BIT(3)
++#define   AIROHA_PCS_SPEED_STS_P0		GENMASK(2, 0)
++#define   AIROHA_PCS_SPEED_STS_P0_1G		FIELD_PREP_CONST(AIROHA_PCS_SPEED_STS_P0, 0x2)
++#define   AIROHA_PCS_SPEED_STS_P0_100M		FIELD_PREP_CONST(AIROHA_PCS_SPEED_STS_P0, 0x1)
++#define   AIROHA_PCS_SPEED_STS_P0_10M		FIELD_PREP_CONST(AIROHA_PCS_SPEED_STS_P0, 0x0)
++#define AIROHA_PCS_MULTI_HSGMII_MSG_RX_STS_18	0x448
++#define   AIROHA_PCS_P0_SGMII_IS_10		BIT(2)
++#define   AIROHA_PCS_P0_SGMII_IS_100		BIT(1)
++#define   AIROHA_PCS_P0_SGMII_IS_1000		BIT(0)
 +
 +/* HSGMII_RATE_ADP */
 +#define AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_0	0x0
@@ -87,11 +148,25 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define   AIROHA_PCS_HSGMII_RATE_ADAPT_TX_BYPASS BIT(26)
 +#define   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_EN	BIT(4)
 +#define   AIROHA_PCS_HSGMII_RATE_ADAPT_TX_EN	BIT(0)
++#define AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_1	0x4
++#define   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_WR_THR GENMASK(20, 16)
++#define   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_RD_THR GENMASK(28, 24)
++#define AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_6	0x18
++#define   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_DOUT_L GENMASK(31, 0)
++#define AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_8	0x20
++#define   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_DOUT_C GENMASK(7, 0)
 +#define HSGMII_HSGMII_XFI		0x2c
++#define AIROHA_PCS_HSGMII_RATE_ADP_P0_CTRL_0	0x100
++#define   AIROHA_PCS_HSGMII_P0_DIS_MII_MODE	BIT(31)
 +
 +/* USXGMII */
 +#define AIROHA_PCS_USXGMII_PCS_CTROL_1		0x900
 +#define   AIROHA_PCS_USXGMII_SPEED_SEL_H	BIT(13)
++#define AIROHA_PCS_USXGMII_PCS_STUS_1		0x930
++#define   AIROHA_PCS_USXGMII_RX_LINK_STUS	BIT(12)
++#define   AIROHA_PCS_USXGMII_PRBS9_PATT_TST_ABILITY BIT(3)
++#define   AIROHA_PCS_USXGMII_PRBS31_PATT_TST_ABILITY BIT(2)
++#define   AIROHA_PCS_USXGMII_PCS_BLK_LK		BIT(0)
 +#define AIROHA_PCS_USGMII_VENDOR_DEFINE_116	0xb2c
 +#define AIROHA_PCS_USXGMII_PCS_CTRL_0		0xbc0
 +#define   AIROHA_PCS_USXGMII_T_TYPE_T_INT_EN	BIT(24)
@@ -444,7 +519,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define AIROHA_PCS_PMA_RX_CTRL_SEQUENCE_CTRL_3	0x98
 +#define   AIROHA_PCS_PMA_RX_FEOS_END		GENMASK(31, 16)
 +#define   AIROHA_PCS_PMA_RX_FEOS_START		GENMASK(15, 0)
-+#define AIROHA_PCS_PMA_RX_CTRL_SEQUENCE_CTRL_4 0x9c
++#define AIROHA_PCS_PMA_RX_CTRL_SEQUENCE_CTRL_4	0x9c
 +#define   AIROHA_PCS_PMA_RX_SDCAL_END		GENMASK(31, 16)
 +#define   AIROHA_PCS_PMA_RX_SDCAL_START		GENMASK(15, 0)
 +#define AIROHA_PCS_PMA_RX_CTRL_SEQUENCE_CTRL_5	0x100
@@ -452,19 +527,20 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define   AIROHA_PCS_PMA_RX_BLWC_RDY_EN		GENMASK(15, 0)
 +#define AIROHA_PCS_PMA_RX_CTRL_SEQUENCE_CTRL_6	0x104
 +#define   AIROHA_PCS_PMA_RX_OS_END		GENMASK(15, 0)
++#define AIROHA_PCS_PMA_RX_CTRL_SEQUENCE_DISB_CTRL_1 0x10c
++#define   AIROHA_PCS_PMA_DISB_RX_RDY		BIT(24)
++#define AIROHA_PCS_PMA_RX_CTRL_SEQUENCE_FORCE_CTRL_1 0x114
++#define   AIROHA_PCS_PMA_FORCE_RX_RDY		BIT(24)
 +#define AIROHA_PCS_PMA_PHY_EQ_CTRL_3		0x120
 +#define   AIROHA_PCS_PMA_EQ_DEBUG_SEL		GENMASK(17, 16)
 +#define   AIROHA_PCS_PMA_FOM_NUM_ORDER		GENMASK(12, 8)
 +#define   AIROHA_PCS_PMA_A_SEL			GENMASK(1, 0)
-+#define PHYD_RX_PRCal3		0x14c
 +#define AIROHA_PCS_PMA_SS_RX_FREQ_DET_1		0x14c
 +#define   AIROHA_PCS_PMA_UNLOCK_CYCLECNT	GENMASK(31, 16)
 +#define   AIROHA_PCS_PMA_LOCK_CYCLECNT		GENMASK(15, 0)
-+#define PHYD_RX_PRCal2		0x150
 +#define AIROHA_PCS_PMA_SS_RX_FREQ_DET_2		0x150
 +#define   AIROHA_PCS_PMA_LOCK_TARGET_END	GENMASK(31, 16)
 +#define   AIROHA_PCS_PMA_LOCK_TARGET_BEG	GENMASK(15, 0)
-+#define PHYD_RX_PRCal5		0x154
 +#define AIROHA_PCS_PMA_SS_RX_FREQ_DET_3		0x154
 +#define   AIROHA_PCS_PMA_UNLOCK_TARGET_END	GENMASK(31, 16)
 +#define   AIROHA_PCS_PMA_UNLOCK_TARGET_BEG	GENMASK(15, 0)
@@ -477,6 +553,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define   AIROHA_PCS_PMA_FREQLOCK_DET_EN_WAIT	FIELD_PREP_CONST(AIROHA_PCS_PMA_FREQLOCK_DET_EN, 0x2)
 +#define   AIROHA_PCS_PMA_FREQLOCK_DET_EN_NORMAL	FIELD_PREP_CONST(AIROHA_PCS_PMA_FREQLOCK_DET_EN, 0x3)
 +#define   AIROHA_PCS_PMA_FREQLOCK_DET_EN_RX_STATE FIELD_PREP_CONST(AIROHA_PCS_PMA_FREQLOCK_DET_EN, 0x7)
++#define AIROHA_PCS_PMA_SS_RX_SIGDET_1		0x16c
++#define   AIROHA_PCS_PMA_SIGDET_EN		BIT(0)
 +#define AIROHA_PCS_PMA_RX_FLL_1			0x174
 +#define   AIROHA_PCS_PMA_LPATH_IDAC		GENMASK(10, 0)
 +#define AIROHA_PCS_PMA_RX_FLL_2			0x178
@@ -489,6 +567,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define   AIROHA_PCS_PMA_FLL_IDAC_MAX		GENMASK(10, 0)
 +#define AIROHA_PCS_PMA_RX_FLL_B		        0x19c
 +#define   AIROHA_PCS_PMA_LOAD_EN		BIT(0)
++#define AIROHA_PCS_PMA_RX_RESET_1		0x208
++#define   AIROHA_PCS_PMA_SIGDET_RST_B		BIT(8)
 +#define AIROHA_PCS_PMA_TX_RST_B			0x260
 +#define   AIROHA_PCS_PMA_TXCALIB_RST_B		BIT(8)
 +#define   AIROHA_PCS_PMA_TX_TOP_RST_B		BIT(0)
@@ -533,6 +613,12 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define   AIROHA_PCS_PMA_SW_TX_RST_N		BIT(2)
 +#define   AIROHA_PCS_PMA_SW_RX_RST_N		BIT(1)
 +#define   AIROHA_PCS_PMA_SW_RX_FIFO_RST_N	BIT(0)
++#define AIROHA_PCS_PMA_XPON_INT_EN_3		0x474
++#define   AIROHA_PCS_PMA_RX_SIGDET_INT_EN	BIT(16)
++#define AIROHA_PCS_PMA_XPON_INT_STA_3		0x47c
++#define   AIROHA_PCS_PMA_RX_SIGDET_INT		BIT(16)
++#define AIROHA_PCS_PMA_RX_EXTRAL_CTRL		0x48c
++#define   AIROHA_PCS_PMA_DISB_LEQ		BIT(0)
 +#define AIROHA_PCS_PMA_RX_FREQDET		0x530
 +#define   AIROHA_PCS_PMA_FL_OUT			GENMASK(31, 16)
 +#define AIROHA_PCS_PMA_XPON_TX_RATE_CTRL	0x580
@@ -636,7 +722,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	// struct regmap *hsgmii_analog;
 +	struct regmap *hsgmii_rate_adp;
 +	struct regmap *multi_sgmii;
-+	struct regmap *usxgmii;
++	struct regmap *usxgmii_pcs;
 +
 +	struct regmap *xfi_pma;
 +	struct regmap *xfi_ana;
@@ -661,6 +747,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	/* TODO check if we need to reset before or after this XSI MAC and PHY, in SDK is done prev */
 +	switch (interface) {
 +	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_1000BASEX:
 +	case PHY_INTERFACE_MODE_2500BASEX:
 +		xsi_sel = AIROHA_SCU_SSR_ETH_XSI_HSGMII;
 +		break;
@@ -676,77 +763,114 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +static void airoha_pcs_init_usxgmii(struct airoha_pcs_priv *priv)
 +{
-+	regmap_set_bits(priv->multi_sgmii, AIROHA_PCS_HSGMII_USXGMII_INIT,
++	regmap_set_bits(priv->multi_sgmii, AIROHA_PCS_MULTI_HSGMII_MSG_RX_CTRL_0,
 +		       AIROHA_PCS_HSGMII_XFI_SEL);
 +
 +	/* Disable Hibernation */
-+	regmap_clear_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_CTROL_1,
++	regmap_clear_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_CTROL_1,
 +			  AIROHA_PCS_USXGMII_SPEED_SEL_H);
 +	
 +	/* TODO ask airoha */
 +	/* Avoid PCS sending garbage to MAC in some HW revision (E0) */
-+	regmap_write(priv->usxgmii, AIROHA_PCS_USGMII_VENDOR_DEFINE_116, 0);
++	regmap_write(priv->usxgmii_pcs, AIROHA_PCS_USGMII_VENDOR_DEFINE_116, 0);
++}
++
++static void airoha_pcs_init_hsgmii(struct airoha_pcs_priv *priv)
++{
++	regmap_set_bits(priv->multi_sgmii, AIROHA_PCS_MULTI_HSGMII_MSG_RX_CTRL_0,
++		       AIROHA_PCS_HSGMII_XFI_SEL);
++
++	regmap_set_bits(priv->hsgmii_pcs, AIROHA_PCS_HSGMII_PCS_CTROL_1,
++			AIROHA_PCS_TBI_10B_MODE);
++
++	regmap_update_bits(priv->multi_sgmii, AIROHA_PCS_MULTI_HSGMII_SGMII_STS_CTRL_0,
++			   AIROHA_PCS_LINK_MODE_P0 |
++			   AIROHA_PCS_FORCE_SPD_MODE_P0,
++			   AIROHA_PCS_LINK_MODE_P0_2_5G |
++			   AIROHA_PCS_FORCE_SPD_MODE_P0);
++}
++
++static void airoha_pcs_init_sgmii(struct airoha_pcs_priv *priv)
++{
++	regmap_set_bits(priv->hsgmii_pcs, AIROHA_PCS_HSGMII_PCS_CTROL_1,
++			AIROHA_PCS_TBI_10B_MODE);
++
++	regmap_update_bits(priv->multi_sgmii, AIROHA_PCS_MULTI_HSGMII_SGMII_STS_CTRL_0,
++			   AIROHA_PCS_LINK_MODE_P0 |
++			   AIROHA_PCS_FORCE_SPD_MODE_P0,
++			   AIROHA_PCS_LINK_MODE_P0_1G |
++			   AIROHA_PCS_FORCE_SPD_MODE_P0);
++
++	regmap_update_bits(priv->hsgmii_rate_adp, AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_6,
++			   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_DOUT_L,
++			   FIELD_PREP(AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_DOUT_L, 0x07070707));
++
++	regmap_update_bits(priv->hsgmii_rate_adp, AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_8,
++			   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_DOUT_C,
++			   FIELD_PREP(AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_DOUT_C, 0xff));
 +}
 +
 +static void airoha_pcs_init(struct airoha_pcs_priv *priv,
 +			    phy_interface_t interface)
 +{
 +	switch (interface) {
-+	/* TODO */
-+	// case PHY_INTERFACE_MODE_SGMII:
-+	// case PHY_INTERFACE_MODE_2500BASEX:
-+	// 	xsi_sel = AIROHA_SCU_SSR_ETH_XSI_HSGMII;
-+	// 	break;
++	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_1000BASEX:
++		airoha_pcs_init_sgmii(priv);
++		break;
++	case PHY_INTERFACE_MODE_2500BASEX:
++		airoha_pcs_init_hsgmii(priv);
++		break;
 +	case PHY_INTERFACE_MODE_USXGMII:
 +	default:
-+		return airoha_pcs_init_usxgmii(priv);
++		airoha_pcs_init_usxgmii(priv);
 +	}
 +}
 +
 +static void airoha_pcs_interrupt_init_usxgmii(struct airoha_pcs_priv *priv)
 +{
 +	/* Disable every Interrupt */
-+	regmap_clear_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_CTRL_0,
++	regmap_clear_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_CTRL_0,
 +			  AIROHA_PCS_USXGMII_T_TYPE_T_INT_EN |
 +			  AIROHA_PCS_USXGMII_T_TYPE_D_INT_EN |
 +			  AIROHA_PCS_USXGMII_T_TYPE_C_INT_EN |
 +			  AIROHA_PCS_USXGMII_T_TYPE_S_INT_EN);
 +
-+	regmap_clear_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_CTRL_1,
++	regmap_clear_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_CTRL_1,
 +			  AIROHA_PCS_USXGMII_R_TYPE_C_INT_EN |
 +			  AIROHA_PCS_USXGMII_R_TYPE_S_INT_EN |
 +			  AIROHA_PCS_USXGMII_TXPCS_FSM_ENC_ERR_INT_EN |
 +			  AIROHA_PCS_USXGMII_T_TYPE_E_INT_EN);
 +
-+	regmap_clear_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_CTRL_2,
++	regmap_clear_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_CTRL_2,
 +			  AIROHA_PCS_USXGMII_RPCS_FSM_DEC_ERR_INT_EN |
 +			  AIROHA_PCS_USXGMII_R_TYPE_E_INT_EN |
 +			  AIROHA_PCS_USXGMII_R_TYPE_T_INT_EN |
 +			  AIROHA_PCS_USXGMII_R_TYPE_D_INT_EN);
 +
-+	regmap_clear_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_CTRL_3,
++	regmap_clear_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_CTRL_3,
 +			  AIROHA_PCS_USXGMII_FAIL_SYNC_XOR_ST_INT_EN |
 +			  AIROHA_PCS_USXGMII_RX_BLOCK_LOCK_ST_INT_EN |
 +			  AIROHA_PCS_USXGMII_LINK_UP_ST_INT_EN |
 +			  AIROHA_PCS_USXGMII_HI_BER_ST_INT_EN);
 +
-+	regmap_clear_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_CTRL_4,
++	regmap_clear_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_CTRL_4,
 +			  AIROHA_PCS_USXGMII_LINK_DOWN_ST_INT_EN);
 +
 +	/* Clear any pending interrupt */
-+	regmap_set_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_INT_STA_2,
++	regmap_set_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_INT_STA_2,
 +			AIROHA_PCS_USXGMII_RPCS_FSM_DEC_ERR_INT |
 +			AIROHA_PCS_USXGMII_R_TYPE_E_INT |
 +			AIROHA_PCS_USXGMII_R_TYPE_T_INT |
 +			AIROHA_PCS_USXGMII_R_TYPE_D_INT);
 +
-+	regmap_set_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_INT_STA_3,
++	regmap_set_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_INT_STA_3,
 +			AIROHA_PCS_USXGMII_FAIL_SYNC_XOR_ST_INT |
 +			AIROHA_PCS_USXGMII_RX_BLOCK_LOCK_ST_INT |
 +			AIROHA_PCS_USXGMII_LINK_UP_ST_INT |
 +			AIROHA_PCS_USXGMII_HI_BER_ST_INT);
 +
-+	regmap_set_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_INT_STA_4,
++	regmap_set_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_INT_STA_4,
 +			AIROHA_PCS_USXGMII_LINK_DOWN_ST_INT);
 +
 +	/* TODO decide if implement ISR for link up and link down */
@@ -774,6 +898,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +	switch (interface) {
 +	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_1000BASEX:
 +	case PHY_INTERFACE_MODE_2500BASEX:
 +		kband_vref = 0x10;
 +		break;
@@ -954,11 +1079,10 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	bool sdm_hren;
 +	bool vcodiv;
 +
-+	/* TODO handle other interface ? */
 +	switch (interface) {
 +	case PHY_INTERFACE_MODE_2500BASEX:
 +		lpf_chp_ibias = 0xa;
-+		lpf_bp = BIT(3) | BIT(0);
++		lpf_bp = BIT(2) | BIT(0);
 +		lpf_bwr = 0;
 +		lpf_bwc = 0;
 +		vco_cfix = 0;
@@ -968,6 +1092,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		sdm_hren = false;
 +		break;
 +	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_1000BASEX:
 +		lpf_chp_ibias = 0xf;
 +		lpf_bp = BIT(1);
 +		lpf_bwr = BIT(3) | BIT(1) | BIT(0);
@@ -1179,6 +1304,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		fir_c1 = 1;
 +		break;
 +	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_1000BASEX:
 +		ckin_divisor = BIT(1);
 +		tx_rate_ctrl = BIT(0);
 +		fir_cn1 = 0;
@@ -1258,7 +1384,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +{
 +	u32 rx_rate_ctrl;
 +	u32 osr;
-+	u32 pr_cdr_beta_adc;
++	u32 pr_cdr_beta_dac;
 +	u32 cdr_pr_buf_in_sr;
 +	bool cdr_pr_cap_en;
 +	u32 sigdet_vth_sel;
@@ -1267,20 +1393,21 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	switch(interface) {
 +	case PHY_INTERFACE_MODE_2500BASEX:
 +		osr = BIT(0); /* 2.5G */
-+		pr_cdr_beta_adc = BIT(3);
++		pr_cdr_beta_dac = BIT(2) | BIT(1);
 +		rx_rate_ctrl = 0;
 +		cdr_pr_cap_en = true;
-+		cdr_pr_buf_in_sr = BIT(2) | BIT(1) | BIT(0);
++		cdr_pr_buf_in_sr = BIT(2) | BIT(1);
 +		sigdet_vth_sel = BIT(2) | BIT(1);
 +		phyck_div = BIT(3) | BIT(1) | BIT(0);
 +		phyck_sel = BIT(0);
 +		break;
 +	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_1000BASEX:
 +		osr = BIT(1) | BIT(0); /* 1.25G */
-+		pr_cdr_beta_adc = BIT(2) | BIT(1);
++		pr_cdr_beta_dac = BIT(3);
 +		rx_rate_ctrl = 0;
 +		cdr_pr_cap_en = false;
-+		cdr_pr_buf_in_sr = BIT(2) | BIT(1);
++		cdr_pr_buf_in_sr = BIT(2) | BIT(1) | BIT(0);
 +		sigdet_vth_sel = BIT(2) | BIT(1);
 +		phyck_div = BIT(5) | BIT(3) | BIT(0);
 +		phyck_sel = BIT(0);
@@ -1289,7 +1416,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	default:
 +		osr = 0; /* 10G */
 +		cdr_pr_cap_en = false;
-+		pr_cdr_beta_adc = BIT(3);
++		pr_cdr_beta_dac = BIT(3);
 +		rx_rate_ctrl = BIT(1);
 +		cdr_pr_buf_in_sr = BIT(2) | BIT(1) | BIT(0);
 +		sigdet_vth_sel = BIT(1);
@@ -1389,6 +1516,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		regmap_update_bits(priv->xfi_pma, AIROHA_PCS_PMA_PXP_RX_FE_VOS,
 +				   AIROHA_PCS_PMA_FORCE_SEL_DA_FE_VOS |
 +				   AIROHA_PCS_PMA_FORCE_DA_FE_VOS,
++				   AIROHA_PCS_PMA_FORCE_SEL_DA_FE_VOS |
 +				   FIELD_PREP(AIROHA_PCS_PMA_FORCE_DA_FE_VOS, 0x0));
 +
 +	/* Setup FLL PR FMeter (no bypass mode)*/
@@ -1486,7 +1614,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +			   FIELD_PREP(AIROHA_PCS_ANA_CDR_PR_KBAND_DIV, 0x4) |
 +			   FIELD_PREP(AIROHA_PCS_ANA_CDR_PR_BETA_SEL, 0x1) |
 +			   FIELD_PREP(AIROHA_PCS_ANA_CDR_PR_VCOADC_OS, 0x8) |
-+			   FIELD_PREP(AIROHA_PCS_ANA_CDR_PR_BETA_DAC, pr_cdr_beta_adc));
++			   FIELD_PREP(AIROHA_PCS_ANA_CDR_PR_BETA_DAC, pr_cdr_beta_dac));
 +
 +	regmap_update_bits(priv->xfi_ana, AIROHA_PCS_ANA_PXP_CDR_PR_VREG_IBAND_VAL,
 +			   AIROHA_PCS_ANA_CDR_PR_FBKSEL |
@@ -1494,7 +1622,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +			   AIROHA_PCS_ANA_CDR_PR_VREG_CKBUF_VAL |
 +			   AIROHA_PCS_ANA_CDR_PR_VREG_IBAND_VAL,
 +			   FIELD_PREP(AIROHA_PCS_ANA_CDR_PR_FBKSEL, 0x0) |
-+			   FIELD_PREP(AIROHA_PCS_ANA_CDR_PR_VREG_DAC_BAND, pr_cdr_beta_adc) |
++			   FIELD_PREP(AIROHA_PCS_ANA_CDR_PR_VREG_DAC_BAND, pr_cdr_beta_dac) |
 +			   FIELD_PREP(AIROHA_PCS_ANA_CDR_PR_VREG_CKBUF_VAL, 0x6) |
 +			   FIELD_PREP(AIROHA_PCS_ANA_CDR_PR_VREG_IBAND_VAL, 0x6));
 +
@@ -1687,6 +1815,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		cyclecnt = 20000;
 +		break;
 +	case PHY_INTERFACE_MODE_SGMII:  /* DS_1.25G      / US_1.25G  */
++	case PHY_INTERFACE_MODE_1000BASEX:
 +		target_fl_out = 0xa3d6;
 +		cyclecnt = 32767;
 +		break;
@@ -1914,6 +2043,55 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	usleep_range(100, 200);
 +}
 +
++static void airoha_pcs_get_state_sgmii(struct airoha_pcs_priv *priv,
++				       struct phylink_link_state *state)
++{
++	u32 val;
++
++	regmap_read(priv->hsgmii_pcs, ARIOHA_PCS_HSGMII_PCS_STATE_2,
++		    &val);
++
++	state->link = !!(val & AIROHA_PCS_HSGMII_PCS_RX_SYNC);
++	if (!state->link)
++		return;
++
++	state->an_complete = !!(val & AIROHA_PCS_HSGMII_PCS_AN_DONE);
++
++	regmap_read(priv->multi_sgmii, AIROHA_PCS_MULTI_HSGMII_MSG_RX_STS_18,
++		    &val);
++
++	switch (val) {
++	case AIROHA_PCS_P0_SGMII_IS_1000:
++		state->speed = SPEED_1000;
++		break;
++	case AIROHA_PCS_P0_SGMII_IS_100:
++		state->speed = SPEED_100;
++		break;
++	case AIROHA_PCS_P0_SGMII_IS_10:
++		state->speed = SPEED_10;
++		break;
++	}
++
++	state->duplex = DUPLEX_FULL;
++}
++
++static void airoha_pcs_get_state_hsgmii(struct airoha_pcs_priv *priv,
++				       struct phylink_link_state *state)
++{
++	u32 val;
++
++	regmap_read(priv->hsgmii_pcs, ARIOHA_PCS_HSGMII_PCS_STATE_2,
++		    &val);
++
++	state->link = !!(val & AIROHA_PCS_HSGMII_PCS_RX_SYNC);
++	if (!state->link)
++		return;
++
++	
++	state->speed = SPEED_2500;
++	state->duplex = DUPLEX_FULL;
++}
++
 +static void airoha_pcs_get_state_usxgmii(struct airoha_pcs_priv *priv,
 +					 struct phylink_link_state *state)
 +{
@@ -1934,19 +2112,18 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	if (!state->link)
 +		return;
 +
-+
-+	regmap_set_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_AN_CONTROL_6,
++	regmap_set_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_AN_CONTROL_6,
 +			AIROHA_PCS_USXGMII_TOG_PCS_AUTONEG_STS);
-+	regmap_clear_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_AN_CONTROL_6,
++	regmap_clear_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_AN_CONTROL_6,
 +			  AIROHA_PCS_USXGMII_TOG_PCS_AUTONEG_STS);
 +
-+	regmap_read(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_AN_STATS_2, &val);
++	regmap_read(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_AN_STATS_2, &val);
 +	state->an_complete = !!(val & AIROHA_PCS_USXGMII_PCS_AN_COMPLETE);
 +
 +	/* TODO no way to check duplex wait Airoha feedback */
 +	state->duplex = DUPLEX_FULL;
 +
-+	regmap_read(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_AN_STATS_0, &val);
++	regmap_read(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_AN_STATS_0, &val);
 +
 +	switch (val & AIROHA_PCS_USXGMII_CUR_USXGMII_MODE) {
 +	case AIROHA_PCS_USXGMII_CUR_USXGMII_MODE_10G:
@@ -1965,16 +2142,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		state->speed = SPEED_100;
 +		break;
 +	}
-+
-+	/* TODO check if this is ok to do */
-+	regmap_read(priv->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
-+		    &val);
-+
-+	if (val & AIROHA_PCS_XFI_TX_FC_EN)
-+		state->pause |= MLO_PAUSE_TX;
-+
-+	if (val & AIROHA_PCS_XFI_RX_FC_EN)
-+		state->pause |= MLO_PAUSE_RX;
 +
 +	return;
 +}
@@ -2273,24 +2440,24 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +// 	//b'usxgmii_init 1\r\n'
 +// 	regmap_write(priv->multi_sgmii, HSGMII_USXGMII_INIT, 0x10010001); /* set bit 28 */
 +
-+// 	regmap_clear_bits(priv->usxgmii, HSGMII_PCS_CTROL_1, BIT(13));
++// 	regmap_clear_bits(priv->usxgmii_pcs, HSGMII_PCS_CTROL_1, BIT(13));
 +
 +// 	//b'PCS E0/E1 solution\r\n'
 +// 	/* TODO Seems to be a workaround for some SoC, need to ask Airoha */
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_PCS_E0E1, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_PCS_E0E1, 0x0);
 +
 +// 	//b'usxgmii_pcs_int en 0\r\n'
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_INT_EN1, 0x0);
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_INT_EN2, 0x0);
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_INT_EN3, 0x0);
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_INT_EN4, 0x0);
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_INT_EN5, 0x0);
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_INT_EN6, 0x0);
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_INT_EN7, 0x0);
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_INT_EN8, 0x0);
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_INT_EN9, 0x0);
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_INT_EN10, 0x0);
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_INT_EN11, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_INT_EN1, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_INT_EN2, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_INT_EN3, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_INT_EN4, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_INT_EN5, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_INT_EN6, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_INT_EN7, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_INT_EN8, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_INT_EN9, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_INT_EN10, 0x0);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_INT_EN11, 0x0);
 +
 +// 	//b'xsgmii 0 int enable 0\r\n'
 +// 	//b'AN mode\r\n'
@@ -2298,7 +2465,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +// 	//b'xSGMII_AN_API 0, enable : 1\r\n'
 +// 	//b'usxgmii_an\r\n'
-+// 	regmap_write(priv->usxgmii, HSGMII_USXGMII_AN_EN, 0x6330001);
++// 	regmap_write(priv->usxgmii_pcs, HSGMII_USXGMII_AN_EN, 0x6330001);
 +
 +// 	//b'_rg_usxgmii_an_control_0 6330001\r\n'
 +// 	//b'_rg_usxgmii_an_control_1 0\r\n'
@@ -2317,15 +2484,34 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +				 struct phylink_link_state *state)
 +{
 +	struct airoha_pcs_port *port = phylink_pcs_to_airoha_pcs_port(pcs);
++	struct airoha_pcs_priv *priv = port->priv;
++	u32 val;
 +
 +	/* TODO state for SGMII, HSGMII seems to only support fixed link 2.5g */
 +	switch (state->interface) {
++	case PHY_INTERFACE_MODE_SGMII:
++	case PHY_INTERFACE_MODE_1000BASEX:
++		airoha_pcs_get_state_sgmii(priv, state);
++		break;
++	case PHY_INTERFACE_MODE_2500BASEX:
++		airoha_pcs_get_state_hsgmii(priv, state);
++		break;
 +	case PHY_INTERFACE_MODE_USXGMII:
-+		airoha_pcs_get_state_usxgmii(port->priv, state);
-+		return;
++		airoha_pcs_get_state_usxgmii(priv, state);
++		break;
 +	default:
 +		return;
 +	}
++
++	/* TODO check if this is ok to do */
++	regmap_read(priv->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
++		    &val);
++
++	if (val & AIROHA_PCS_XFI_TX_FC_EN)
++		state->pause |= MLO_PAUSE_TX;
++
++	if (val & AIROHA_PCS_XFI_RX_FC_EN)
++		state->pause |= MLO_PAUSE_RX;
 +}
 +
 +static int airoha_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
@@ -2335,6 +2521,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +{
 +	struct airoha_pcs_port *port = phylink_pcs_to_airoha_pcs_port(pcs);
 +	struct airoha_pcs_priv *priv = port->priv;
++	u32 rate_adapt;
 +
 +	/* Select HSGMII or USXGMII in SCU regs */
 +	airoha_pcs_setup_scu(priv, interface);
@@ -2360,16 +2547,74 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	/* TODO better handle for now hardcode AN */
 +	/* air_eth_xsgmii line 4716 */
 +
-+	regmap_set_bits(priv->usxgmii, AIROHA_PCS_USXGMII_PCS_AN_CONTROL_0,
++	/* SGMII AN mode */
++	regmap_update_bits(priv->hsgmii_rate_adp, AIROHA_PCS_HSGMII_RATE_ADP_P0_CTRL_0,
++			   AIROHA_PCS_HSGMII_P0_DIS_MII_MODE,
++			   neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED ?
++			   	AIROHA_PCS_HSGMII_P0_DIS_MII_MODE : 0);
++
++	regmap_set_bits(priv->hsgmii_an, AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_0,
++			AIROHA_PCS_HSGMII_AN_SGMII_RA_ENABLE);
++
++	/* USXGMII AN mode */
++	regmap_set_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_AN_CONTROL_0,
 +			AIROHA_PCS_USXGMII_AN_ENABLE);
 +
++	if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
++		rate_adapt = AIROHA_PCS_HSGMII_RATE_ADAPT_RX_EN |
++			     AIROHA_PCS_HSGMII_RATE_ADAPT_TX_EN;
++	else
++		rate_adapt = AIROHA_PCS_HSGMII_RATE_ADAPT_RX_BYPASS |
++			     AIROHA_PCS_HSGMII_RATE_ADAPT_TX_BYPASS |
++			     AIROHA_PCS_HSGMII_RATE_ADAPT_RX_EN |
++			     AIROHA_PCS_HSGMII_RATE_ADAPT_TX_EN;
++
++	/* AN Auto Settings */
 +	regmap_update_bits(priv->hsgmii_rate_adp, AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_0,
 +			   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_BYPASS |
 +			   AIROHA_PCS_HSGMII_RATE_ADAPT_TX_BYPASS |
 +			   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_EN |
-+			   AIROHA_PCS_HSGMII_RATE_ADAPT_TX_EN,
-+			   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_EN |
-+			   AIROHA_PCS_HSGMII_RATE_ADAPT_TX_EN);
++			   AIROHA_PCS_HSGMII_RATE_ADAPT_TX_EN, rate_adapt);
++
++	/* TODO handle force */
++	if (interface == PHY_INTERFACE_MODE_SGMII ||
++	    interface == PHY_INTERFACE_MODE_1000BASEX) {
++		u32 if_mode;
++
++		if (interface == PHY_INTERFACE_MODE_SGMII)
++			if_mode = AIROHA_PCS_HSGMII_AN_SIDEBAND_FORCE |
++				  AIROHA_PCS_HSGMII_AN_SGMII_EN;
++		else
++			if_mode = AIROHA_PCS_HSGMII_AN_SIDEBAND_FORCE |
++				  AIROHA_PCS_HSGMII_AN_SGMII_COMPAT_EN;
++
++		regmap_update_bits(priv->hsgmii_an, AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_13,
++				   AIROHA_PCS_HSGMII_AN_SGMII_IF_MODE_5_0, if_mode);
++
++		regmap_update_bits(priv->hsgmii_pcs, AIROHA_PCS_HSGMII_PCS_CTROL_6,
++				   AIROHA_PCS_HSGMII_PCS_MAC_MODE |
++				   AIROHA_PCS_HSGMII_PCS_TX_ENABLE |
++				   AIROHA_PCS_HSGMII_PCS_FORCE_RATEADAPT |
++				   AIROHA_PCS_HSGMII_PCS_MODE2_EN,
++				   AIROHA_PCS_HSGMII_PCS_TX_ENABLE |
++				   AIROHA_PCS_HSGMII_PCS_FORCE_RATEADAPT |
++				   AIROHA_PCS_HSGMII_PCS_MODE2_EN);
++	}
++
++	if (interface == PHY_INTERFACE_MODE_1000BASEX) {
++		regmap_set_bits(priv->hsgmii_pcs, AIROHA_PCS_HSGMII_PCS_CTROL_1,
++				AIROHA_PCS_SGMII_SEND_AN_ERR_EN);
++
++		regmap_set_bits(priv->hsgmii_pcs, AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_FORCE_CL37,
++				AIROHA_PCS_HSGMII_AN_FORCE_AN_DONE);
++
++		regmap_update_bits(priv->hsgmii_pcs, AIROHA_PCS_HSGMII_PCS_CTROL_3,
++				   AIROHA_PCS_HSGMII_PCS_LINK_STSTIME,
++				   FIELD_PREP(AIROHA_PCS_HSGMII_PCS_LINK_STSTIME, 0x98968));
++
++		regmap_set_bits(priv->hsgmii_pcs, AIROHA_PCS_HSGMII_PCS_CTROL_6,
++				AIROHA_PCS_HSGMII_PCS_SGMII_SPD_FORCE_1000);
++	}
 +
 +	return 0;
 +}
@@ -2509,9 +2754,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +	if (!IS_ERR(base)) {
 +		syscon_config.name = "usxgmii";
-+		priv->usxgmii = devm_regmap_init_mmio(dev, base, &syscon_config);
-+		if (IS_ERR(priv->usxgmii))
-+			return PTR_ERR(priv->usxgmii);
++		priv->usxgmii_pcs = devm_regmap_init_mmio(dev, base, &syscon_config);
++		if (IS_ERR(priv->usxgmii_pcs))
++			return PTR_ERR(priv->usxgmii_pcs);
 +	}
 +
 +	/* XFI PMA and ANA are for xfi port only and are optional for other modes */
