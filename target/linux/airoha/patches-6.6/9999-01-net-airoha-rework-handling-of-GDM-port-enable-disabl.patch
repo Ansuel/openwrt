@@ -42,76 +42,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  static bool airhoa_is_lan_gdm_port(struct airoha_gdm_port *port)
  {
  	/* GDM1 port on EN7581 SoC is connected to the lan dsa switch.
-@@ -87,7 +103,8 @@ static void airoha_set_macaddr(struct ai
- 	airoha_fe_wr(eth, REG_FE_MAC_LMAX(reg), val);
- }
- 
--static int airoha_set_vip_for_gdm_port(struct airoha_eth *eth, int port,
-+static int airoha_set_vip_for_gdm_port(struct airoha_eth *eth,
-+				       enum airoha_gdm_port_type port,
- 				       bool enable)
- {
- 	u32 vip_port;
-@@ -105,6 +122,8 @@ static int airoha_set_vip_for_gdm_port(s
- 	case XSI_ETH_PORT:
- 		vip_port = XSI_ETH_VIP_PORT_MASK;
- 		break;
-+	case INTERNAL_SWITCH_PORT:
-+		return 0;
- 	default:
- 		return -EINVAL;
- 	}
-@@ -120,31 +139,6 @@ static int airoha_set_vip_for_gdm_port(s
- 	return 0;
- }
- 
--static int airoha_set_vip_for_gdm_ports(struct airoha_eth *eth, bool enable)
--{
--	const int port_list[] = {
--		XSI_PCIE0_PORT,
--		XSI_PCIE1_PORT,
--		XSI_USB_PORT,
--		XSI_ETH_PORT
--	};
--	int i, err;
--
--	for (i = 0; i < ARRAY_SIZE(port_list); i++) {
--		err = airoha_set_vip_for_gdm_port(eth, port_list[i], enable);
--		if (err)
--			goto error;
--	}
--
--	return 0;
--
--error:
--	for (i--; i >= 0; i--)
--		airoha_set_vip_for_gdm_port(eth, port_list[i], false);
--
--	return err;
--}
--
- static void airoha_fe_maccr_init(struct airoha_eth *eth)
- {
- 	int p;
-@@ -1543,7 +1537,7 @@ static int airoha_dev_open(struct net_de
- 	int err;
- 
- 	netif_tx_start_all_queues(dev);
--	err = airoha_set_vip_for_gdm_ports(qdma->eth, true);
-+	err = airoha_set_vip_for_gdm_port(qdma->eth, port->type, true);
- 	if (err)
- 		return err;
- 
-@@ -1568,7 +1562,7 @@ static int airoha_dev_stop(struct net_de
- 	int err;
- 
- 	netif_tx_disable(dev);
--	err = airoha_set_vip_for_gdm_ports(qdma->eth, false);
-+	err = airoha_set_vip_for_gdm_port(qdma->eth, port->type, false);
- 	if (err)
- 		return err;
- 
-@@ -2418,6 +2412,7 @@ static int airoha_alloc_gdm_port(struct
+@@ -2457,6 +2473,7 @@ static int airoha_alloc_gdm_port(struct
  	port->qdma = qdma;
  	port->dev = dev;
  	port->id = id;
@@ -121,27 +52,28 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	err = airoha_metadata_dst_alloc(port);
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -76,12 +76,14 @@ enum {
+@@ -76,6 +76,15 @@ enum {
  	QDMA_INT_REG_MAX
  };
  
--enum {
 +enum airoha_gdm_port_type {
- 	XSI_PCIE0_PORT,
- 	XSI_PCIE1_PORT,
- 	XSI_USB_PORT,
- 	XSI_AE_PORT,
- 	XSI_ETH_PORT,
-+
++	XSI_PCIE0_PORT,
++	XSI_PCIE1_PORT,
++	XSI_USB_PORT,
++	XSI_AE_PORT,
++	XSI_ETH_PORT,
 +	INTERNAL_SWITCH_PORT,
- };
- 
++};
++
  enum {
-@@ -451,6 +453,7 @@ struct airoha_qdma {
- };
- 
+ 	HSGMII_LAN_PCIE0_SRCPORT = 0x16,
+ 	HSGMII_LAN_PCIE1_SRCPORT,
+@@ -452,6 +461,8 @@ struct airoha_qdma {
  struct airoha_gdm_port {
-+	enum airoha_gdm_port_type type;
  	struct airoha_qdma *qdma;
  	struct net_device *dev;
++
++	enum airoha_gdm_port_type type;
  	int id;
+ 
+ 	struct airoha_hw_stats stats;

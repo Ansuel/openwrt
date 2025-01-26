@@ -28,7 +28,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
 --- a/drivers/net/ethernet/mediatek/airoha_regs.h
 +++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -120,6 +120,7 @@
+@@ -126,6 +126,7 @@
  	GENMASK(4 + (((_n) % 4) << 3),	(((_n) % 4) << 3))
  
  #define REG_GDM_FWD_CFG(_n)		GDM_BASE(_n)
@@ -36,7 +36,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  #define GDM_DROP_CRC_ERR		BIT(23)
  #define GDM_IP4_CKSUM			BIT(22)
  #define GDM_TCP_CKSUM			BIT(21)
-@@ -303,13 +304,6 @@
+@@ -324,13 +325,6 @@
  #define MBI_RX_AGE_SEL_MASK		GENMASK(26, 25)
  #define MBI_TX_AGE_SEL_MASK		GENMASK(18, 17)
  

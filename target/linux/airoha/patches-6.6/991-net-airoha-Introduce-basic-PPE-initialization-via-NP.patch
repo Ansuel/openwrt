@@ -1,10 +1,10 @@
-From e93430705299069c526722aedc8f157f92ea5c89 Mon Sep 17 00:00:00 2001
-Message-ID: <e93430705299069c526722aedc8f157f92ea5c89.1737803595.git.lorenzo@kernel.org>
-In-Reply-To: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
-References: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
+From 42f1e34db6ed7390b790c66b17838fb90fa62d86 Mon Sep 17 00:00:00 2001
+Message-ID: <42f1e34db6ed7390b790c66b17838fb90fa62d86.1737907941.git.lorenzo@kernel.org>
+In-Reply-To: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
+References: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 4 Dec 2024 17:47:00 +0100
-Subject: [PATCH net-next 4/9] net: airoha: Introduce basic PPE initialization
+Subject: [PATCH net-next 3/9] net: airoha: Introduce basic PPE initialization
  via NPU
 
 Packet Processor Engine (PPE) and NPU modules are used to offload L2 and
@@ -44,7 +44,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/tcp.h>
  #include <linux/u64_stats_sync.h>
  #include <net/dsa.h>
-@@ -1324,6 +1321,9 @@ static int airoha_hw_init(struct platfor
+@@ -1302,6 +1299,9 @@ static int airoha_hw_init(struct platfor
  			return err;
  	}
  
@@ -54,7 +54,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	set_bit(DEV_STATE_INITIALIZED, &eth->state);
  
  	return 0;
-@@ -2483,6 +2483,7 @@ static void airoha_remove(struct platfor
+@@ -2464,6 +2464,7 @@ static void airoha_remove(struct platfor
  	}
  	free_netdev(eth->napi_dev);
  
@@ -92,7 +92,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define MTK_HDR_LEN			4
  #define MTK_HDR_XMIT_TAGGED_TPID_8100	1
  #define MTK_HDR_XMIT_TAGGED_TPID_88A8	2
-@@ -135,6 +147,46 @@ enum trtcm_param {
+@@ -127,6 +139,46 @@ enum trtcm_param {
  	TRTCM_METER_MODE = BIT(2),
  };
  
@@ -139,7 +139,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define MIN_TOKEN_SIZE				4096
  #define MAX_TOKEN_SIZE_OFFSET			17
  #define TRTCM_TOKEN_RATE_MASK			GENMASK(23, 6)
-@@ -203,6 +255,44 @@ struct airoha_hw_stats {
+@@ -195,6 +247,44 @@ struct airoha_hw_stats {
  	u64 rx_len[7];
  };
  
@@ -184,7 +184,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  struct airoha_qdma {
  	struct airoha_eth *eth;
  	void __iomem *regs;
-@@ -240,12 +330,34 @@ struct airoha_gdm_port {
+@@ -232,12 +322,34 @@ struct airoha_gdm_port {
  	struct metadata_dst *dsa_meta[AIROHA_MAX_DSA_PORTS];
  };
  
@@ -219,7 +219,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
  
-@@ -281,4 +393,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -273,4 +385,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  

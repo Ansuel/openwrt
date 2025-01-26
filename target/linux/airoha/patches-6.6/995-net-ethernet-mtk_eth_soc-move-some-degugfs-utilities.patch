@@ -1,10 +1,10 @@
-From 00f227a9f2755f8eda6112f8abe35a72c151abe4 Mon Sep 17 00:00:00 2001
-Message-ID: <00f227a9f2755f8eda6112f8abe35a72c151abe4.1737803595.git.lorenzo@kernel.org>
-In-Reply-To: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
-References: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
+From 2a9a60942baa1dde9de122d32482ada87bb143db Mon Sep 17 00:00:00 2001
+Message-ID: <2a9a60942baa1dde9de122d32482ada87bb143db.1737907941.git.lorenzo@kernel.org>
+In-Reply-To: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
+References: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 31 Dec 2024 19:27:59 +0100
-Subject: [PATCH net-next 8/9] net: ethernet: mtk_eth_soc: move some degugfs
+Subject: [PATCH net-next 7/9] net: ethernet: mtk_eth_soc: move some degugfs
  utilities in mtk_ppe.h
 
 This is a preliminary patch to add debugfs support for netfilter flowtable

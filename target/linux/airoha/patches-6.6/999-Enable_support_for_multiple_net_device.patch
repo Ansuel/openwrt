@@ -8,7 +8,7 @@ Date:   Fri Jan 17 21:00:26 2025 +0100
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -2347,13 +2347,14 @@ static void airoha_metadata_dst_free(str
+@@ -2386,13 +2386,14 @@ static void airoha_metadata_dst_free(str
  	}
  }
  
@@ -25,7 +25,7 @@ Date:   Fri Jan 17 21:00:26 2025 +0100
  	u32 id;
  
  	if (!id_ptr) {
-@@ -2362,14 +2363,14 @@ static int airoha_alloc_gdm_port(struct
+@@ -2401,14 +2402,14 @@ static int airoha_alloc_gdm_port(struct
  	}
  
  	id = be32_to_cpup(id_ptr);
@@ -42,7 +42,7 @@ Date:   Fri Jan 17 21:00:26 2025 +0100
  		dev_err(eth->dev, "duplicate gdm port id: %d\n", id);
  		return -EINVAL;
  	}
-@@ -2417,7 +2418,7 @@ static int airoha_alloc_gdm_port(struct
+@@ -2456,7 +2457,7 @@ static int airoha_alloc_gdm_port(struct
  	port->qdma = qdma;
  	port->dev = dev;
  	port->id = id;
@@ -51,7 +51,7 @@ Date:   Fri Jan 17 21:00:26 2025 +0100
  
  	err = airoha_metadata_dst_alloc(port);
  	if (err)
-@@ -2489,6 +2490,7 @@ static int airoha_probe(struct platform_
+@@ -2528,6 +2529,7 @@ static int airoha_probe(struct platform_
  	for (i = 0; i < ARRAY_SIZE(eth->qdma); i++)
  		airoha_qdma_start_napi(&eth->qdma[i]);
  
@@ -59,7 +59,7 @@ Date:   Fri Jan 17 21:00:26 2025 +0100
  	for_each_child_of_node(pdev->dev.of_node, np) {
  		if (!of_device_is_compatible(np, "airoha,eth-mac"))
  			continue;
-@@ -2496,7 +2498,7 @@ static int airoha_probe(struct platform_
+@@ -2535,7 +2537,7 @@ static int airoha_probe(struct platform_
  		if (!of_device_is_available(np))
  			continue;
  

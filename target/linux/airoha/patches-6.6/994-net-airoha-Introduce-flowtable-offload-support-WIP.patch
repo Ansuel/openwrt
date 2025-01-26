@@ -1,8 +1,10 @@
-From f1c2677b80b57ebc2dd45788fd77d65cfb6111ad Mon Sep 17 00:00:00 2001
-Message-ID: <f1c2677b80b57ebc2dd45788fd77d65cfb6111ad.1737827426.git.lorenzo@kernel.org>
+From ee8ad0398f2c55d42cca6c06e7e8f7a94075923c Mon Sep 17 00:00:00 2001
+Message-ID: <ee8ad0398f2c55d42cca6c06e7e8f7a94075923c.1737907941.git.lorenzo@kernel.org>
+In-Reply-To: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
+References: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 27 Dec 2024 15:20:48 +0100
-Subject: [PATCH net-next] net: airoha: Introduce flowtable offload support
+Subject: [PATCH net-next 6/9] net: airoha: Introduce flowtable offload support
  (WIP)
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
@@ -26,30 +28,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <uapi/linux/ppp_defs.h>
  
  #include "airoha_regs.h"
-@@ -152,16 +150,18 @@ static void airoha_fe_maccr_init(struct
- 	int p;
- 
- 	for (p = 1; p <= ARRAY_SIZE(eth->ports); p++) {
-+		u32 pse_port = p == 1 ? FE_PSE_PORT_PPE1 : FE_PSE_PORT_PPE2;
-+
- 		airoha_fe_set(eth, REG_GDM_FWD_CFG(p),
- 			      GDM_TCP_CKSUM | GDM_UDP_CKSUM | GDM_IP4_CKSUM |
- 			      GDM_DROP_CRC_ERR);
- 		airoha_fe_rmw(eth, REG_GDM_FWD_CFG(p),
- 			      GDM_OCFQ_MASK | GDM_MCFQ_MASK |
- 			      GDM_BCFQ_MASK | GDM_UCFQ_MASK,
--			      FIELD_PREP(GDM_OCFQ_MASK, FE_PSE_PORT_PPE1) |
--			      FIELD_PREP(GDM_MCFQ_MASK, FE_PSE_PORT_PPE1) |
--			      FIELD_PREP(GDM_BCFQ_MASK, FE_PSE_PORT_PPE1) |
--			      FIELD_PREP(GDM_UCFQ_MASK, FE_PSE_PORT_PPE1));
-+			      FIELD_PREP(GDM_OCFQ_MASK, pse_port) |
-+			      FIELD_PREP(GDM_MCFQ_MASK, pse_port) |
-+			      FIELD_PREP(GDM_BCFQ_MASK, pse_port) |
-+			      FIELD_PREP(GDM_UCFQ_MASK, pse_port));
- 		airoha_fe_rmw(eth, REG_GDM_LEN_CFG(p),
- 			      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
- 			      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
-@@ -638,6 +638,7 @@ static int airoha_qdma_rx_process(struct
+@@ -616,6 +614,7 @@ static int airoha_qdma_rx_process(struct
  	while (done < budget) {
  		struct airoha_queue_entry *e = &q->entry[q->tail];
  		struct airoha_qdma_desc *desc = &q->desc[q->tail];
@@ -57,7 +36,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		dma_addr_t dma_addr = le32_to_cpu(desc->addr);
  		u32 desc_ctrl = le32_to_cpu(desc->ctrl);
  		struct airoha_gdm_port *port;
-@@ -700,6 +701,15 @@ static int airoha_qdma_rx_process(struct
+@@ -678,6 +677,15 @@ static int airoha_qdma_rx_process(struct
  						  &port->dsa_meta[sptag]->dst);
  		}
  
@@ -73,7 +52,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		napi_gro_receive(&q->napi, skb);
  
  		done++;
-@@ -2146,6 +2156,47 @@ static int airoha_tc_htb_alloc_leaf_queu
+@@ -2127,6 +2135,47 @@ static int airoha_tc_htb_alloc_leaf_queu
  	return 0;
  }
  
@@ -121,7 +100,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_tc_remove_htb_queue(struct airoha_gdm_port *port, int queue)
  {
  	struct net_device *dev = port->dev;
-@@ -2229,6 +2280,9 @@ static int airoha_dev_tc_setup(struct ne
+@@ -2210,6 +2259,9 @@ static int airoha_dev_tc_setup(struct ne
  		return airoha_tc_setup_qdisc_ets(port, type_data);
  	case TC_SETUP_QDISC_HTB:
  		return airoha_tc_setup_qdisc_htb(port, type_data);
@@ -157,7 +136,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define PPE_ENTRY_SIZE			80
  #define PPE_SRAM_TABLE_SIZE		(PPE_SRAM_NUM_ENTRIES * PPE_ENTRY_SIZE)
  #define PPE_TABLE_SIZE			(PPE_NUM_ENTRIES * PPE_ENTRY_SIZE)
-@@ -293,6 +300,135 @@ struct ppe_mbox_data {
+@@ -285,6 +292,135 @@ struct ppe_mbox_data {
  	};
  };
  
@@ -293,7 +272,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  struct airoha_qdma {
  	struct airoha_eth *eth;
  	void __iomem *regs;
-@@ -343,11 +479,17 @@ struct airoha_npu {
+@@ -335,11 +471,17 @@ struct airoha_npu {
  	} cores[AIROHA_NPU_NUM_CORES];
  };
  
@@ -311,7 +290,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_eth {
-@@ -358,6 +500,7 @@ struct airoha_eth {
+@@ -350,6 +492,7 @@ struct airoha_eth {
  
  	struct airoha_npu *npu;
  	struct airoha_ppe *ppe;
@@ -319,7 +298,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
-@@ -394,6 +537,9 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -386,6 +529,9 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  

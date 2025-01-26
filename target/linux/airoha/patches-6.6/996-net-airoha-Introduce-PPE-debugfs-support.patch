@@ -1,10 +1,10 @@
-From a0cf321207740caecb9787ee4ba863ad22fba721 Mon Sep 17 00:00:00 2001
-Message-ID: <a0cf321207740caecb9787ee4ba863ad22fba721.1737803595.git.lorenzo@kernel.org>
-In-Reply-To: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
-References: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
+From b2379648ee4e9e8542e91f743a37d892e1b2c1dd Mon Sep 17 00:00:00 2001
+Message-ID: <b2379648ee4e9e8542e91f743a37d892e1b2c1dd.1737907941.git.lorenzo@kernel.org>
+In-Reply-To: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
+References: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 1 Jan 2025 13:51:51 +0100
-Subject: [PATCH net-next 9/9] net: airoha: Introduce PPE debugfs support
+Subject: [PATCH net-next 8/9] net: airoha: Introduce PPE debugfs support
 
 Similar to PPE support for Mediatek devices, introduce PPE debugfs
 in order to dump binded and unbinded flows.
@@ -17,7 +17,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -490,6 +490,8 @@ struct airoha_ppe {
+@@ -482,6 +482,8 @@ struct airoha_ppe {
  
  	struct hlist_head *foe_flow;
  	u16 foe_check_time[PPE_NUM_ENTRIES];
@@ -36,7 +36,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/devcoredump.h>
  #include <linux/firmware.h>
  #include <linux/ip.h>
-@@ -1041,6 +1042,121 @@ void airoha_ppe_check_skb(struct airoha_
+@@ -1058,6 +1059,121 @@ void airoha_ppe_check_skb(struct airoha_
  	airoha_ppe_foe_insert_entry(ppe, hash);
  }
  
@@ -158,7 +158,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  int airoha_ppe_init(struct airoha_eth *eth)
  {
  	struct airoha_npu *npu;
-@@ -1107,6 +1223,10 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -1124,6 +1240,10 @@ int airoha_ppe_init(struct airoha_eth *e
  	if (err)
  		goto error_npu_deinit;
  
@@ -169,7 +169,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return 0;
  
  error_npu_deinit:
-@@ -1125,4 +1245,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -1142,4 +1262,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_deinit(eth->npu);
  	}
  	rhashtable_destroy(&eth->flow_table);
