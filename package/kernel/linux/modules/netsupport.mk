@@ -809,6 +809,20 @@ endef
 
 $(eval $(call KernelPackage,sched-act-vlan))
 
+define KernelPackage/sched-act-ct
+  SUBMENU:=$(NETWORK_SUPPORT_MENU)
+  TITLE:=Traffic CT action
+  DEPENDS:=+kmod-sched-core +kmod-nf-conntrack +kmod-nf-flow +kmod-nf-nat
+  KCONFIG:=CONFIG_NET_ACT_CT
+  FILES:=$(LINUX_DIR)/net/sched/act_ct.ko
+  AUTOLOAD:=$(call AutoProbe, act_ct)
+endef
+
+define KernelPackage/sched-act-ct/description
+ Allows sending the packets to conntrack module.
+endef
+
+$(eval $(call KernelPackage,sched-act-ct))
 
 define KernelPackage/sched-bpf
   SUBMENU:=$(NETWORK_SUPPORT_MENU)
