@@ -1107,7 +1107,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +			      PPE_DRAM_TB_NUM_ENTRY_MASK,
 +			      FIELD_PREP(PPE_SRAM_TB_NUM_ENTRY_MASK, 3) |
 +			      PPE_TB_ENTRY_SIZE_MASK |
-+			      FIELD_PREP(PPE_SRAM_TB_NUM_ENTRY_MASK, 4));
++			      FIELD_PREP(PPE_DRAM_TB_NUM_ENTRY_MASK, 4));
 +	}
  
  	err = airoha_npu_flush_ppe_sram_entries(npu, ppe);
