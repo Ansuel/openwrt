@@ -1,4 +1,4 @@
-From c8c13bb400e7d1aadabad09fa8304134451025aa Mon Sep 17 00:00:00 2001
+From 164519fea8f6d3bf2c95f0ae2504aa789a2d562c Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 17 Jan 2025 12:40:32 +0100
 Subject: [PATCH 1/2] WIP net: pcs: airoha: add PCS driver for Airoha SoC
@@ -15,12 +15,14 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
  drivers/net/pcs/Kconfig        |    6 +
  drivers/net/pcs/Makefile       |    1 +
- drivers/net/pcs/pcs-airoha.c   | 2747 ++++++++++++++++++++++++++++++++
+ drivers/net/pcs/pcs-airoha.c   | 2774 ++++++++++++++++++++++++++++++++
  include/linux/pcs/pcs-airoha.h |   14 +
- 4 files changed, 2768 insertions(+)
+ 4 files changed, 2795 insertions(+)
  create mode 100644 drivers/net/pcs/pcs-airoha.c
  create mode 100644 include/linux/pcs/pcs-airoha.h
 
+diff --git a/drivers/net/pcs/Kconfig b/drivers/net/pcs/Kconfig
+index f6aa437473de..4b65f8728351 100644
 --- a/drivers/net/pcs/Kconfig
 +++ b/drivers/net/pcs/Kconfig
 @@ -5,6 +5,12 @@
@@ -34,8 +36,10 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	  PCS for SoC Ethernet SERDES.
 +
  config PCS_XPCS
- 	tristate
+ 	tristate "Synopsys DesignWare Ethernet XPCS"
  	select PHYLINK
+diff --git a/drivers/net/pcs/Makefile b/drivers/net/pcs/Makefile
+index 4f7920618b90..0f82db009b65 100644
 --- a/drivers/net/pcs/Makefile
 +++ b/drivers/net/pcs/Makefile
 @@ -1,6 +1,7 @@
@@ -46,9 +50,12 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  pcs_xpcs-$(CONFIG_PCS_XPCS)	:= pcs-xpcs.o pcs-xpcs-nxp.o pcs-xpcs-wx.o
  
  obj-$(CONFIG_PCS_XPCS)		+= pcs_xpcs.o
+diff --git a/drivers/net/pcs/pcs-airoha.c b/drivers/net/pcs/pcs-airoha.c
+new file mode 100644
+index 000000000000..94fac9dd4137
 --- /dev/null
 +++ b/drivers/net/pcs/pcs-airoha.c
-@@ -0,0 +1,2747 @@
+@@ -0,0 +1,2774 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2024 AIROHA Inc
@@ -73,6 +80,16 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +/* HSGMII_AN */
 +#define AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_0	0x0
 +#define   AIROHA_PCS_HSGMII_AN_SGMII_RA_ENABLE	BIT(12)
++#define AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_1	0x4 /* BMSR */
++#define   AIROHA_PCS_HSGMII_AN_SGMII_UNIDIR_ABILITY BIT(6)
++#define   AIROHA_PCS_HSGMII_AN_SGMII_AN_COMPLETE BIT(5)
++#define   AIROHA_PCS_HSGMII_AN_SGMII_REMOTE_FAULT BIT(4)
++#define   AIROHA_PCS_HSGMII_AN_SGMII_AN_ABILITY BIT(3)
++#define   AIROHA_PCS_HSGMII_AN_SGMII_LINK_STATUS BIT(2)
++#define AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_4	0x10
++#define   AIROHA_PCS_HSGMII_AN_SGMII_DEV_ABILITY GENMASK(15, 0)
++#define AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_5	0x14 /* LPA */
++#define    AIROHA_PCS_HSGMII_AN_SGMII_PARTNER_ABILITY GENMASK(15, 0)
 +#define AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_13	0x34
 +#define   AIROHA_PCS_HSGMII_AN_SGMII_IF_MODE_5_0 GENMASK(5, 0)
 +#define     AIROHA_PCS_HSGMII_AN_SGMII_COMPAT_EN BIT(5)
@@ -87,6 +104,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define AIROHA_PCS_HSGMII_PCS_CTROL_1		0x0
 +#define   AIROHA_PCS_TBI_10B_MODE		BIT(30)
 +#define   AIROHA_PCS_SGMII_SEND_AN_ERR_EN	BIT(24)
++#define   AIROHA_PCS_REMOTE_FAULT_DIS		BIT(12)
 +#define AIROHA_PCS_HSGMII_PCS_CTROL_3		0x8
 +#define   AIROHA_PCS_HSGMII_PCS_LINK_STSTIME	GENMASK(19, 0)
 +#define AIROHA_PCS_HSGMII_PCS_CTROL_6		0x14
@@ -782,24 +800,12 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +	regmap_set_bits(priv->hsgmii_pcs, AIROHA_PCS_HSGMII_PCS_CTROL_1,
 +			AIROHA_PCS_TBI_10B_MODE);
-+
-+	regmap_update_bits(priv->multi_sgmii, AIROHA_PCS_MULTI_HSGMII_SGMII_STS_CTRL_0,
-+			   AIROHA_PCS_LINK_MODE_P0 |
-+			   AIROHA_PCS_FORCE_SPD_MODE_P0,
-+			   AIROHA_PCS_LINK_MODE_P0_2_5G |
-+			   AIROHA_PCS_FORCE_SPD_MODE_P0);
 +}
 +
 +static void airoha_pcs_init_sgmii(struct airoha_pcs_priv *priv)
 +{
 +	regmap_set_bits(priv->hsgmii_pcs, AIROHA_PCS_HSGMII_PCS_CTROL_1,
 +			AIROHA_PCS_TBI_10B_MODE);
-+
-+	regmap_update_bits(priv->multi_sgmii, AIROHA_PCS_MULTI_HSGMII_SGMII_STS_CTRL_0,
-+			   AIROHA_PCS_LINK_MODE_P0 |
-+			   AIROHA_PCS_FORCE_SPD_MODE_P0,
-+			   AIROHA_PCS_LINK_MODE_P0_1G |
-+			   AIROHA_PCS_FORCE_SPD_MODE_P0);
 +
 +	regmap_update_bits(priv->hsgmii_rate_adp, AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_6,
 +			   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_DOUT_L,
@@ -873,7 +879,14 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	regmap_set_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_INT_STA_4,
 +			AIROHA_PCS_USXGMII_LINK_DOWN_ST_INT);
 +
-+	/* TODO decide if implement ISR for link up and link down */
++	/* It seems using Interrupt is not reliable.
++	 * Link Down is never triggered on actual link down.
++	 * Altenative method are tried like the Signal Detect (SigDet)
++	 * module but also that detect only Link Up but never
++	 * link down.
++	 * 
++	 * The most reliable solution is Poll and using LPA values.
++	 */
 +}
 +
 +static void airoha_pcs_interrupt_init(struct airoha_pcs_priv *priv,
@@ -2046,33 +2059,20 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +static void airoha_pcs_get_state_sgmii(struct airoha_pcs_priv *priv,
 +				       struct phylink_link_state *state)
 +{
-+	u32 val;
++	u32 bmsr, lpa;
 +
-+	regmap_read(priv->hsgmii_pcs, ARIOHA_PCS_HSGMII_PCS_STATE_2,
-+		    &val);
++	regmap_read(priv->hsgmii_an, AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_1,
++		    &bmsr);
++	regmap_read(priv->hsgmii_an, AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_5,
++		    &lpa);
 +
-+	state->link = !!(val & AIROHA_PCS_HSGMII_PCS_RX_SYNC);
-+	if (!state->link)
-+		return;
++	bmsr = (AIROHA_PCS_HSGMII_AN_SGMII_AN_COMPLETE |
++		AIROHA_PCS_HSGMII_AN_SGMII_REMOTE_FAULT |
++		AIROHA_PCS_HSGMII_AN_SGMII_AN_ABILITY |
++		AIROHA_PCS_HSGMII_AN_SGMII_LINK_STATUS) & bmsr;
++	lpa = AIROHA_PCS_HSGMII_AN_SGMII_PARTNER_ABILITY & lpa;
 +
-+	state->an_complete = !!(val & AIROHA_PCS_HSGMII_PCS_AN_DONE);
-+
-+	regmap_read(priv->multi_sgmii, AIROHA_PCS_MULTI_HSGMII_MSG_RX_STS_18,
-+		    &val);
-+
-+	switch (val) {
-+	case AIROHA_PCS_P0_SGMII_IS_1000:
-+		state->speed = SPEED_1000;
-+		break;
-+	case AIROHA_PCS_P0_SGMII_IS_100:
-+		state->speed = SPEED_100;
-+		break;
-+	case AIROHA_PCS_P0_SGMII_IS_10:
-+		state->speed = SPEED_10;
-+		break;
-+	}
-+
-+	state->duplex = DUPLEX_FULL;
++	phylink_mii_c22_pcs_decode_state(state, bmsr, lpa);
 +}
 +
 +static void airoha_pcs_get_state_hsgmii(struct airoha_pcs_priv *priv,
@@ -2095,55 +2095,20 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +static void airoha_pcs_get_state_usxgmii(struct airoha_pcs_priv *priv,
 +					 struct phylink_link_state *state)
 +{
-+	int i, count = 0;
-+	u32 val;
++	u32 lpa;
 +
-+	/* TODO ask for a better way to check link up, NOT reliable */
-+	regmap_write(priv->xfi_pma, AIROHA_PCS_PMA_DIG_RESERVE_0,
-+		     0x30000);
-+	for (i = 0; i < 6; i++) {
-+		regmap_read(priv->xfi_pma, AIROHA_PCS_PMA_DIG_RO_RESERVE_2,
-+			    &val);
-+		if (val & BIT(8))
-+			count++;
-+	}
-+
-+	state->link = count >= 4;
-+	if (!state->link)
-+		return;
-+
++	/* Toggle Autoneg Status values */
 +	regmap_set_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_AN_CONTROL_6,
 +			AIROHA_PCS_USXGMII_TOG_PCS_AUTONEG_STS);
 +	regmap_clear_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_AN_CONTROL_6,
 +			  AIROHA_PCS_USXGMII_TOG_PCS_AUTONEG_STS);
 +
-+	regmap_read(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_AN_STATS_2, &val);
-+	state->an_complete = !!(val & AIROHA_PCS_USXGMII_PCS_AN_COMPLETE);
++	regmap_read(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_AN_STATS_0, &lpa);
 +
-+	/* TODO no way to check duplex wait Airoha feedback */
-+	state->duplex = DUPLEX_FULL;
++	state->link = !!(lpa & MDIO_USXGMII_LINK);
++	state->an_complete = state->link;
 +
-+	regmap_read(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_AN_STATS_0, &val);
-+
-+	switch (val & AIROHA_PCS_USXGMII_CUR_USXGMII_MODE) {
-+	case AIROHA_PCS_USXGMII_CUR_USXGMII_MODE_10G:
-+		state->speed = SPEED_10000;
-+		break;
-+	case AIROHA_PCS_USXGMII_CUR_USXGMII_MODE_5G:
-+		state->speed = SPEED_5000;
-+		break;
-+	case AIROHA_PCS_USXGMII_CUR_USXGMII_MODE_2_5G:
-+		state->speed = SPEED_2500;
-+		break;
-+	case AIROHA_PCS_USXGMII_CUR_USXGMII_MODE_1G:
-+		state->speed = SPEED_1000;
-+		break;
-+	case AIROHA_PCS_USXGMII_CUR_USXGMII_MODE_100M:
-+		state->speed = SPEED_100;
-+		break;
-+	}
-+
-+	return;
++	phylink_decode_usxgmii_word(state, lpa);
 +}
 +
 +// Evaluate everything is correct especially for last lines
@@ -2576,6 +2541,19 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +			   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_EN |
 +			   AIROHA_PCS_HSGMII_RATE_ADAPT_TX_EN, rate_adapt);
 +
++	if (interface == PHY_INTERFACE_MODE_SGMII &&
++	    neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED) {
++		int advertise = phylink_mii_c22_pcs_encode_advertisement(interface,
++									 advertising);
++		if (advertise < 0)
++			return advertise;
++
++		regmap_update_bits(priv->hsgmii_an, AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_4,
++				   AIROHA_PCS_HSGMII_AN_SGMII_DEV_ABILITY,
++				   FIELD_PREP(AIROHA_PCS_HSGMII_AN_SGMII_DEV_ABILITY,
++				   	      advertise));
++	}
++
 +	/* TODO handle force */
 +	if (interface == PHY_INTERFACE_MODE_SGMII ||
 +	    interface == PHY_INTERFACE_MODE_1000BASEX) {
@@ -2587,6 +2565,10 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		else
 +			if_mode = AIROHA_PCS_HSGMII_AN_SIDEBAND_FORCE |
 +				  AIROHA_PCS_HSGMII_AN_SGMII_COMPAT_EN;
++
++		if (neg_mode & PHYLINK_PCS_NEG_INBAND)
++			regmap_set_bits(priv->hsgmii_pcs, AIROHA_PCS_HSGMII_PCS_CTROL_1,
++					AIROHA_PCS_REMOTE_FAULT_DIS);
 +
 +		regmap_update_bits(priv->hsgmii_an, AIROHA_PCS_HSGMII_AN_SGMII_REG_AN_13,
 +				   AIROHA_PCS_HSGMII_AN_SGMII_IF_MODE_5_0, if_mode);
@@ -2625,11 +2607,63 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	return;
 +}
 +
++static void airoha_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_mode,
++			       phy_interface_t interface, int speed, int duplex)
++{
++	struct airoha_pcs_port *port = phylink_pcs_to_airoha_pcs_port(pcs);
++	struct airoha_pcs_priv *priv = port->priv;
++
++	if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED) {
++		if (interface == PHY_INTERFACE_MODE_SGMII) {
++			regmap_update_bits(priv->hsgmii_rate_adp,
++					AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_1,
++					AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_WR_THR |
++					AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_RD_THR,
++					FIELD_PREP(AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_WR_THR, 0x0) |
++					FIELD_PREP(AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_RD_THR, 0x0));
++			udelay(1);
++			regmap_update_bits(priv->hsgmii_rate_adp,
++					AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_1,
++					AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_WR_THR |
++					AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_RD_THR,
++					FIELD_PREP(AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_WR_THR, 0xf) |
++					FIELD_PREP(AIROHA_PCS_HSGMII_RATE_ADAPT_RX_AFIFO_RD_THR, 0x5));
++		}
++	} else {
++		if (interface == PHY_INTERFACE_MODE_SGMII ||
++		    interface == PHY_INTERFACE_MODE_2500BASEX) {
++			u32 speed_reg;
++
++			switch (speed) {
++			case SPEED_2500:
++				speed_reg = AIROHA_PCS_LINK_MODE_P0_2_5G;
++				break;
++			case SPEED_1000:
++				speed_reg = AIROHA_PCS_LINK_MODE_P0_1G;
++				break;
++			case SPEED_100:
++				speed_reg = AIROHA_PCS_LINK_MODE_P0_100M;
++				break;
++			case SPEED_10:
++				speed_reg = AIROHA_PCS_LINK_MODE_P0_100M;
++				break;
++			}
++
++			regmap_update_bits(priv->multi_sgmii, AIROHA_PCS_MULTI_HSGMII_SGMII_STS_CTRL_0,
++					   AIROHA_PCS_LINK_MODE_P0 |
++					   AIROHA_PCS_FORCE_SPD_MODE_P0,
++					   speed_reg |
++					   AIROHA_PCS_FORCE_SPD_MODE_P0);
++		}
++	}
++}
++
 +static const struct phylink_pcs_ops airoha_pcs_ops = {
 +	//.pcs_inband_caps = airoha_pcs_inband_caps,
 +	.pcs_get_state = airoha_pcs_get_state,
 +	.pcs_config = airoha_pcs_config,
 +	.pcs_an_restart = airoha_pcs_an_restart,
++	.pcs_link_up = airoha_pcs_link_up,
 +};
 +
 +struct phylink_pcs *airoha_pcs_create(struct device *dev)
@@ -2797,6 +2831,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +MODULE_DESCRIPTION("Airoha PCS driver");
 +MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 \ No newline at end of file
+diff --git a/include/linux/pcs/pcs-airoha.h b/include/linux/pcs/pcs-airoha.h
+new file mode 100644
+index 000000000000..cfe3a0411486
 --- /dev/null
 +++ b/include/linux/pcs/pcs-airoha.h
 @@ -0,0 +1,14 @@
@@ -2814,3 +2851,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +void airoha_pcs_destroy(struct phylink_pcs *pcs);
 +
 +#endif /* __LINUX_PCS_AIROHA_H */
+-- 
+2.47.1
+
