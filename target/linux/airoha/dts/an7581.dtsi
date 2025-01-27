@@ -821,8 +821,6 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 
-				clock-frequency = <7800000>;
-
 				gsw_phy1: ethernet-phy@1 {
 					compatible = "ethernet-phy-ieee802.3-c22";
 					reg = <9>;
