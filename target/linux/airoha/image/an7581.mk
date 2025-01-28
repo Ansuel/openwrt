@@ -24,6 +24,13 @@ define Device/airoha_an7581-evb-an8811
 endef
 TARGET_DEVICES += airoha_an7581-evb-an8811
 
+define Device/airoha_an7581-evb-pon
+  $(call Device/airoha_an7581-evb)
+  DEVICE_MODEL := AN7581 Evaluation Board (SNAND + PON)
+  DEVICE_DTS := an7581-evb-pon
+endef
+TARGET_DEVICES += airoha_an7581-evb-pon
+
 define Device/airoha_an7581-evb-emmc
   DEVICE_VENDOR := Airoha
   DEVICE_MODEL := AN7581 Evaluation Board (EMMC)
