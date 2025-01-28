@@ -17,8 +17,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  2 files changed, 669 insertions(+), 658 deletions(-)
  create mode 100644 drivers/net/ethernet/mediatek/airoha_regs.h
 
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
-index 0ead0799cc04..0f5727bfec39 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
 @@ -13,666 +13,9 @@
@@ -689,9 +687,6 @@ index 0ead0799cc04..0f5727bfec39 100644
  u32 airoha_rr(void __iomem *base, u32 offset)
  {
  	return readl(base + offset);
-diff --git a/drivers/net/ethernet/mediatek/airoha_regs.h b/drivers/net/ethernet/mediatek/airoha_regs.h
-new file mode 100644
-index 000000000000..878833d8fd9d
 --- /dev/null
 +++ b/drivers/net/ethernet/mediatek/airoha_regs.h
 @@ -0,0 +1,668 @@
@@ -1363,6 +1358,3 @@ index 000000000000..878833d8fd9d
 +};
 +
 +#endif /* AIROHA_REGS_H */
--- 
-2.47.1
-

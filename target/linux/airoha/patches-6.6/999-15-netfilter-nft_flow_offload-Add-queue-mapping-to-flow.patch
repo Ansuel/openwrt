@@ -1,0 +1,68 @@
+From 3dc277b3a59e6facf072f21e81e6ca499e70d60d Mon Sep 17 00:00:00 2001
+Message-ID: <3dc277b3a59e6facf072f21e81e6ca499e70d60d.1738071266.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Tue, 28 Jan 2025 09:24:25 +0100
+Subject: [PATCH net-next 1/2] netfilter: nft_flow_offload: Add queue mapping
+ to flowtable offload
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ include/net/netfilter/nf_flow_table.h |  1 +
+ net/netfilter/nf_flow_table_offload.c |  8 ++++++++
+ net/netfilter/nft_flow_offload.c      | 11 +++++++++++
+ 3 files changed, 20 insertions(+)
+
+--- a/include/net/netfilter/nf_flow_table.h
++++ b/include/net/netfilter/nf_flow_table.h
+@@ -137,6 +137,7 @@ struct flow_offload_tuple {
+ 					encap_num:2,
+ 					in_vlan_ingress:2;
+ 	u16				mtu;
++	u32				mark;
+ 	union {
+ 		struct {
+ 			struct dst_entry *dst_cache;
+--- a/net/netfilter/nf_flow_table_offload.c
++++ b/net/netfilter/nf_flow_table_offload.c
+@@ -653,6 +653,14 @@ nf_flow_rule_route_common(struct net *ne
+ 		}
+ 	}
+ 
++	if (tuple->mark) {
++		struct flow_action_entry *entry;
++
++		entry = flow_action_entry_next(flow_rule);
++		entry->id = FLOW_ACTION_MARK;
++		entry->mark = tuple->mark;
++	}
++
+ 	other_tuple = &flow->tuplehash[!dir].tuple;
+ 
+ 	for (i = 0; i < other_tuple->encap_num; i++) {
+--- a/net/netfilter/nft_flow_offload.c
++++ b/net/netfilter/nft_flow_offload.c
+@@ -271,6 +271,16 @@ static int nft_flow_route(const struct n
+ 	return 0;
+ }
+ 
++static void nft_flow_set_mark(const struct nft_pktinfo *pkt,
++			      struct flow_offload *flow,
++			      enum ip_conntrack_dir dir)
++{
++	struct flow_offload_tuple *tuple;
++
++	tuple = &flow->tuplehash[dir].tuple;
++	tuple->mark = pkt->skb->mark;
++}
++
+ static bool nft_flow_offload_skip(struct sk_buff *skb, int family)
+ {
+ 	if (skb_sec_path(skb))
+@@ -354,6 +364,7 @@ static void nft_flow_offload_eval(const
+ 	if (!flow)
+ 		goto err_flow_alloc;
+ 
++	nft_flow_set_mark(pkt, flow, dir);
+ 	flow_offload_route_init(flow, &route);
+ 
+ 	if (tcph) {

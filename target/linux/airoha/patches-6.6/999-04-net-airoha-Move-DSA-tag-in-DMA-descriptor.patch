@@ -29,7 +29,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <net/page_pool/helpers.h>
  #include <net/pkt_cls.h>
  #include <uapi/linux/ppp_defs.h>
-@@ -656,6 +657,7 @@ static int airoha_qdma_rx_process(struct
+@@ -647,6 +648,7 @@ static int airoha_qdma_rx_process(struct
  		struct airoha_qdma_desc *desc = &q->desc[q->tail];
  		dma_addr_t dma_addr = le32_to_cpu(desc->addr);
  		u32 desc_ctrl = le32_to_cpu(desc->ctrl);
@@ -37,7 +37,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		struct sk_buff *skb;
  		int len, p;
  
-@@ -683,6 +685,7 @@ static int airoha_qdma_rx_process(struct
+@@ -674,6 +676,7 @@ static int airoha_qdma_rx_process(struct
  			continue;
  		}
  
@@ -45,7 +45,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		skb = napi_build_skb(e->buf, q->buf_size);
  		if (!skb) {
  			page_pool_put_full_page(q->page_pool,
-@@ -694,10 +697,26 @@ static int airoha_qdma_rx_process(struct
+@@ -685,10 +688,26 @@ static int airoha_qdma_rx_process(struct
  		skb_reserve(skb, 2);
  		__skb_put(skb, len);
  		skb_mark_for_recycle(skb);
@@ -73,7 +73,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		napi_gro_receive(&q->napi, skb);
  
  		done++;
-@@ -1629,26 +1648,64 @@ static u16 airoha_dev_select_queue(struc
+@@ -1623,26 +1642,64 @@ static u16 airoha_dev_select_queue(struc
  	return queue < dev->num_tx_queues ? queue : 0;
  }
  
@@ -141,7 +141,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (skb->ip_summed == CHECKSUM_PARTIAL)
  		msg0 |= FIELD_PREP(QDMA_ETH_TXMSG_TCO_MASK, 1) |
  			FIELD_PREP(QDMA_ETH_TXMSG_UCO_MASK, 1) |
-@@ -1685,7 +1742,9 @@ static netdev_tx_t airoha_dev_xmit(struc
+@@ -1679,7 +1736,9 @@ static netdev_tx_t airoha_dev_xmit(struc
  		return NETDEV_TX_BUSY;
  	}
  
@@ -151,7 +151,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	for (i = 0; i < nr_frags; i++) {
  		struct airoha_qdma_desc *desc = &q->desc[index];
  		struct airoha_queue_entry *e = &q->entry[index];
-@@ -2206,6 +2265,37 @@ static const struct ethtool_ops airoha_e
+@@ -2213,6 +2272,37 @@ static const struct ethtool_ops airoha_e
  	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
  };
  
@@ -189,7 +189,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
  {
  	const __be32 *id_ptr = of_get_property(np, "reg", NULL);
-@@ -2278,6 +2368,10 @@ static int airoha_alloc_gdm_port(struct
+@@ -2285,6 +2375,10 @@ static int airoha_alloc_gdm_port(struct
  	port->id = id;
  	eth->ports[index] = port;
  
@@ -200,7 +200,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return register_netdev(dev);
  }
  
-@@ -2370,8 +2464,10 @@ error_hw_cleanup:
+@@ -2377,8 +2471,10 @@ error_hw_cleanup:
  	for (i = 0; i < ARRAY_SIZE(eth->ports); i++) {
  		struct airoha_gdm_port *port = eth->ports[i];
  
@@ -212,7 +212,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	}
  	free_netdev(eth->napi_dev);
  	platform_set_drvdata(pdev, NULL);
-@@ -2396,6 +2492,7 @@ static void airoha_remove(struct platfor
+@@ -2403,6 +2499,7 @@ static void airoha_remove(struct platfor
  			continue;
  
  		airoha_dev_stop(port->dev);

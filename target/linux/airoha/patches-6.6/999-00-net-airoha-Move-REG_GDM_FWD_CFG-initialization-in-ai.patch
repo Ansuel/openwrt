@@ -18,7 +18,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -107,25 +107,20 @@ static void airoha_set_gdm_port_fwd_cfg(
+@@ -1023,25 +1023,20 @@ static void airoha_set_gdm_port_fwd_cfg(
  
  static int airoha_set_gdm_port(struct airoha_eth *eth, int port, bool enable)
  {
@@ -45,7 +45,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		break;
  	default:
  		return -EINVAL;
-@@ -139,8 +134,6 @@ static int airoha_set_gdm_port(struct ai
+@@ -1055,8 +1050,6 @@ static int airoha_set_gdm_port(struct ai
  		airoha_fe_clear(eth, REG_FE_IFC_PORT_EN, vip_port);
  	}
  
@@ -54,7 +54,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return 0;
  }
  
-@@ -177,8 +170,6 @@ static void airoha_fe_maccr_init(struct
+@@ -1093,8 +1086,6 @@ static void airoha_fe_maccr_init(struct
  		airoha_fe_set(eth, REG_GDM_FWD_CFG(p),
  			      GDM_TCP_CKSUM | GDM_UDP_CKSUM | GDM_IP4_CKSUM |
  			      GDM_DROP_CRC_ERR);
@@ -63,7 +63,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		airoha_fe_rmw(eth, REG_GDM_LEN_CFG(p),
  			      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
  			      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
-@@ -1602,8 +1593,11 @@ static int airoha_dev_set_macaddr(struct
+@@ -2500,8 +2491,11 @@ static int airoha_dev_set_macaddr(struct
  static int airoha_dev_init(struct net_device *dev)
  {
  	struct airoha_gdm_port *port = netdev_priv(dev);

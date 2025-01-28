@@ -186,7 +186,7 @@
  u32 airoha_rr(void __iomem *base, u32 offset);
 --- a/drivers/net/ethernet/mediatek/airoha_ppe.c
 +++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -1166,10 +1166,13 @@ DEFINE_SHOW_ATTRIBUTE(airoha_ppe_debugfs
+@@ -1175,10 +1175,13 @@ DEFINE_SHOW_ATTRIBUTE(airoha_ppe_debugfs
  
  static int airoha_ppe_debugfs_init(struct airoha_ppe *ppe)
  {
@@ -203,7 +203,7 @@
  			    &airoha_ppe_debugfs_foe_bind_fops);
  
  	return 0;
-@@ -1263,5 +1266,4 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -1272,5 +1275,4 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_deinit(eth->npu);
  	}
  	rhashtable_destroy(&eth->flow_table);

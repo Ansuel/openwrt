@@ -36,7 +36,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/devcoredump.h>
  #include <linux/firmware.h>
  #include <linux/ip.h>
-@@ -1058,6 +1059,121 @@ void airoha_ppe_check_skb(struct airoha_
+@@ -1057,6 +1058,123 @@ void airoha_ppe_check_skb(struct airoha_
  	airoha_ppe_foe_insert_entry(ppe, hash);
  }
  
@@ -53,7 +53,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		struct airoha_foe_mac_info *l2;
 +		struct airoha_foe_entry *hwe;
 +		int type, state;
-+		u32 ib2;
++		u32 ib2, data;
 +
 +		hwe = airoha_ppe_foe_get_entry(ppe, i);
 +		if (!hwe)
@@ -111,9 +111,11 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		}
 +
 +		if (type >= MTK_PPE_PKT_TYPE_IPV4_DSLITE) {
++			data = hwe->ipv6.data;
 +			l2 = &hwe->ipv6.l2;
 +			ib2 = hwe->ipv6.ib2;
 +		} else {
++			data = hwe->ipv4.data;
 +			l2 = &hwe->ipv4.l2;
 +			ib2 = hwe->ipv4.ib2;
 +		}
@@ -123,10 +125,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		*((__be32 *)h_dest) = cpu_to_be32(l2->dest_mac_hi);
 +		*((__be16 *)&h_dest[4]) = cpu_to_be16(l2->dest_mac_lo);
 +
-+		seq_printf(m, " eth=%pM->%pM etype=%04x"
++		seq_printf(m, " eth=%pM->%pM etype=%04x data=%08x"
 +			      " vlan=%d,%d ib1=%08x ib2=%08x\n",
-+			   h_source, h_dest, l2->etype, l2->vlan1,
-+			   l2->vlan2, hwe->ib1, ib2);
++			   h_source, h_dest, l2->etype, data,
++			   l2->vlan1, l2->vlan2, hwe->ib1, ib2);
 +	}
 +
 +	return 0;
@@ -158,7 +160,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  int airoha_ppe_init(struct airoha_eth *eth)
  {
  	struct airoha_npu *npu;
-@@ -1124,6 +1240,10 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -1123,6 +1241,10 @@ int airoha_ppe_init(struct airoha_eth *e
  	if (err)
  		goto error_npu_deinit;
  
@@ -169,7 +171,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return 0;
  
  error_npu_deinit:
-@@ -1142,4 +1262,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -1141,4 +1263,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_deinit(eth->npu);
  	}
  	rhashtable_destroy(&eth->flow_table);

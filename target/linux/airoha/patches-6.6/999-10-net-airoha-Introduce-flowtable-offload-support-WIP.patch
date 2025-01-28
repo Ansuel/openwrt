@@ -52,7 +52,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		napi_gro_receive(&q->napi, skb);
  
  		done++;
-@@ -2127,6 +2135,47 @@ static int airoha_tc_htb_alloc_leaf_queu
+@@ -2140,6 +2148,47 @@ static int airoha_tc_htb_alloc_leaf_queu
  	return 0;
  }
  
@@ -100,7 +100,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_tc_remove_htb_queue(struct airoha_gdm_port *port, int queue)
  {
  	struct net_device *dev = port->dev;
-@@ -2210,6 +2259,9 @@ static int airoha_dev_tc_setup(struct ne
+@@ -2223,6 +2272,9 @@ static int airoha_dev_tc_setup(struct ne
  		return airoha_tc_setup_qdisc_ets(port, type_data);
  	case TC_SETUP_QDISC_HTB:
  		return airoha_tc_setup_qdisc_htb(port, type_data);
@@ -356,7 +356,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
  				   sizeof(struct ppe_mbox_data));
-@@ -367,11 +382,687 @@ static void airoha_npu_deinit(struct air
+@@ -367,11 +382,686 @@ static void airoha_npu_deinit(struct air
  	of_node_put(npu->np);
  }
  
@@ -454,7 +454,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +{
 +	int dsa_port = airoha_get_dsa_port(&dev);
 +	struct airoha_foe_mac_info *l2;
-+	u32 ports_pad, val;
++	u32 data, ports_pad, val;
 +
 +	memset(hwe, 0, sizeof(*hwe));
 +
@@ -488,15 +488,14 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	if (type == MTK_PPE_PKT_TYPE_IPV6_ROUTE_3T)
 +		hwe->ipv6.ports = ports_pad;
 +
++	data = FIELD_PREP(AIROHA_FOE_SHAPER_ID, 0x7f);
 +	if (type >= MTK_PPE_PKT_TYPE_IPV4_DSLITE) {
++		hwe->ipv6.data = data;
 +		hwe->ipv6.ib2 = val;
-+		hwe->ipv6.data &= ~AIROHA_FOE_SHAPER_ID;
-+		hwe->ipv6.data |= FIELD_PREP(AIROHA_FOE_SHAPER_ID, 0x7f);
 +		l2 = &hwe->ipv6.l2;
 +	} else {
++		hwe->ipv4.data = data;
 +		hwe->ipv4.ib2 = val;
-+		hwe->ipv4.data &= ~AIROHA_FOE_SHAPER_ID;
-+		hwe->ipv4.data |= FIELD_PREP(AIROHA_FOE_SHAPER_ID, 0x7f);
 +		l2 = &hwe->ipv4.l2;
 +	}
 +
@@ -1045,7 +1044,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	ppe = devm_kzalloc(eth->dev, sizeof(*ppe), GFP_KERNEL);
  	if (!ppe)
-@@ -386,40 +1077,60 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -386,40 +1076,60 @@ int airoha_ppe_init(struct airoha_eth *e
  	ppe->eth = eth;
  	eth->ppe = ppe;
  
@@ -1126,7 +1125,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return err;
  }
-@@ -430,4 +1141,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -430,4 +1140,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_ppe_deinit(eth->npu);
  		airoha_npu_deinit(eth->npu);
  	}

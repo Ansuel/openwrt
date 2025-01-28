@@ -21,8 +21,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  create mode 100644 drivers/net/pcs/pcs-airoha.c
  create mode 100644 include/linux/pcs/pcs-airoha.h
 
-diff --git a/drivers/net/pcs/Kconfig b/drivers/net/pcs/Kconfig
-index f6aa437473de..4b65f8728351 100644
 --- a/drivers/net/pcs/Kconfig
 +++ b/drivers/net/pcs/Kconfig
 @@ -5,6 +5,12 @@
@@ -36,10 +34,8 @@ index f6aa437473de..4b65f8728351 100644
 +	  PCS for SoC Ethernet SERDES.
 +
  config PCS_XPCS
- 	tristate "Synopsys DesignWare Ethernet XPCS"
+ 	tristate
  	select PHYLINK
-diff --git a/drivers/net/pcs/Makefile b/drivers/net/pcs/Makefile
-index 4f7920618b90..0f82db009b65 100644
 --- a/drivers/net/pcs/Makefile
 +++ b/drivers/net/pcs/Makefile
 @@ -1,6 +1,7 @@
@@ -50,9 +46,6 @@ index 4f7920618b90..0f82db009b65 100644
  pcs_xpcs-$(CONFIG_PCS_XPCS)	:= pcs-xpcs.o pcs-xpcs-nxp.o pcs-xpcs-wx.o
  
  obj-$(CONFIG_PCS_XPCS)		+= pcs_xpcs.o
-diff --git a/drivers/net/pcs/pcs-airoha.c b/drivers/net/pcs/pcs-airoha.c
-new file mode 100644
-index 000000000000..94fac9dd4137
 --- /dev/null
 +++ b/drivers/net/pcs/pcs-airoha.c
 @@ -0,0 +1,2774 @@
@@ -2831,9 +2824,6 @@ index 000000000000..94fac9dd4137
 +MODULE_DESCRIPTION("Airoha PCS driver");
 +MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 \ No newline at end of file
-diff --git a/include/linux/pcs/pcs-airoha.h b/include/linux/pcs/pcs-airoha.h
-new file mode 100644
-index 000000000000..cfe3a0411486
 --- /dev/null
 +++ b/include/linux/pcs/pcs-airoha.h
 @@ -0,0 +1,14 @@
@@ -2851,6 +2841,3 @@ index 000000000000..cfe3a0411486
 +void airoha_pcs_destroy(struct phylink_pcs *pcs);
 +
 +#endif /* __LINUX_PCS_AIROHA_H */
--- 
-2.47.1
-
