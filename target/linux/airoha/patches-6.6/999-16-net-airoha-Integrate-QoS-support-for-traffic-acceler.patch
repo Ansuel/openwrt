@@ -1,20 +1,20 @@
-From 95f1fc7a2eb8deabf4e90f3a7d727640fe7f930f Mon Sep 17 00:00:00 2001
-Message-ID: <95f1fc7a2eb8deabf4e90f3a7d727640fe7f930f.1738071266.git.lorenzo@kernel.org>
-In-Reply-To: <3dc277b3a59e6facf072f21e81e6ca499e70d60d.1738071266.git.lorenzo@kernel.org>
-References: <3dc277b3a59e6facf072f21e81e6ca499e70d60d.1738071266.git.lorenzo@kernel.org>
+From 6fbf17729cfff37ed0afbebeff95bee5ee9818bf Mon Sep 17 00:00:00 2001
+Message-ID: <6fbf17729cfff37ed0afbebeff95bee5ee9818bf.1738080839.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 28 Jan 2025 10:22:09 +0100
-Subject: [PATCH net-next 2/2] net: airoha: Integrate QoS support for traffic
+Subject: [PATCH net-next] net: airoha: Integrate QoS support for traffic
  accelerator
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/mediatek/airoha_ppe.c | 15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mediatek/airoha_ppe.c | 19 +++++++++++++++----
+ 1 file changed, 15 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/ethernet/mediatek/airoha_ppe.c b/drivers/net/ethernet/mediatek/airoha_ppe.c
+index dac29932ccfe..a826e9e16a7e 100644
 --- a/drivers/net/ethernet/mediatek/airoha_ppe.c
 +++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -473,7 +473,8 @@ static int airoha_get_dsa_port(struct ne
+@@ -473,11 +473,12 @@ static int airoha_get_dsa_port(struct net_device **dev)
  
  static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
  					struct net_device *dev, int type,
@@ -23,28 +23,35 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +					u32 mark)
  {
  	int dsa_port = airoha_get_dsa_port(&dev);
++	u32 channel, data, ports_pad, val;
  	struct airoha_foe_mac_info *l2;
-@@ -512,7 +513,10 @@ static int airoha_ppe_foe_entry_prepare(
+-	u32 data, ports_pad, val;
+ 
+ 	memset(hwe, 0, sizeof(*hwe));
+ 
+@@ -512,7 +513,12 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
  	if (type == MTK_PPE_PKT_TYPE_IPV6_ROUTE_3T)
  		hwe->ipv6.ports = ports_pad;
  
 -	data = FIELD_PREP(AIROHA_FOE_SHAPER_ID, 0x7f);
-+	data = FIELD_PREP(AIROHA_FOE_CHANNEL, mark / AIROHA_NUM_QOS_QUEUES) |
++	channel = mark / AIROHA_NUM_QOS_QUEUES;
++	data = FIELD_PREP(AIROHA_FOE_CHANNEL,
++			  channel % AIROHA_NUM_QOS_CHANNELS) |
 +	       FIELD_PREP(AIROHA_FOE_QID, mark % AIROHA_NUM_QOS_QUEUES) |
 +	       FIELD_PREP(AIROHA_FOE_SHAPER_ID, 0x7f);
 +
  	if (type >= MTK_PPE_PKT_TYPE_IPV4_DSLITE) {
  		hwe->ipv6.data = data;
  		hwe->ipv6.ib2 = val;
-@@ -813,6 +817,7 @@ static int airoha_ppe_flow_offload_repla
+@@ -813,6 +819,7 @@ static int airoha_ppe_flow_offload_replace(struct airoha_gdm_port *port,
  	int err, i, offload_type;
  	u16 addr_type = 0;
  	u8 l4proto = 0;
 +	u32 mark = 0;
  
- 	if (rhashtable_lookup(&eth->flow_table, &f->cookie, airoha_flow_table_params))
- 		return -EEXIST;
-@@ -881,6 +886,9 @@ static int airoha_ppe_flow_offload_repla
+ 	if (rhashtable_lookup(&eth->flow_table, &f->cookie,
+ 			      airoha_flow_table_params))
+@@ -885,6 +892,9 @@ static int airoha_ppe_flow_offload_replace(struct airoha_gdm_port *port,
  			data.pppoe.sid = act->pppoe.sid;
  			data.pppoe.num++;
  			break;
@@ -54,7 +61,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		default:
  			return -EOPNOTSUPP;
  		}
-@@ -891,7 +899,8 @@ static int airoha_ppe_flow_offload_repla
+@@ -895,7 +905,8 @@ static int airoha_ppe_flow_offload_replace(struct airoha_gdm_port *port,
  		return -EINVAL;
  
  	err = airoha_ppe_foe_entry_prepare(&hwe, odev, offload_type, l4proto,
@@ -64,3 +71,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (err)
  		return err;
  
+-- 
+2.48.1
+
