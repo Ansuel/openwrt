@@ -216,7 +216,7 @@
 	status = "okay";
 };
 
-&gdm4 {
+&gdm2 {
 	status = "okay";
 
 	sfp = <&sfp1>;
