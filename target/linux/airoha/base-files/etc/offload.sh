@@ -5,10 +5,14 @@ BR_DEV=br0
 LAN_DEV=eth0
 LAN_SRC_IP=192.168.83.115
 LAN_DST_IP=192.168.83.120
+# QoS channel ID for LAN destionation
+LAN_CHANNEL_ID=1
 
 WAN_DEV=eth1
 WAN_SRC_IP=192.168.1.2
 WAN_DST_IP=192.168.1.1
+# QoS channel ID for WAN destionation
+WAN_CHANNEL_ID=4
 
 RATE=100
 NSTRICT=2
@@ -74,7 +78,7 @@ for i in $(seq $N_DSA_PORTS); do
 	tc class add dev $LAN_DEV parent 10: classid 10:$i		\
 		htb rate "$((RATE*i))mbit" ceil "$((RATE*i))mbit"
 	# ETS qdisc [1:x] (ETS bands associated to hw QoS per-channel queues)
-	tc qdisc replace dev $LAN_DEV parent 10:$i handle $i: 	\
+	tc qdisc replace dev $LAN_DEV parent 10:$i handle $i: 		\
 		ets bands 8 strict $NSTRICT $QUANTA $PRIOMAP
 
 	# add CLSACT qdisc on DSA ports
@@ -88,10 +92,10 @@ for i in $(seq $N_DSA_PORTS); do
 		action skbedit priority 0x${i}000$((PRIO1+1))
 	tc filter add dev lan$i protocol ip ingress		\
 		flower ip_proto tcp dst_port $PORT0		\
-		action skbedit mark $((8*i+PRIO0))
+		action skbedit mark $((8*WAN_CHANNEL_ID+PRIO0))
 	tc filter add dev lan$i protocol ip ingress		\
 		flower ip_proto tcp dst_port $PORT1		\
-		action skbedit mark $((8*i+PRIO1))
+		action skbedit mark $((8*WAN_CHANNEL_ID+PRIO1))
 done
 
 # WAN -> LAN
@@ -100,18 +104,18 @@ tc filter del dev $WAN_DEV ingress
 
 tc qdisc replace dev $WAN_DEV root handle 10: htb offload
 # HTB class qdisc [10:1] (associated to hw QoS channels)
-tc class add dev $WAN_DEV parent 10: classid 10:1	\
-	htb rate "$RATEmbit" ceil "$RATEmbit"
+tc class add dev $WAN_DEV parent 10: classid 10:$WAN_CHANNEL_ID			\
+	htb rate "${RATE}mbit" ceil "${RATE}mbit"
 # ETS qdisc [1:1] (ETS bands associated to hw QoS per-channel queues)
-tc qdisc replace dev $WAN_DEV parent 10:1 handle 1: 	\
+tc qdisc replace dev $WAN_DEV parent 10:$WAN_CHANNEL_ID handle $WAN_CHANNEL_ID: \
 	ets bands 8 strict $NSTRICT $QUANTA $PRIOMAP
 
 tc qdisc add dev $WAN_DEV clsact
 tc filter add dev $WAN_DEV protocol ip ingress		\
 	flower ip_proto tcp dst_port $PORT0		\
-	action skbedit mark $((8*1+PRIO0))
+	action skbedit mark $((8*LAN_CHANNEL_ID+PRIO0))
 tc filter add dev $WAN_DEV protocol ip ingress		\
 	flower ip_proto tcp dst_port $PORT1		\
-	action skbedit mark $((8*1+PRIO1))
+	action skbedit mark $((8*LAN_CHANNEL_ID+PRIO1))
 
 } >/dev/null 2>&1
