@@ -1,0 +1,117 @@
+#!/bin/sh
+
+N_DSA_PORTS=4
+BR_DEV=br0
+LAN_DEV=eth0
+LAN_SRC_IP=192.168.83.115
+LAN_DST_IP=192.168.83.120
+
+WAN_DEV=eth1
+WAN_SRC_IP=192.168.1.2
+WAN_DST_IP=192.168.1.1
+
+RATE=100
+NSTRICT=2
+QUANTA="quanta 1514 1514 1514 1514 1514 3528"
+PRIOMAP="priomap 1 2 3 4 5 6 7 0"
+
+PORT0=6001
+PORT1=6002
+PRIO0=0
+PRIO1=5
+
+# configure netowrk
+{
+	# LAN
+	brctl addbr $BR_DEV
+	sleep 1
+	for i in $(seq $N_DSA_PORTS); do
+		ip link set dev lan$i up
+		brctl addif $BR_DEV lan$i
+	done
+	ip a a $LAN_SRC_IP/24 dev $BR_DEV
+	ip link set dev $BR_DEV up
+
+	# WAN
+	ip a a $WAN_SRC_IP/24 dev $WAN_DEV
+} >/dev/null 2>&1
+
+ping -c 5 $LAN_DST_IP
+ping -c 5 $WAN_DST_IP
+
+# FLOWTABLE
+nft flush ruleset
+nft -f /dev/stdin <<EOF
+table inet nat {
+	chain postrouting {
+		type nat hook postrouting priority filter; policy accept;
+		oifname ${WAN_DEV} masquerade
+	}
+}
+table inet filter {
+	flowtable ft {
+		hook ingress priority filter
+		devices = { lan1, lan2, lan3, lan4, ${WAN_DEV} }
+		flags offload;
+	}
+	chain forward {
+		type filter hook forward priority filter; policy accept;
+		meta l4proto { tcp, udp } flow add @ft
+	}
+}
+EOF
+
+# TC
+{
+
+# LAN -> WAN
+tc qdisc replace dev $LAN_DEV root handle 10: htb offload
+for i in $(seq $N_DSA_PORTS); do
+	tc filter del dev lan$i egress
+	tc filter del dev lan$i ingress
+
+	# HTB class qdisc [10:x] (associated to hw QoS channels)
+	tc class add dev $LAN_DEV parent 10: classid 10:$i		\
+		htb rate "$((RATE*i))mbit" ceil "$((RATE*i))mbit"
+	# ETS qdisc [1:x] (ETS bands associated to hw QoS per-channel queues)
+	tc qdisc replace dev $LAN_DEV parent 10:$i handle $i: 	\
+		ets bands 8 strict $NSTRICT $QUANTA $PRIOMAP
+
+	# add CLSACT qdisc on DSA ports
+	tc qdisc add dev lan$i clsact
+	# TC filters - skb priority is associated to ETS bands
+	tc filter add dev lan$i protocol ip egress		\
+		flower ip_proto tcp dst_port $PORT0		\
+		action skbedit priority 0x${i}000$((PRIO0+1))
+	tc filter add dev lan$i protocol ip egress		\
+		flower ip_proto tcp dst_port $PORT1		\
+		action skbedit priority 0x${i}000$((PRIO1+1))
+	tc filter add dev lan$i protocol ip ingress		\
+		flower ip_proto tcp dst_port $PORT0		\
+		action skbedit mark $((8*i+PRIO0))
+	tc filter add dev lan$i protocol ip ingress		\
+		flower ip_proto tcp dst_port $PORT1		\
+		action skbedit mark $((8*i+PRIO1))
+done
+
+# WAN -> LAN
+tc filter del dev $WAN_DEV egress
+tc filter del dev $WAN_DEV ingress
+
+tc qdisc replace dev $WAN_DEV root handle 10: htb offload
+# HTB class qdisc [10:1] (associated to hw QoS channels)
+tc class add dev $WAN_DEV parent 10: classid 10:1	\
+	htb rate "$RATEmbit" ceil "$RATEmbit"
+# ETS qdisc [1:1] (ETS bands associated to hw QoS per-channel queues)
+tc qdisc replace dev $WAN_DEV parent 10:1 handle 1: 	\
+	ets bands 8 strict $NSTRICT $QUANTA $PRIOMAP
+
+tc qdisc add dev $WAN_DEV clsact
+tc filter add dev $WAN_DEV protocol ip ingress		\
+	flower ip_proto tcp dst_port $PORT0		\
+	action skbedit mark $((8*1+PRIO0))
+tc filter add dev $WAN_DEV protocol ip ingress		\
+	flower ip_proto tcp dst_port $PORT1		\
+	action skbedit mark $((8*1+PRIO1))
+
+} >/dev/null 2>&1
