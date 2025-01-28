@@ -4,13 +4,17 @@ N_DSA_PORTS=4
 BR_DEV=br0
 LAN_DEV=eth0
 LAN_SRC_IP=192.168.83.115
+LAN_SRC_IP6="1001::a"
 LAN_DST_IP=192.168.83.120
+LAN_DST_IP6="1001::b"
 # QoS channel ID for LAN destionation
 LAN_CHANNEL_ID=1
 
 WAN_DEV=eth1
 WAN_SRC_IP=192.168.1.2
+WAN_SRC_IP6="2001::a"
 WAN_DST_IP=192.168.1.1
+WAN_DST_IP6="2001::b"
 # QoS channel ID for WAN destionation
 WAN_CHANNEL_ID=4
 
@@ -24,24 +28,29 @@ PORT1=6002
 PRIO0=0
 PRIO1=5
 
-# configure netowrk
+# NETWORKING
 {
 	# LAN
-	brctl addbr $BR_DEV
+	ip link add name $BR_DEV type bridge
 	sleep 1
 	for i in $(seq $N_DSA_PORTS); do
 		ip link set dev lan$i up
-		brctl addif $BR_DEV lan$i
+		ip link set dev lan$i master $BR_DEV
 	done
-	ip a a $LAN_SRC_IP/24 dev $BR_DEV
+	ip addr add $LAN_SRC_IP/24 dev $BR_DEV
+	ip -6 addr add $LAN_SRC_IP6/64 dev $BR_DEV
 	ip link set dev $BR_DEV up
 
 	# WAN
-	ip a a $WAN_SRC_IP/24 dev $WAN_DEV
+	ip addr add $WAN_SRC_IP/24 dev $WAN_DEV
+	ip -6 addr add $WAN_SRC_IP6/64 dev $WAN_DEV
+	ip link set dev $WAN_DEV up
 } >/dev/null 2>&1
 
 ping -c 5 $LAN_DST_IP
+ping -6 -c 5 $LAN_DST_IP6
 ping -c 5 $WAN_DST_IP
+ping -6 -c 5 $WAN_DST_IP6
 
 # FLOWTABLE
 nft flush ruleset
