@@ -10,11 +10,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/ethernet/mediatek/airoha_ppe.c | 19 +++++++++++++++----
  1 file changed, 15 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/airoha_ppe.c b/drivers/net/ethernet/mediatek/airoha_ppe.c
-index dac29932ccfe..a826e9e16a7e 100644
 --- a/drivers/net/ethernet/mediatek/airoha_ppe.c
 +++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -473,11 +473,12 @@ static int airoha_get_dsa_port(struct net_device **dev)
+@@ -473,11 +473,12 @@ static int airoha_get_dsa_port(struct ne
  
  static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
  					struct net_device *dev, int type,
@@ -29,7 +27,7 @@ index dac29932ccfe..a826e9e16a7e 100644
  
  	memset(hwe, 0, sizeof(*hwe));
  
-@@ -512,7 +513,12 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
+@@ -512,7 +513,12 @@ static int airoha_ppe_foe_entry_prepare(
  	if (type == MTK_PPE_PKT_TYPE_IPV6_ROUTE_3T)
  		hwe->ipv6.ports = ports_pad;
  
@@ -43,15 +41,15 @@ index dac29932ccfe..a826e9e16a7e 100644
  	if (type >= MTK_PPE_PKT_TYPE_IPV4_DSLITE) {
  		hwe->ipv6.data = data;
  		hwe->ipv6.ib2 = val;
-@@ -813,6 +819,7 @@ static int airoha_ppe_flow_offload_replace(struct airoha_gdm_port *port,
+@@ -813,6 +819,7 @@ static int airoha_ppe_flow_offload_repla
  	int err, i, offload_type;
  	u16 addr_type = 0;
  	u8 l4proto = 0;
 +	u32 mark = 0;
  
- 	if (rhashtable_lookup(&eth->flow_table, &f->cookie,
- 			      airoha_flow_table_params))
-@@ -885,6 +892,9 @@ static int airoha_ppe_flow_offload_replace(struct airoha_gdm_port *port,
+ 	if (rhashtable_lookup(&eth->flow_table, &f->cookie, airoha_flow_table_params))
+ 		return -EEXIST;
+@@ -881,6 +888,9 @@ static int airoha_ppe_flow_offload_repla
  			data.pppoe.sid = act->pppoe.sid;
  			data.pppoe.num++;
  			break;
@@ -61,7 +59,7 @@ index dac29932ccfe..a826e9e16a7e 100644
  		default:
  			return -EOPNOTSUPP;
  		}
-@@ -895,7 +905,8 @@ static int airoha_ppe_flow_offload_replace(struct airoha_gdm_port *port,
+@@ -891,7 +901,8 @@ static int airoha_ppe_flow_offload_repla
  		return -EINVAL;
  
  	err = airoha_ppe_foe_entry_prepare(&hwe, odev, offload_type, l4proto,
@@ -71,6 +69,3 @@ index dac29932ccfe..a826e9e16a7e 100644
  	if (err)
  		return err;
  
--- 
-2.48.1
-

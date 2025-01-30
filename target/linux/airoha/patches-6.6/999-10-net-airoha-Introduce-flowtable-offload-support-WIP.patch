@@ -1044,7 +1044,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	ppe = devm_kzalloc(eth->dev, sizeof(*ppe), GFP_KERNEL);
  	if (!ppe)
-@@ -386,40 +1076,60 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -386,39 +1076,57 @@ int airoha_ppe_init(struct airoha_eth *e
  	ppe->eth = eth;
  	eth->ppe = ppe;
  
@@ -1086,7 +1086,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 -		      PPE1_BIND_AGE1_DELTA_TCP,
 -		      FIELD_PREP(PPE1_BIND_AGE1_DELTA_TCP_FIN, 1) |
 -		      FIELD_PREP(PPE1_BIND_AGE1_DELTA_TCP, 7));
--	airoha_fe_set(eth, REG_PPE1_TB_CFG, PPE1_TB_ENTRY_SIZE_MASK);
 +	for (i = 0; i < PPE_NUM; i++) {
 +		airoha_fe_wr(eth, REG_PPE_TB_BASE(i),
 +			     ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
@@ -1100,18 +1099,15 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +			      PPE_BIND_AGE1_DELTA_TCP,
 +		              FIELD_PREP(PPE_BIND_AGE1_DELTA_TCP_FIN, 1) |
 +		              FIELD_PREP(PPE_BIND_AGE1_DELTA_TCP, 7));
-+		airoha_fe_rmw(eth, REG_PPE_TB_CFG(i),
-+			      PPE_SRAM_TB_NUM_ENTRY_MASK |
-+			      PPE_TB_ENTRY_SIZE_MASK |
-+			      PPE_DRAM_TB_NUM_ENTRY_MASK,
-+			      FIELD_PREP(PPE_SRAM_TB_NUM_ENTRY_MASK, 3) |
-+			      PPE_TB_ENTRY_SIZE_MASK |
-+			      FIELD_PREP(PPE_DRAM_TB_NUM_ENTRY_MASK, 4));
 +	}
  
  	err = airoha_npu_flush_ppe_sram_entries(npu, ppe);
  	if (err)
 -		goto error;
++		goto error_npu_deinit;
++
++	err = airoha_ppe_debugfs_init(ppe);
++	if (err)
 +		goto error_npu_deinit;
  
  	return 0;
@@ -1125,7 +1121,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return err;
  }
-@@ -430,4 +1140,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -429,4 +1137,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_ppe_deinit(eth->npu);
  		airoha_npu_deinit(eth->npu);
  	}

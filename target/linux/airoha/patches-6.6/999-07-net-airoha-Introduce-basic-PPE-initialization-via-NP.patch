@@ -229,7 +229,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #endif /* AIROHA_ETH_H */
 --- /dev/null
 +++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -0,0 +1,363 @@
+@@ -0,0 +1,362 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2024 AIROHA Inc
@@ -571,7 +571,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		      PPE1_BIND_AGE1_DELTA_TCP,
 +		      FIELD_PREP(PPE1_BIND_AGE1_DELTA_TCP_FIN, 1) |
 +		      FIELD_PREP(PPE1_BIND_AGE1_DELTA_TCP, 7));
-+	airoha_fe_set(eth, REG_PPE1_TB_CFG, PPE1_TB_ENTRY_SIZE_MASK);
 +
 +	err = airoha_npu_flush_ppe_sram_entries(npu, ppe);
 +	if (err)

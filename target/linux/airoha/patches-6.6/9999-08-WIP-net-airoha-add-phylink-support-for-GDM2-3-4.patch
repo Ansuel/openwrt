@@ -312,9 +312,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	return register_netdev(dev);
  }
  
-@@ -2590,6 +2833,10 @@ error_hw_cleanup
+@@ -2588,6 +2831,10 @@ error_hw_cleanup:
  
-		if (port && port->dev->reg_state == NETREG_REGISTERED) {
+ 		if (port && port->dev->reg_state == NETREG_REGISTERED) {
  			airoha_metadata_dst_free(port);
 +			if (port->type != INTERNAL_SWITCH_PORT) {
 +				phylink_destroy(port->phylink);
@@ -323,7 +323,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  			unregister_netdev(port->dev);
  		}
  	}
-@@ -2616,6 +2864,10 @@ static void airoha_remove(struct platfor
+@@ -2615,6 +2862,10 @@ static void airoha_remove(struct platfor
  
  		airoha_dev_stop(port->dev);
  		airoha_metadata_dst_free(port);

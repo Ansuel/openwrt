@@ -149,7 +149,7 @@
  	err = airoha_hw_init(pdev, eth);
  	if (err)
  		goto error_hw_cleanup;
-@@ -2873,6 +3001,7 @@ static void airoha_remove(struct platfor
+@@ -2871,6 +2999,7 @@ static void airoha_remove(struct platfor
  	free_netdev(eth->napi_dev);
  
  	airoha_ppe_deinit(eth);
@@ -186,7 +186,7 @@
  u32 airoha_rr(void __iomem *base, u32 offset);
 --- a/drivers/net/ethernet/mediatek/airoha_ppe.c
 +++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -1175,10 +1175,13 @@ DEFINE_SHOW_ATTRIBUTE(airoha_ppe_debugfs
+@@ -1178,10 +1178,13 @@ DEFINE_SHOW_ATTRIBUTE(airoha_ppe_debugfs
  
  static int airoha_ppe_debugfs_init(struct airoha_ppe *ppe)
  {
