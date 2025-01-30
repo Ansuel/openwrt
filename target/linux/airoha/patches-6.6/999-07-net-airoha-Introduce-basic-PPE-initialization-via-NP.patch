@@ -1,10 +1,8 @@
-From 42f1e34db6ed7390b790c66b17838fb90fa62d86 Mon Sep 17 00:00:00 2001
-Message-ID: <42f1e34db6ed7390b790c66b17838fb90fa62d86.1737907941.git.lorenzo@kernel.org>
-In-Reply-To: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
-References: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
+From a108c7c21149a33339712f1e1b913a3b5d2d3763 Mon Sep 17 00:00:00 2001
+Message-ID: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 4 Dec 2024 17:47:00 +0100
-Subject: [PATCH net-next 3/9] net: airoha: Introduce basic PPE initialization
+Subject: [PATCH net-next 1/9] net: airoha: Introduce basic PPE initialization
  via NPU
 
 Packet Processor Engine (PPE) and NPU modules are used to offload L2 and
@@ -16,10 +14,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
  drivers/net/ethernet/mediatek/Makefile      |   4 +-
  drivers/net/ethernet/mediatek/airoha_eth.c  |   7 +-
- drivers/net/ethernet/mediatek/airoha_eth.h  | 115 +++++++
- drivers/net/ethernet/mediatek/airoha_ppe.c  | 363 ++++++++++++++++++++
+ drivers/net/ethernet/mediatek/airoha_eth.h  | 117 +++++++
+ drivers/net/ethernet/mediatek/airoha_ppe.c  | 364 ++++++++++++++++++++
  drivers/net/ethernet/mediatek/airoha_regs.h |  28 +-
- 5 files changed, 508 insertions(+), 9 deletions(-)
+ 5 files changed, 511 insertions(+), 9 deletions(-)
  create mode 100644 drivers/net/ethernet/mediatek/airoha_ppe.c
 
 --- a/drivers/net/ethernet/mediatek/Makefile
@@ -78,7 +76,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define AIROHA_MAX_NUM_GDM_PORTS	1
  #define AIROHA_MAX_NUM_QDMA		2
  #define AIROHA_MAX_DSA_PORTS		7
-@@ -44,6 +49,13 @@
+@@ -44,6 +49,11 @@
  #define QDMA_METER_IDX(_n)		((_n) & 0xff)
  #define QDMA_METER_GROUP(_n)		(((_n) >> 8) & 0x3)
  
@@ -86,13 +84,11 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +#define PPE_DRAM_NUM_ENTRIES		(16 * 1024)
 +#define PPE_NUM_ENTRIES			(PPE_SRAM_NUM_ENTRIES + PPE_DRAM_NUM_ENTRIES)
 +#define PPE_ENTRY_SIZE			80
-+#define PPE_SRAM_TABLE_SIZE		(PPE_SRAM_NUM_ENTRIES * PPE_ENTRY_SIZE)
-+#define PPE_TABLE_SIZE			(PPE_NUM_ENTRIES * PPE_ENTRY_SIZE)
 +
  #define MTK_HDR_LEN			4
  #define MTK_HDR_XMIT_TAGGED_TPID_8100	1
  #define MTK_HDR_XMIT_TAGGED_TPID_88A8	2
-@@ -127,6 +139,46 @@ enum trtcm_param {
+@@ -127,6 +137,46 @@ enum trtcm_param {
  	TRTCM_METER_MODE = BIT(2),
  };
  
@@ -139,7 +135,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define MIN_TOKEN_SIZE				4096
  #define MAX_TOKEN_SIZE_OFFSET			17
  #define TRTCM_TOKEN_RATE_MASK			GENMASK(23, 6)
-@@ -195,6 +247,44 @@ struct airoha_hw_stats {
+@@ -195,6 +245,48 @@ struct airoha_hw_stats {
  	u64 rx_len[7];
  };
  
@@ -181,10 +177,14 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	};
 +};
 +
++struct airoha_foe_entry {
++	u8 data[PPE_ENTRY_SIZE];
++};
++
  struct airoha_qdma {
  	struct airoha_eth *eth;
  	void __iomem *regs;
-@@ -232,12 +322,34 @@ struct airoha_gdm_port {
+@@ -232,12 +324,34 @@ struct airoha_gdm_port {
  	struct metadata_dst *dsa_meta[AIROHA_MAX_DSA_PORTS];
  };
  
@@ -219,7 +219,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
  
-@@ -273,4 +385,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -273,4 +387,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
@@ -229,7 +229,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #endif /* AIROHA_ETH_H */
 --- /dev/null
 +++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -0,0 +1,362 @@
+@@ -0,0 +1,364 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2024 AIROHA Inc
@@ -427,8 +427,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +			.size = PPE_SRAM_NUM_ENTRIES,
 +		},
 +	};
++	u32 sram_tb_size;
 +
-+	memset(ppe->foe, 0, PPE_SRAM_TABLE_SIZE);
++	sram_tb_size = PPE_SRAM_NUM_ENTRIES * sizeof(struct airoha_foe_entry);
++	memset(ppe->foe, 0, sram_tb_size);
 +
 +	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
 +				   sizeof(struct ppe_mbox_data));
@@ -533,18 +535,20 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +{
 +	struct airoha_npu *npu;
 +	struct airoha_ppe *ppe;
-+	int err;
++	int foe_size, err;
++	u32 sram_tb_size;
 +
 +	ppe = devm_kzalloc(eth->dev, sizeof(*ppe), GFP_KERNEL);
 +	if (!ppe)
 +		return -ENOMEM;
 +
-+	ppe->foe = dmam_alloc_coherent(eth->dev, PPE_TABLE_SIZE,
-+				       &ppe->foe_dma, GFP_KERNEL);
++	foe_size = PPE_NUM_ENTRIES * sizeof(struct airoha_foe_entry);
++	ppe->foe = dmam_alloc_coherent(eth->dev, foe_size, &ppe->foe_dma,
++				       GFP_KERNEL);
 +	if (!ppe->foe)
 +		return -ENOMEM;
 +
-+	memset(ppe->foe, 0, PPE_TABLE_SIZE);
++	memset(ppe->foe, 0, foe_size);
 +	ppe->eth = eth;
 +	eth->ppe = ppe;
 +
@@ -557,10 +561,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	if (err)
 +		goto error;
 +
-+	airoha_fe_wr(eth, REG_PPE1_TB_BASE,
-+		     ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
-+	airoha_fe_wr(eth, REG_PPE2_TB_BASE,
-+		     ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
++	sram_tb_size = PPE_SRAM_NUM_ENTRIES * sizeof(struct airoha_foe_entry);
++	airoha_fe_wr(eth, REG_PPE1_TB_BASE, ppe->foe_dma + sram_tb_size);
 +	airoha_fe_rmw(eth, REG_PPE1_BND_AGE0,
 +		      PPE1_BIND_AGE0_DELTA_NON_L4 |
 +		      PPE1_BIND_AGE0_DELTA_UDP,

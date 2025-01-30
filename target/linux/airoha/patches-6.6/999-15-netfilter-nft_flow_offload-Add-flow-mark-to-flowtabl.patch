@@ -1,9 +1,11 @@
-From 3dc277b3a59e6facf072f21e81e6ca499e70d60d Mon Sep 17 00:00:00 2001
-Message-ID: <3dc277b3a59e6facf072f21e81e6ca499e70d60d.1738071266.git.lorenzo@kernel.org>
+From 5b25417b94f2ce0b7701b0e4831cd1e44944f00c Mon Sep 17 00:00:00 2001
+Message-ID: <5b25417b94f2ce0b7701b0e4831cd1e44944f00c.1738249559.git.lorenzo@kernel.org>
+In-Reply-To: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
+References: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 28 Jan 2025 09:24:25 +0100
-Subject: [PATCH net-next 1/2] netfilter: nft_flow_offload: Add queue mapping
- to flowtable offload
+Subject: [PATCH net-next 8/9] netfilter: nft_flow_offload: Add flow mark to
+ flowtable offload
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---

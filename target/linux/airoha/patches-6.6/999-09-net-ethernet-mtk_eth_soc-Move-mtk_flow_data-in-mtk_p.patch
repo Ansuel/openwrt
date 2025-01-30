@@ -1,10 +1,10 @@
-From c98eac49eeec7841d41290393ae0a7db9163e369 Mon Sep 17 00:00:00 2001
-Message-ID: <c98eac49eeec7841d41290393ae0a7db9163e369.1737907941.git.lorenzo@kernel.org>
-In-Reply-To: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
-References: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
+From 33043be3600cf9a3f40f51ddde75ceb5b4e59acd Mon Sep 17 00:00:00 2001
+Message-ID: <33043be3600cf9a3f40f51ddde75ceb5b4e59acd.1738249559.git.lorenzo@kernel.org>
+In-Reply-To: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
+References: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 31 Dec 2024 00:13:58 +0100
-Subject: [PATCH net-next 5/9] net: ethernet: mtk_eth_soc: Move mtk_flow_data
+Subject: [PATCH net-next 3/9] net: ethernet: mtk_eth_soc: Move mtk_flow_data
  in mtk_ppe.h
 
 This is a preliminary patch to enable netfilter flowtable hw offloading

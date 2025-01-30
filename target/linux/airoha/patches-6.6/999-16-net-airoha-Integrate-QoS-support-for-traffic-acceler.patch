@@ -1,8 +1,10 @@
-From 6fbf17729cfff37ed0afbebeff95bee5ee9818bf Mon Sep 17 00:00:00 2001
-Message-ID: <6fbf17729cfff37ed0afbebeff95bee5ee9818bf.1738080839.git.lorenzo@kernel.org>
+From a6d621cff9257ff8833b8c9d70c36fb4b04f0897 Mon Sep 17 00:00:00 2001
+Message-ID: <a6d621cff9257ff8833b8c9d70c36fb4b04f0897.1738249559.git.lorenzo@kernel.org>
+In-Reply-To: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
+References: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 28 Jan 2025 10:22:09 +0100
-Subject: [PATCH net-next] net: airoha: Integrate QoS support for traffic
+Subject: [PATCH net-next 9/9] net: airoha: Integrate QoS support for traffic
  accelerator
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
@@ -12,7 +14,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/mediatek/airoha_ppe.c
 +++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -473,11 +473,12 @@ static int airoha_get_dsa_port(struct ne
+@@ -475,11 +475,12 @@ static int airoha_get_dsa_port(struct ne
  
  static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
  					struct net_device *dev, int type,
@@ -27,7 +29,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	memset(hwe, 0, sizeof(*hwe));
  
-@@ -512,7 +513,12 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -514,7 +515,12 @@ static int airoha_ppe_foe_entry_prepare(
  	if (type == MTK_PPE_PKT_TYPE_IPV6_ROUTE_3T)
  		hwe->ipv6.ports = ports_pad;
  
@@ -41,15 +43,15 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (type >= MTK_PPE_PKT_TYPE_IPV4_DSLITE) {
  		hwe->ipv6.data = data;
  		hwe->ipv6.ib2 = val;
-@@ -813,6 +819,7 @@ static int airoha_ppe_flow_offload_repla
+@@ -815,6 +821,7 @@ static int airoha_ppe_flow_offload_repla
  	int err, i, offload_type;
  	u16 addr_type = 0;
  	u8 l4proto = 0;
 +	u32 mark = 0;
  
- 	if (rhashtable_lookup(&eth->flow_table, &f->cookie, airoha_flow_table_params))
- 		return -EEXIST;
-@@ -881,6 +888,9 @@ static int airoha_ppe_flow_offload_repla
+ 	if (rhashtable_lookup(&eth->flow_table, &f->cookie,
+ 			      airoha_flow_table_params))
+@@ -884,6 +891,9 @@ static int airoha_ppe_flow_offload_repla
  			data.pppoe.sid = act->pppoe.sid;
  			data.pppoe.num++;
  			break;
@@ -59,7 +61,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		default:
  			return -EOPNOTSUPP;
  		}
-@@ -891,7 +901,8 @@ static int airoha_ppe_flow_offload_repla
+@@ -894,7 +904,8 @@ static int airoha_ppe_flow_offload_repla
  		return -EINVAL;
  
  	err = airoha_ppe_foe_entry_prepare(&hwe, odev, offload_type, l4proto,

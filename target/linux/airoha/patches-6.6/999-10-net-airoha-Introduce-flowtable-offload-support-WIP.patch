@@ -1,19 +1,19 @@
-From ee8ad0398f2c55d42cca6c06e7e8f7a94075923c Mon Sep 17 00:00:00 2001
-Message-ID: <ee8ad0398f2c55d42cca6c06e7e8f7a94075923c.1737907941.git.lorenzo@kernel.org>
-In-Reply-To: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
-References: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
+From 528be0436c29174c3c6c40adf6c9502842018759 Mon Sep 17 00:00:00 2001
+Message-ID: <528be0436c29174c3c6c40adf6c9502842018759.1738249559.git.lorenzo@kernel.org>
+In-Reply-To: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
+References: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 27 Dec 2024 15:20:48 +0100
-Subject: [PATCH net-next 6/9] net: airoha: Introduce flowtable offload support
+Subject: [PATCH net-next 4/9] net: airoha: Introduce flowtable offload support
  (WIP)
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c  |  56 +-
- drivers/net/ethernet/mediatek/airoha_eth.h  | 146 ++++
- drivers/net/ethernet/mediatek/airoha_ppe.c  | 761 +++++++++++++++++++-
+ drivers/net/ethernet/mediatek/airoha_eth.c  |  57 +-
+ drivers/net/ethernet/mediatek/airoha_eth.h  | 148 +++-
+ drivers/net/ethernet/mediatek/airoha_ppe.c  | 748 +++++++++++++++++++-
  drivers/net/ethernet/mediatek/airoha_regs.h | 107 ++-
- 4 files changed, 1023 insertions(+), 47 deletions(-)
+ 4 files changed, 1017 insertions(+), 43 deletions(-)
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
@@ -52,7 +52,15 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		napi_gro_receive(&q->napi, skb);
  
  		done++;
-@@ -2140,6 +2148,47 @@ static int airoha_tc_htb_alloc_leaf_queu
+@@ -1615,6 +1623,7 @@ static u16 airoha_dev_select_queue(struc
+ 	return queue < dev->num_tx_queues ? queue : 0;
+ }
+ 
++//
+ static u32 airoha_get_dsa_tag(struct sk_buff *skb, struct net_device *dev)
+ {
+ #if IS_ENABLED(CONFIG_NET_DSA)
+@@ -2140,6 +2149,47 @@ static int airoha_tc_htb_alloc_leaf_queu
  	return 0;
  }
  
@@ -100,7 +108,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_tc_remove_htb_queue(struct airoha_gdm_port *port, int queue)
  {
  	struct net_device *dev = port->dev;
-@@ -2223,6 +2272,9 @@ static int airoha_dev_tc_setup(struct ne
+@@ -2223,6 +2273,9 @@ static int airoha_dev_tc_setup(struct ne
  		return airoha_tc_setup_qdisc_ets(port, type_data);
  	case TC_SETUP_QDISC_HTB:
  		return airoha_tc_setup_qdisc_htb(port, type_data);
@@ -134,9 +142,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define PPE_NUM_ENTRIES			(PPE_SRAM_NUM_ENTRIES + PPE_DRAM_NUM_ENTRIES)
 +#define PPE_HASH_MASK			(PPE_NUM_ENTRIES - 1)
  #define PPE_ENTRY_SIZE			80
- #define PPE_SRAM_TABLE_SIZE		(PPE_SRAM_NUM_ENTRIES * PPE_ENTRY_SIZE)
- #define PPE_TABLE_SIZE			(PPE_NUM_ENTRIES * PPE_ENTRY_SIZE)
-@@ -285,6 +292,135 @@ struct ppe_mbox_data {
+ 
+ #define MTK_HDR_LEN			4
+@@ -283,8 +290,137 @@ struct ppe_mbox_data {
  	};
  };
  
@@ -247,15 +255,20 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	struct airoha_foe_mac_info l2;
 +};
 +
-+struct airoha_foe_entry {
-+	u32 ib1;
-+
+ struct airoha_foe_entry {
+-	u8 data[PPE_ENTRY_SIZE];
 +	union {
-+		struct airoha_foe_bridge bridge;
-+		struct airoha_foe_ipv4 ipv4;
-+		struct airoha_foe_ipv4_dslite dslite;
-+		struct airoha_foe_ipv6 ipv6;
-+		u32 data[20];
++		struct {
++			u32 ib1;
++			union {
++				struct airoha_foe_bridge bridge;
++				struct airoha_foe_ipv4 ipv4;
++				struct airoha_foe_ipv4_dslite dslite;
++				struct airoha_foe_ipv6 ipv6;
++				u32 d[0];
++			};
++		};
++		u8 data[PPE_ENTRY_SIZE];
 +	};
 +};
 +
@@ -267,12 +280,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
 +	struct rhash_head node;
 +	unsigned long cookie;
-+};
-+
+ };
+ 
  struct airoha_qdma {
- 	struct airoha_eth *eth;
- 	void __iomem *regs;
-@@ -335,11 +471,17 @@ struct airoha_npu {
+@@ -337,11 +473,17 @@ struct airoha_npu {
  	} cores[AIROHA_NPU_NUM_CORES];
  };
  
@@ -290,7 +301,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_eth {
-@@ -350,6 +492,7 @@ struct airoha_eth {
+@@ -352,6 +494,7 @@ struct airoha_eth {
  
  	struct airoha_npu *npu;
  	struct airoha_ppe *ppe;
@@ -298,7 +309,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
-@@ -386,6 +529,9 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -388,6 +531,9 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
@@ -344,19 +355,19 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static int airoha_npu_flush_ppe_sram_entries(struct airoha_npu *npu,
  					     struct airoha_ppe *ppe)
  {
-@@ -209,7 +221,10 @@ static int airoha_npu_flush_ppe_sram_ent
- 		},
- 	};
+@@ -211,7 +223,10 @@ static int airoha_npu_flush_ppe_sram_ent
+ 	u32 sram_tb_size;
  
--	memset(ppe->foe, 0, PPE_SRAM_TABLE_SIZE);
+ 	sram_tb_size = PPE_SRAM_NUM_ENTRIES * sizeof(struct airoha_foe_entry);
+-	memset(ppe->foe, 0, sram_tb_size);
 +	if (airoha_ppe2_is_enabled(ppe->eth))
-+		memset(ppe->foe, 0, PPE_SRAM_TABLE_SIZE / 2);
++		memset(ppe->foe, 0, sram_tb_size / 2);
 +	else
-+		memset(ppe->foe, 0, PPE_SRAM_TABLE_SIZE);
++		memset(ppe->foe, 0, sram_tb_size);
  
  	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
  				   sizeof(struct ppe_mbox_data));
-@@ -367,11 +382,686 @@ static void airoha_npu_deinit(struct air
+@@ -369,11 +384,687 @@ static void airoha_npu_deinit(struct air
  	of_node_put(npu->np);
  }
  
@@ -625,7 +636,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +							 u32 hash)
 +{
 +	if (hash < PPE_SRAM_NUM_ENTRIES) {
-+		u32 *hwe = ppe->foe + hash * PPE_ENTRY_SIZE;
++		u32 *hwe = ppe->foe + hash * sizeof(struct airoha_foe_entry);
 +		struct airoha_eth *eth = ppe->eth;
 +		bool ppe2;
 +		u32 val;
@@ -642,22 +653,22 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +					     REG_PPE_RAM_CTRL(ppe2)))
 +			return NULL;
 +
-+		for (i = 0; i < PPE_ENTRY_SIZE / 4; i++)
++		for (i = 0; i < sizeof(struct airoha_foe_entry) / 4; i++)
 +			hwe[i] = airoha_fe_rr(eth,
 +					      REG_PPE_RAM_ENTRY(ppe2, i));
 +	}
 +
-+	return ppe->foe + hash * PPE_ENTRY_SIZE;
++	return ppe->foe + hash * sizeof(struct airoha_foe_entry);
 +}
 +
 +static int airoha_ppe_foe_commit_entry(struct airoha_ppe *ppe,
 +				       struct airoha_foe_entry *e,
 +				       u32 hash)
 +{
-+	struct airoha_foe_entry *hwe = ppe->foe + hash * PPE_ENTRY_SIZE;
++	struct airoha_foe_entry *hwe = ppe->foe + hash * sizeof(*hwe);
 +	u16 ts = airoha_ppe_get_timestamp(ppe);
 +
-+	memcpy(&hwe->data, &e->data, PPE_ENTRY_SIZE - sizeof(hwe->ib1));
++	memcpy(&hwe->d, &e->d, sizeof(*hwe) - sizeof(hwe->ib1));
 +	wmb();
 +
 +	e->ib1 &= ~MTK_FOE_IB1_BIND_TIMESTAMP;
@@ -665,13 +676,13 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	hwe->ib1 = e->ib1;
 +
 +	if (hash < PPE_SRAM_NUM_ENTRIES) {
-+		dma_addr_t addr = ppe->foe_dma + hash * PPE_ENTRY_SIZE;
++		dma_addr_t addr = ppe->foe_dma + hash * sizeof(*hwe);
 +		struct ppe_mbox_data ppe_data = {
 +			.func_type = NPU_OP_SET,
 +			.func_id = PPE_FUNC_SET_WAIT_API,
 +			.set_info = {
 +				.data = addr,
-+				.size = PPE_ENTRY_SIZE,
++				.size = sizeof(*hwe),
 +			},
 +		};
 +		struct airoha_eth *eth = ppe->eth;
@@ -714,7 +725,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	else
 +		len = offsetof(struct airoha_foe_entry, ipv4.ib2);
 +
-+	return !memcmp(&e->data.data, &hwe->data, len - 4);
++	return !memcmp(&e->data.d, &hwe->d, len - sizeof(hwe->ib1));
 +}
 +
 +static void airoha_ppe_foe_insert_entry(struct airoha_ppe *ppe, u32 hash)
@@ -790,7 +801,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	u16 addr_type = 0;
 +	u8 l4proto = 0;
 +
-+	if (rhashtable_lookup(&eth->flow_table, &f->cookie, airoha_flow_table_params))
++	if (rhashtable_lookup(&eth->flow_table, &f->cookie,
++			      airoha_flow_table_params))
 +		return -EEXIST;
 +
 +	if (!flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_META))
@@ -1039,12 +1051,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  {
  	struct airoha_npu *npu;
  	struct airoha_ppe *ppe;
--	int err;
-+	int err, i;
+-	int foe_size, err;
++	int i, foe_size, err;
+ 	u32 sram_tb_size;
  
  	ppe = devm_kzalloc(eth->dev, sizeof(*ppe), GFP_KERNEL);
- 	if (!ppe)
-@@ -386,39 +1076,57 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -390,37 +1081,54 @@ int airoha_ppe_init(struct airoha_eth *e
  	ppe->eth = eth;
  	eth->ppe = ppe;
  
@@ -1072,10 +1084,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 -		goto error;
 +		goto error_npu_deinit;
  
--	airoha_fe_wr(eth, REG_PPE1_TB_BASE,
--		     ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
--	airoha_fe_wr(eth, REG_PPE2_TB_BASE,
--		     ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
+ 	sram_tb_size = PPE_SRAM_NUM_ENTRIES * sizeof(struct airoha_foe_entry);
+-	airoha_fe_wr(eth, REG_PPE1_TB_BASE, ppe->foe_dma + sram_tb_size);
 -	airoha_fe_rmw(eth, REG_PPE1_BND_AGE0,
 -		      PPE1_BIND_AGE0_DELTA_NON_L4 |
 -		      PPE1_BIND_AGE0_DELTA_UDP,
@@ -1088,7 +1098,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 -		      FIELD_PREP(PPE1_BIND_AGE1_DELTA_TCP, 7));
 +	for (i = 0; i < PPE_NUM; i++) {
 +		airoha_fe_wr(eth, REG_PPE_TB_BASE(i),
-+			     ppe->foe_dma + PPE_SRAM_TABLE_SIZE);
++			     ppe->foe_dma + sram_tb_size);
 +		airoha_fe_rmw(eth, REG_PPE_BND_AGE0(i),
 +			      PPE_BIND_AGE0_DELTA_NON_L4 |
 +			      PPE_BIND_AGE0_DELTA_UDP,
@@ -1105,10 +1115,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (err)
 -		goto error;
 +		goto error_npu_deinit;
-+
-+	err = airoha_ppe_debugfs_init(ppe);
-+	if (err)
-+		goto error_npu_deinit;
  
  	return 0;
  
@@ -1121,7 +1127,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return err;
  }
-@@ -429,4 +1137,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -431,4 +1139,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_ppe_deinit(eth->npu);
  		airoha_npu_deinit(eth->npu);
  	}
