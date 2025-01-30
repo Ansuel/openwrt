@@ -38,12 +38,12 @@ PRIO1=5
 		ip link set dev lan$i master $BR_DEV
 	done
 	ip addr add $LAN_SRC_IP/24 dev $BR_DEV
-	ip -6 addr add $LAN_SRC_IP6/64 dev $BR_DEV
+	ip -6 addr add $LAN_SRC_IP6/64 dev $BR_DEV nodad
 	ip link set dev $BR_DEV up
 
 	# WAN
 	ip addr add $WAN_SRC_IP/24 dev $WAN_DEV
-	ip -6 addr add $WAN_SRC_IP6/64 dev $WAN_DEV
+	ip -6 addr add $WAN_SRC_IP6/64 dev $WAN_DEV nodad
 	ip link set dev $WAN_DEV up
 } >/dev/null 2>&1
 
