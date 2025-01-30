@@ -1,0 +1,47 @@
+--- a/drivers/net/ethernet/mediatek/airoha_ppe.c
++++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
+@@ -1176,6 +1176,35 @@ static int airoha_ppe_debugfs_foe_bind_s
+ }
+ DEFINE_SHOW_ATTRIBUTE(airoha_ppe_debugfs_foe_bind);
+ 
++static int airoha_ppe_debugfs_foe_raw_show(struct seq_file *m, void *private)
++{
++	struct airoha_ppe *ppe = m->private;
++	int i;
++
++	for (i = 0; i < PPE_NUM_ENTRIES; i++) {
++		struct airoha_foe_entry *hwe;
++		int j, state;
++
++		hwe = airoha_ppe_foe_get_entry(ppe, i);
++		if (!hwe)
++			continue;
++
++		state = FIELD_GET(MTK_FOE_IB1_STATE, hwe->ib1);
++		if (!state)
++			continue;
++
++		if (state != MTK_FOE_STATE_BIND)
++			continue;
++
++		printk("ENTRY:\t0x%08x\n", i);
++		for (j = 0; j < ARRAY_SIZE(hwe->data); j++)
++			printk("[%02d]:\t0x%08x\n", j, hwe->data[j]);
++	}
++
++	return 0;
++}
++DEFINE_SHOW_ATTRIBUTE(airoha_ppe_debugfs_foe_raw);
++
+ static int airoha_ppe_debugfs_init(struct airoha_ppe *ppe)
+ {
+ 	struct airoha_eth *eth = ppe->eth;
+@@ -1186,6 +1215,8 @@ static int airoha_ppe_debugfs_init(struc
+ 			    &airoha_ppe_debugfs_foe_all_fops);
+ 	debugfs_create_file("bind", S_IRUGO, root, ppe,
+ 			    &airoha_ppe_debugfs_foe_bind_fops);
++	debugfs_create_file("raw", S_IRUGO, root, ppe,
++			    &airoha_ppe_debugfs_foe_raw_fops);
+ 
+ 	return 0;
+ }
