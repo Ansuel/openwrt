@@ -55,12 +55,6 @@ ping -6 -c 5 $WAN_DST_IP6
 # FLOWTABLE
 nft flush ruleset
 nft -f /dev/stdin <<EOF
-table inet nat {
-	chain postrouting {
-		type nat hook postrouting priority filter; policy accept;
-		oifname ${WAN_DEV} masquerade
-	}
-}
 table inet filter {
 	flowtable ft {
 		hook ingress priority filter
