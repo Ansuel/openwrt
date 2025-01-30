@@ -430,6 +430,10 @@
 			reg-names = "xfi_mac", "hsgmii_an", "hsgmii_pcs",
 				    "multi_sgmii", "usxgmii",
 				    "hsgmii_rate_adp", "xfi_ana", "xfi_pma";
+
+			resets = <&scuclk EN7581_XPON_MAC_RST>,
+				 <&scuclk EN7581_XPON_PHY_RST>;
+			reset-names = "mac", "phy";
 		};
 
 		eth_pcs: pcs@1fa09000 {
@@ -445,6 +449,10 @@
 			reg-names = "xfi_mac", "hsgmii_an", "hsgmii_pcs",
 				    "multi_sgmii", "usxgmii",
 				    "hsgmii_rate_adp", "xfi_ana", "xfi_pma";
+
+			resets = <&scuclk EN7581_XSI_MAC_RST>,
+				 <&scuclk EN7581_XSI_PHY_RST>;
+			reset-names = "mac", "phy";
 		};
 
 		chip_scu: syscon@1fa20000 {
@@ -711,12 +719,11 @@
 			resets = <&scuclk EN7581_FE_RST>,
 				 <&scuclk EN7581_FE_PDMA_RST>,
 				 <&scuclk EN7581_FE_QDMA_RST>,
-				 <&scuclk EN7581_XSI_MAC_RST>,
 				 <&scuclk EN7581_DUAL_HSI0_MAC_RST>,
 				 <&scuclk EN7581_DUAL_HSI1_MAC_RST>,
 				 <&scuclk EN7581_HSI_MAC_RST>,
 				 <&scuclk EN7581_XFP_MAC_RST>;
-			reset-names = "fe", "pdma", "qdma", "xsi-mac",
+			reset-names = "fe", "pdma", "qdma",
 				      "hsi0-mac", "hsi1-mac", "hsi-mac",
 				      "xfp-mac";
 
