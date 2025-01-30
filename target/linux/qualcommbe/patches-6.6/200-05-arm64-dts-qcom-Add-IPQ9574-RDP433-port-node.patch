@@ -20,7 +20,7 @@ diff --git a/arch/arm64/boot/dts/qcom/ipq9574-rdp433.dts b/arch/arm64/boot/dts/q
 index 1bb8d96c9a82..1bbe4c258c15 100644
 --- a/arch/arm64/boot/dts/qcom/ipq9574-rdp433.dts
 +++ b/arch/arm64/boot/dts/qcom/ipq9574-rdp433.dts
-@@ -3,11 +3,13 @@
+@@ -3,7 +3,7 @@
   * IPQ9574 RDP433 board device tree source
   *
   * Copyright (c) 2020-2021 The Linux Foundation. All rights reserved.
@@ -29,12 +29,6 @@ index 1bb8d96c9a82..1bbe4c258c15 100644
   */
  
  /dts-v1/;
-
-+#include <dt-bindings/gpio/gpio.h>
-+
- #include "ipq9574-rdp-common.dtsi"
-
- / {
 @@ -15,6 +15,46 @@ / {
  	compatible = "qcom,ipq9574-ap-al02-c7", "qcom,ipq9574";
  };

@@ -24,11 +24,10 @@ index 08a82a5cf667..c113fff22f73 100644
  #include <dt-bindings/thermal/thermal.h>
  
  / {
-@@ -756,6 +758,26 @@ frame@b128000 {
- 				status = "disabled";
- 			};
+@@ -756,6 +758,25 @@ frame@b128000 {
+ 			status = "disabled";
  		};
-+
+ 
 +		nsscc: clock-controller@39b00000 {
 +			compatible = "qcom,ipq9574-nsscc";
 +			reg = <0x39b00000 0x80000>;
