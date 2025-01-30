@@ -3125,7 +3125,7 @@ index 000000000000..d3e9aa391236
 +	.driver = {
 +		.name = "qcom,nsscc-ipq9574",
 +		.of_match_table = nss_cc_ipq9574_match_table,
-+		.sync_state = icc_sync_state, /* TODO seems to cause hang */
++		.sync_state = icc_sync_state,
 +	},
 +};
 +
