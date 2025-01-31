@@ -8,11 +8,11 @@ PCS to make the external PHY or attached SFP cage work.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c  | 249 +++++++++++++++++++-
+ drivers/net/ethernet/mediatek/airoha_eth.c  | 251 +++++++++++++++++++-
  drivers/net/ethernet/mediatek/airoha_eth.h  |   7 +-
  drivers/net/ethernet/mediatek/airoha_regs.h |  12 +
- include/linux/pcs/pcs-airoha.h              |  23 +-
- 4 files changed, 283 insertions(+), 8 deletions(-)
+ include/linux/pcs/pcs-airoha.h              |  15 ++
+ 4 files changed, 282 insertions(+), 3 deletions(-)
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
@@ -83,7 +83,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  	return 0;
  }
-@@ -2541,6 +2569,204 @@ static int airoha_register_port_debugfs(
+@@ -2275,6 +2303,199 @@ static const struct ethtool_ops airoha_ethtool_ops = {
  	return 0;
  }
  
@@ -101,7 +101,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +{
 +	struct airoha_gdm_port *port = container_of(config, struct airoha_gdm_port,
 +						    phylink_config);
-+	
++
 +	/* Frag disable */
 +	regmap_update_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
 +			   AIROHA_PCS_XFI_RX_FRAG_LEN,
@@ -120,8 +120,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +			AIROHA_PCS_XFI_TX_FC_EN);
 +	regmap_set_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
 +			AIROHA_PCS_XFI_RX_FC_EN);
-+
-+	return;
 +}
 +
 +static int airoha_mac_prepare(struct phylink_config *config, unsigned int mode,
@@ -130,7 +128,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	struct airoha_gdm_port *port = container_of(config, struct airoha_gdm_port,
 +						    phylink_config);
 +
-+	//fe protect
 +	/* MPI MBI disable */
 +	regmap_set_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
 +			AIROHA_PCS_XFI_RXMPI_STOP |
@@ -144,7 +141,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	regmap_set_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_LOGIC_RST,
 +			AIROHA_PCS_XFI_MAC_LOGIC_RST);
 +
-+	msleep(1);
++	usleep_range(1000, 2000);
 +
 +	/* Clear XFI MAC counter */
 +	regmap_set_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_CNT_CLR,
@@ -154,7 +151,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +}
 +
 +static void airoha_mac_link_down(struct phylink_config *config, unsigned int mode,
-+			      phy_interface_t interface)
++				 phy_interface_t interface)
 +{
 +	struct airoha_gdm_port *port = container_of(config, struct airoha_gdm_port,
 +						    phylink_config);
@@ -165,14 +162,11 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +			AIROHA_PCS_XFI_RXMBI_STOP |
 +			AIROHA_PCS_XFI_TXMPI_STOP |
 +			AIROHA_PCS_XFI_TXMBI_STOP);
-+
-+	return;
 +}
 +
-+static void airoha_mac_link_up(struct phylink_config *config,
-+			    struct phy_device *phy,
-+			    unsigned int mode, phy_interface_t interface,
-+			    int speed, int duplex, bool tx_pause, bool rx_pause)
++static void airoha_mac_link_up(struct phylink_config *config, struct phy_device *phy,
++			       unsigned int mode, phy_interface_t interface,
++			       int speed, int duplex, bool tx_pause, bool rx_pause)
 +{
 +	struct airoha_gdm_port *port = container_of(config, struct airoha_gdm_port,
 +						    phylink_config);
@@ -180,7 +174,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	struct airoha_eth *eth = qdma->eth;
 +	u32 frag_size_tx, frag_size_rx;
 +
-+	switch(speed) {
++	switch (speed) {
 +	case SPEED_10000:
 +	case SPEED_5000:
 +		frag_size_tx = 8;
@@ -196,11 +190,13 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	}
 +
 +	/* Configure TX/RX frag based on speed */
-+	airoha_fe_rmw(eth, REG_GDMA4_TMBI_FRAG, GDMA4_SGMII0_TX_FRAG_SIZE,
-+		      FIELD_PREP(GDMA4_SGMII0_TX_FRAG_SIZE, frag_size_tx));
++	if (port->type == XSI_ETH_PORT) {
++		airoha_fe_rmw(eth, REG_GDMA4_TMBI_FRAG, GDMA4_SGMII0_TX_FRAG_SIZE,
++			      FIELD_PREP(GDMA4_SGMII0_TX_FRAG_SIZE, frag_size_tx));
 +
-+	airoha_fe_rmw(eth, REG_GDMA4_RMBI_FRAG, GDMA4_SGMII0_RX_FRAG_SIZE,
-+		      FIELD_PREP(GDMA4_SGMII0_RX_FRAG_SIZE, frag_size_rx));
++		airoha_fe_rmw(eth, REG_GDMA4_RMBI_FRAG, GDMA4_SGMII0_RX_FRAG_SIZE,
++			      FIELD_PREP(GDMA4_SGMII0_RX_FRAG_SIZE, frag_size_rx));
++	}
 +
 +	/* BPI BMI enable */
 +	regmap_clear_bits(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_GIB_CFG,
@@ -208,8 +204,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +			  AIROHA_PCS_XFI_RXMBI_STOP |
 +			  AIROHA_PCS_XFI_TXMPI_STOP |
 +			  AIROHA_PCS_XFI_TXMBI_STOP);
-+
-+	return;
 +}
 +
 +static const struct phylink_mac_ops airoha_phylink_ops = {
@@ -220,7 +214,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	.mac_link_up = airoha_mac_link_up,
 +};
 +
-+static int airoha_setup_phylink(struct net_device *dev) {
++static int airoha_setup_phylink(struct net_device *dev)
++{
 +	struct device_node *pcs_np, *np = dev->dev.of_node;
 +	struct airoha_gdm_port *port = netdev_priv(dev);
 +	struct platform_device *pdev;
@@ -355,16 +350,16 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  #define IP_FRAGMENT_NBQ_MASK		GENMASK(4, 0)
  
 +#define REG_GDMA4_TMBI_FRAG		0x2028
-+#define GDMA4_SGMII1_TX_WEIGHT		GENMASK(31, 26)		
-+#define GDMA4_SGMII1_TX_FRAG_SIZE	GENMASK(25, 16)		
-+#define GDMA4_SGMII0_TX_WEIGHT		GENMASK(15, 10)		
++#define GDMA4_SGMII1_TX_WEIGHT		GENMASK(31, 26)
++#define GDMA4_SGMII1_TX_FRAG_SIZE	GENMASK(25, 16)
++#define GDMA4_SGMII0_TX_WEIGHT		GENMASK(15, 10)
 +#define GDMA4_SGMII0_TX_FRAG_SIZE	GENMASK(9, 0)
 +
 +#define REG_GDMA4_RMBI_FRAG		0x202c
-+#define GDMA4_SGMII1_RX_WEIGHT		GENMASK(31, 26)		
-+#define GDMA4_SGMII1_RX_FRAG_SIZE	GENMASK(25, 16)		
-+#define GDMA4_SGMII0_RX_WEIGHT		GENMASK(15, 10)		
-+#define GDMA4_SGMII0_RX_FRAG_SIZE	GENMASK(9, 0)	
++#define GDMA4_SGMII1_RX_WEIGHT		GENMASK(31, 26)
++#define GDMA4_SGMII1_RX_FRAG_SIZE	GENMASK(25, 16)
++#define GDMA4_SGMII0_RX_WEIGHT		GENMASK(15, 10)
++#define GDMA4_SGMII0_RX_FRAG_SIZE	GENMASK(9, 0)
 +
  #define REG_MC_VLAN_EN			0x2100
  #define MC_VLAN_EN_MASK			BIT(0)
