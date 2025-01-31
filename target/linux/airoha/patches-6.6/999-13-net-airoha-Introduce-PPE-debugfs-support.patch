@@ -1,7 +1,7 @@
-From 65f9fc6a324664600882b0157ab9ad31c21dd613 Mon Sep 17 00:00:00 2001
-Message-ID: <65f9fc6a324664600882b0157ab9ad31c21dd613.1738249559.git.lorenzo@kernel.org>
-In-Reply-To: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
-References: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
+From 544070d520e7d49a5ff9a0d38fb6ed3b426c9858 Mon Sep 17 00:00:00 2001
+Message-ID: <544070d520e7d49a5ff9a0d38fb6ed3b426c9858.1738312015.git.lorenzo@kernel.org>
+In-Reply-To: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
+References: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 1 Jan 2025 13:51:51 +0100
 Subject: [PATCH net-next 6/9] net: airoha: Introduce PPE debugfs support
@@ -17,7 +17,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -484,6 +484,8 @@ struct airoha_ppe {
+@@ -483,6 +483,8 @@ struct airoha_ppe {
  
  	struct hlist_head *foe_flow;
  	u16 foe_check_time[PPE_NUM_ENTRIES];
@@ -36,7 +36,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/devcoredump.h>
  #include <linux/firmware.h>
  #include <linux/ip.h>
-@@ -1060,6 +1061,123 @@ void airoha_ppe_check_skb(struct airoha_
+@@ -1087,6 +1088,123 @@ void airoha_ppe_check_skb(struct airoha_
  	airoha_ppe_foe_insert_entry(ppe, hash);
  }
  
@@ -47,8 +47,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	int i;
 +
 +	for (i = 0; i < PPE_NUM_ENTRIES; i++) {
++		unsigned char h_source[ETH_ALEN] = {};
 +		struct mtk_flow_addr_info ai = {};
-+		unsigned char h_source[ETH_ALEN];
 +		unsigned char h_dest[ETH_ALEN];
 +		struct airoha_foe_mac_info *l2;
 +		struct airoha_foe_entry *hwe;
@@ -110,20 +110,20 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +			break;
 +		}
 +
-+		if (type >= MTK_PPE_PKT_TYPE_IPV4_DSLITE) {
++		if (type >= MTK_PPE_PKT_TYPE_IPV6_ROUTE_3T) {
 +			data = hwe->ipv6.data;
-+			l2 = &hwe->ipv6.l2;
 +			ib2 = hwe->ipv6.ib2;
++			l2 = &hwe->ipv6.l2;
 +		} else {
 +			data = hwe->ipv4.data;
-+			l2 = &hwe->ipv4.l2;
 +			ib2 = hwe->ipv4.ib2;
++			l2 = &hwe->ipv4.l2;
 +		}
 +
-+		*((__be32 *)h_source) = cpu_to_be32(l2->src_mac_hi);
-+		*((__be16 *)&h_source[4]) = cpu_to_be16(l2->src_mac_lo);
 +		*((__be32 *)h_dest) = cpu_to_be32(l2->dest_mac_hi);
 +		*((__be16 *)&h_dest[4]) = cpu_to_be16(l2->dest_mac_lo);
++		*((__be32 *)h_source) = cpu_to_be32(l2->src_mac_hi);
++		*((__be16 *)&h_source[4]) = cpu_to_be16(l2->src_mac_lo);
 +
 +		seq_printf(m, " eth=%pM->%pM etype=%04x data=%08x"
 +			      " vlan=%d,%d ib1=%08x ib2=%08x\n",
@@ -160,7 +160,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  int airoha_ppe_init(struct airoha_eth *eth)
  {
  	struct airoha_npu *npu;
-@@ -1122,6 +1240,10 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -1149,6 +1267,10 @@ int airoha_ppe_init(struct airoha_eth *e
  	if (err)
  		goto error_npu_deinit;
  
@@ -171,7 +171,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return 0;
  
  error_npu_deinit:
-@@ -1140,4 +1262,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -1167,4 +1289,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_deinit(eth->npu);
  	}
  	rhashtable_destroy(&eth->flow_table);

@@ -1,5 +1,5 @@
-From a108c7c21149a33339712f1e1b913a3b5d2d3763 Mon Sep 17 00:00:00 2001
-Message-ID: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
+From b0dc2764916f8b57f50b2252061e039b6bacb10d Mon Sep 17 00:00:00 2001
+Message-ID: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 4 Dec 2024 17:47:00 +0100
 Subject: [PATCH net-next 1/9] net: airoha: Introduce basic PPE initialization
@@ -52,7 +52,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	set_bit(DEV_STATE_INITIALIZED, &eth->state);
  
  	return 0;
-@@ -2477,6 +2477,7 @@ static void airoha_remove(struct platfor
+@@ -2481,6 +2481,7 @@ static void airoha_remove(struct platfor
  	}
  	free_netdev(eth->napi_dev);
  
@@ -73,7 +73,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/reset.h>
  
 +#define AIROHA_NPU_NUM_CORES		8
- #define AIROHA_MAX_NUM_GDM_PORTS	1
+ #define AIROHA_MAX_NUM_GDM_PORTS	4
  #define AIROHA_MAX_NUM_QDMA		2
  #define AIROHA_MAX_DSA_PORTS		7
 @@ -44,6 +49,11 @@
@@ -184,7 +184,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  struct airoha_qdma {
  	struct airoha_eth *eth;
  	void __iomem *regs;
-@@ -232,12 +324,34 @@ struct airoha_gdm_port {
+@@ -234,12 +326,34 @@ struct airoha_gdm_port {
  	struct metadata_dst *dsa_meta[AIROHA_MAX_DSA_PORTS];
  };
  
@@ -219,7 +219,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
  
-@@ -273,4 +387,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -275,4 +389,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  

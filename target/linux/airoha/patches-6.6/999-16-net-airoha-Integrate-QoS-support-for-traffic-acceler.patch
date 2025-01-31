@@ -1,7 +1,7 @@
-From a6d621cff9257ff8833b8c9d70c36fb4b04f0897 Mon Sep 17 00:00:00 2001
-Message-ID: <a6d621cff9257ff8833b8c9d70c36fb4b04f0897.1738249559.git.lorenzo@kernel.org>
-In-Reply-To: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
-References: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
+From 468cef2be86ffcb4116bc6f750f742a6f3fa9551 Mon Sep 17 00:00:00 2001
+Message-ID: <468cef2be86ffcb4116bc6f750f742a6f3fa9551.1738312015.git.lorenzo@kernel.org>
+In-Reply-To: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
+References: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 28 Jan 2025 10:22:09 +0100
 Subject: [PATCH net-next 9/9] net: airoha: Integrate QoS support for traffic
@@ -23,9 +23,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +					u32 mark)
  {
  	int dsa_port = airoha_get_dsa_port(&dev);
-+	u32 channel, data, ports_pad, val;
  	struct airoha_foe_mac_info *l2;
 -	u32 data, ports_pad, val;
++	u32 channel, data, ports_pad, val;
  
  	memset(hwe, 0, sizeof(*hwe));
  
@@ -40,10 +40,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	       FIELD_PREP(AIROHA_FOE_QID, mark % AIROHA_NUM_QOS_QUEUES) |
 +	       FIELD_PREP(AIROHA_FOE_SHAPER_ID, 0x7f);
 +
- 	if (type >= MTK_PPE_PKT_TYPE_IPV4_DSLITE) {
- 		hwe->ipv6.data = data;
- 		hwe->ipv6.ib2 = val;
-@@ -815,6 +821,7 @@ static int airoha_ppe_flow_offload_repla
+ 	if (type == MTK_PPE_PKT_TYPE_BRIDGE) {
+ 		hwe->bridge.dest_mac_hi = get_unaligned_be32(dest_mac);
+ 		hwe->bridge.dest_mac_lo = get_unaligned_be16(dest_mac + 4);
+@@ -820,6 +826,7 @@ static int airoha_ppe_flow_offload_repla
  	int err, i, offload_type;
  	u16 addr_type = 0;
  	u8 l4proto = 0;
@@ -51,7 +51,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	if (rhashtable_lookup(&eth->flow_table, &f->cookie,
  			      airoha_flow_table_params))
-@@ -884,6 +891,9 @@ static int airoha_ppe_flow_offload_repla
+@@ -911,6 +918,9 @@ static int airoha_ppe_flow_offload_repla
  			data.pppoe.sid = act->pppoe.sid;
  			data.pppoe.num++;
  			break;
@@ -61,7 +61,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		default:
  			return -EOPNOTSUPP;
  		}
-@@ -894,7 +904,8 @@ static int airoha_ppe_flow_offload_repla
+@@ -921,7 +931,8 @@ static int airoha_ppe_flow_offload_repla
  		return -EINVAL;
  
  	err = airoha_ppe_foe_entry_prepare(&hwe, odev, offload_type, l4proto,

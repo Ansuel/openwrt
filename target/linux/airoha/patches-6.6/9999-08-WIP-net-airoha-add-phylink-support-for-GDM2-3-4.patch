@@ -47,9 +47,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	netif_tx_start_all_queues(dev);
  	err = airoha_set_vip_for_gdm_port(port, true);
  	if (err)
-@@ -1583,19 +1596,34 @@ static int airoha_dev_stop(struct net_de
- 			  GLOBAL_CFG_TX_DMA_EN_MASK |
- 			  GLOBAL_CFG_RX_DMA_EN_MASK);
+@@ -1585,19 +1598,34 @@ static int airoha_dev_stop(struct net_de
+ 				  GLOBAL_CFG_TX_DMA_EN_MASK |
+ 				  GLOBAL_CFG_RX_DMA_EN_MASK);
  
 +	if (port->type != INTERNAL_SWITCH_PORT)
 +		phylink_stop(port->phylink);
@@ -83,8 +83,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  	return 0;
  }
-@@ -2416,6 +2444,204 @@ static void airoha_metadata_dst_free(str
- 	}
+@@ -2541,6 +2569,204 @@ static int airoha_register_port_debugfs(
+ 	return 0;
  }
  
 +static struct phylink_pcs *airoha_phylink_mac_select_pcs(struct phylink_config *config,
@@ -288,7 +288,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2494,6 +2720,23 @@ static int airoha_alloc_gdm_port(struct
+@@ -2623,6 +2849,23 @@ static int airoha_alloc_gdm_port(struct
  	if (err)
  		return err;
  
@@ -312,7 +312,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	return register_netdev(dev);
  }
  
-@@ -2589,6 +2832,10 @@ error_hw_cleanup:
+@@ -2719,6 +2962,10 @@ error_hw_cleanup:
  
  		if (port && port->dev->reg_state == NETREG_REGISTERED) {
  			airoha_metadata_dst_free(port);
@@ -323,7 +323,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  			unregister_netdev(port->dev);
  		}
  	}
-@@ -2616,6 +2863,10 @@ static void airoha_remove(struct platfor
+@@ -2746,6 +2993,10 @@ static void airoha_remove(struct platfor
  
  		airoha_dev_stop(port->dev);
  		airoha_metadata_dst_free(port);
@@ -336,7 +336,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	free_netdev(eth->napi_dev);
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -467,6 +467,11 @@ struct airoha_gdm_port {
+@@ -468,6 +468,11 @@ struct airoha_gdm_port {
  	enum airoha_gdm_port_type type;
  	int id;
  

@@ -1,7 +1,7 @@
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -2642,6 +2642,129 @@ static int airoha_setup_phylink(struct n
- 	return 0;
+@@ -2389,6 +2389,129 @@ static void airoha_metadata_dst_free(str
+ 	}
  }
  
 +static int airoha_xmit_rings_show(struct seq_file *s, void *data)
@@ -130,9 +130,9 @@
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2737,6 +2860,10 @@ static int airoha_alloc_gdm_port(struct
- 					mac_addr[4] << 8 | mac_addr[5]));
- 	}
+@@ -2466,6 +2589,10 @@ static int airoha_alloc_gdm_port(struct
+ 	if (err)
+ 		return err;
  
 +	err = airoha_register_port_debugfs(port);
 +	if (err)
@@ -141,7 +141,7 @@
  	return register_netdev(dev);
  }
  
-@@ -2796,6 +2923,7 @@ static int airoha_probe(struct platform_
+@@ -2525,6 +2652,7 @@ static int airoha_probe(struct platform_
  	strscpy(eth->napi_dev->name, "qdma_eth", sizeof(eth->napi_dev->name));
  	platform_set_drvdata(pdev, eth);
  
@@ -149,7 +149,7 @@
  	err = airoha_hw_init(pdev, eth);
  	if (err)
  		goto error_hw_cleanup;
-@@ -2872,6 +3000,7 @@ static void airoha_remove(struct platfor
+@@ -2593,6 +2721,7 @@ static void airoha_remove(struct platfor
  	free_netdev(eth->napi_dev);
  
  	airoha_ppe_deinit(eth);
@@ -167,7 +167,7 @@
  #include <linux/etherdevice.h>
  #include <linux/iopoll.h>
  #include <linux/kernel.h>
-@@ -204,6 +205,7 @@ enum {
+@@ -195,6 +196,7 @@ enum {
  #define MAX_TOKEN_SIZE_OFFSET			17
  #define TRTCM_TOKEN_RATE_MASK			GENMASK(23, 6)
  #define TRTCM_TOKEN_RATE_FRACTION_MASK		GENMASK(5, 0)
@@ -175,7 +175,7 @@
  
  struct airoha_queue_entry {
  	union {
-@@ -528,6 +530,8 @@ struct airoha_eth {
+@@ -511,6 +513,8 @@ struct airoha_eth {
  
  	struct airoha_qdma qdma[AIROHA_MAX_NUM_QDMA];
  	struct airoha_gdm_port *ports[AIROHA_MAX_NUM_GDM_PORTS];
@@ -186,7 +186,7 @@
  u32 airoha_rr(void __iomem *base, u32 offset);
 --- a/drivers/net/ethernet/mediatek/airoha_ppe.c
 +++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -1181,10 +1181,13 @@ DEFINE_SHOW_ATTRIBUTE(airoha_ppe_debugfs
+@@ -1208,10 +1208,13 @@ DEFINE_SHOW_ATTRIBUTE(airoha_ppe_debugfs
  
  static int airoha_ppe_debugfs_init(struct airoha_ppe *ppe)
  {
@@ -203,7 +203,7 @@
  			    &airoha_ppe_debugfs_foe_bind_fops);
  
  	return 0;
-@@ -1274,5 +1277,4 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -1301,5 +1304,4 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_deinit(eth->npu);
  	}
  	rhashtable_destroy(&eth->flow_table);

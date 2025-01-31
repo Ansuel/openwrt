@@ -1,7 +1,7 @@
-From 030b4b2b7db43c19df247e4ba7dcff9719279cb9 Mon Sep 17 00:00:00 2001
-Message-ID: <030b4b2b7db43c19df247e4ba7dcff9719279cb9.1738249559.git.lorenzo@kernel.org>
-In-Reply-To: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
-References: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
+From 799915c59ff8a0c52393b4e7638fd29747623754 Mon Sep 17 00:00:00 2001
+Message-ID: <799915c59ff8a0c52393b4e7638fd29747623754.1738312015.git.lorenzo@kernel.org>
+In-Reply-To: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
+References: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 26 Jan 2025 16:53:00 +0100
 Subject: [PATCH net-next 7/9] net: airoha: Add loopback support for GDM2
@@ -16,7 +16,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -1571,14 +1571,72 @@ static int airoha_dev_set_macaddr(struct
+@@ -1573,14 +1573,72 @@ static int airoha_dev_set_macaddr(struct
  	return 0;
  }
  

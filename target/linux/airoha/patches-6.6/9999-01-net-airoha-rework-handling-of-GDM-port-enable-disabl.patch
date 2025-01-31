@@ -42,7 +42,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  static bool airhoa_is_lan_gdm_port(struct airoha_gdm_port *port)
  {
  	/* GDM1 port on EN7581 SoC is connected to the lan dsa switch.
-@@ -2458,6 +2474,7 @@ static int airoha_alloc_gdm_port(struct
+@@ -2583,6 +2599,7 @@ static int airoha_alloc_gdm_port(struct
  	port->qdma = qdma;
  	port->dev = dev;
  	port->id = id;
@@ -52,7 +52,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	err = airoha_metadata_dst_alloc(port);
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -74,6 +74,15 @@ enum {
+@@ -75,6 +75,15 @@ enum {
  	QDMA_INT_REG_MAX
  };
  
@@ -68,7 +68,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  enum {
  	HSGMII_LAN_PCIE0_SRCPORT = 0x16,
  	HSGMII_LAN_PCIE1_SRCPORT,
-@@ -454,6 +463,8 @@ struct airoha_qdma {
+@@ -455,6 +464,8 @@ struct airoha_qdma {
  struct airoha_gdm_port {
  	struct airoha_qdma *qdma;
  	struct net_device *dev;

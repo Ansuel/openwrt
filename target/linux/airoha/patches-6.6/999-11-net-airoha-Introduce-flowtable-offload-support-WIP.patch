@@ -1,7 +1,7 @@
-From 528be0436c29174c3c6c40adf6c9502842018759 Mon Sep 17 00:00:00 2001
-Message-ID: <528be0436c29174c3c6c40adf6c9502842018759.1738249559.git.lorenzo@kernel.org>
-In-Reply-To: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
-References: <a108c7c21149a33339712f1e1b913a3b5d2d3763.1738249559.git.lorenzo@kernel.org>
+From d5e9e61309bbd5e0f17e6c1f0ba1b6555abc1df0 Mon Sep 17 00:00:00 2001
+Message-ID: <d5e9e61309bbd5e0f17e6c1f0ba1b6555abc1df0.1738312015.git.lorenzo@kernel.org>
+In-Reply-To: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
+References: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 27 Dec 2024 15:20:48 +0100
 Subject: [PATCH net-next 4/9] net: airoha: Introduce flowtable offload support
@@ -10,10 +10,10 @@ Subject: [PATCH net-next 4/9] net: airoha: Introduce flowtable offload support
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
  drivers/net/ethernet/mediatek/airoha_eth.c  |  57 +-
- drivers/net/ethernet/mediatek/airoha_eth.h  | 148 +++-
- drivers/net/ethernet/mediatek/airoha_ppe.c  | 748 +++++++++++++++++++-
+ drivers/net/ethernet/mediatek/airoha_eth.h  | 145 +++-
+ drivers/net/ethernet/mediatek/airoha_ppe.c  | 775 +++++++++++++++++++-
  drivers/net/ethernet/mediatek/airoha_regs.h | 107 ++-
- 4 files changed, 1017 insertions(+), 43 deletions(-)
+ 4 files changed, 1041 insertions(+), 43 deletions(-)
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
@@ -52,7 +52,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		napi_gro_receive(&q->napi, skb);
  
  		done++;
-@@ -1615,6 +1623,7 @@ static u16 airoha_dev_select_queue(struc
+@@ -1617,6 +1625,7 @@ static u16 airoha_dev_select_queue(struc
  	return queue < dev->num_tx_queues ? queue : 0;
  }
  
@@ -60,7 +60,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static u32 airoha_get_dsa_tag(struct sk_buff *skb, struct net_device *dev)
  {
  #if IS_ENABLED(CONFIG_NET_DSA)
-@@ -2140,6 +2149,47 @@ static int airoha_tc_htb_alloc_leaf_queu
+@@ -2142,6 +2151,47 @@ static int airoha_tc_htb_alloc_leaf_queu
  	return 0;
  }
  
@@ -108,7 +108,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_tc_remove_htb_queue(struct airoha_gdm_port *port, int queue)
  {
  	struct net_device *dev = port->dev;
-@@ -2223,6 +2273,9 @@ static int airoha_dev_tc_setup(struct ne
+@@ -2225,6 +2275,9 @@ static int airoha_dev_tc_setup(struct ne
  		return airoha_tc_setup_qdisc_ets(port, type_data);
  	case TC_SETUP_QDISC_HTB:
  		return airoha_tc_setup_qdisc_htb(port, type_data);
@@ -130,7 +130,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +#include "mtk_ppe.h"
  
  #define AIROHA_NPU_NUM_CORES		8
- #define AIROHA_MAX_NUM_GDM_PORTS	1
+ #define AIROHA_MAX_NUM_GDM_PORTS	4
 @@ -49,9 +53,12 @@
  #define QDMA_METER_IDX(_n)		((_n) & 0xff)
  #define QDMA_METER_GROUP(_n)		(((_n) >> 8) & 0x3)
@@ -144,12 +144,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define PPE_ENTRY_SIZE			80
  
  #define MTK_HDR_LEN			4
-@@ -283,8 +290,137 @@ struct ppe_mbox_data {
+@@ -283,8 +290,134 @@ struct ppe_mbox_data {
  	};
  };
  
-+#define AIROHA_FOE_MAC_DATA_PPPOE_ID	GENMASK(15, 0)
-+#define AIROHA_FOE_MAC_DATA_SMAC_ID	GENMASK(20, 16)
++#define AIROHA_FOE_MAC_PPPOE_ID	GENMASK(15, 0)
++#define AIROHA_FOE_MAC_SMAC_ID		GENMASK(20, 16)
 +
 +struct airoha_foe_mac_info {
 +	u16 vlan1;
@@ -160,10 +160,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	u16 vlan2;
 +	u16 dest_mac_lo;
 +
-+	union {
-+		u32 src_mac_hi;
-+		u32 data;
-+	};
++	u32 src_mac_hi;
 +
 +	u16 pppoe_id;
 +	u16 src_mac_lo;
@@ -283,7 +280,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_qdma {
-@@ -337,11 +473,17 @@ struct airoha_npu {
+@@ -339,11 +472,17 @@ struct airoha_npu {
  	} cores[AIROHA_NPU_NUM_CORES];
  };
  
@@ -301,7 +298,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_eth {
-@@ -352,6 +494,7 @@ struct airoha_eth {
+@@ -354,6 +493,7 @@ struct airoha_eth {
  
  	struct airoha_npu *npu;
  	struct airoha_ppe *ppe;
@@ -309,7 +306,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
-@@ -388,6 +531,9 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -390,6 +530,9 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
@@ -367,7 +364,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
  				   sizeof(struct ppe_mbox_data));
-@@ -369,11 +384,687 @@ static void airoha_npu_deinit(struct air
+@@ -369,11 +384,714 @@ static void airoha_npu_deinit(struct air
  	of_node_put(npu->np);
  }
  
@@ -500,25 +497,30 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		hwe->ipv6.ports = ports_pad;
 +
 +	data = FIELD_PREP(AIROHA_FOE_SHAPER_ID, 0x7f);
-+	if (type >= MTK_PPE_PKT_TYPE_IPV4_DSLITE) {
++	if (type == MTK_PPE_PKT_TYPE_BRIDGE) {
++		hwe->bridge.dest_mac_hi = get_unaligned_be32(dest_mac);
++		hwe->bridge.dest_mac_lo = get_unaligned_be16(dest_mac + 4);
++		hwe->bridge.src_mac_hi = get_unaligned_be16(src_mac);
++		hwe->bridge.src_mac_lo = get_unaligned_be32(src_mac + 2);
++		hwe->bridge.data = data;
++		hwe->bridge.ib2 = val;
++		l2 = &hwe->bridge.l2;
++	} else if (type >= MTK_PPE_PKT_TYPE_IPV6_ROUTE_3T) {
 +		hwe->ipv6.data = data;
 +		hwe->ipv6.ib2 = val;
++		hwe->ipv6.l2.src_mac_hi =
++			FIELD_PREP(AIROHA_FOE_MAC_SMAC_ID, 0xf);
 +		l2 = &hwe->ipv6.l2;
 +	} else {
 +		hwe->ipv4.data = data;
 +		hwe->ipv4.ib2 = val;
 +		l2 = &hwe->ipv4.l2;
 +	}
-+
 +	l2->dest_mac_hi = get_unaligned_be32(dest_mac);
 +	l2->dest_mac_lo = get_unaligned_be16(dest_mac + 4);
-+
-+	if (type >= MTK_PPE_PKT_TYPE_IPV6_ROUTE_3T) {
-+		l2->data &= ~AIROHA_FOE_MAC_DATA_SMAC_ID;
-+		l2->data |= FIELD_PREP(AIROHA_FOE_MAC_DATA_SMAC_ID, 0xf);
-+	} else {
-+		l2->src_mac_hi = get_unaligned_be32(src_mac);
-+		l2->src_mac_lo = get_unaligned_be16(src_mac + 4);
++	if (type <= MTK_PPE_PKT_TYPE_IPV4_DSLITE) {
++		hwe->ipv4.l2.src_mac_hi = get_unaligned_be32(src_mac);
++		hwe->ipv4.l2.src_mac_lo = get_unaligned_be16(src_mac + 4);
 +	}
 +
 +	if (dsa_port >= 0)
@@ -827,6 +829,28 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	}
 +
 +	switch (addr_type) {
++	case 0:
++		offload_type = MTK_PPE_PKT_TYPE_BRIDGE;
++		if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
++			struct flow_match_eth_addrs match;
++
++			flow_rule_match_eth_addrs(rule, &match);
++			memcpy(data.eth.h_dest, match.key->dst, ETH_ALEN);
++			memcpy(data.eth.h_source, match.key->src, ETH_ALEN);
++		} else {
++			return -EOPNOTSUPP;
++		}
++
++		if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_VLAN)) {
++			struct flow_match_vlan match;
++
++			flow_rule_match_vlan(rule, &match);
++			if (match.key->vlan_tpid != cpu_to_be16(ETH_P_8021Q))
++				return -EOPNOTSUPP;
++
++			data.vlan_in = match.key->vlan_id;
++		}
++		break;
 +	case FLOW_DISSECTOR_KEY_IPV4_ADDRS:
 +		offload_type = MTK_PPE_PKT_TYPE_IPV4_HNAPT;
 +		break;
@@ -1056,7 +1080,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	u32 sram_tb_size;
  
  	ppe = devm_kzalloc(eth->dev, sizeof(*ppe), GFP_KERNEL);
-@@ -390,37 +1081,54 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -390,37 +1108,54 @@ int airoha_ppe_init(struct airoha_eth *e
  	ppe->eth = eth;
  	eth->ppe = ppe;
  
@@ -1127,7 +1151,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return err;
  }
-@@ -431,4 +1139,5 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -431,4 +1166,5 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_ppe_deinit(eth->npu);
  		airoha_npu_deinit(eth->npu);
  	}
