@@ -15,9 +15,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
  drivers/net/pcs/Kconfig        |    6 +
  drivers/net/pcs/Makefile       |    1 +
- drivers/net/pcs/pcs-airoha.c   | 2763 ++++++++++++++++++++++++++++++++
+ drivers/net/pcs/pcs-airoha.c   | 2805 ++++++++++++++++++++++++++++++++
  include/linux/pcs/pcs-airoha.h |   14 +
- 4 files changed, 2784 insertions(+)
+ 4 files changed, 2826 insertions(+)
  create mode 100644 drivers/net/pcs/pcs-airoha.c
  create mode 100644 include/linux/pcs/pcs-airoha.h
 
@@ -48,7 +48,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  obj-$(CONFIG_PCS_XPCS)		+= pcs_xpcs.o
 --- /dev/null
 +++ b/drivers/net/pcs/pcs-airoha.c
-@@ -0,0 +1,2763 @@
+@@ -0,0 +1,2805 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2024 AIROHA Inc
@@ -788,6 +788,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +};
 +
 +struct airoha_pcs_priv {
++	struct device *dev;
 +	const struct airoha_pcs_match_data *data;
 +	phy_interface_t interface;
 +
@@ -1968,9 +1969,12 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +static void airoha_pcs_rx_prcal(struct airoha_pcs_priv *priv,
 +				phy_interface_t interface)
 +{
-+	int turn_pr_idac_bit_position;
++	unsigned int remaining_prcal_search_bits = 8;
++	unsigned int prcal_search_bit = 0;
 +	unsigned int prcal_search;
-+	int cdr_pr_idac_tmp = 0;
++	int fl_out_diff = INT_MAX;
++	unsigned int fl_out;
++	int cdr_pr_idac = 0;
 +
 +	u32 target_fl_out;
 +	u32 cyclecnt;
@@ -2047,38 +2051,75 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	/* Calibration logic:
 +	 * First check the major value by looping with every
 +	 * value in the last 3 bit of CDR_PR_IDAC.
-+	 * Get the signal level and save the value that if bigger than
++	 * Get the signal level and save the value that if closer to
 +	 * the target.
 +	 *
-+	 * Then loop for the remaining 7 bit to find the one that is
-+	 * immediately lower than the target signal level.
++	 * Then fine tune for the remaining 7 bit to find the one that
++	 * produce the closest signal level.
 +	 */
 +	for (prcal_search = 1; prcal_search < 8 ; prcal_search++) {
-+		unsigned int fl_out;
++		u32 cdr_pr_idac_tmp;
 +
 +		/* try to find the upper value by setting the last 3 bit */
-+		u32 cdr_pr_idac = FIELD_PREP(AIROHA_PCS_PMA_FORCE_CDR_PR_IDAC_MAJOR,
-+					     prcal_search);
++		cdr_pr_idac_tmp = FIELD_PREP(AIROHA_PCS_PMA_FORCE_CDR_PR_IDAC_MAJOR,
++					    prcal_search);
++		fl_out = airoha_pcs_test_cdr_pr_idac(priv, cdr_pr_idac_tmp);
 +
-+		fl_out = airoha_pcs_test_cdr_pr_idac(priv, cdr_pr_idac);
-+		if (fl_out > target_fl_out)
-+			cdr_pr_idac_tmp = FIELD_PREP(AIROHA_PCS_PMA_FORCE_CDR_PR_IDAC_MAJOR,
-+						     prcal_search);
++		/* Use absolute values to find the closest one to target */
++		if (abs(fl_out - target_fl_out) < fl_out_diff) {
++			cdr_pr_idac = cdr_pr_idac_tmp;
++			fl_out_diff = abs(fl_out - target_fl_out);
++		}
 +	}
 +
-+	for (turn_pr_idac_bit_position = 7; turn_pr_idac_bit_position > -1;
-+	     turn_pr_idac_bit_position--) {
-+		unsigned int fl_out;
-+		u32 cdr_pr_idac;
++	/* Fine tune part.
++	 * Continue searching until we find a deadline where the signal
++	 * level starts to increase. Once that is reached, start
++	 * the loop again to progressely find a closer signal level to
++	 * the target.
++	 */
++	while (prcal_search_bit < remaining_prcal_search_bits) {
++		u32 cdr_pr_idac_tmp;
 +
-+		cdr_pr_idac = cdr_pr_idac_tmp | BIT(turn_pr_idac_bit_position);
++		cdr_pr_idac_tmp = cdr_pr_idac | BIT(prcal_search_bit);
++		fl_out = airoha_pcs_test_cdr_pr_idac(priv, cdr_pr_idac_tmp);
 +
-+		fl_out = airoha_pcs_test_cdr_pr_idac(priv, cdr_pr_idac);
-+		if (fl_out < target_fl_out)
-+			cdr_pr_idac &= ~BIT(turn_pr_idac_bit_position);
++		/* Use absolute values to find the closest one to target */
++		if (abs(fl_out - target_fl_out) > fl_out_diff) {
++			/* Exit early if we are already at the deadline */
++			if (!prcal_search_bit)
++				break;
 +
-+		cdr_pr_idac_tmp = cdr_pr_idac;
++			/* We found the deadline, set the value to the previous
++			 * bit, and reset the loop to fine tune with the
++			 * remaining values.
++			 */
++			cdr_pr_idac |= BIT(prcal_search_bit - 1);
++			remaining_prcal_search_bits = prcal_search_bit - 1;
++			prcal_search_bit = 0;
++		} else {
++			/* Update the signal level diff and try the next bit */
++			fl_out_diff = abs(fl_out - target_fl_out);
++			prcal_search_bit++;
++
++			/* If we didn't found the deadline, set the last bit and
++			 * reset the loop. This should not happen as it's expected
++			 * we find an high signal level and we decrease it as it's
++			 * much harder to reach target level by increasing the
++			 * signal (by using a lower DAC value).
++			 */
++			if (prcal_search_bit == remaining_prcal_search_bits) {
++				cdr_pr_idac |= BIT(prcal_search_bit - 1);
++				remaining_prcal_search_bits = prcal_search_bit - 1;
++				prcal_search_bit = 0;
++			}
++		}
 +	}
++
++	dev_dbg(priv->dev, "Selected CDR Pr Idac: %x Fl Out: %x\n", cdr_pr_idac, fl_out);
++	if (abs(fl_out - target_fl_out) > 100)
++		dev_warn(priv->dev, "Fl Out is %d closer than target %d. PCS might not function properly.\n",
++			 abs(fl_out - target_fl_out), target_fl_out);
 +
 +	/* FIXME: ask Airoha if it's expected that we disable TXPLL_SDM_PCW in the process */
 +	/* this is probably a typo but worth confirming with Airoha */
@@ -2086,7 +2127,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	regmap_update_bits(priv->xfi_pma, AIROHA_PCS_PMA_PXP_CDR_PR_IDAC,
 +			   AIROHA_PCS_PMA_FORCE_CDR_PR_IDAC,
 +			   FIELD_PREP(AIROHA_PCS_PMA_FORCE_CDR_PR_IDAC,
-+				      cdr_pr_idac_tmp));
++				      cdr_pr_idac));
 +
 +	regmap_update_bits(priv->xfi_pma, AIROHA_PCS_PMA_SS_RX_FREQ_DET_4,
 +			   AIROHA_PCS_PMA_FREQLOCK_DET_EN,
@@ -2114,7 +2155,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +	regmap_update_bits(priv->xfi_pma, AIROHA_PCS_PMA_RX_FLL_1,
 +			   AIROHA_PCS_PMA_LPATH_IDAC,
-+			   FIELD_PREP(AIROHA_PCS_PMA_LPATH_IDAC, cdr_pr_idac_tmp));
++			   FIELD_PREP(AIROHA_PCS_PMA_LPATH_IDAC, cdr_pr_idac));
 +
 +	regmap_clear_bits(priv->xfi_pma, AIROHA_PCS_PMA_PXP_CDR_PR_PIEYE_PWDB,
 +			  AIROHA_PCS_PMA_FORCE_DA_CDR_PR_PWDB);
@@ -2694,6 +2735,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	if (!priv)
 +		return -ENOMEM;
 +
++	priv->dev = dev;
 +	priv->data = of_device_get_match_data(dev);
 +
 +	base = devm_platform_ioremap_resource_byname(pdev, "xfi_mac");
