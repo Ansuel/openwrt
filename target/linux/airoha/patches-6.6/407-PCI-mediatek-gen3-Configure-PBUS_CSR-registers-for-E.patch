@@ -1,5 +1,5 @@
-From ca4217f3117dceb2d01e179d02031a8758404624 Mon Sep 17 00:00:00 2001
-Message-ID: <ca4217f3117dceb2d01e179d02031a8758404624.1736961235.git.lorenzo@kernel.org>
+From d55280061ee8a194ab352546f7b75868b1107027 Mon Sep 17 00:00:00 2001
+Message-ID: <d55280061ee8a194ab352546f7b75868b1107027.1738409809.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 3 Sep 2024 23:14:02 +0200
 Subject: [PATCH] PCI: mediatek-gen3: Configure PBUS_CSR registers for EN7581
@@ -10,9 +10,11 @@ detecting if a given address is on PCIE0, PCIE1 or PCIE2.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/pci/controller/pcie-mediatek-gen3.c | 29 ++++++++++++++++++++-
- 1 file changed, 28 insertions(+), 1 deletion(-)
+ drivers/pci/controller/pcie-mediatek-gen3.c | 30 ++++++++++++++++++++-
+ 1 file changed, 29 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/pci/controller/pcie-mediatek-gen3.c b/drivers/pci/controller/pcie-mediatek-gen3.c
+index aa24ac9aaecc..edac3ca4aac2 100644
 --- a/drivers/pci/controller/pcie-mediatek-gen3.c
 +++ b/drivers/pci/controller/pcie-mediatek-gen3.c
 @@ -15,6 +15,7 @@
@@ -31,7 +33,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/reset.h>
  
  #include "../pci.h"
-@@ -122,6 +124,13 @@
+@@ -127,6 +129,13 @@
  
  #define PCIE_MTK_RESET_TIME_US		10
  
@@ -45,7 +47,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  /* Time in ms needed to complete PCIe reset on EN7581 SoC */
  #define PCIE_EN7581_RESET_TIME_MS	100
  
-@@ -893,7 +902,8 @@ static int mtk_pcie_parse_port(struct mt
+@@ -931,7 +940,8 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
  static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
  {
  	struct device *dev = pcie->dev;
@@ -55,11 +57,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	u32 val;
  
  	/*
-@@ -907,6 +917,23 @@ static int mtk_pcie_en7581_power_up(stru
+@@ -945,6 +955,24 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
  	/* Wait for the time needed to complete the reset lines assert. */
  	msleep(PCIE_EN7581_RESET_TIME_MS);
  
-+	map = syscon_regmap_lookup_by_compatible("airoha,en7581-pbus-csr");
++	map = syscon_regmap_lookup_by_phandle(dev->of_node,
++					      "mediatek,pbus-csr");
 +	if (IS_ERR(map))
 +		return PTR_ERR(map);
 +
@@ -79,3 +82,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	/*
  	 * Unlike the other MediaTek Gen3 controllers, the Airoha EN7581
  	 * requires PHY initialization and power-on before PHY reset deassert.
+-- 
+2.48.1
+
