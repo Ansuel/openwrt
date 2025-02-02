@@ -1,22 +1,22 @@
-From ce2d48ffa350f7a515344d47ab902f500f8f3534 Mon Sep 17 00:00:00 2001
-Message-ID: <ce2d48ffa350f7a515344d47ab902f500f8f3534.1738452112.git.lorenzo@kernel.org>
-In-Reply-To: <bc341c91bf9f6363f16bb2c8c508e133e8aa7d36.1738452112.git.lorenzo@kernel.org>
-References: <bc341c91bf9f6363f16bb2c8c508e133e8aa7d36.1738452112.git.lorenzo@kernel.org>
+From bc91ebbb03efddd2f24c09a1ae0830d87d1b50c9 Mon Sep 17 00:00:00 2001
+Message-ID: <bc91ebbb03efddd2f24c09a1ae0830d87d1b50c9.1738491190.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 26 Jan 2025 16:53:00 +0100
-Subject: [PATCH net-next 7/9] net: airoha: Add loopback support for GDM2
+Subject: [PATCH net-next] net: airoha: Add loopback support for GDM2
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c  | 62 ++++++++++++++++++++-
+ drivers/net/ethernet/mediatek/airoha_eth.c  | 67 ++++++++++++++++++++-
  drivers/net/ethernet/mediatek/airoha_eth.h  |  7 +++
- drivers/net/ethernet/mediatek/airoha_ppe.c  | 13 +++--
- drivers/net/ethernet/mediatek/airoha_regs.h | 29 ++++++++++
- 4 files changed, 103 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mediatek/airoha_ppe.c  | 13 ++--
+ drivers/net/ethernet/mediatek/airoha_regs.h | 29 +++++++++
+ 4 files changed, 108 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
+index 50d6ca36a92a..7fb1b1033cfa 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -1587,14 +1587,72 @@ static int airoha_dev_set_macaddr(struct
+@@ -1583,14 +1583,77 @@ static int airoha_dev_set_macaddr(struct net_device *dev, void *p)
  	return 0;
  }
  
@@ -73,6 +73,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  {
  	struct airoha_gdm_port *port = netdev_priv(dev);
  	struct airoha_eth *eth = port->qdma->eth;
++	u32 pse_port;
  
  	airoha_set_macaddr(port, dev->dev_addr);
 -	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(port->id),
@@ -83,33 +84,41 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	case 4:
 +		airhoha_set_gdm2_loopback(port);
 +		fallthrough;
++	case 2:
++		pse_port = FE_PSE_PORT_PPE2;
++		break;
 +	default:
-+		airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(port->id),
-+					    FE_PSE_PORT_PPE1);
++		pse_port = FE_PSE_PORT_PPE1;
 +		break;
 +	}
++
++	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(port->id), pse_port);
  
  	return 0;
  }
+diff --git a/drivers/net/ethernet/mediatek/airoha_eth.h b/drivers/net/ethernet/mediatek/airoha_eth.h
+index e672dbc78f41..b170307af459 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -75,6 +75,13 @@ enum {
+@@ -74,6 +74,13 @@ enum {
+ 	QDMA_INT_REG_MAX
  };
  
- enum {
++enum {
 +	HSGMII_LAN_PCIE0_SRCPORT = 0x16,
 +	HSGMII_LAN_PCIE1_SRCPORT,
 +	HSGMII_LAN_ETH_SRCPORT,
 +	HSGMII_LAN_USB_SRCPORT,
 +};
 +
-+enum {
+ enum {
  	XSI_PCIE0_VIP_PORT_MASK	= BIT(22),
  	XSI_PCIE1_VIP_PORT_MASK	= BIT(23),
- 	XSI_USB_VIP_PORT_MASK	= BIT(25),
+diff --git a/drivers/net/ethernet/mediatek/airoha_ppe.c b/drivers/net/ethernet/mediatek/airoha_ppe.c
+index 183108866a04..6d5917cd314a 100644
 --- a/drivers/net/ethernet/mediatek/airoha_ppe.c
 +++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -489,21 +489,22 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -489,21 +489,22 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
  	      MTK_FOE_IB1_BIND_TTL;
  	hwe->ib1 = val;
  
@@ -138,6 +147,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (is_multicast_ether_addr(dest_mac))
  		val |= AIROHA_FOE_IB2_MULTICAST;
  
+diff --git a/drivers/net/ethernet/mediatek/airoha_regs.h b/drivers/net/ethernet/mediatek/airoha_regs.h
+index 4b6a6f767bdf..c2fe524365bd 100644
 --- a/drivers/net/ethernet/mediatek/airoha_regs.h
 +++ b/drivers/net/ethernet/mediatek/airoha_regs.h
 @@ -36,6 +36,12 @@
@@ -197,3 +208,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define REG_CDM5_RX_OQ1_DROP_CNT	0x29d4
  
  /* QDMA */
+-- 
+2.48.1
+
