@@ -1,7 +1,7 @@
-From 468cef2be86ffcb4116bc6f750f742a6f3fa9551 Mon Sep 17 00:00:00 2001
-Message-ID: <468cef2be86ffcb4116bc6f750f742a6f3fa9551.1738312015.git.lorenzo@kernel.org>
-In-Reply-To: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
-References: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
+From c1f0cda49e7bd2005871f887a116a7cddc6ff55a Mon Sep 17 00:00:00 2001
+Message-ID: <c1f0cda49e7bd2005871f887a116a7cddc6ff55a.1738452112.git.lorenzo@kernel.org>
+In-Reply-To: <bc341c91bf9f6363f16bb2c8c508e133e8aa7d36.1738452112.git.lorenzo@kernel.org>
+References: <bc341c91bf9f6363f16bb2c8c508e133e8aa7d36.1738452112.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 28 Jan 2025 10:22:09 +0100
 Subject: [PATCH net-next 9/9] net: airoha: Integrate QoS support for traffic
@@ -23,7 +23,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +					u32 mark)
  {
  	int dsa_port = airoha_get_dsa_port(&dev);
- 	struct airoha_foe_mac_info *l2;
+ 	struct airoha_foe_mac_info_common *l2;
 -	u32 data, ports_pad, val;
 +	u32 channel, data, ports_pad, val;
  
@@ -43,7 +43,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (type == MTK_PPE_PKT_TYPE_BRIDGE) {
  		hwe->bridge.dest_mac_hi = get_unaligned_be32(dest_mac);
  		hwe->bridge.dest_mac_lo = get_unaligned_be16(dest_mac + 4);
-@@ -820,6 +826,7 @@ static int airoha_ppe_flow_offload_repla
+@@ -821,6 +827,7 @@ static int airoha_ppe_flow_offload_repla
  	int err, i, offload_type;
  	u16 addr_type = 0;
  	u8 l4proto = 0;
@@ -51,7 +51,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	if (rhashtable_lookup(&eth->flow_table, &f->cookie,
  			      airoha_flow_table_params))
-@@ -911,6 +918,9 @@ static int airoha_ppe_flow_offload_repla
+@@ -912,6 +919,9 @@ static int airoha_ppe_flow_offload_repla
  			data.pppoe.sid = act->pppoe.sid;
  			data.pppoe.num++;
  			break;
@@ -61,7 +61,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		default:
  			return -EOPNOTSUPP;
  		}
-@@ -921,7 +931,8 @@ static int airoha_ppe_flow_offload_repla
+@@ -922,7 +932,8 @@ static int airoha_ppe_flow_offload_repla
  		return -EINVAL;
  
  	err = airoha_ppe_foe_entry_prepare(&hwe, odev, offload_type, l4proto,

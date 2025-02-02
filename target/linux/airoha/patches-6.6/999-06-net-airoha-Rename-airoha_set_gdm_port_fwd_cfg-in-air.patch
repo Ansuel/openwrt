@@ -94,8 +94,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (err)
  		return err;
  
-@@ -1565,7 +1538,7 @@ static int airoha_dev_stop(struct net_de
- 	int err;
+@@ -1566,7 +1539,7 @@ static int airoha_dev_stop(struct net_de
+ 	int i, err;
  
  	netif_tx_disable(dev);
 -	err = airoha_set_gdm_ports(qdma->eth, false);

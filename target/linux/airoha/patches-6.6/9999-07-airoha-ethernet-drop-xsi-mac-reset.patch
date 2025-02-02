@@ -13,11 +13,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/ethernet/mediatek/airoha_eth.h | 2 +-
  2 files changed, 5 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
-index d19077c5bcd7..ae973f7b761b 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -2385,11 +2385,10 @@ static int airoha_probe(struct platform_device *pdev)
+@@ -2673,11 +2673,10 @@ static int airoha_probe(struct platform_
  		return err;
  	}
  
@@ -33,19 +31,14 @@ index d19077c5bcd7..ae973f7b761b 100644
  	err = devm_reset_control_bulk_get_exclusive(eth->dev,
  						    ARRAY_SIZE(eth->xsi_rsts),
  						    eth->xsi_rsts);
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.h b/drivers/net/ethernet/mediatek/airoha_eth.h
-index 332ae7bb5113..2426f0181549 100644
 --- a/drivers/net/ethernet/mediatek/airoha_eth.h
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -25,7 +25,7 @@
- #define AIROHA_MAX_NUM_GDM_PORTS	1
+@@ -27,7 +27,7 @@
  #define AIROHA_MAX_NUM_QDMA		2
+ #define AIROHA_MAX_DSA_PORTS		7
  #define AIROHA_MAX_NUM_RSTS		3
 -#define AIROHA_MAX_NUM_XSI_RSTS		5
 +#define AIROHA_MAX_NUM_XSI_RSTS		4
  #define AIROHA_MAX_MTU			2000
  #define AIROHA_MAX_PACKET_SIZE		2048
  #define AIROHA_NUM_QOS_CHANNELS		4
--- 
-2.47.1
-

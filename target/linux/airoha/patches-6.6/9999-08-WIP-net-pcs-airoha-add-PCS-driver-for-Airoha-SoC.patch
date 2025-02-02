@@ -34,7 +34,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	  PCS for SoC Ethernet SERDES.
 +
  config PCS_XPCS
- 	tristate "Synopsys DesignWare Ethernet XPCS"
+ 	tristate
  	select PHYLINK
 --- a/drivers/net/pcs/Makefile
 +++ b/drivers/net/pcs/Makefile

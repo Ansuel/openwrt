@@ -22,21 +22,44 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return 0;
  }
-@@ -1542,9 +1543,10 @@ static int airoha_dev_stop(struct net_de
+@@ -1535,7 +1536,6 @@ static int airoha_dev_stop(struct net_de
+ {
+ 	struct airoha_gdm_port *port = netdev_priv(dev);
+ 	struct airoha_qdma *qdma = port->qdma;
+-	struct netdev_queue *txq;
+ 	int i, err;
+ 
+ 	netif_tx_disable(dev);
+@@ -1543,17 +1543,23 @@ static int airoha_dev_stop(struct net_de
  	if (err)
  		return err;
  
 -	airoha_qdma_clear(qdma, REG_QDMA_GLOBAL_CFG,
 -			  GLOBAL_CFG_TX_DMA_EN_MASK |
 -			  GLOBAL_CFG_RX_DMA_EN_MASK);
++	for (i = 0; i < ARRAY_SIZE(qdma->q_tx); i++) {
++		struct netdev_queue *txq;
++
++		txq = netdev_get_tx_queue(dev, i);
++		netdev_tx_reset_queue(txq);
++	}
++
 +	if (atomic_dec_and_test(&qdma->users))
 +		airoha_qdma_clear(qdma, REG_QDMA_GLOBAL_CFG,
 +				  GLOBAL_CFG_TX_DMA_EN_MASK |
 +				  GLOBAL_CFG_RX_DMA_EN_MASK);
  
+ 	for (i = 0; i < ARRAY_SIZE(qdma->q_tx); i++) {
+ 		if (!qdma->q_tx[i].ndesc)
+ 			continue;
+ 
+ 		airoha_qdma_cleanup_tx_queue(&qdma->q_tx[i]);
+-		txq = netdev_get_tx_queue(dev, i);
+-		netdev_tx_reset_queue(txq);
+ 	}
+ 
  	return 0;
- }
-@@ -2276,13 +2278,14 @@ static void airoha_metadata_dst_free(str
+@@ -2286,13 +2292,14 @@ static void airoha_metadata_dst_free(str
  	}
  }
  
@@ -53,7 +76,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	u32 id;
  
  	if (!id_ptr) {
-@@ -2291,14 +2294,14 @@ static int airoha_alloc_gdm_port(struct
+@@ -2301,14 +2308,14 @@ static int airoha_alloc_gdm_port(struct
  	}
  
  	id = be32_to_cpup(id_ptr);
@@ -70,7 +93,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		dev_err(eth->dev, "duplicate gdm port id: %d\n", id);
  		return -EINVAL;
  	}
-@@ -2346,7 +2349,7 @@ static int airoha_alloc_gdm_port(struct
+@@ -2356,7 +2363,7 @@ static int airoha_alloc_gdm_port(struct
  	port->qdma = qdma;
  	port->dev = dev;
  	port->id = id;
@@ -79,7 +102,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	err = airoha_metadata_dst_alloc(port);
  	if (err)
-@@ -2418,6 +2421,7 @@ static int airoha_probe(struct platform_
+@@ -2428,6 +2435,7 @@ static int airoha_probe(struct platform_
  	for (i = 0; i < ARRAY_SIZE(eth->qdma); i++)
  		airoha_qdma_start_napi(&eth->qdma[i]);
  
@@ -87,7 +110,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	for_each_child_of_node(pdev->dev.of_node, np) {
  		if (!of_device_is_compatible(np, "airoha,eth-mac"))
  			continue;
-@@ -2425,7 +2429,7 @@ static int airoha_probe(struct platform_
+@@ -2435,7 +2443,7 @@ static int airoha_probe(struct platform_
  		if (!of_device_is_available(np))
  			continue;
  

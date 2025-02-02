@@ -42,7 +42,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  static bool airhoa_is_lan_gdm_port(struct airoha_gdm_port *port)
  {
  	/* GDM1 port on EN7581 SoC is connected to the lan dsa switch.
-@@ -2583,6 +2599,7 @@ static int airoha_alloc_gdm_port(struct
+@@ -2596,6 +2612,7 @@ static int airoha_alloc_gdm_port(struct
  	port->qdma = qdma;
  	port->dev = dev;
  	port->id = id;
@@ -68,7 +68,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  enum {
  	HSGMII_LAN_PCIE0_SRCPORT = 0x16,
  	HSGMII_LAN_PCIE1_SRCPORT,
-@@ -455,6 +464,8 @@ struct airoha_qdma {
+@@ -459,6 +468,8 @@ struct airoha_qdma {
  struct airoha_gdm_port {
  	struct airoha_qdma *qdma;
  	struct net_device *dev;

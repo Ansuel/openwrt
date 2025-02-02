@@ -1,7 +1,7 @@
-From 799915c59ff8a0c52393b4e7638fd29747623754 Mon Sep 17 00:00:00 2001
-Message-ID: <799915c59ff8a0c52393b4e7638fd29747623754.1738312015.git.lorenzo@kernel.org>
-In-Reply-To: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
-References: <b0dc2764916f8b57f50b2252061e039b6bacb10d.1738312015.git.lorenzo@kernel.org>
+From ce2d48ffa350f7a515344d47ab902f500f8f3534 Mon Sep 17 00:00:00 2001
+Message-ID: <ce2d48ffa350f7a515344d47ab902f500f8f3534.1738452112.git.lorenzo@kernel.org>
+In-Reply-To: <bc341c91bf9f6363f16bb2c8c508e133e8aa7d36.1738452112.git.lorenzo@kernel.org>
+References: <bc341c91bf9f6363f16bb2c8c508e133e8aa7d36.1738452112.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 26 Jan 2025 16:53:00 +0100
 Subject: [PATCH net-next 7/9] net: airoha: Add loopback support for GDM2
@@ -11,12 +11,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/ethernet/mediatek/airoha_eth.c  | 62 ++++++++++++++++++++-
  drivers/net/ethernet/mediatek/airoha_eth.h  |  7 +++
  drivers/net/ethernet/mediatek/airoha_ppe.c  | 13 +++--
- drivers/net/ethernet/mediatek/airoha_regs.h | 33 +++++++++++
- 4 files changed, 107 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mediatek/airoha_regs.h | 29 ++++++++++
+ 4 files changed, 103 insertions(+), 8 deletions(-)
 
 --- a/drivers/net/ethernet/mediatek/airoha_eth.c
 +++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -1573,14 +1573,72 @@ static int airoha_dev_set_macaddr(struct
+@@ -1587,14 +1587,72 @@ static int airoha_dev_set_macaddr(struct
  	return 0;
  }
  
@@ -178,18 +178,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define REG_FE_CPORT_CFG		(GDM1_BASE + 0x40)
  #define FE_CPORT_PAD			BIT(26)
  #define FE_CPORT_PORT_XFC_MASK		BIT(25)
-@@ -260,6 +277,10 @@
- #define PPE_BIND_AGE1_DELTA_TCP_FIN		GENMASK(30, 16)
- #define PPE_BIND_AGE1_DELTA_TCP			GENMASK(14, 0)
- 
-+#define REG_PPE_DFT_CPORT0(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x248)
-+
-+#define REG_PPE_DFT_CPORT1(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x24c)
-+
- #define REG_PPE_TB_HASH_CFG(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x250)
- #define PPE_DRAM_HASH1_EN_MASK			BIT(24)
- #define PPE_DRAM_TABLE_EN_MASK			BIT(16)
-@@ -333,6 +354,18 @@
+@@ -344,6 +361,18 @@
  
  #define REG_MC_VLAN_DATA		0x2108
  
