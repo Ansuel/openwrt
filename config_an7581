@@ -53,6 +53,8 @@ CONFIG_TARGET_airoha=y
 CONFIG_TARGET_airoha_an7581=y
 # CONFIG_TARGET_MULTI_PROFILE is not set
 CONFIG_TARGET_airoha_an7581_DEVICE_airoha_an7581-evb=y
+# CONFIG_TARGET_airoha_an7581_DEVICE_airoha_an7581-evb-an8811 is not set
+# CONFIG_TARGET_airoha_an7581_DEVICE_airoha_an7581-evb-pon is not set
 # CONFIG_TARGET_airoha_an7581_DEVICE_airoha_an7581-evb-emmc is not set
 CONFIG_HAS_SUBTARGETS=y
 CONFIG_HAS_DEVICES=y
@@ -3367,6 +3369,7 @@ CONFIG_PACKAGE_kmod-netlink-diag=y
 # CONFIG_PACKAGE_kmod-qrtr-mhi is not set
 # CONFIG_PACKAGE_kmod-qrtr-tun is not set
 CONFIG_PACKAGE_kmod-sched=y
+CONFIG_PACKAGE_kmod-sched-act-ct=y
 # CONFIG_PACKAGE_kmod-sched-act-ipt is not set
 # CONFIG_PACKAGE_kmod-sched-act-police is not set
 # CONFIG_PACKAGE_kmod-sched-act-sample is not set
@@ -3964,7 +3967,7 @@ CONFIG_PACKAGE_libmnl=y
 # CONFIG_PACKAGE_libmount is not set
 # CONFIG_PACKAGE_libmpfr is not set
 # CONFIG_PACKAGE_libmpg123 is not set
-# CONFIG_PACKAGE_libncurses is not set
+CONFIG_PACKAGE_libncurses=y
 # CONFIG_PACKAGE_libneon is not set
 CONFIG_PACKAGE_libnetfilter-conntrack=y
 CONFIG_PACKAGE_libnetfilter-cthelper=y
@@ -4004,7 +4007,7 @@ CONFIG_PACKAGE_libpcap=y
 # CONFIG_PACKAGE_libpng is not set
 # CONFIG_PACKAGE_libpopt is not set
 # CONFIG_PACKAGE_libprotobuf-c is not set
-# CONFIG_PACKAGE_libreadline is not set
+CONFIG_PACKAGE_libreadline=y
 # CONFIG_PACKAGE_libsasl2 is not set
 # CONFIG_PACKAGE_libsasl2-sasldb is not set
 # CONFIG_PACKAGE_libsasl2-utils is not set
@@ -4057,7 +4060,7 @@ CONFIG_PACKAGE_libudebug=y
 # CONFIG_PACKAGE_protobuf-lite is not set
 CONFIG_PACKAGE_rpcd-mod-luci=y
 CONFIG_PACKAGE_rpcd-mod-rrdns=y
-# CONFIG_PACKAGE_terminfo is not set
+CONFIG_PACKAGE_terminfo=y
 # CONFIG_PACKAGE_uw-imap is not set
 CONFIG_PACKAGE_zlib=y
 
