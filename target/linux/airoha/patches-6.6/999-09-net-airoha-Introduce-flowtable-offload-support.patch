@@ -664,7 +664,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	}
 +
 +	if (dsa_port >= 0)
-+		l2->etype = BIT(8) | BIT(dsa_port);
++		l2->etype = BIT(15) | BIT(dsa_port);
 +	else if (type >= PPE_PKT_TYPE_IPV6_ROUTE_3T)
 +		l2->etype = ETH_P_IPV6;
 +	else
