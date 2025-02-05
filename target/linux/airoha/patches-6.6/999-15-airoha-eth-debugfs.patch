@@ -167,7 +167,7 @@
  
  struct airoha_queue_entry {
  	union {
-@@ -522,6 +523,8 @@ struct airoha_eth {
+@@ -523,6 +524,8 @@ struct airoha_eth {
  
  	struct airoha_qdma qdma[AIROHA_MAX_NUM_QDMA];
  	struct airoha_gdm_port *ports[AIROHA_MAX_NUM_GDM_PORTS];
@@ -191,15 +191,15 @@
  int airoha_ppe_debugfs_init(struct airoha_ppe *ppe)
  {
 -	ppe->debugfs_dir = debugfs_create_dir("ppe", NULL);
--	debugfs_create_file("entries", S_IRUGO, ppe->debugfs_dir, ppe,
+-	debugfs_create_file("entries", 0444, ppe->debugfs_dir, ppe,
 +	struct airoha_eth *eth = ppe->eth;
 +	struct dentry *root;
 +
 +	root = debugfs_create_dir("ppe", eth->debugfs_dir);
-+	debugfs_create_file("entries", S_IRUGO, root, ppe,
++	debugfs_create_file("entries", 0444, root, ppe,
  			    &airoha_ppe_debugfs_foe_all_fops);
--	debugfs_create_file("bind", S_IRUGO, ppe->debugfs_dir, ppe,
-+	debugfs_create_file("bind", S_IRUGO, root, ppe,
+-	debugfs_create_file("bind", 0444, ppe->debugfs_dir, ppe,
++	debugfs_create_file("bind", 0444, root, ppe,
  			    &airoha_ppe_debugfs_foe_bind_fops);
  
  	return 0;

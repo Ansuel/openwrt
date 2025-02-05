@@ -129,7 +129,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  struct airoha_qdma {
  	struct airoha_eth *eth;
  	void __iomem *regs;
-@@ -234,12 +251,35 @@ struct airoha_gdm_port {
+@@ -234,12 +251,36 @@ struct airoha_gdm_port {
  	struct metadata_dst *dsa_meta[AIROHA_MAX_DSA_PORTS];
  };
  
@@ -141,6 +141,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
 +	struct airoha_npu_core {
 +		struct airoha_npu *npu;
++		/* protect concurrent npu memory accesses */
 +		spinlock_t lock;
 +		struct work_struct wdt_work;
 +	} cores[AIROHA_NPU_NUM_CORES];
@@ -165,7 +166,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
  
-@@ -275,4 +315,51 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -275,4 +316,51 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
@@ -210,7 +211,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +}
 +
 +static inline int airoha_npu_flush_ppe_sram_entries(struct airoha_npu *npu,
-+				      struct airoha_ppe *ppe)
++						    struct airoha_ppe *ppe)
 +{
 +	return -EOPNOTSUPP;
 +}
@@ -565,7 +566,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	struct device_node *np;
 +
 +	npu = devm_kzalloc(eth->dev, sizeof(*npu), GFP_KERNEL);
-+	if(!npu)
++	if (!npu)
 +		return ERR_PTR(-ENOMEM);
 +
 +	npu->np = of_parse_phandle(eth->dev->of_node, "airoha,npu", 0);
@@ -706,8 +707,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		airoha_fe_rmw(eth, REG_PPE_BND_AGE1(i),
 +			      PPE_BIND_AGE1_DELTA_TCP_FIN |
 +			      PPE_BIND_AGE1_DELTA_TCP,
-+		              FIELD_PREP(PPE_BIND_AGE1_DELTA_TCP_FIN, 1) |
-+		              FIELD_PREP(PPE_BIND_AGE1_DELTA_TCP, 7));
++			      FIELD_PREP(PPE_BIND_AGE1_DELTA_TCP_FIN, 1) |
++			      FIELD_PREP(PPE_BIND_AGE1_DELTA_TCP, 7));
 +
 +		airoha_fe_rmw(eth, REG_PPE_TB_HASH_CFG(i),
 +			      PPE_SRAM_TABLE_EN_MASK |
@@ -717,8 +718,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +			      PPE_SRAM_HASH1_MODE_MASK |
 +			      PPE_DRAM_HASH0_MODE_MASK |
 +			      PPE_DRAM_HASH1_MODE_MASK,
-+		              FIELD_PREP(PPE_SRAM_TABLE_EN_MASK, 1) |
-+		              FIELD_PREP(PPE_SRAM_HASH1_EN_MASK, 1) |
++			      FIELD_PREP(PPE_SRAM_TABLE_EN_MASK, 1) |
++			      FIELD_PREP(PPE_SRAM_HASH1_EN_MASK, 1) |
 +			      FIELD_PREP(PPE_SRAM_HASH1_MODE_MASK, 1) |
 +			      FIELD_PREP(PPE_DRAM_HASH1_MODE_MASK, 3));
 +

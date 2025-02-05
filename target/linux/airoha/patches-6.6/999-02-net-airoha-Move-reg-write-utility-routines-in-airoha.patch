@@ -16,8 +16,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/ethernet/airoha/airoha_eth.h | 26 ++++++++++++++++++++++
  2 files changed, 29 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index a9074c6b55ef..5916600555d6 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -673,17 +673,17 @@ struct airoha_qdma_fwd_desc {
@@ -41,7 +39,7 @@ index a9074c6b55ef..5916600555d6 100644
  {
  	val |= (airoha_rr(base, offset) & ~mask);
  	airoha_wr(base, offset, val);
-@@ -691,28 +691,6 @@ static u32 airoha_rmw(void __iomem *base, u32 offset, u32 mask, u32 val)
+@@ -691,28 +691,6 @@ static u32 airoha_rmw(void __iomem *base
  	return val;
  }
  
@@ -70,8 +68,6 @@ index a9074c6b55ef..5916600555d6 100644
  static void airoha_qdma_set_irqmask(struct airoha_qdma *qdma, int index,
  				    u32 clear, u32 set)
  {
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index 3310e0cf85f1..743aaf10235f 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -248,4 +248,30 @@ struct airoha_eth {
@@ -105,6 +101,3 @@ index 3310e0cf85f1..743aaf10235f 100644
 +	airoha_rmw((qdma)->regs, (offset), (val), 0)
 +
  #endif /* AIROHA_ETH_H */
--- 
-2.48.1
-

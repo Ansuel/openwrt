@@ -315,7 +315,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +				struct airoha_foe_ipv4 ipv4;
 +				struct airoha_foe_ipv4_dslite dslite;
 +				struct airoha_foe_ipv6 ipv6;
-+				u32 d[0];
++				DECLARE_FLEX_ARRAY(u32, d);
 +			};
 +		};
 +		u8 data[PPE_ENTRY_SIZE];
@@ -364,7 +364,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_qdma {
-@@ -264,11 +482,17 @@ struct airoha_npu {
+@@ -265,11 +483,17 @@ struct airoha_npu {
  	} cores[AIROHA_NPU_NUM_CORES];
  };
  
@@ -382,7 +382,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_eth {
-@@ -279,6 +503,7 @@ struct airoha_eth {
+@@ -280,6 +504,7 @@ struct airoha_eth {
  
  	struct airoha_npu *npu;
  	struct airoha_ppe *ppe;
@@ -390,7 +390,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
-@@ -316,6 +541,12 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -317,6 +542,12 @@ u32 airoha_rmw(void __iomem *base, u32 o
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
  bool airoha_ppe2_is_enabled(struct airoha_eth *eth);
@@ -403,7 +403,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  #ifdef CONFIG_NET_AIROHA_NPU
  int airoha_ppe_init(struct airoha_eth *eth);
-@@ -326,6 +557,8 @@ int airoha_npu_ppe_init(struct airoha_np
+@@ -327,6 +558,8 @@ int airoha_npu_ppe_init(struct airoha_np
  int airoha_npu_ppe_deinit(struct airoha_npu *npu);
  int airoha_npu_flush_ppe_sram_entries(struct airoha_npu *npu,
  				      struct airoha_ppe *ppe);
@@ -412,7 +412,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #else
  static inline int airoha_ppe_init(struct airoha_eth *eth)
  {
-@@ -360,6 +593,13 @@ static inline int airoha_npu_flush_ppe_s
+@@ -361,6 +594,13 @@ static inline int airoha_npu_flush_ppe_s
  {
  	return -EOPNOTSUPP;
  }
@@ -741,28 +741,28 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	u32 hash, hv1, hv2, hv3;
 +
 +	switch (type) {
-+		case PPE_PKT_TYPE_IPV4_ROUTE:
-+		case PPE_PKT_TYPE_IPV4_HNAPT:
-+			hv1 = hwe->ipv4.orig_tuple.ports;
-+			hv2 = hwe->ipv4.orig_tuple.dest_ip;
-+			hv3 = hwe->ipv4.orig_tuple.src_ip;
-+			break;
-+		case PPE_PKT_TYPE_IPV6_ROUTE_3T:
-+		case PPE_PKT_TYPE_IPV6_ROUTE_5T:
-+			hv1 = hwe->ipv6.src_ip[3] ^ hwe->ipv6.dest_ip[3];
-+			hv1 ^= hwe->ipv6.ports;
++	case PPE_PKT_TYPE_IPV4_ROUTE:
++	case PPE_PKT_TYPE_IPV4_HNAPT:
++		hv1 = hwe->ipv4.orig_tuple.ports;
++		hv2 = hwe->ipv4.orig_tuple.dest_ip;
++		hv3 = hwe->ipv4.orig_tuple.src_ip;
++		break;
++	case PPE_PKT_TYPE_IPV6_ROUTE_3T:
++	case PPE_PKT_TYPE_IPV6_ROUTE_5T:
++		hv1 = hwe->ipv6.src_ip[3] ^ hwe->ipv6.dest_ip[3];
++		hv1 ^= hwe->ipv6.ports;
 +
-+			hv2 = hwe->ipv6.src_ip[2] ^ hwe->ipv6.dest_ip[2];
-+			hv2 ^= hwe->ipv6.dest_ip[0];
++		hv2 = hwe->ipv6.src_ip[2] ^ hwe->ipv6.dest_ip[2];
++		hv2 ^= hwe->ipv6.dest_ip[0];
 +
-+			hv3 = hwe->ipv6.src_ip[1] ^ hwe->ipv6.dest_ip[1];
-+			hv3 ^= hwe->ipv6.src_ip[0];
-+			break;
-+		case PPE_PKT_TYPE_IPV4_DSLITE:
-+		case PPE_PKT_TYPE_IPV6_6RD:
-+		default:
-+			WARN_ON_ONCE(1);
-+			return PPE_HASH_MASK;
++		hv3 = hwe->ipv6.src_ip[1] ^ hwe->ipv6.dest_ip[1];
++		hv3 ^= hwe->ipv6.src_ip[0];
++		break;
++	case PPE_PKT_TYPE_IPV4_DSLITE:
++	case PPE_PKT_TYPE_IPV6_6RD:
++	default:
++		WARN_ON_ONCE(1);
++		return PPE_HASH_MASK;
 +	}
 +
 +	hash = (hv1 & hv2) | ((~hv1) & hv3);

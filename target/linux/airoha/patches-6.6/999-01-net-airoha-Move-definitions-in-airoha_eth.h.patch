@@ -16,8 +16,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  2 files changed, 252 insertions(+), 239 deletions(-)
  create mode 100644 drivers/net/ethernet/airoha/airoha_eth.h
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 09f448f29124..a9074c6b55ef 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -3,14 +3,9 @@
@@ -284,9 +282,6 @@ index 09f448f29124..a9074c6b55ef 100644
  static u32 airoha_rr(void __iomem *base, u32 offset)
  {
  	return readl(base + offset);
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-new file mode 100644
-index 000000000000..3310e0cf85f1
 --- /dev/null
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -0,0 +1,251 @@
@@ -541,6 +536,3 @@ index 000000000000..3310e0cf85f1
 +};
 +
 +#endif /* AIROHA_ETH_H */
--- 
-2.48.1
-

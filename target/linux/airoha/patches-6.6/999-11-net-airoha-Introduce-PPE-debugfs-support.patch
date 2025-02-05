@@ -36,7 +36,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/etherdevice.h>
  #include <linux/iopoll.h>
  #include <linux/kernel.h>
-@@ -500,6 +501,8 @@ struct airoha_ppe {
+@@ -501,6 +502,8 @@ struct airoha_ppe {
  
  	struct hlist_head *foe_flow;
  	u16 foe_check_time[PPE_NUM_ENTRIES];
@@ -45,7 +45,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_eth {
-@@ -609,4 +612,13 @@ static inline int airoha_npu_foe_commit_
+@@ -610,4 +613,13 @@ static inline int airoha_npu_foe_commit_
  }
  #endif /* CONFIG_NET_AIROHA_NPU */
  
@@ -105,7 +105,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	if (src_port)
 +		seq_printf(m, ":%d", *src_port);
 +
-+	seq_printf(m, "->");
++	seq_puts(m, "->");
 +
 +	if (ipv6) {
 +		cpu_to_be32_array(n_addr, dest_addr, 4);
@@ -189,7 +189,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +			break;
 +		}
 +
-+		seq_printf(m, " orig=");
++		seq_puts(m, " orig=");
 +		airoha_debugfs_ppe_print_tuple(m, src_addr, dest_addr,
 +					       src_port, dest_port, ipv6);
 +
@@ -202,7 +202,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		case PPE_PKT_TYPE_IPV4_ROUTE:
 +			src_addr = &hwe->ipv4.new_tuple.src_ip;
 +			dest_addr = &hwe->ipv4.new_tuple.dest_ip;
-+			seq_printf(m, " new=");
++			seq_puts(m, " new=");
 +			airoha_debugfs_ppe_print_tuple(m, src_addr, dest_addr,
 +						       src_port, dest_port,
 +						       ipv6);
@@ -249,9 +249,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +int airoha_ppe_debugfs_init(struct airoha_ppe *ppe)
 +{
 +	ppe->debugfs_dir = debugfs_create_dir("ppe", NULL);
-+	debugfs_create_file("entries", S_IRUGO, ppe->debugfs_dir, ppe,
++	debugfs_create_file("entries", 0444, ppe->debugfs_dir, ppe,
 +			    &airoha_ppe_debugfs_foe_all_fops);
-+	debugfs_create_file("bind", S_IRUGO, ppe->debugfs_dir, ppe,
++	debugfs_create_file("bind", 0444, ppe->debugfs_dir, ppe,
 +			    &airoha_ppe_debugfs_foe_bind_fops);
 +
 +	return 0;

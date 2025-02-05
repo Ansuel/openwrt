@@ -51,12 +51,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		/* FIXME: handle XSI_PCE1_PORT */
 +		airoha_fe_wr(eth, REG_PPE_DFT_CPORT0(0),  0x5500);
 +		airoha_fe_rmw(eth, REG_FE_WAN_PORT,
-+			WAN1_EN_MASK | WAN1_MASK | WAN0_MASK,
-+			FIELD_PREP(WAN0_MASK, HSGMII_LAN_PCIE0_SRCPORT));
++			      WAN1_EN_MASK | WAN1_MASK | WAN0_MASK,
++			      FIELD_PREP(WAN0_MASK, HSGMII_LAN_PCIE0_SRCPORT));
 +		airoha_fe_rmw(eth,
 +			      REG_SP_DFT_CPORT(HSGMII_LAN_PCIE0_SRCPORT >> 3),
 +			      SP_CPORT_PCIE0_MASK,
-+		              FIELD_PREP(SP_CPORT_PCIE0_MASK,
++			      FIELD_PREP(SP_CPORT_PCIE0_MASK,
 +					 FE_PSE_PORT_CDM2));
 +	} else {
 +		/* FIXME: handle XSI_USB_PORT */
@@ -69,7 +69,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		airoha_fe_rmw(eth,
 +			      REG_SP_DFT_CPORT(HSGMII_LAN_ETH_SRCPORT >> 3),
 +			      SP_CPORT_ETH_MASK,
-+		              FIELD_PREP(SP_CPORT_ETH_MASK, FE_PSE_PORT_CDM2));
++			      FIELD_PREP(SP_CPORT_ETH_MASK, FE_PSE_PORT_CDM2));
 +	}
 +}
 +
@@ -174,7 +174,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define GDM_SHORT_LEN_MASK		GENMASK(13, 0)
  #define GDM_LONG_LEN_MASK		GENMASK(29, 16)
  
-+#define REG_GDM_LPBK_CFG(_n)		(GDM_BASE(_n) +0x1c)
++#define REG_GDM_LPBK_CFG(_n)		(GDM_BASE(_n) + 0x1c)
 +#define LPBK_GAP_MASK			GENMASK(31, 24)
 +#define LPBK_LEN_MASK			GENMASK(23, 10)
 +#define LPBK_CHAN_MASK			GENMASK(8, 4)
