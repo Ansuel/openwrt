@@ -204,12 +204,25 @@
 	status = "okay";
 };
 
+&npu {
+	status = "okay";
+};
+
 &eth {
 	status = "okay";
 };
 
 &gdm1 {
 	status = "okay";
+};
+
+&gdm4 {
+	status = "okay";
+
+	sfp = <&sfp1>;
+
+	managed = "in-band-status";
+	phy-mode = "usxgmii";
 };
 
 &switch {
