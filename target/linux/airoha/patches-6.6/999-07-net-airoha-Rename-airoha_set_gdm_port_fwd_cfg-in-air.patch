@@ -1,10 +1,10 @@
-From c127d534297c3d90946d140101f4bfa2641e1d6c Mon Sep 17 00:00:00 2001
-Message-ID: <c127d534297c3d90946d140101f4bfa2641e1d6c.1737907941.git.lorenzo@kernel.org>
-In-Reply-To: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
-References: <bd0198b00afc250d008da8103dbafda1519e0bcb.1737907941.git.lorenzo@kernel.org>
+From d33f2f84ecfab7c3c0c28f2edacc3006b413f51b Mon Sep 17 00:00:00 2001
+Message-ID: <d33f2f84ecfab7c3c0c28f2edacc3006b413f51b.1738763049.git.lorenzo@kernel.org>
+In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 26 Jan 2025 09:39:16 +0100
-Subject: [PATCH net-next 2/9] net: airoha: Rename
+Subject: [PATCH net-next 07/11] net: airoha: Rename
  airoha_set_gdm_port_fwd_cfg() in airoha_set_vip_for_gdm_port()
 
 Rename airoha_set_gdm_port() in airoha_set_vip_for_gdm_port().
@@ -12,12 +12,12 @@ Get rid of airoha_set_gdm_ports routine.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c | 49 +++++-----------------
- drivers/net/ethernet/mediatek/airoha_eth.h |  8 ----
+ drivers/net/ethernet/airoha/airoha_eth.c | 49 ++++++------------------
+ drivers/net/ethernet/airoha/airoha_eth.h |  8 ----
  2 files changed, 11 insertions(+), 46 deletions(-)
 
---- a/drivers/net/ethernet/mediatek/airoha_eth.c
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -105,25 +105,23 @@ static void airoha_set_gdm_port_fwd_cfg(
  		      FIELD_PREP(GDM_UCFQ_MASK, val));
  }
@@ -94,7 +94,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (err)
  		return err;
  
-@@ -1566,7 +1539,7 @@ static int airoha_dev_stop(struct net_de
+@@ -1567,7 +1540,7 @@ static int airoha_dev_stop(struct net_de
  	int i, err;
  
  	netif_tx_disable(dev);
@@ -103,8 +103,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (err)
  		return err;
  
---- a/drivers/net/ethernet/mediatek/airoha_eth.h
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.h
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -58,14 +58,6 @@ enum {
  };
  

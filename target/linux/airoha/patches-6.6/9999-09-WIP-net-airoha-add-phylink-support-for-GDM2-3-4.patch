@@ -8,14 +8,14 @@ PCS to make the external PHY or attached SFP cage work.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c  | 251 +++++++++++++++++++-
- drivers/net/ethernet/mediatek/airoha_eth.h  |   7 +-
- drivers/net/ethernet/mediatek/airoha_regs.h |  12 +
+ drivers/net/ethernet/airoha/airoha_eth.c  | 251 +++++++++++++++++++-
+ drivers/net/ethernet/airoha/airoha_eth.h  |   7 +-
+ drivers/net/ethernet/airoha/airoha_regs.h |  12 +
  include/linux/pcs/pcs-airoha.h              |  15 ++
  4 files changed, 282 insertions(+), 3 deletions(-)
 
---- a/drivers/net/ethernet/mediatek/airoha_eth.c
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -4,10 +4,12 @@
   * Author: Lorenzo Bianconi <lorenzo@kernel.org>
   */
@@ -48,7 +48,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	err = airoha_set_vip_for_gdm_port(port, true);
  	if (err)
 @@ -1599,19 +1612,34 @@ static int airoha_dev_stop(struct net_de
- 		airoha_qdma_cleanup_tx_queue(&qdma->q_tx[i]);
+ 		}
  	}
  
 +	if (port->type != INTERNAL_SWITCH_PORT)
@@ -83,7 +83,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  	return 0;
  }
-@@ -2554,6 +2582,199 @@ static int airoha_register_port_debugfs(
+@@ -2564,6 +2592,199 @@ static int airoha_register_port_debugfs(
  	return 0;
  }
  
@@ -283,7 +283,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2636,6 +2857,23 @@ static int airoha_alloc_gdm_port(struct
+@@ -2646,6 +2867,23 @@ static int airoha_alloc_gdm_port(struct
  	if (err)
  		return err;
  
@@ -307,7 +307,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	return register_netdev(dev);
  }
  
-@@ -2731,6 +2969,10 @@ error_hw_cleanup:
+@@ -2741,6 +2979,10 @@ error_hw_cleanup:
  
  		if (port && port->dev->reg_state == NETREG_REGISTERED) {
  			airoha_metadata_dst_free(port);
@@ -318,7 +318,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  			unregister_netdev(port->dev);
  		}
  	}
-@@ -2758,6 +3000,10 @@ static void airoha_remove(struct platfor
+@@ -2768,6 +3010,10 @@ static void airoha_remove(struct platfor
  
  		airoha_dev_stop(port->dev);
  		airoha_metadata_dst_free(port);
@@ -329,9 +329,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  		unregister_netdev(port->dev);
  	}
  	free_netdev(eth->napi_dev);
---- a/drivers/net/ethernet/mediatek/airoha_eth.h
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -472,6 +472,11 @@ struct airoha_gdm_port {
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -478,6 +478,11 @@ struct airoha_gdm_port {
  	enum airoha_gdm_port_type type;
  	int id;
  
@@ -343,9 +343,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	struct airoha_hw_stats stats;
  
  	DECLARE_BITMAP(qos_sq_bmap, AIROHA_NUM_QOS_CHANNELS);
---- a/drivers/net/ethernet/mediatek/airoha_regs.h
-+++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -343,6 +343,18 @@
+--- a/drivers/net/ethernet/airoha/airoha_regs.h
++++ b/drivers/net/ethernet/airoha/airoha_regs.h
+@@ -345,6 +345,18 @@
  #define IP_FRAGMENT_PORT_MASK		GENMASK(8, 5)
  #define IP_FRAGMENT_NBQ_MASK		GENMASK(4, 0)
  

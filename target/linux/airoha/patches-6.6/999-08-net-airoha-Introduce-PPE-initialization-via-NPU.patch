@@ -1,37 +1,64 @@
-From bc341c91bf9f6363f16bb2c8c508e133e8aa7d36 Mon Sep 17 00:00:00 2001
-Message-ID: <bc341c91bf9f6363f16bb2c8c508e133e8aa7d36.1738452112.git.lorenzo@kernel.org>
+From 940523eec9ce1f270e1933ad5a019c9e385ddec7 Mon Sep 17 00:00:00 2001
+Message-ID: <940523eec9ce1f270e1933ad5a019c9e385ddec7.1738763049.git.lorenzo@kernel.org>
+In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 4 Dec 2024 17:47:00 +0100
-Subject: [PATCH net-next 1/9] net: airoha: Introduce PPE initialization via
+Subject: [PATCH net-next 08/11] net: airoha: Introduce PPE initialization via
  NPU
 
-Packet Processor Engine (PPE) and NPU modules are used to offload L2 and
-L3 traffic between Packet Switch Engine (PSE) module ports.
-This is a preliminary patch to enable netfilter flowtable hw offloading
-on EN7581 SoC.
+Packet Processor Engine (PPE) module available on EN7581 SoC populates
+the PPE table with 5-tuples flower rules learned from traffic forwarded
+between the GDM ports connected to the Packet Switch Engine (PSE) module.
+The airoha_eth driver can enable hw acceleration of learned 5-tuples
+rules if the user configure them in netfilter flowtable (netfilter
+flowtable support will be added with subsequent patches).
+airoha_eth driver configures and collects data from the PPE module via a
+Network Processor Unit (NPU) RISC-V module available on the EN7581 SoC.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/mediatek/Makefile      |   4 +-
- drivers/net/ethernet/mediatek/airoha_eth.c  |   7 +-
- drivers/net/ethernet/mediatek/airoha_eth.h  | 120 ++++++
- drivers/net/ethernet/mediatek/airoha_ppe.c  | 423 ++++++++++++++++++++
- drivers/net/ethernet/mediatek/airoha_regs.h | 102 ++++-
- 5 files changed, 647 insertions(+), 9 deletions(-)
- create mode 100644 drivers/net/ethernet/mediatek/airoha_ppe.c
+ drivers/net/ethernet/airoha/Kconfig       |   5 +
+ drivers/net/ethernet/airoha/Makefile      |   4 +-
+ drivers/net/ethernet/airoha/airoha_eth.c  |   7 +-
+ drivers/net/ethernet/airoha/airoha_eth.h  |  87 +++++
+ drivers/net/ethernet/airoha/airoha_npu.c  | 450 ++++++++++++++++++++++
+ drivers/net/ethernet/airoha/airoha_ppe.c  | 128 ++++++
+ drivers/net/ethernet/airoha/airoha_regs.h | 102 ++++-
+ 7 files changed, 774 insertions(+), 9 deletions(-)
+ create mode 100644 drivers/net/ethernet/airoha/airoha_npu.c
+ create mode 100644 drivers/net/ethernet/airoha/airoha_ppe.c
 
---- a/drivers/net/ethernet/mediatek/Makefile
-+++ b/drivers/net/ethernet/mediatek/Makefile
-@@ -11,4 +11,6 @@ mtk_eth-$(CONFIG_NET_MEDIATEK_SOC_WED) +
- endif
- obj-$(CONFIG_NET_MEDIATEK_SOC_WED) += mtk_wed_ops.o
- obj-$(CONFIG_NET_MEDIATEK_STAR_EMAC) += mtk_star_emac.o
--obj-$(CONFIG_NET_AIROHA) += airoha_eth.o
+--- a/drivers/net/ethernet/airoha/Kconfig
++++ b/drivers/net/ethernet/airoha/Kconfig
+@@ -7,10 +7,15 @@ config NET_VENDOR_AIROHA
+ 
+ if NET_VENDOR_AIROHA
+ 
++config NET_AIROHA_NPU
++	depends on ARCH_AIROHA || COMPILE_TEST
++	def_bool NET_AIROHA != n
 +
+ config NET_AIROHA
+ 	tristate "Airoha SoC Gigabit Ethernet support"
+ 	depends on NET_DSA || !NET_DSA
+ 	select PAGE_POOL
++	select WANT_DEV_COREDUMP
+ 	help
+ 	  This driver supports the gigabit ethernet MACs in the
+ 	  Airoha SoC family.
+--- a/drivers/net/ethernet/airoha/Makefile
++++ b/drivers/net/ethernet/airoha/Makefile
+@@ -3,4 +3,6 @@
+ # Airoha for the Mediatek SoCs built-in ethernet macs
+ #
+ 
+-obj-$(CONFIG_NET_AIROHA) += airoha_eth.o
 +obj-$(CONFIG_NET_AIROHA) += airoha-eth.o
 +airoha-eth-y := airoha_eth.o airoha_ppe.o
---- a/drivers/net/ethernet/mediatek/airoha_eth.c
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.c
++airoha-eth-$(CONFIG_NET_AIROHA_NPU) += airoha_npu.o
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -3,9 +3,6 @@
   * Copyright (c) 2024 AIROHA Inc
   * Author: Lorenzo Bianconi <lorenzo@kernel.org>
@@ -52,7 +79,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	set_bit(DEV_STATE_INITIALIZED, &eth->state);
  
  	return 0;
-@@ -2495,6 +2495,7 @@ static void airoha_remove(struct platfor
+@@ -2500,6 +2500,7 @@ static void airoha_remove(struct platfor
  	}
  	free_netdev(eth->napi_dev);
  
@@ -60,8 +87,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	platform_set_drvdata(pdev, NULL);
  }
  
---- a/drivers/net/ethernet/mediatek/airoha_eth.h
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.h
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -11,8 +11,13 @@
  #include <linux/iopoll.h>
  #include <linux/kernel.h>
@@ -91,10 +118,152 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define MTK_HDR_LEN			4
  #define MTK_HDR_XMIT_TAGGED_TPID_8100	1
  #define MTK_HDR_XMIT_TAGGED_TPID_88A8	2
-@@ -127,6 +140,46 @@ enum trtcm_param {
- 	TRTCM_METER_MODE = BIT(2),
+@@ -195,6 +208,10 @@ struct airoha_hw_stats {
+ 	u64 rx_len[7];
  };
  
++struct airoha_foe_entry {
++	u8 data[PPE_ENTRY_SIZE];
++};
++
+ struct airoha_qdma {
+ 	struct airoha_eth *eth;
+ 	void __iomem *regs;
+@@ -234,12 +251,35 @@ struct airoha_gdm_port {
+ 	struct metadata_dst *dsa_meta[AIROHA_MAX_DSA_PORTS];
+ };
+ 
++struct airoha_npu {
++	struct platform_device *pdev;
++	struct device_node *np;
++
++	void __iomem *base;
++
++	struct airoha_npu_core {
++		struct airoha_npu *npu;
++		spinlock_t lock;
++		struct work_struct wdt_work;
++	} cores[AIROHA_NPU_NUM_CORES];
++};
++
++struct airoha_ppe {
++	struct airoha_eth *eth;
++
++	void *foe;
++	dma_addr_t foe_dma;
++};
++
+ struct airoha_eth {
+ 	struct device *dev;
+ 
+ 	unsigned long state;
+ 	void __iomem *fe_regs;
+ 
++	struct airoha_npu *npu;
++	struct airoha_ppe *ppe;
++
+ 	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
+ 	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
+ 
+@@ -275,4 +315,51 @@ u32 airoha_rmw(void __iomem *base, u32 o
+ #define airoha_qdma_clear(qdma, offset, val)			\
+ 	airoha_rmw((qdma)->regs, (offset), (val), 0)
+ 
++bool airoha_ppe2_is_enabled(struct airoha_eth *eth);
++
++#ifdef CONFIG_NET_AIROHA_NPU
++int airoha_ppe_init(struct airoha_eth *eth);
++void airoha_ppe_deinit(struct airoha_eth *eth);
++struct airoha_npu *airoha_npu_init(struct airoha_eth *eth);
++void airoha_npu_deinit(struct airoha_npu *npu);
++int airoha_npu_ppe_init(struct airoha_npu *npu);
++int airoha_npu_ppe_deinit(struct airoha_npu *npu);
++int airoha_npu_flush_ppe_sram_entries(struct airoha_npu *npu,
++				      struct airoha_ppe *ppe);
++#else
++static inline int airoha_ppe_init(struct airoha_eth *eth)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline void airoha_ppe_deinit(struct airoha_eth *eth)
++{
++}
++
++static inline struct airoha_npu *airoha_npu_init(struct airoha_eth *eth)
++{
++	return NULL;
++}
++
++static inline void airoha_npu_deinit(struct airoha_npu *npu)
++{
++}
++
++static inline int airoha_npu_ppe_init(struct airoha_npu *npu)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int airoha_npu_ppe_deinit(struct airoha_npu *npu)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int airoha_npu_flush_ppe_sram_entries(struct airoha_npu *npu,
++				      struct airoha_ppe *ppe)
++{
++	return -EOPNOTSUPP;
++}
++#endif /* CONFIG_NET_AIROHA_NPU */
++
+ #endif /* AIROHA_ETH_H */
+--- /dev/null
++++ b/drivers/net/ethernet/airoha/airoha_npu.c
+@@ -0,0 +1,450 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2025 AIROHA Inc
++ * Author: Lorenzo Bianconi <lorenzo@kernel.org>
++ */
++
++#include <linux/devcoredump.h>
++#include <linux/firmware.h>
++#include <linux/of_reserved_mem.h>
++
++#include "airoha_eth.h"
++
++#define NPU_EN7581_FIRMWARE_DATA		"airoha/en7581_npu_data.bin"
++#define NPU_EN7581_FIRMWARE_RV32		"airoha/en7581_npu_rv32.bin"
++#define NPU_EN7581_FIRMWARE_RV32_MAX_SIZE	0x200000
++#define NPU_EN7581_FIRMWARE_DATA_MAX_SIZE	0x10000
++#define NPU_DUMP_SIZE				512
++
++#define REG_NPU_LOCAL_SRAM		0x0
++
++#define NPU_PC_BASE_ADDR		0x305000
++#define REG_PC_DBG(_n)			(0x305000 + ((_n) * 0x100))
++
++#define NPU_CLUSTER_BASE_ADDR		0x306000
++
++#define REG_CR_BOOT_TRIGGER		(NPU_CLUSTER_BASE_ADDR + 0x000)
++#define REG_CR_BOOT_CONFIG		(NPU_CLUSTER_BASE_ADDR + 0x004)
++#define REG_CR_BOOT_BASE(_n)		(NPU_CLUSTER_BASE_ADDR + 0x020 + ((_n) << 2))
++
++#define NPU_MBOX_BASE_ADDR		0x30c000
++
++#define REG_CR_MBOX_INT_STATUS		(NPU_MBOX_BASE_ADDR + 0x000)
++#define MBOX_INT_STATUS_MASK		BIT(8)
++
++#define REG_CR_MBOX_INT_MASK(_n)	(NPU_MBOX_BASE_ADDR + 0x004 + ((_n) << 2))
++#define REG_CR_MBQ0_CTRL(_n)		(NPU_MBOX_BASE_ADDR + 0x030 + ((_n) << 2))
++#define REG_CR_MBQ8_CTRL(_n)		(NPU_MBOX_BASE_ADDR + 0x0b0 + ((_n) << 2))
++#define REG_CR_NPU_MIB(_n)		(NPU_MBOX_BASE_ADDR + 0x140 + ((_n) << 2))
++
++#define NPU_TIMER_BASE_ADDR		0x310100
++#define REG_WDT_TIMER_CTRL(_n)		(NPU_TIMER_BASE_ADDR + ((_n) * 0x100))
++#define WDT_EN_MASK			BIT(25)
++#define WDT_INTR_MASK			BIT(21)
++
 +enum {
 +	NPU_OP_SET = 1,
 +	NPU_OP_SET_NO_WAIT,
@@ -135,13 +304,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	QDMA_WAN_PON_XDSL,
 +};
 +
- #define MIN_TOKEN_SIZE				4096
- #define MAX_TOKEN_SIZE_OFFSET			17
- #define TRTCM_TOKEN_RATE_MASK			GENMASK(23, 6)
-@@ -195,6 +248,48 @@ struct airoha_hw_stats {
- 	u64 rx_len[7];
- };
- 
 +struct npu_mbox_metadata {
 +	union {
 +		struct {
@@ -180,99 +342,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	};
 +};
 +
-+struct airoha_foe_entry {
-+	u8 data[PPE_ENTRY_SIZE];
-+};
-+
- struct airoha_qdma {
- 	struct airoha_eth *eth;
- 	void __iomem *regs;
-@@ -234,12 +329,34 @@ struct airoha_gdm_port {
- 	struct metadata_dst *dsa_meta[AIROHA_MAX_DSA_PORTS];
- };
- 
-+struct airoha_npu {
-+	struct platform_device *pdev;
-+	struct device_node *np;
-+
-+	void __iomem *base;
-+
-+	struct airoha_npu_core {
-+		struct airoha_npu *npu;
-+		spinlock_t lock;
-+	} cores[AIROHA_NPU_NUM_CORES];
-+};
-+
-+struct airoha_ppe {
-+	struct airoha_eth *eth;
-+
-+	void *foe;
-+	dma_addr_t foe_dma;
-+};
-+
- struct airoha_eth {
- 	struct device *dev;
- 
- 	unsigned long state;
- 	void __iomem *fe_regs;
- 
-+	struct airoha_npu *npu;
-+	struct airoha_ppe *ppe;
-+
- 	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
- 	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
- 
-@@ -275,4 +392,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
- #define airoha_qdma_clear(qdma, offset, val)			\
- 	airoha_rmw((qdma)->regs, (offset), (val), 0)
- 
-+int airoha_ppe_init(struct airoha_eth *eth);
-+void airoha_ppe_deinit(struct airoha_eth *eth);
-+
- #endif /* AIROHA_ETH_H */
---- /dev/null
-+++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -0,0 +1,423 @@
-+// SPDX-License-Identifier: GPL-2.0-only
-+/*
-+ * Copyright (c) 2024 AIROHA Inc
-+ * Author: Lorenzo Bianconi <lorenzo@kernel.org>
-+ */
-+
-+#include <linux/firmware.h>
-+#include <linux/of_reserved_mem.h>
-+
-+#include "airoha_regs.h"
-+#include "airoha_eth.h"
-+
-+#define NPU_EN7581_FIRMWARE_DATA		"airoha/en7581_npu_data.bin"
-+#define NPU_EN7581_FIRMWARE_RV32		"airoha/en7581_npu_rv32.bin"
-+#define NPU_EN7581_FIRMWARE_RV32_MAX_SIZE	0x200000
-+#define NPU_EN7581_FIRMWARE_DATA_MAX_SIZE	0x10000
-+
-+#define REG_NPU_LOCAL_SRAM		0x0
-+
-+#define NPU_CLUSTER_BASE_ADDR		0x306000
-+
-+#define REG_CR_BOOT_TRIGGER		(NPU_CLUSTER_BASE_ADDR + 0x000)
-+#define REG_CR_BOOT_CONFIG		(NPU_CLUSTER_BASE_ADDR + 0x004)
-+#define REG_CR_BOOT_BASE(_n)		(NPU_CLUSTER_BASE_ADDR + 0x020 + ((_n) << 2))
-+
-+#define NPU_MBOX_BASE_ADDR		0x30c000
-+
-+#define REG_CR_MBOX_INT_STATUS		(NPU_MBOX_BASE_ADDR + 0x000)
-+#define MBOX_INT_STATUS_MASK		BIT(8)
-+
-+#define REG_CR_MBOX_INT_MASK(_n)	(NPU_MBOX_BASE_ADDR + 0x004 + ((_n) << 2))
-+#define REG_CR_MBQ0_CTRL(_n)		(NPU_MBOX_BASE_ADDR + 0x030 + ((_n) << 2))
-+#define REG_CR_MBQ8_CTRL(_n)		(NPU_MBOX_BASE_ADDR + 0x0b0 + ((_n) << 2))
-+#define REG_CR_NPU_MIB(_n)		(NPU_MBOX_BASE_ADDR + 0x140 + ((_n) << 2))
-+
-+#define NPU_TIMER_BASE_ADDR		0x310100
-+#define REG_WDT_TIMER_CTRL(_n)		(NPU_TIMER_BASE_ADDR + ((_n) * 0x100))
-+#define WDT_EN_MASK			BIT(25)
-+#define WDT_INTR_MASK			BIT(21)
-+
 +static u32 airoha_npu_rr(struct airoha_npu *npu, u32 reg)
 +{
 +	return readl(npu->base + reg);
@@ -281,6 +350,14 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +static void airoha_npu_wr(struct airoha_npu *npu, u32 reg, u32 val)
 +{
 +	writel(val, npu->base + reg);
++}
++
++static u32 airoha_npu_rmw(struct airoha_npu *npu, u32 reg, u32 mask, u32 val)
++{
++	val |= airoha_npu_rr(npu, reg) & ~mask;
++	airoha_npu_wr(npu, reg, val);
++
++	return val;
 +}
 +
 +static int airoha_npu_send_msg(struct airoha_npu *npu, int func_id,
@@ -392,7 +469,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	return IRQ_HANDLED;
 +}
 +
-+static int airoha_npu_ppe_init(struct airoha_npu *npu)
++int airoha_npu_ppe_init(struct airoha_npu *npu)
 +{
 +	struct ppe_mbox_data ppe_data = {
 +		.func_type = NPU_OP_SET,
@@ -407,7 +484,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +				   sizeof(struct ppe_mbox_data));
 +}
 +
-+static int airoha_npu_ppe_deinit(struct airoha_npu *npu)
++int airoha_npu_ppe_deinit(struct airoha_npu *npu)
 +{
 +	struct ppe_mbox_data ppe_data = {
 +		.func_type = NPU_OP_SET,
@@ -418,13 +495,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +				   sizeof(struct ppe_mbox_data));
 +}
 +
-+static bool airoha_ppe2_is_enabled(struct airoha_eth *eth)
-+{
-+	return airoha_fe_rr(eth, REG_PPE_GLO_CFG(1)) & PPE_GLO_CFG_EN_MASK;
-+}
-+
-+static int airoha_npu_flush_ppe_sram_entries(struct airoha_npu *npu,
-+					     struct airoha_ppe *ppe)
++int airoha_npu_flush_ppe_sram_entries(struct airoha_npu *npu,
++				      struct airoha_ppe *ppe)
 +{
 +	struct ppe_mbox_data ppe_data = {
 +		.func_type = NPU_OP_SET,
@@ -447,7 +519,45 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +				   sizeof(struct ppe_mbox_data));
 +}
 +
-+static struct airoha_npu *airoha_npu_init(struct airoha_eth *eth)
++static void airoha_npu_wdt_work(struct work_struct *work)
++{
++	struct airoha_npu_core *core;
++	struct airoha_npu *npu;
++	void *dump;
++	int c;
++
++	core = container_of(work, struct airoha_npu_core, wdt_work);
++	npu = core->npu;
++
++	dump = vzalloc(NPU_DUMP_SIZE);
++	if (!dump)
++		return;
++
++	c = core - &npu->cores[0];
++	snprintf(dump, NPU_DUMP_SIZE, "PC: %08x SP: %08x LR: %08x\n",
++		 airoha_npu_rr(npu, REG_PC_DBG(c)),
++		 airoha_npu_rr(npu, REG_PC_DBG(c) + 0x4),
++		 airoha_npu_rr(npu, REG_PC_DBG(c) + 0x8));
++
++	dev_coredumpv(&npu->pdev->dev, dump, NPU_DUMP_SIZE, GFP_KERNEL);
++}
++
++static irqreturn_t airoha_npu_wdt_handler(int irq, void *core_instance)
++{
++	struct airoha_npu_core *core = core_instance;
++	struct airoha_npu *npu = core->npu;
++	int c = core - &npu->cores[0];
++	u32 val;
++
++	airoha_npu_rmw(npu, REG_WDT_TIMER_CTRL(c), 0, WDT_INTR_MASK);
++	val = airoha_npu_rr(npu, REG_WDT_TIMER_CTRL(c));
++	if (FIELD_GET(WDT_EN_MASK, val))
++		schedule_work(&core->wdt_work);
++
++	return IRQ_HANDLED;
++}
++
++struct airoha_npu *airoha_npu_init(struct airoha_eth *eth)
 +{
 +	struct reserved_mem *rmem;
 +	int i, irq, err = -ENODEV;
@@ -498,6 +608,20 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
 +		spin_lock_init(&core->lock);
 +		core->npu = npu;
++
++		irq = platform_get_irq(npu->pdev, i + 1);
++		if (irq < 0) {
++			err = irq;
++			goto error_put_dev;
++		}
++
++		err = devm_request_irq(&npu->pdev->dev, irq,
++				       airoha_npu_wdt_handler, IRQF_SHARED,
++				       "airoha-npu-wdt", core);
++		if (err)
++			goto error_put_dev;
++
++		INIT_WORK(&core->wdt_work, airoha_npu_wdt_work);
 +	}
 +
 +	if (dma_set_coherent_mask(&npu->pdev->dev, 0xbfffffff))
@@ -536,10 +660,31 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	return ERR_PTR(err);
 +}
 +
-+static void airoha_npu_deinit(struct airoha_npu *npu)
++void airoha_npu_deinit(struct airoha_npu *npu)
 +{
++	int i;
++
++	for (i = 0; i < ARRAY_SIZE(npu->cores); i++)
++		cancel_work_sync(&npu->cores[i].wdt_work);
++
 +	put_device(&npu->pdev->dev);
 +	of_node_put(npu->np);
++}
+--- /dev/null
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -0,0 +1,128 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * Copyright (c) 2025 AIROHA Inc
++ * Author: Lorenzo Bianconi <lorenzo@kernel.org>
++ */
++
++#include "airoha_regs.h"
++#include "airoha_eth.h"
++
++bool airoha_ppe2_is_enabled(struct airoha_eth *eth)
++{
++	return airoha_fe_rr(eth, REG_PPE_GLO_CFG(1)) & PPE_GLO_CFG_EN_MASK;
 +}
 +
 +static void airoha_ppe_hw_init(struct airoha_ppe *ppe)
@@ -656,9 +801,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		airoha_npu_deinit(eth->npu);
 +	}
 +}
---- a/drivers/net/ethernet/mediatek/airoha_regs.h
-+++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -13,6 +13,7 @@
+--- a/drivers/net/ethernet/airoha/airoha_regs.h
++++ b/drivers/net/ethernet/airoha/airoha_regs.h
+@@ -15,6 +15,7 @@
  #define CDM1_BASE			0x0400
  #define GDM1_BASE			0x0500
  #define PPE1_BASE			0x0c00
@@ -666,7 +811,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  #define CDM2_BASE			0x1400
  #define GDM2_BASE			0x1500
-@@ -34,6 +35,7 @@
+@@ -36,6 +37,7 @@
  #define FE_RST_GDM3_MBI_ARB_MASK	BIT(2)
  #define FE_RST_CORE_MASK		BIT(0)
  
@@ -674,7 +819,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define REG_FE_WAN_MAC_H		0x0030
  #define REG_FE_LAN_MAC_H		0x0040
  
-@@ -190,11 +192,101 @@
+@@ -192,11 +194,101 @@
  #define REG_FE_GDM_RX_ETH_L511_CNT_L(_n)	(GDM_BASE(_n) + 0x198)
  #define REG_FE_GDM_RX_ETH_L1023_CNT_L(_n)	(GDM_BASE(_n) + 0x19c)
  

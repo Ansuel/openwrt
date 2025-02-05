@@ -9,13 +9,13 @@ should be handled in the dedicated driver.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c | 9 ++++-----
- drivers/net/ethernet/mediatek/airoha_eth.h | 2 +-
+ drivers/net/ethernet/airoha/airoha_eth.c | 9 ++++-----
+ drivers/net/ethernet/airoha/airoha_eth.h | 2 +-
  2 files changed, 5 insertions(+), 6 deletions(-)
 
---- a/drivers/net/ethernet/mediatek/airoha_eth.c
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -2673,11 +2673,10 @@ static int airoha_probe(struct platform_
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -2683,11 +2683,10 @@ static int airoha_probe(struct platform_
  		return err;
  	}
  
@@ -31,9 +31,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	err = devm_reset_control_bulk_get_exclusive(eth->dev,
  						    ARRAY_SIZE(eth->xsi_rsts),
  						    eth->xsi_rsts);
---- a/drivers/net/ethernet/mediatek/airoha_eth.h
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -27,7 +27,7 @@
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -25,7 +25,7 @@
  #define AIROHA_MAX_NUM_QDMA		2
  #define AIROHA_MAX_DSA_PORTS		7
  #define AIROHA_MAX_NUM_RSTS		3

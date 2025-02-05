@@ -11,11 +11,11 @@ While at it also add comments to better identify GDM1 ports.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c | 5 ++++-
+ drivers/net/ethernet/airoha/airoha_eth.c | 5 ++++-
  1 file changed, 4 insertions(+), 1 deletion(-)
 
---- a/drivers/net/ethernet/mediatek/airoha_eth.c
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -606,8 +606,11 @@ static int airoha_qdma_get_gdm_port(stru
  
  	sport = FIELD_GET(QDMA_ETH_RXMSG_SPORT_MASK, msg1);

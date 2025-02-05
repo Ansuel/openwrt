@@ -1,24 +1,28 @@
-From 6598e1427f24ef7f74fd748c878048b8c8e56a10 Mon Sep 17 00:00:00 2001
-Message-ID: <6598e1427f24ef7f74fd748c878048b8c8e56a10.1735736065.git.lorenzo@kernel.org>
-In-Reply-To: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
-References: <47ed45787283660b721b04f2a695593cc54fe170.1735736065.git.lorenzo@kernel.org>
+From 637549e31f7908b52409c5e52584653f03b92788 Mon Sep 17 00:00:00 2001
+Message-ID: <637549e31f7908b52409c5e52584653f03b92788.1738763049.git.lorenzo@kernel.org>
+In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 10 Dec 2024 14:53:40 +0100
-Subject: [PATCH net-next 08/14] net: airoha: Move register definitions in
+Subject: [PATCH net-next 03/11] net: airoha: Move register definitions in
  airoha_regs.h
 
-This is a preliminary patch to introduce flowtable offload support for
+Move common airoha_eth register definitions in airoha_regs.h in order
+to reuse them for Packet Processor Engine (PPE) codebase.
+PPE module is used to enable support for flowtable hw offloading in
 airoha_eth driver.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c  | 659 +------------------
- drivers/net/ethernet/mediatek/airoha_regs.h | 668 ++++++++++++++++++++
- 2 files changed, 669 insertions(+), 658 deletions(-)
- create mode 100644 drivers/net/ethernet/mediatek/airoha_regs.h
+ drivers/net/ethernet/airoha/airoha_eth.c  | 659 +--------------------
+ drivers/net/ethernet/airoha/airoha_regs.h | 670 ++++++++++++++++++++++
+ 2 files changed, 671 insertions(+), 658 deletions(-)
+ create mode 100644 drivers/net/ethernet/airoha/airoha_regs.h
 
---- a/drivers/net/ethernet/mediatek/airoha_eth.c
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
+index 5916600555d6..a99d98be86a0 100644
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -13,666 +13,9 @@
  #include <net/pkt_cls.h>
  #include <uapi/linux/ppp_defs.h>
@@ -244,11 +248,11 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 -#define REG_GDM3_FWD_CFG		GDM3_BASE
 -#define GDM3_PAD_EN_MASK		BIT(28)
 -
--#define REG_GDM4_FWD_CFG		(GDM4_BASE + 0x100)
+-#define REG_GDM4_FWD_CFG		GDM4_BASE
 -#define GDM4_PAD_EN_MASK		BIT(28)
 -#define GDM4_SPORT_OFFSET0_MASK		GENMASK(11, 8)
 -
--#define REG_GDM4_SRC_PORT_SET		(GDM4_BASE + 0x33c)
+-#define REG_GDM4_SRC_PORT_SET		(GDM4_BASE + 0x23c)
 -#define GDM4_SPORT_OFF2_MASK		GENMASK(19, 16)
 -#define GDM4_SPORT_OFF1_MASK		GENMASK(15, 12)
 -#define GDM4_SPORT_OFF0_MASK		GENMASK(11, 8)
@@ -687,9 +691,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  u32 airoha_rr(void __iomem *base, u32 offset)
  {
  	return readl(base + offset);
+diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
+new file mode 100644
+index 000000000000..60d4d2f55d18
 --- /dev/null
-+++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -0,0 +1,668 @@
++++ b/drivers/net/ethernet/airoha/airoha_regs.h
+@@ -0,0 +1,670 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +/*
 + * Copyright (c) 2024 AIROHA Inc
@@ -698,6 +705,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
 +#ifndef AIROHA_REGS_H
 +#define AIROHA_REGS_H
++
++#include <linux/types.h>
 +
 +/* FE */
 +#define PSE_BASE			0x0100
@@ -917,11 +926,11 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +#define REG_GDM3_FWD_CFG		GDM3_BASE
 +#define GDM3_PAD_EN_MASK		BIT(28)
 +
-+#define REG_GDM4_FWD_CFG		(GDM4_BASE + 0x100)
++#define REG_GDM4_FWD_CFG		GDM4_BASE
 +#define GDM4_PAD_EN_MASK		BIT(28)
 +#define GDM4_SPORT_OFFSET0_MASK		GENMASK(11, 8)
 +
-+#define REG_GDM4_SRC_PORT_SET		(GDM4_BASE + 0x33c)
++#define REG_GDM4_SRC_PORT_SET		(GDM4_BASE + 0x23c)
 +#define GDM4_SPORT_OFF2_MASK		GENMASK(19, 16)
 +#define GDM4_SPORT_OFF1_MASK		GENMASK(15, 12)
 +#define GDM4_SPORT_OFF0_MASK		GENMASK(11, 8)
@@ -1358,3 +1367,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +};
 +
 +#endif /* AIROHA_REGS_H */
+-- 
+2.48.1
+

@@ -1,8 +1,10 @@
-From 0e6531ab2bfffdabaf6e0f7d7ad92c2ef5eae384 Mon Sep 17 00:00:00 2001
-Message-ID: <0e6531ab2bfffdabaf6e0f7d7ad92c2ef5eae384.1738493339.git.lorenzo@kernel.org>
+From 1357b1decb5762dea0c7a667c880a1fd39b277f4 Mon Sep 17 00:00:00 2001
+Message-ID: <1357b1decb5762dea0c7a667c880a1fd39b277f4.1738763049.git.lorenzo@kernel.org>
+In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 24 Jan 2025 10:49:46 +0100
-Subject: [PATCH net-next] net: airoha: Move DSA tag in DMA descriptor
+Subject: [PATCH net-next 04/11] net: airoha: Move DSA tag in DMA descriptor
 
 Packet Processor Engine (PPE) module reads DSA tags from the DMA descriptor
 and requires untagged DSA packets to properly parse them. Move DSA tag
@@ -14,15 +16,13 @@ on EN7581 SoC.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c  | 112 +++++++++++++++++++-
- drivers/net/ethernet/mediatek/airoha_eth.h  |   7 ++
- drivers/net/ethernet/mediatek/airoha_regs.h |   2 +
+ drivers/net/ethernet/airoha/airoha_eth.c  | 112 +++++++++++++++++++++-
+ drivers/net/ethernet/airoha/airoha_eth.h  |   7 ++
+ drivers/net/ethernet/airoha/airoha_regs.h |   2 +
  3 files changed, 116 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
-index a99d98be86a0..ab95f3da21d9 100644
---- a/drivers/net/ethernet/mediatek/airoha_eth.c
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -9,6 +9,7 @@
  #include <linux/tcp.h>
  #include <linux/u64_stats_sync.h>
@@ -31,7 +31,7 @@ index a99d98be86a0..ab95f3da21d9 100644
  #include <net/page_pool/helpers.h>
  #include <net/pkt_cls.h>
  #include <uapi/linux/ppp_defs.h>
-@@ -656,6 +657,7 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
+@@ -656,6 +657,7 @@ static int airoha_qdma_rx_process(struct
  		struct airoha_qdma_desc *desc = &q->desc[q->tail];
  		dma_addr_t dma_addr = le32_to_cpu(desc->addr);
  		u32 desc_ctrl = le32_to_cpu(desc->ctrl);
@@ -39,7 +39,7 @@ index a99d98be86a0..ab95f3da21d9 100644
  		struct sk_buff *skb;
  		int len, p;
  
-@@ -683,6 +685,7 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
+@@ -683,6 +685,7 @@ static int airoha_qdma_rx_process(struct
  			continue;
  		}
  
@@ -47,7 +47,7 @@ index a99d98be86a0..ab95f3da21d9 100644
  		skb = napi_build_skb(e->buf, q->buf_size);
  		if (!skb) {
  			page_pool_put_full_page(q->page_pool,
-@@ -694,10 +697,26 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
+@@ -694,10 +697,26 @@ static int airoha_qdma_rx_process(struct
  		skb_reserve(skb, 2);
  		__skb_put(skb, len);
  		skb_mark_for_recycle(skb);
@@ -75,7 +75,7 @@ index a99d98be86a0..ab95f3da21d9 100644
  		napi_gro_receive(&q->napi, skb);
  
  		done++;
-@@ -1636,26 +1655,69 @@ static u16 airoha_dev_select_queue(struct net_device *dev, struct sk_buff *skb,
+@@ -1639,26 +1658,69 @@ static u16 airoha_dev_select_queue(struc
  	return queue < dev->num_tx_queues ? queue : 0;
  }
  
@@ -148,7 +148,7 @@ index a99d98be86a0..ab95f3da21d9 100644
  	if (skb->ip_summed == CHECKSUM_PARTIAL)
  		msg0 |= FIELD_PREP(QDMA_ETH_TXMSG_TCO_MASK, 1) |
  			FIELD_PREP(QDMA_ETH_TXMSG_UCO_MASK, 1) |
-@@ -1692,7 +1754,9 @@ static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
+@@ -1695,7 +1757,9 @@ static netdev_tx_t airoha_dev_xmit(struc
  		return NETDEV_TX_BUSY;
  	}
  
@@ -158,7 +158,7 @@ index a99d98be86a0..ab95f3da21d9 100644
  	for (i = 0; i < nr_frags; i++) {
  		struct airoha_qdma_desc *desc = &q->desc[index];
  		struct airoha_queue_entry *e = &q->entry[index];
-@@ -2226,6 +2290,37 @@ static const struct ethtool_ops airoha_ethtool_ops = {
+@@ -2229,6 +2293,37 @@ static const struct ethtool_ops airoha_e
  	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
  };
  
@@ -196,7 +196,7 @@ index a99d98be86a0..ab95f3da21d9 100644
  static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
  {
  	const __be32 *id_ptr = of_get_property(np, "reg", NULL);
-@@ -2298,6 +2393,10 @@ static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
+@@ -2301,6 +2396,10 @@ static int airoha_alloc_gdm_port(struct
  	port->id = id;
  	eth->ports[index] = port;
  
@@ -207,7 +207,7 @@ index a99d98be86a0..ab95f3da21d9 100644
  	return register_netdev(dev);
  }
  
-@@ -2390,8 +2489,10 @@ static int airoha_probe(struct platform_device *pdev)
+@@ -2393,8 +2492,10 @@ error_hw_cleanup:
  	for (i = 0; i < ARRAY_SIZE(eth->ports); i++) {
  		struct airoha_gdm_port *port = eth->ports[i];
  
@@ -219,7 +219,7 @@ index a99d98be86a0..ab95f3da21d9 100644
  	}
  	free_netdev(eth->napi_dev);
  	platform_set_drvdata(pdev, NULL);
-@@ -2416,6 +2517,7 @@ static void airoha_remove(struct platform_device *pdev)
+@@ -2419,6 +2520,7 @@ static void airoha_remove(struct platfor
  			continue;
  
  		airoha_dev_stop(port->dev);
@@ -227,10 +227,8 @@ index a99d98be86a0..ab95f3da21d9 100644
  		unregister_netdev(port->dev);
  	}
  	free_netdev(eth->napi_dev);
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.h b/drivers/net/ethernet/mediatek/airoha_eth.h
-index 743aaf10235f..fee6c10eaedf 100644
---- a/drivers/net/ethernet/mediatek/airoha_eth.h
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.h
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -15,6 +15,7 @@
  
  #define AIROHA_MAX_NUM_GDM_PORTS	1
@@ -259,11 +257,9 @@ index 743aaf10235f..fee6c10eaedf 100644
  };
  
  struct airoha_eth {
-diff --git a/drivers/net/ethernet/mediatek/airoha_regs.h b/drivers/net/ethernet/mediatek/airoha_regs.h
-index b81e72f10687..5df2a95f668a 100644
---- a/drivers/net/ethernet/mediatek/airoha_regs.h
-+++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -622,6 +622,8 @@
+--- a/drivers/net/ethernet/airoha/airoha_regs.h
++++ b/drivers/net/ethernet/airoha/airoha_regs.h
+@@ -624,6 +624,8 @@
  #define QDMA_ETH_TXMSG_ACNT_G1_MASK	GENMASK(10, 6)	/* 0x1f do not count */
  #define QDMA_ETH_TXMSG_ACNT_G0_MASK	GENMASK(5, 0)	/* 0x3f do not count */
  
@@ -272,6 +268,3 @@ index b81e72f10687..5df2a95f668a 100644
  /* RX MSG1 */
  #define QDMA_ETH_RXMSG_DEI_MASK		BIT(31)
  #define QDMA_ETH_RXMSG_IP6_MASK		BIT(30)
--- 
-2.48.1
-

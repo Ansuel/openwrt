@@ -1,22 +1,26 @@
-From bc91ebbb03efddd2f24c09a1ae0830d87d1b50c9 Mon Sep 17 00:00:00 2001
-Message-ID: <bc91ebbb03efddd2f24c09a1ae0830d87d1b50c9.1738491190.git.lorenzo@kernel.org>
+From c528b0bb4a288e17bb9969857c1f582b0003cb89 Mon Sep 17 00:00:00 2001
+Message-ID: <c528b0bb4a288e17bb9969857c1f582b0003cb89.1738763049.git.lorenzo@kernel.org>
+In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 26 Jan 2025 16:53:00 +0100
-Subject: [PATCH net-next] net: airoha: Add loopback support for GDM2
+Subject: [PATCH net-next 10/11] net: airoha: Add loopback support for GDM2
+
+Enable hw redirection for traffic received on GDM2 port to GDM{3,4}.
+This is requried to apply Qdisc offloading (HTB or ETS) for traffic to
+and from GDM{3,4} port.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c  | 67 ++++++++++++++++++++-
- drivers/net/ethernet/mediatek/airoha_eth.h  |  7 +++
- drivers/net/ethernet/mediatek/airoha_ppe.c  | 13 ++--
- drivers/net/ethernet/mediatek/airoha_regs.h | 29 +++++++++
+ drivers/net/ethernet/airoha/airoha_eth.c  | 67 ++++++++++++++++++++++-
+ drivers/net/ethernet/airoha/airoha_eth.h  |  7 +++
+ drivers/net/ethernet/airoha/airoha_ppe.c  | 13 +++--
+ drivers/net/ethernet/airoha/airoha_regs.h | 29 ++++++++++
  4 files changed, 108 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.c b/drivers/net/ethernet/mediatek/airoha_eth.c
-index 50d6ca36a92a..7fb1b1033cfa 100644
---- a/drivers/net/ethernet/mediatek/airoha_eth.c
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.c
-@@ -1583,14 +1583,77 @@ static int airoha_dev_set_macaddr(struct net_device *dev, void *p)
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -1587,14 +1587,77 @@ static int airoha_dev_set_macaddr(struct
  	return 0;
  }
  
@@ -96,30 +100,26 @@ index 50d6ca36a92a..7fb1b1033cfa 100644
  
  	return 0;
  }
-diff --git a/drivers/net/ethernet/mediatek/airoha_eth.h b/drivers/net/ethernet/mediatek/airoha_eth.h
-index e672dbc78f41..b170307af459 100644
---- a/drivers/net/ethernet/mediatek/airoha_eth.h
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.h
-@@ -74,6 +74,13 @@ enum {
- 	QDMA_INT_REG_MAX
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -73,6 +73,13 @@ enum {
  };
  
-+enum {
+ enum {
 +	HSGMII_LAN_PCIE0_SRCPORT = 0x16,
 +	HSGMII_LAN_PCIE1_SRCPORT,
 +	HSGMII_LAN_ETH_SRCPORT,
 +	HSGMII_LAN_USB_SRCPORT,
 +};
 +
- enum {
++enum {
  	XSI_PCIE0_VIP_PORT_MASK	= BIT(22),
  	XSI_PCIE1_VIP_PORT_MASK	= BIT(23),
-diff --git a/drivers/net/ethernet/mediatek/airoha_ppe.c b/drivers/net/ethernet/mediatek/airoha_ppe.c
-index 183108866a04..6d5917cd314a 100644
---- a/drivers/net/ethernet/mediatek/airoha_ppe.c
-+++ b/drivers/net/ethernet/mediatek/airoha_ppe.c
-@@ -489,21 +489,22 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
- 	      MTK_FOE_IB1_BIND_TTL;
+ 	XSI_USB_VIP_PORT_MASK	= BIT(25),
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -124,21 +124,22 @@ static int airoha_ppe_foe_entry_prepare(
+ 	      AIROHA_FOE_IB1_BIND_TTL;
  	hwe->ib1 = val;
  
 -	val = FIELD_PREP(AIROHA_FOE_IB2_PORT_AG, 0x1f);
@@ -147,11 +147,9 @@ index 183108866a04..6d5917cd314a 100644
  	if (is_multicast_ether_addr(dest_mac))
  		val |= AIROHA_FOE_IB2_MULTICAST;
  
-diff --git a/drivers/net/ethernet/mediatek/airoha_regs.h b/drivers/net/ethernet/mediatek/airoha_regs.h
-index 4b6a6f767bdf..c2fe524365bd 100644
---- a/drivers/net/ethernet/mediatek/airoha_regs.h
-+++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -36,6 +36,12 @@
+--- a/drivers/net/ethernet/airoha/airoha_regs.h
++++ b/drivers/net/ethernet/airoha/airoha_regs.h
+@@ -38,6 +38,12 @@
  #define FE_RST_CORE_MASK		BIT(0)
  
  #define REG_FE_FOE_TS			0x0010
@@ -164,7 +162,7 @@ index 4b6a6f767bdf..c2fe524365bd 100644
  #define REG_FE_WAN_MAC_H		0x0030
  #define REG_FE_LAN_MAC_H		0x0040
  
-@@ -124,6 +130,7 @@
+@@ -126,6 +132,7 @@
  #define GDM_IP4_CKSUM			BIT(22)
  #define GDM_TCP_CKSUM			BIT(21)
  #define GDM_UDP_CKSUM			BIT(20)
@@ -172,7 +170,7 @@ index 4b6a6f767bdf..c2fe524365bd 100644
  #define GDM_UCFQ_MASK			GENMASK(15, 12)
  #define GDM_BCFQ_MASK			GENMASK(11, 8)
  #define GDM_MCFQ_MASK			GENMASK(7, 4)
-@@ -137,6 +144,16 @@
+@@ -139,6 +146,16 @@
  #define GDM_SHORT_LEN_MASK		GENMASK(13, 0)
  #define GDM_LONG_LEN_MASK		GENMASK(29, 16)
  
@@ -189,7 +187,7 @@ index 4b6a6f767bdf..c2fe524365bd 100644
  #define REG_FE_CPORT_CFG		(GDM1_BASE + 0x40)
  #define FE_CPORT_PAD			BIT(26)
  #define FE_CPORT_PORT_XFC_MASK		BIT(25)
-@@ -344,6 +361,18 @@
+@@ -346,6 +363,18 @@
  
  #define REG_MC_VLAN_DATA		0x2108
  
@@ -208,6 +206,3 @@ index 4b6a6f767bdf..c2fe524365bd 100644
  #define REG_CDM5_RX_OQ1_DROP_CNT	0x29d4
  
  /* QDMA */
--- 
-2.48.1
-

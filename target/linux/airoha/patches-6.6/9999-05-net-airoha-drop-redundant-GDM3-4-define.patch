@@ -9,12 +9,12 @@ generic macro.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c  | 4 ++--
- drivers/net/ethernet/mediatek/airoha_regs.h | 8 +-------
+ drivers/net/ethernet/airoha/airoha_eth.c  | 4 ++--
+ drivers/net/ethernet/airoha/airoha_regs.h | 8 +-------
  2 files changed, 3 insertions(+), 9 deletions(-)
 
---- a/drivers/net/ethernet/mediatek/airoha_eth.c
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -527,8 +527,8 @@ static int airoha_fe_init(struct airoha_
  		      FIELD_PREP(IP_ASSEMBLE_PORT_MASK, 0) |
  		      FIELD_PREP(IP_ASSEMBLE_NBQ_MASK, 22));
@@ -26,9 +26,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  	airoha_fe_crsn_qsel_init(eth);
  
---- a/drivers/net/ethernet/mediatek/airoha_regs.h
-+++ b/drivers/net/ethernet/mediatek/airoha_regs.h
-@@ -126,6 +126,7 @@
+--- a/drivers/net/ethernet/airoha/airoha_regs.h
++++ b/drivers/net/ethernet/airoha/airoha_regs.h
+@@ -128,6 +128,7 @@
  	GENMASK(4 + (((_n) % 4) << 3),	(((_n) % 4) << 3))
  
  #define REG_GDM_FWD_CFG(_n)		GDM_BASE(_n)
@@ -36,7 +36,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  #define GDM_DROP_CRC_ERR		BIT(23)
  #define GDM_IP4_CKSUM			BIT(22)
  #define GDM_TCP_CKSUM			BIT(21)
-@@ -331,13 +332,6 @@
+@@ -333,13 +334,6 @@
  #define MBI_RX_AGE_SEL_MASK		GENMASK(26, 25)
  #define MBI_TX_AGE_SEL_MASK		GENMASK(18, 17)
  

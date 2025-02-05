@@ -9,12 +9,12 @@ be enabled to correctly be identified.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/net/ethernet/mediatek/airoha_eth.c  | 12 ++++++++++--
- drivers/net/ethernet/mediatek/airoha_regs.h |  1 +
+ drivers/net/ethernet/airoha/airoha_eth.c  | 12 ++++++++++--
+ drivers/net/ethernet/airoha/airoha_regs.h |  1 +
  2 files changed, 11 insertions(+), 2 deletions(-)
 
---- a/drivers/net/ethernet/mediatek/airoha_eth.c
-+++ b/drivers/net/ethernet/mediatek/airoha_eth.c
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -151,13 +151,15 @@ static void airoha_fe_maccr_init(struct
  	int p;
  
