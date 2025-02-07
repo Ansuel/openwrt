@@ -4,18 +4,20 @@ MTU=8000
 N_DSA_PORTS=4
 BR_DEV=br0
 LAN_DEV=eth0
-LAN_SRC_IP=192.168.83.115
+LAN_SRC_IP="192.168.83.115"
 LAN_SRC_IP6="1001::a"
-LAN_DST_IP=192.168.83.120
+LAN_DST_IP="192.168.83.120"
 LAN_DST_IP6="1001::b"
 # QoS channel ID for LAN destionation
 LAN_CHANNEL_ID=1
 
 WAN_DEV=eth1
-WAN_SRC_IP=192.168.1.2
+WAN_SRC_IP="192.168.1.2"
 WAN_SRC_IP6="2001::a"
-WAN_DST_IP=192.168.1.1
+WAN_DST_IP="192.168.1.1"
 WAN_DST_IP6="2001::b"
+WAN_IN_PORT=5201
+WAN_OUT_PORT=6001
 # QoS channel ID for WAN destionation
 WAN_CHANNEL_ID=4
 
@@ -32,6 +34,16 @@ PRIO1=5
 enable_hw_offload() {
 	# FLOWTABLE
 	nft -f /dev/stdin <<EOF
+table inet nat {
+	chain prerouting {
+		type nat hook prerouting priority 0; policy accept
+		ip daddr ${WAN_DST_IP} tcp dport ${WAN_IN_PORT} dnat ${WAN_DST_IP}:${WAN_OUT_PORT}
+	}
+	chain postrouting {
+		type nat hook postrouting priority 0; policy accept
+		ip daddr ${WAN_DST_IP} masquerade
+	}
+}
 table inet filter {
 	flowtable ft {
 		hook ingress priority filter
@@ -112,14 +124,14 @@ enable_qos_offload() {
 		ip link set dev lan$i up
 		ip link set dev lan$i master $BR_DEV
 	done
-	ip addr add $LAN_SRC_IP/24 dev $BR_DEV
-	ip -6 addr add $LAN_SRC_IP6/64 dev $BR_DEV nodad
+	ip addr add ${LAN_SRC_IP}/24 dev $BR_DEV
+	ip -6 addr add ${LAN_SRC_IP6}/64 dev $BR_DEV nodad
 	ip link set dev $BR_DEV mtu $MTU
 	ip link set dev $BR_DEV up
 
 	# WAN
-	ip addr add $WAN_SRC_IP/24 dev $WAN_DEV
-	ip -6 addr add $WAN_SRC_IP6/64 dev $WAN_DEV nodad
+	ip addr add ${WAN_SRC_IP}/24 dev $WAN_DEV
+	ip -6 addr add ${WAN_SRC_IP6}/64 dev $WAN_DEV nodad
 	ip link set dev $WAN_DEV mtu $MTU
 	ip link set dev $WAN_DEV up
 
