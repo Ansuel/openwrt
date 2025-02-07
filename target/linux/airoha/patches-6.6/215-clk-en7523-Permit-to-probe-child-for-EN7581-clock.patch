@@ -1,0 +1,72 @@
+From 3fb29f27db71b6c25160137b43697a5005c89eae Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 7 Feb 2025 13:52:02 +0100
+Subject: [PATCH 1/6] clk: en7523: Permit to probe child for EN7581 clock
+
+Permit to probe child for EN7581 clock to support for SCU SSR (System
+Status Register) node and correctly setup Serdes port modes.
+
+These special bits configure the Serdes port modes that are mutually
+exclusive and setup the periperal for USB 3.0 mode or HSGMII or PCIe
+mode.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/clk-en7523.c | 20 ++++++++++++++++++--
+ 1 file changed, 18 insertions(+), 2 deletions(-)
+
+--- a/drivers/clk/clk-en7523.c
++++ b/drivers/clk/clk-en7523.c
+@@ -4,6 +4,7 @@
+ #include <linux/clk-provider.h>
+ #include <linux/io.h>
+ #include <linux/mfd/syscon.h>
++#include <linux/of_platform.h>
+ #include <linux/platform_device.h>
+ #include <linux/property.h>
+ #include <linux/regmap.h>
+@@ -676,12 +677,19 @@ static int en7581_reset_register(struct
+ 	return devm_reset_controller_register(dev, &rst_data->rcdev);
+ }
+ 
++static const struct regmap_config en7581_clk_regmap_config = {
++	.reg_bits = 32,
++	.val_bits = 32,
++	.reg_stride = 4,
++};
++
+ static int en7581_clk_hw_init(struct platform_device *pdev,
+ 			      struct clk_hw_onecell_data *clk_data)
+ {
+-	struct regmap *map;
++	struct regmap *map, *clk_map;
+ 	void __iomem *base;
+ 	u32 val;
++	int ret;
+ 
+ 	map = syscon_regmap_lookup_by_compatible("airoha,en7581-chip-scu");
+ 	if (IS_ERR(map))
+@@ -691,6 +699,10 @@ static int en7581_clk_hw_init(struct pla
+ 	if (IS_ERR(base))
+ 		return PTR_ERR(base);
+ 
++	clk_map = devm_regmap_init_mmio(&pdev->dev, base, &en7581_clk_regmap_config);
++	if (IS_ERR(clk_map))
++		return PTR_ERR(clk_map);
++
+ 	en7581_register_clocks(&pdev->dev, clk_data, map, base);
+ 
+ 	val = readl(base + REG_NP_SCU_SSTR);
+@@ -699,7 +711,11 @@ static int en7581_clk_hw_init(struct pla
+ 	val = readl(base + REG_NP_SCU_PCIC);
+ 	writel(val | 3, base + REG_NP_SCU_PCIC);
+ 
+-	return en7581_reset_register(&pdev->dev, base);
++	ret = en7581_reset_register(&pdev->dev, base);
++	if (ret)
++		return ret;
++
++	return of_platform_populate(pdev->dev.of_node, NULL, NULL, &pdev->dev);
+ }
+ 
+ static int en7523_clk_probe(struct platform_device *pdev)
