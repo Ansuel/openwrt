@@ -1,5 +1,6 @@
 #!/bin/sh
 
+MTU=8000
 N_DSA_PORTS=4
 BR_DEV=br0
 LAN_DEV=eth0
@@ -107,16 +108,19 @@ enable_qos_offload() {
 	ip link add name $BR_DEV type bridge
 	sleep 1
 	for i in $(seq $N_DSA_PORTS); do
+		ip link set dev lan$i mtu $MTU
 		ip link set dev lan$i up
 		ip link set dev lan$i master $BR_DEV
 	done
 	ip addr add $LAN_SRC_IP/24 dev $BR_DEV
 	ip -6 addr add $LAN_SRC_IP6/64 dev $BR_DEV nodad
+	ip link set dev $BR_DEV mtu $MTU
 	ip link set dev $BR_DEV up
 
 	# WAN
 	ip addr add $WAN_SRC_IP/24 dev $WAN_DEV
 	ip -6 addr add $WAN_SRC_IP6/64 dev $WAN_DEV nodad
+	ip link set dev $WAN_DEV mtu $MTU
 	ip link set dev $WAN_DEV up
 
 	nft flush ruleset
