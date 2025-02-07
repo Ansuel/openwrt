@@ -52,15 +52,15 @@ CONFIG_TARGET_airoha=y
 # CONFIG_TARGET_airoha_en7523 is not set
 CONFIG_TARGET_airoha_an7581=y
 # CONFIG_TARGET_MULTI_PROFILE is not set
-CONFIG_TARGET_airoha_an7581_DEVICE_airoha_an7581-evb=y
+# CONFIG_TARGET_airoha_an7581_DEVICE_airoha_an7581-evb is not set
 # CONFIG_TARGET_airoha_an7581_DEVICE_airoha_an7581-evb-an8811 is not set
 # CONFIG_TARGET_airoha_an7581_DEVICE_airoha_an7581-evb-pon is not set
-# CONFIG_TARGET_airoha_an7581_DEVICE_airoha_an7581-evb-emmc is not set
+CONFIG_TARGET_airoha_an7581_DEVICE_airoha_an7581-evb-emmc=y
 CONFIG_HAS_SUBTARGETS=y
 CONFIG_HAS_DEVICES=y
 CONFIG_TARGET_BOARD="airoha"
 CONFIG_TARGET_SUBTARGET="an7581"
-CONFIG_TARGET_PROFILE="DEVICE_airoha_an7581-evb"
+CONFIG_TARGET_PROFILE="DEVICE_airoha_an7581-evb-emmc"
 CONFIG_TARGET_ARCH_PACKAGES="aarch64_cortex-a53"
 CONFIG_DEFAULT_TARGET_OPTIMIZATION="-Os -pipe -mcpu=cortex-a53"
 CONFIG_CPU_TYPE="cortex-a53"
