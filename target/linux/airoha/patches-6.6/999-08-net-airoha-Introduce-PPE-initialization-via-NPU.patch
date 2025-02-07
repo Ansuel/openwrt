@@ -69,16 +69,16 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/tcp.h>
  #include <linux/u64_stats_sync.h>
  #include <net/dsa.h>
-@@ -1302,6 +1299,9 @@ static int airoha_hw_init(struct platfor
- 			return err;
- 	}
+@@ -1292,6 +1289,9 @@ static int airoha_hw_init(struct platfor
+ 		return err;
  
+ 	msleep(20);
 +	if (airoha_ppe_init(eth))
 +		dev_err(eth->dev, "ppe initialization failed\n");
 +
- 	set_bit(DEV_STATE_INITIALIZED, &eth->state);
- 
- 	return 0;
+ 	err = airoha_fe_init(eth);
+ 	if (err)
+ 		return err;
 @@ -2500,6 +2500,7 @@ static void airoha_remove(struct platfor
  	}
  	free_netdev(eth->napi_dev);

@@ -1,26 +1,26 @@
-From c528b0bb4a288e17bb9969857c1f582b0003cb89 Mon Sep 17 00:00:00 2001
-Message-ID: <c528b0bb4a288e17bb9969857c1f582b0003cb89.1738763049.git.lorenzo@kernel.org>
-In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
-References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+From 74e0d25837a2960a7966616153d729e3c6d55474 Mon Sep 17 00:00:00 2001
+Message-ID: <74e0d25837a2960a7966616153d729e3c6d55474.1738924778.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 26 Jan 2025 16:53:00 +0100
-Subject: [PATCH net-next 10/11] net: airoha: Add loopback support for GDM2
+Subject: [PATCH net-next 1/6] net: airoha: Add loopback support for GDM2
 
 Enable hw redirection for traffic received on GDM2 port to GDM{3,4}.
-This is requried to apply Qdisc offloading (HTB or ETS) for traffic to
+This is required to apply Qdisc offloading (HTB or ETS) for traffic to
 and from GDM{3,4} port.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/airoha/airoha_eth.c  | 67 ++++++++++++++++++++++-
+ drivers/net/ethernet/airoha/airoha_eth.c  | 65 ++++++++++++++++++++++-
  drivers/net/ethernet/airoha/airoha_eth.h  |  7 +++
- drivers/net/ethernet/airoha/airoha_ppe.c  | 13 +++--
+ drivers/net/ethernet/airoha/airoha_ppe.c  | 13 ++---
  drivers/net/ethernet/airoha/airoha_regs.h | 29 ++++++++++
- 4 files changed, 108 insertions(+), 8 deletions(-)
+ 4 files changed, 106 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
+index ac581658769a..112a77d422bd 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1587,14 +1587,77 @@ static int airoha_dev_set_macaddr(struct
+@@ -1583,14 +1583,75 @@ static int airoha_dev_set_macaddr(struct net_device *dev, void *p)
  	return 0;
  }
  
@@ -33,8 +33,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	/* Forward the traffic to the proper GDM port */
 +	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(2), pse_port);
 +	airoha_fe_clear(eth, REG_GDM_FWD_CFG(2), GDM_STRIP_CRC);
-+	airoha_fe_rmw(eth, REG_GDM_LEN_CFG(2), GDM_LONG_LEN_MASK,
-+		      FIELD_PREP(GDM_LONG_LEN_MASK, 2000));
 +
 +	/* Enable GDM2 loopback */
 +	airoha_fe_wr(eth, REG_GDM_TXCHN_EN(2), 0xffffffff);
@@ -100,25 +98,29 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return 0;
  }
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
+index 14f2d863fd1c..20e870a5c200 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -73,6 +73,13 @@ enum {
+@@ -72,6 +72,13 @@ enum {
+ 	QDMA_INT_REG_MAX
  };
  
- enum {
++enum {
 +	HSGMII_LAN_PCIE0_SRCPORT = 0x16,
 +	HSGMII_LAN_PCIE1_SRCPORT,
 +	HSGMII_LAN_ETH_SRCPORT,
 +	HSGMII_LAN_USB_SRCPORT,
 +};
 +
-+enum {
+ enum {
  	XSI_PCIE0_VIP_PORT_MASK	= BIT(22),
  	XSI_PCIE1_VIP_PORT_MASK	= BIT(23),
- 	XSI_USB_VIP_PORT_MASK	= BIT(25),
+diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
+index e9d67a6d1fbc..00bf30d102ee 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -124,21 +124,22 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -124,21 +124,22 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
  	      AIROHA_FOE_IB1_BIND_TTL;
  	hwe->ib1 = val;
  
@@ -147,6 +149,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (is_multicast_ether_addr(dest_mac))
  		val |= AIROHA_FOE_IB2_MULTICAST;
  
+diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
+index 3ad2c5d11c2f..9ec2476af241 100644
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
 @@ -38,6 +38,12 @@
@@ -206,3 +210,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define REG_CDM5_RX_OQ1_DROP_CNT	0x29d4
  
  /* QDMA */
+-- 
+2.48.1
+

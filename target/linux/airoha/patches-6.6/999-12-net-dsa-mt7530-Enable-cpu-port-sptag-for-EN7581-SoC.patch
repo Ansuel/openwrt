@@ -1,60 +1,43 @@
-From ee9c4ad32066ca2ebb638cb52e7cf88d85c5da8f Mon Sep 17 00:00:00 2001
-Message-ID: <ee9c4ad32066ca2ebb638cb52e7cf88d85c5da8f.1737803595.git.lorenzo@kernel.org>
-In-Reply-To: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
-References: <1e82f12b417fa132b7338df50ddd5499bcbd3f26.1737803595.git.lorenzo@kernel.org>
+From e00caf4922b2f45d885cc6391dfadb679dcbd6da Mon Sep 17 00:00:00 2001
+Message-ID: <e00caf4922b2f45d885cc6391dfadb679dcbd6da.1738926105.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 24 Jan 2025 13:32:20 +0100
-Subject: [PATCH net-next 2/9] net: dsa: mt7530: Enable cpu port sptag for
- EN7581 SoC
+Subject: [PATCH net-next] net: dsa: mt7530: Enable Rx sptag for EN7581 SoC
 
 Packet Processor Engine (PPE) module used for hw acceleration on EN7581
-SoC, in order to properly parse packets, requires untagged packets.
-For this reason, enable CPU port STAG for EN7581 SoC.
+mac block, in order to properly parse packets, requires DSA untagged
+packets on TX side and read DSA tag from DMA descriptor on RX side.
+For this reason, enable RX Special Tag (SPTAG) for EN7581 SoC.
 This is a preliminary patch to enable netfilter flowtable hw offloading
 on EN7581 SoC.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/dsa/mt7530.c | 17 ++++++++++++++++-
- drivers/net/dsa/mt7530.h |  4 ++++
- 2 files changed, 20 insertions(+), 1 deletion(-)
+ drivers/net/dsa/mt7530.c | 5 +++++
+ drivers/net/dsa/mt7530.h | 4 ++++
+ 2 files changed, 9 insertions(+)
 
+diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
+index 1c83af805209..eec8ba9d6808 100644
 --- a/drivers/net/dsa/mt7530.c
 +++ b/drivers/net/dsa/mt7530.c
-@@ -3162,6 +3162,21 @@ static int mt7988_setup(struct dsa_switc
- 	return mt7531_setup_common(ds);
- }
+@@ -2586,6 +2586,11 @@ mt7531_setup_common(struct dsa_switch *ds)
+ 	/* Allow mirroring frames received on the local port (monitor port). */
+ 	mt7530_set(priv, MT753X_AGC, LOCAL_EN);
  
-+static int en7581_setup(struct dsa_switch *ds)
-+{
-+	struct mt7530_priv *priv = ds->priv;
-+	int err;
++	/* Enable Special Tag for rx frames */
++	if (priv->id == ID_EN7581)
++		mt7530_write(priv, MT753X_CPORT_SPTAG_CFG,
++			     CPORT_SW2FE_STAG_EN | CPORT_FE2SW_STAG_EN);
 +
-+	err = mt7988_setup(ds);
-+	if (err)
-+		return err;
-+
-+	mt7530_write(priv, MT753X_CPORT_SPTAG_CFG,
-+		     CPORT_SW2FE_STAG_EN | CPORT_FE2SW_STAG_EN);
-+
-+	return 0;
-+}
-+
- const struct dsa_switch_ops mt7530_switch_ops = {
- 	.get_tag_protocol	= mtk_get_tag_protocol,
- 	.setup			= mt753x_setup,
-@@ -3250,7 +3265,7 @@ const struct mt753x_info mt753x_table[]
- 	[ID_EN7581] = {
- 		.id = ID_EN7581,
- 		.pcs_ops = &mt7530_pcs_ops,
--		.sw_setup = mt7988_setup,
-+		.sw_setup = en7581_setup,
- 		.phy_read_c22 = mt7531_ind_c22_phy_read,
- 		.phy_write_c22 = mt7531_ind_c22_phy_write,
- 		.phy_read_c45 = mt7531_ind_c45_phy_read,
+ 	/* Flush the FDB table */
+ 	ret = mt7530_fdb_cmd(priv, MT7530_FDB_FLUSH, NULL);
+ 	if (ret < 0)
+diff --git a/drivers/net/dsa/mt7530.h b/drivers/net/dsa/mt7530.h
+index 448200689f49..349d72a35771 100644
 --- a/drivers/net/dsa/mt7530.h
 +++ b/drivers/net/dsa/mt7530.h
-@@ -615,6 +615,10 @@ enum mt7531_xtal_fsel {
+@@ -627,6 +627,10 @@ enum mt7531_xtal_fsel {
  #define  MT7531_GPIO12_RG_RXD3_MASK	GENMASK(19, 16)
  #define  MT7531_EXT_P_MDIO_12		(2 << 16)
  
@@ -65,3 +48,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  /* Registers for LED GPIO control (MT7530 only)
   * All registers follow this pattern:
   * [ 2: 0]  port 0
+-- 
+2.48.1
+

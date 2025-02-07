@@ -15,14 +15,14 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -527,8 +527,8 @@ static int airoha_fe_init(struct airoha_
+@@ -511,8 +511,8 @@ static int airoha_fe_init(struct airoha_
  		      FIELD_PREP(IP_ASSEMBLE_PORT_MASK, 0) |
  		      FIELD_PREP(IP_ASSEMBLE_NBQ_MASK, 22));
  
 -	airoha_fe_set(eth, REG_GDM3_FWD_CFG, GDM3_PAD_EN_MASK);
 -	airoha_fe_set(eth, REG_GDM4_FWD_CFG, GDM4_PAD_EN_MASK);
-+	airoha_fe_set(eth, REG_GDM_FWD_CFG(3), GDM_PAD_EN);
-+	airoha_fe_set(eth, REG_GDM_FWD_CFG(4), GDM_PAD_EN);
++	airoha_fe_set(eth, REG_GDM_FWD_CFG(3), GDM_PAD_EN_MASK);
++	airoha_fe_set(eth, REG_GDM_FWD_CFG(4), GDM_PAD_EN_MASK);
  
  	airoha_fe_crsn_qsel_init(eth);
  
@@ -32,11 +32,11 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	GENMASK(4 + (((_n) % 4) << 3),	(((_n) % 4) << 3))
  
  #define REG_GDM_FWD_CFG(_n)		GDM_BASE(_n)
-+#define GDM_PAD_EN			BIT(28)
++#define GDM_PAD_EN_MASK			BIT(28)
  #define GDM_DROP_CRC_ERR		BIT(23)
  #define GDM_IP4_CKSUM			BIT(22)
  #define GDM_TCP_CKSUM			BIT(21)
-@@ -333,13 +334,6 @@
+@@ -339,13 +340,6 @@
  #define MBI_RX_AGE_SEL_MASK		GENMASK(26, 25)
  #define MBI_TX_AGE_SEL_MASK		GENMASK(18, 17)
  

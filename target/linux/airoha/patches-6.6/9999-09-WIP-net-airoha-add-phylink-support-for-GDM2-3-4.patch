@@ -29,11 +29,11 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  #include "airoha_regs.h"
  #include "airoha_eth.h"
-@@ -1548,6 +1550,17 @@ static int airoha_dev_open(struct net_de
+@@ -1549,6 +1551,17 @@ static int airoha_dev_open(struct net_de
  	struct airoha_qdma *qdma = port->qdma;
  	int err;
  
-+	if (port->type != INTERNAL_SWITCH_PORT) {
++	if (!airhoa_is_lan_gdm_port(port)) {
 +		err = phylink_of_phy_connect(port->phylink, dev->dev.of_node, 0);
 +		if (err) {
 +			netdev_err(dev, "%s: could not attach PHY: %d\n", __func__,
@@ -47,11 +47,11 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	netif_tx_start_all_queues(dev);
  	err = airoha_set_vip_for_gdm_port(port, true);
  	if (err)
-@@ -1599,19 +1612,34 @@ static int airoha_dev_stop(struct net_de
+@@ -1600,19 +1613,34 @@ static int airoha_dev_stop(struct net_de
  		}
  	}
  
-+	if (port->type != INTERNAL_SWITCH_PORT)
++	if (!airhoa_is_lan_gdm_port(port))
 +		phylink_stop(port->phylink);
 +
  	return 0;
@@ -71,7 +71,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	airoha_set_macaddr(port, mac_addr);
 +
 +	/* Update XFI mac address */
-+	if (port->type != INTERNAL_SWITCH_PORT) {
++	if (!airhoa_is_lan_gdm_port(port)) {
 +		regmap_write(port->xfi_mac, AIROHA_PCS_XFI_MAC_XFI_MACADDRL,
 +			     FIELD_PREP(AIROHA_PCS_XFI_MAC_MACADDRL,
 +					mac_addr[0] << 24 | mac_addr[1] << 16 |
@@ -83,7 +83,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  	return 0;
  }
-@@ -2564,6 +2592,199 @@ static int airoha_register_port_debugfs(
+@@ -2565,6 +2593,199 @@ static int airoha_register_port_debugfs(
  	return 0;
  }
  
@@ -190,7 +190,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	}
 +
 +	/* Configure TX/RX frag based on speed */
-+	if (port->type == XSI_ETH_PORT) {
++	if (port->id == 4) {
 +		airoha_fe_rmw(eth, REG_GDMA4_TMBI_FRAG, GDMA4_SGMII0_TX_FRAG_SIZE,
 +			      FIELD_PREP(GDMA4_SGMII0_TX_FRAG_SIZE, frag_size_tx));
 +
@@ -287,7 +287,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	if (err)
  		return err;
  
-+	if (port->type != INTERNAL_SWITCH_PORT) {
++	if (!airhoa_is_lan_gdm_port(port)) {
 +		const u8 *mac_addr = dev->dev_addr;
 +
 +		err = airoha_setup_phylink(dev);
@@ -311,7 +311,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  		if (port && port->dev->reg_state == NETREG_REGISTERED) {
  			airoha_metadata_dst_free(port);
-+			if (port->type != INTERNAL_SWITCH_PORT) {
++			if (!airhoa_is_lan_gdm_port(port)) {
 +				phylink_destroy(port->phylink);
 +				airoha_pcs_destroy(port->pcs);
 +			}
@@ -322,7 +322,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  		airoha_dev_stop(port->dev);
  		airoha_metadata_dst_free(port);
-+		if (port->type != INTERNAL_SWITCH_PORT) {
++		if (!airhoa_is_lan_gdm_port(port)) {
 +			phylink_destroy(port->phylink);
 +			airoha_pcs_destroy(port->pcs);
 +		}
@@ -331,8 +331,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	free_netdev(eth->napi_dev);
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -478,6 +478,11 @@ struct airoha_gdm_port {
- 	enum airoha_gdm_port_type type;
+@@ -468,6 +468,11 @@ struct airoha_gdm_port {
+ 	struct net_device *dev;
  	int id;
  
 +	struct phylink *phylink;
@@ -345,7 +345,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	DECLARE_BITMAP(qos_sq_bmap, AIROHA_NUM_QOS_CHANNELS);
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
-@@ -345,6 +345,18 @@
+@@ -351,6 +351,18 @@
  #define IP_FRAGMENT_PORT_MASK		GENMASK(8, 5)
  #define IP_FRAGMENT_NBQ_MASK		GENMASK(4, 0)
  

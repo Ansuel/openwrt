@@ -13,14 +13,15 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1312,6 +1312,10 @@ static int airoha_hw_init(struct platfor
+@@ -1310,6 +1310,11 @@ static int airoha_hw_init(struct platfor
  	if (err)
  		return err;
  
-+	err = reset_control_bulk_deassert(ARRAY_SIZE(eth->xsi_rsts), eth->xsi_rsts);
++	err = reset_control_bulk_deassert(ARRAY_SIZE(eth->xsi_rsts),
++					  eth->xsi_rsts);
 +	if (err)
 +		return err;
 +
  	msleep(20);
- 	err = airoha_fe_init(eth);
+ 	err = reset_control_bulk_deassert(ARRAY_SIZE(eth->rsts), eth->rsts);
  	if (err)
