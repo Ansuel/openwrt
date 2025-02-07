@@ -487,7 +487,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct reserved_mem *rmem;
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -4,14 +4,673 @@
+@@ -4,14 +4,675 @@
   * Author: Lorenzo Bianconi <lorenzo@kernel.org>
   */
  
@@ -540,15 +540,17 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +static int airoha_ppe_flow_mangle_ports(const struct flow_action_entry *act,
 +					struct airoha_flow_data *data)
 +{
++	u32 val = be32_to_cpu((__force __be32)act->mangle.val);
++
 +	switch (act->mangle.offset) {
 +	case 0:
-+		if (~act->mangle.mask == 0xffff)
-+			data->dst_port = cpu_to_be16(act->mangle.val);
++		if ((__force __be32)act->mangle.mask == ~cpu_to_be32(0xffff))
++			data->dst_port = cpu_to_be16(val);
 +		else
-+			data->src_port = cpu_to_be16(act->mangle.val >> 16);
++			data->src_port = cpu_to_be16(val >> 16);
 +		break;
 +	case 2:
-+		data->dst_port = cpu_to_be16(act->mangle.val);
++		data->dst_port = cpu_to_be16(val);
 +		break;
 +	default:
 +		return -EINVAL;
@@ -1161,7 +1163,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_ppe_hw_init(struct airoha_ppe *ppe)
  {
  	u32 sram_tb_size, sram_num_entries, dram_num_entries;
-@@ -107,33 +766,47 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -107,33 +768,47 @@ int airoha_ppe_init(struct airoha_eth *e
  	ppe->eth = eth;
  	eth->ppe = ppe;
  

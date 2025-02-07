@@ -114,7 +114,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	XSI_USB_VIP_PORT_MASK	= BIT(25),
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -122,21 +122,22 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -124,21 +124,22 @@ static int airoha_ppe_foe_entry_prepare(
  	      AIROHA_FOE_IB1_BIND_TTL;
  	hwe->ib1 = val;
  

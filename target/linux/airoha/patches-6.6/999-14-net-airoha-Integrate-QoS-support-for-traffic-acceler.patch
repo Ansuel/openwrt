@@ -14,7 +14,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -108,11 +108,12 @@ static int airoha_get_dsa_port(struct ne
+@@ -110,11 +110,12 @@ static int airoha_get_dsa_port(struct ne
  
  static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
  					struct net_device *dev, int type,
@@ -29,7 +29,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	memset(hwe, 0, sizeof(*hwe));
  
-@@ -147,7 +148,12 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -149,7 +150,12 @@ static int airoha_ppe_foe_entry_prepare(
  	if (type == PPE_PKT_TYPE_IPV6_ROUTE_3T)
  		hwe->ipv6.ports = ports_pad;
  
@@ -43,7 +43,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (type == PPE_PKT_TYPE_BRIDGE) {
  		hwe->bridge.dest_mac_hi = get_unaligned_be32(dest_mac);
  		hwe->bridge.dest_mac_lo = get_unaligned_be16(dest_mac + 4);
-@@ -403,6 +409,7 @@ static int airoha_ppe_flow_offload_repla
+@@ -405,6 +411,7 @@ static int airoha_ppe_flow_offload_repla
  	int err, i, offload_type;
  	u16 addr_type = 0;
  	u8 l4proto = 0;
@@ -51,7 +51,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	if (rhashtable_lookup(&eth->flow_table, &f->cookie,
  			      airoha_flow_table_params))
-@@ -494,6 +501,9 @@ static int airoha_ppe_flow_offload_repla
+@@ -496,6 +503,9 @@ static int airoha_ppe_flow_offload_repla
  			data.pppoe.sid = act->pppoe.sid;
  			data.pppoe.num++;
  			break;
@@ -61,7 +61,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		default:
  			return -EOPNOTSUPP;
  		}
-@@ -504,7 +514,8 @@ static int airoha_ppe_flow_offload_repla
+@@ -506,7 +516,8 @@ static int airoha_ppe_flow_offload_repla
  		return -EINVAL;
  
  	err = airoha_ppe_foe_entry_prepare(&hwe, odev, offload_type, l4proto,

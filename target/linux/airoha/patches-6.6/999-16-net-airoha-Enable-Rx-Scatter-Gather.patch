@@ -176,7 +176,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  struct airoha_tx_irq_queue {
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -727,6 +727,11 @@ static void airoha_ppe_hw_init(struct ai
+@@ -729,6 +729,11 @@ static void airoha_ppe_hw_init(struct ai
  			      FIELD_PREP(PPE_TB_ENTRY_SIZE_MASK, 0));
  
  		airoha_fe_wr(eth, REG_PPE_HASH_SEED(i), PPE_HASH_SEED);
