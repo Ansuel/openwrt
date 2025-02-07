@@ -17,11 +17,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/dsa/mt7530.h | 4 ++++
  2 files changed, 9 insertions(+)
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 1c83af805209..eec8ba9d6808 100644
 --- a/drivers/net/dsa/mt7530.c
 +++ b/drivers/net/dsa/mt7530.c
-@@ -2586,6 +2586,11 @@ mt7531_setup_common(struct dsa_switch *ds)
+@@ -2585,6 +2585,11 @@ mt7531_setup_common(struct dsa_switch *d
  	/* Allow mirroring frames received on the local port (monitor port). */
  	mt7530_set(priv, MT753X_AGC, LOCAL_EN);
  
@@ -33,11 +31,9 @@ index 1c83af805209..eec8ba9d6808 100644
  	/* Flush the FDB table */
  	ret = mt7530_fdb_cmd(priv, MT7530_FDB_FLUSH, NULL);
  	if (ret < 0)
-diff --git a/drivers/net/dsa/mt7530.h b/drivers/net/dsa/mt7530.h
-index 448200689f49..349d72a35771 100644
 --- a/drivers/net/dsa/mt7530.h
 +++ b/drivers/net/dsa/mt7530.h
-@@ -627,6 +627,10 @@ enum mt7531_xtal_fsel {
+@@ -615,6 +615,10 @@ enum mt7531_xtal_fsel {
  #define  MT7531_GPIO12_RG_RXD3_MASK	GENMASK(19, 16)
  #define  MT7531_EXT_P_MDIO_12		(2 << 16)
  
@@ -48,6 +44,3 @@ index 448200689f49..349d72a35771 100644
  /* Registers for LED GPIO control (MT7530 only)
   * All registers follow this pattern:
   * [ 2: 0]  port 0
--- 
-2.48.1
-

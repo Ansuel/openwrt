@@ -1,6 +1,6 @@
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2412,6 +2412,129 @@ static void airoha_metadata_dst_free(str
+@@ -2410,6 +2410,129 @@ static void airoha_metadata_dst_free(str
  	}
  }
  
@@ -130,7 +130,7 @@
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2489,6 +2612,10 @@ static int airoha_alloc_gdm_port(struct
+@@ -2487,6 +2610,10 @@ static int airoha_alloc_gdm_port(struct
  	if (err)
  		return err;
  
@@ -141,7 +141,7 @@
  	return register_netdev(dev);
  }
  
-@@ -2548,6 +2675,7 @@ static int airoha_probe(struct platform_
+@@ -2546,6 +2673,7 @@ static int airoha_probe(struct platform_
  	strscpy(eth->napi_dev->name, "qdma_eth", sizeof(eth->napi_dev->name));
  	platform_set_drvdata(pdev, eth);
  
@@ -149,7 +149,7 @@
  	err = airoha_hw_init(pdev, eth);
  	if (err)
  		goto error_hw_cleanup;
-@@ -2616,6 +2744,7 @@ static void airoha_remove(struct platfor
+@@ -2614,6 +2742,7 @@ static void airoha_remove(struct platfor
  	free_netdev(eth->napi_dev);
  
  	airoha_ppe_deinit(eth);
@@ -159,7 +159,7 @@
  
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -154,6 +154,7 @@ enum trtcm_param {
+@@ -155,6 +155,7 @@ enum trtcm_param {
  #define MAX_TOKEN_SIZE_OFFSET			17
  #define TRTCM_TOKEN_RATE_MASK			GENMASK(23, 6)
  #define TRTCM_TOKEN_RATE_FRACTION_MASK		GENMASK(5, 0)
@@ -167,7 +167,7 @@
  
  struct airoha_queue_entry {
  	union {
-@@ -523,6 +524,8 @@ struct airoha_eth {
+@@ -524,6 +525,8 @@ struct airoha_eth {
  
  	struct airoha_qdma qdma[AIROHA_MAX_NUM_QDMA];
  	struct airoha_gdm_port *ports[AIROHA_MAX_NUM_GDM_PORTS];
@@ -178,7 +178,7 @@
  u32 airoha_rr(void __iomem *base, u32 offset);
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -816,5 +816,4 @@ void airoha_ppe_deinit(struct airoha_eth
+@@ -825,5 +825,4 @@ void airoha_ppe_deinit(struct airoha_eth
  		airoha_npu_deinit(eth->npu);
  	}
  	rhashtable_destroy(&eth->flow_table);

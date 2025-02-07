@@ -16,11 +16,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/ethernet/airoha/airoha_regs.h | 29 ++++++++++
  4 files changed, 106 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index ac581658769a..112a77d422bd 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1583,14 +1583,75 @@ static int airoha_dev_set_macaddr(struct net_device *dev, void *p)
+@@ -1587,14 +1587,75 @@ static int airoha_dev_set_macaddr(struct
  	return 0;
  }
  
@@ -98,29 +96,25 @@ index ac581658769a..112a77d422bd 100644
  
  	return 0;
  }
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index 14f2d863fd1c..20e870a5c200 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -72,6 +72,13 @@ enum {
- 	QDMA_INT_REG_MAX
+@@ -74,6 +74,13 @@ enum {
  };
  
-+enum {
+ enum {
 +	HSGMII_LAN_PCIE0_SRCPORT = 0x16,
 +	HSGMII_LAN_PCIE1_SRCPORT,
 +	HSGMII_LAN_ETH_SRCPORT,
 +	HSGMII_LAN_USB_SRCPORT,
 +};
 +
- enum {
++enum {
  	XSI_PCIE0_VIP_PORT_MASK	= BIT(22),
  	XSI_PCIE1_VIP_PORT_MASK	= BIT(23),
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index e9d67a6d1fbc..00bf30d102ee 100644
+ 	XSI_USB_VIP_PORT_MASK	= BIT(25),
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -124,21 +124,22 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
+@@ -122,21 +122,22 @@ static int airoha_ppe_foe_entry_prepare(
  	      AIROHA_FOE_IB1_BIND_TTL;
  	hwe->ib1 = val;
  
@@ -149,8 +143,6 @@ index e9d67a6d1fbc..00bf30d102ee 100644
  	if (is_multicast_ether_addr(dest_mac))
  		val |= AIROHA_FOE_IB2_MULTICAST;
  
-diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
-index 3ad2c5d11c2f..9ec2476af241 100644
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
 @@ -38,6 +38,12 @@
@@ -210,6 +202,3 @@ index 3ad2c5d11c2f..9ec2476af241 100644
  #define REG_CDM5_RX_OQ1_DROP_CNT	0x29d4
  
  /* QDMA */
--- 
-2.48.1
-

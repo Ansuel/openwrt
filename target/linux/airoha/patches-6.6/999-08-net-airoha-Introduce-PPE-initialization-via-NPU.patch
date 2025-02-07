@@ -103,22 +103,23 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define AIROHA_MAX_NUM_GDM_PORTS	4
  #define AIROHA_MAX_NUM_QDMA		2
  #define AIROHA_MAX_DSA_PORTS		7
-@@ -44,6 +49,14 @@
+@@ -44,6 +49,15 @@
  #define QDMA_METER_IDX(_n)		((_n) & 0xff)
  #define QDMA_METER_GROUP(_n)		(((_n) >> 8) & 0x3)
  
 +#define PPE_NUM				2
-+#define PPE_SRAM_NUM_ENTRIES		(16 * 1024)
 +#define PPE1_SRAM_NUM_ENTRIES		(8 * 1024)
++#define PPE_SRAM_NUM_ENTRIES		(2 * PPE1_SRAM_NUM_ENTRIES)
 +#define PPE_DRAM_NUM_ENTRIES		(16 * 1024)
 +#define PPE_NUM_ENTRIES			(PPE_SRAM_NUM_ENTRIES + PPE_DRAM_NUM_ENTRIES)
 +#define PPE_HASH_MASK			(PPE_NUM_ENTRIES - 1)
 +#define PPE_ENTRY_SIZE			80
++#define PPE_RAM_NUM_ENTRIES_SHIFT(_n)	(__ffs((_n) >> 10))
 +
  #define MTK_HDR_LEN			4
  #define MTK_HDR_XMIT_TAGGED_TPID_8100	1
  #define MTK_HDR_XMIT_TAGGED_TPID_88A8	2
-@@ -195,6 +208,10 @@ struct airoha_hw_stats {
+@@ -195,6 +209,10 @@ struct airoha_hw_stats {
  	u64 rx_len[7];
  };
  
@@ -129,7 +130,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  struct airoha_qdma {
  	struct airoha_eth *eth;
  	void __iomem *regs;
-@@ -234,12 +251,36 @@ struct airoha_gdm_port {
+@@ -234,12 +252,36 @@ struct airoha_gdm_port {
  	struct metadata_dst *dsa_meta[AIROHA_MAX_DSA_PORTS];
  };
  
@@ -166,7 +167,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
  
-@@ -275,4 +316,51 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -275,4 +317,51 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
@@ -220,7 +221,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #endif /* AIROHA_ETH_H */
 --- /dev/null
 +++ b/drivers/net/ethernet/airoha/airoha_npu.c
-@@ -0,0 +1,450 @@
+@@ -0,0 +1,451 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2025 AIROHA Inc
@@ -508,13 +509,14 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +			.size = PPE_SRAM_NUM_ENTRIES,
 +		},
 +	};
-+	u32 sram_tb_size;
++	int i, sram_num_entries = PPE_SRAM_NUM_ENTRIES;
++	struct airoha_foe_entry *hwe = ppe->foe;
 +
-+	sram_tb_size = PPE_SRAM_NUM_ENTRIES * sizeof(struct airoha_foe_entry);
 +	if (airoha_ppe2_is_enabled(ppe->eth))
-+		memset(ppe->foe, 0, sram_tb_size / 2);
-+	else
-+		memset(ppe->foe, 0, sram_tb_size);
++		sram_num_entries = sram_num_entries / 2;
++
++	for (i = 0; i < sram_num_entries; i++)
++		memset(&hwe[i], 0, sizeof(*hwe));
 +
 +	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
 +				   sizeof(struct ppe_mbox_data));
@@ -673,7 +675,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +}
 --- /dev/null
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,139 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2025 AIROHA Inc
@@ -690,11 +692,13 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
 +static void airoha_ppe_hw_init(struct airoha_ppe *ppe)
 +{
++	u32 sram_tb_size, sram_num_entries, dram_num_entries;
 +	struct airoha_eth *eth = ppe->eth;
-+	u32 sram_tb_size;
 +	int i;
 +
 +	sram_tb_size = PPE_SRAM_NUM_ENTRIES * sizeof(struct airoha_foe_entry);
++	dram_num_entries = PPE_RAM_NUM_ENTRIES_SHIFT(PPE_DRAM_NUM_ENTRIES);
++
 +	for (i = 0; i < PPE_NUM; i++) {
 +		airoha_fe_wr(eth, REG_PPE_TB_BASE(i),
 +			     ppe->foe_dma + sram_tb_size);
@@ -733,22 +737,32 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	}
 +
 +	if (airoha_ppe2_is_enabled(eth)) {
++		sram_num_entries =
++			PPE_RAM_NUM_ENTRIES_SHIFT(PPE1_SRAM_NUM_ENTRIES);
 +		airoha_fe_rmw(eth, REG_PPE_TB_CFG(0),
 +			      PPE_SRAM_TB_NUM_ENTRY_MASK |
 +			      PPE_DRAM_TB_NUM_ENTRY_MASK,
-+			      FIELD_PREP(PPE_SRAM_TB_NUM_ENTRY_MASK, 3) |
-+			      FIELD_PREP(PPE_DRAM_TB_NUM_ENTRY_MASK, 4));
++			      FIELD_PREP(PPE_SRAM_TB_NUM_ENTRY_MASK,
++					 sram_num_entries) |
++			      FIELD_PREP(PPE_DRAM_TB_NUM_ENTRY_MASK,
++					 dram_num_entries));
 +		airoha_fe_rmw(eth, REG_PPE_TB_CFG(1),
 +			      PPE_SRAM_TB_NUM_ENTRY_MASK |
 +			      PPE_DRAM_TB_NUM_ENTRY_MASK,
-+			      FIELD_PREP(PPE_SRAM_TB_NUM_ENTRY_MASK, 3) |
-+			      FIELD_PREP(PPE_DRAM_TB_NUM_ENTRY_MASK, 4));
++			      FIELD_PREP(PPE_SRAM_TB_NUM_ENTRY_MASK,
++					 sram_num_entries) |
++			      FIELD_PREP(PPE_DRAM_TB_NUM_ENTRY_MASK,
++					 dram_num_entries));
 +	} else {
++		sram_num_entries =
++			PPE_RAM_NUM_ENTRIES_SHIFT(PPE_SRAM_NUM_ENTRIES);
 +		airoha_fe_rmw(eth, REG_PPE_TB_CFG(0),
 +			      PPE_SRAM_TB_NUM_ENTRY_MASK |
 +			      PPE_DRAM_TB_NUM_ENTRY_MASK,
-+			      FIELD_PREP(PPE_SRAM_TB_NUM_ENTRY_MASK, 4) |
-+			      FIELD_PREP(PPE_DRAM_TB_NUM_ENTRY_MASK, 4));
++			      FIELD_PREP(PPE_SRAM_TB_NUM_ENTRY_MASK,
++					 sram_num_entries) |
++			      FIELD_PREP(PPE_DRAM_TB_NUM_ENTRY_MASK,
++					 dram_num_entries));
 +	}
 +}
 +
@@ -764,11 +778,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
 +	foe_size = PPE_NUM_ENTRIES * sizeof(struct airoha_foe_entry);
 +	ppe->foe = dmam_alloc_coherent(eth->dev, foe_size, &ppe->foe_dma,
-+				       GFP_KERNEL);
++				       GFP_KERNEL | __GFP_ZERO);
 +	if (!ppe->foe)
 +		return -ENOMEM;
 +
-+	memset(ppe->foe, 0, foe_size);
 +	ppe->eth = eth;
 +	eth->ppe = ppe;
 +

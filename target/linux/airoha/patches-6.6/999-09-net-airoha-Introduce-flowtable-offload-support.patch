@@ -138,7 +138,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  #define AIROHA_NPU_NUM_CORES		8
  #define AIROHA_MAX_NUM_GDM_PORTS	4
-@@ -208,8 +210,224 @@ struct airoha_hw_stats {
+@@ -209,8 +211,224 @@ struct airoha_hw_stats {
  	u64 rx_len[7];
  };
  
@@ -364,7 +364,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_qdma {
-@@ -265,11 +483,17 @@ struct airoha_npu {
+@@ -266,11 +484,17 @@ struct airoha_npu {
  	} cores[AIROHA_NPU_NUM_CORES];
  };
  
@@ -382,7 +382,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_eth {
-@@ -280,6 +504,7 @@ struct airoha_eth {
+@@ -281,6 +505,7 @@ struct airoha_eth {
  
  	struct airoha_npu *npu;
  	struct airoha_ppe *ppe;
@@ -390,7 +390,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
  	struct reset_control_bulk_data xsi_rsts[AIROHA_MAX_NUM_XSI_RSTS];
-@@ -317,6 +542,12 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -318,6 +543,12 @@ u32 airoha_rmw(void __iomem *base, u32 o
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
  bool airoha_ppe2_is_enabled(struct airoha_eth *eth);
@@ -403,7 +403,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  #ifdef CONFIG_NET_AIROHA_NPU
  int airoha_ppe_init(struct airoha_eth *eth);
-@@ -327,6 +558,8 @@ int airoha_npu_ppe_init(struct airoha_np
+@@ -328,6 +559,8 @@ int airoha_npu_ppe_init(struct airoha_np
  int airoha_npu_ppe_deinit(struct airoha_npu *npu);
  int airoha_npu_flush_ppe_sram_entries(struct airoha_npu *npu,
  				      struct airoha_ppe *ppe);
@@ -412,7 +412,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #else
  static inline int airoha_ppe_init(struct airoha_eth *eth)
  {
-@@ -361,6 +594,13 @@ static inline int airoha_npu_flush_ppe_s
+@@ -362,6 +595,13 @@ static inline int airoha_npu_flush_ppe_s
  {
  	return -EOPNOTSUPP;
  }
@@ -428,7 +428,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #endif /* AIROHA_ETH_H */
 --- a/drivers/net/ethernet/airoha/airoha_npu.c
 +++ b/drivers/net/ethernet/airoha/airoha_npu.c
-@@ -335,6 +335,56 @@ static irqreturn_t airoha_npu_wdt_handle
+@@ -336,6 +336,56 @@ static irqreturn_t airoha_npu_wdt_handle
  	return IRQ_HANDLED;
  }
  
@@ -487,7 +487,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct reserved_mem *rmem;
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -4,14 +4,675 @@
+@@ -4,14 +4,673 @@
   * Author: Lorenzo Bianconi <lorenzo@kernel.org>
   */
  
@@ -540,17 +540,15 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +static int airoha_ppe_flow_mangle_ports(const struct flow_action_entry *act,
 +					struct airoha_flow_data *data)
 +{
-+	u32 val = be32_to_cpu(act->mangle.val);
-+
 +	switch (act->mangle.offset) {
 +	case 0:
-+		if (act->mangle.mask == ~cpu_to_be32(0xffff))
-+			data->dst_port = cpu_to_be16(val);
++		if (~act->mangle.mask == 0xffff)
++			data->dst_port = cpu_to_be16(act->mangle.val);
 +		else
-+			data->src_port = cpu_to_be16(val >> 16);
++			data->src_port = cpu_to_be16(act->mangle.val >> 16);
 +		break;
 +	case 2:
-+		data->dst_port = cpu_to_be16(val);
++		data->dst_port = cpu_to_be16(act->mangle.val);
 +		break;
 +	default:
 +		return -EINVAL;
@@ -1162,8 +1160,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
  static void airoha_ppe_hw_init(struct airoha_ppe *ppe)
  {
- 	struct airoha_eth *eth = ppe->eth;
-@@ -96,33 +757,47 @@ int airoha_ppe_init(struct airoha_eth *e
+ 	u32 sram_tb_size, sram_num_entries, dram_num_entries;
+@@ -107,33 +766,47 @@ int airoha_ppe_init(struct airoha_eth *e
  	ppe->eth = eth;
  	eth->ppe = ppe;
  
