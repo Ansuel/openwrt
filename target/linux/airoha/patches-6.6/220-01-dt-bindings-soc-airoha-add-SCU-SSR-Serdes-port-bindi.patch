@@ -1,0 +1,63 @@
+From 62898b401f28868aaaae35d4d9f2ac23fc2be148 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 7 Feb 2025 12:45:43 +0100
+Subject: [PATCH 1/5] dt-bindings: soc: airoha: add SCU SSR Serdes port binding
+
+Add Airoha AN7581 SCU SSR Serdes port binding to define what mode is
+supported by each Serdes port. These special binding are needed to
+identify and provide the port mode from any user driver.
+
+These modes are mutually exclusive and driver needs to correctly
+validate the current mode for the Serdes port in use.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ MAINTAINERS                              |  6 ++++++
+ include/dt-bindings/soc/airoha,scu-ssr.h | 24 ++++++++++++++++++++++++
+ 2 files changed, 30 insertions(+)
+ create mode 100644 include/dt-bindings/soc/airoha,scu-ssr.h
+
+# diff --git a/MAINTAINERS b/MAINTAINERS
+# index e4f5d8f68581..fcfd930af658 100644
+# --- a/MAINTAINERS
+# +++ b/MAINTAINERS
+# @@ -736,6 +736,12 @@ F:	Documentation/devicetree/bindings/phy/airoha,en7581-pcie-phy.yaml
+#  F:	drivers/phy/phy-airoha-pcie-regs.h
+#  F:	drivers/phy/phy-airoha-pcie.c
+ 
+# +AIROHA SCU SSR DRIVER
+# +M:	Christian Marangi <ansuelsmth@gmail.com>
+# +L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
+# +S:	Maintained
+# +F:	include/dt-bindings/soc/airoha,scu-ssr.h
+# +
+#  AIROHA SPI SNFI DRIVER
+#  M:	Lorenzo Bianconi <lorenzo@kernel.org>
+#  M:	Ray Liu <ray.liu@airoha.com>
+--- /dev/null
++++ b/include/dt-bindings/soc/airoha,scu-ssr.h
+@@ -0,0 +1,24 @@
++/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
++
++#ifndef __DT_BINDINGS_AIROHA_SCU_SSR_H
++#define __DT_BINDINGS_AIROHA_SCU_SSR_H
++
++/* WiFi1 port can be PCIe0 2 line, PCIe0 1 line or Ethernet (USXGMII/HSGMII) */
++#define AIROHA_SCU_SSR_WIFI1_PCIE0_2LINE	0
++#define AIROHA_SCU_SSR_WIFI1_PCIE0		1
++#define AIROHA_SCU_SSR_WIFI1_ETHERNET		2
++
++/* WiFi2 port can be PCIe0 2 line, PCIe1 1 line or Ethernet (USXGMII/HSGMII) */
++#define AIROHA_SCU_SSR_WIFI2_PCIE0_2LINE	0
++#define AIROHA_SCU_SSR_WIFI2_PCIE1		1
++#define AIROHA_SCU_SSR_WIFI2_ETHERNET		2
++
++/* USB1 port can be USB 3.0 port or Ethernet (HSGMII) */
++#define AIROHA_SCU_SSR_USB1_USB			0
++#define AIROHA_SCU_SSR_USB1_ETHERNET		1
++
++/* USB2 port can be USB 3.0 port or PCIe2 1 line */
++#define AIROHA_SCU_SSR_USB2_USB			0
++#define AIROHA_SCU_SSR_USB2_PCIE2		1
++
++#endif /* __DT_BINDINGS_AIROHA_SCU_SSR_H */
