@@ -1,10 +1,8 @@
-From 1357b1decb5762dea0c7a667c880a1fd39b277f4 Mon Sep 17 00:00:00 2001
-Message-ID: <1357b1decb5762dea0c7a667c880a1fd39b277f4.1738763049.git.lorenzo@kernel.org>
-In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
-References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+From 1b08f3fa6b683abd80c2d9d0aec4e3bfde0d5159 Mon Sep 17 00:00:00 2001
+Message-ID: <1b08f3fa6b683abd80c2d9d0aec4e3bfde0d5159.1739032963.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 24 Jan 2025 10:49:46 +0100
-Subject: [PATCH net-next 04/11] net: airoha: Move DSA tag in DMA descriptor
+Subject: [PATCH net-next] net: airoha: Move DSA tag in DMA descriptor
 
 Packet Processor Engine (PPE) module reads DSA tags from the DMA descriptor
 and requires untagged DSA packets to properly parse them. Move DSA tag
@@ -16,10 +14,10 @@ on EN7581 SoC.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/airoha/airoha_eth.c  | 112 +++++++++++++++++++++-
+ drivers/net/ethernet/airoha/airoha_eth.c  | 123 ++++++++++++++++++++--
  drivers/net/ethernet/airoha/airoha_eth.h  |   7 ++
  drivers/net/ethernet/airoha/airoha_regs.h |   2 +
- 3 files changed, 116 insertions(+), 5 deletions(-)
+ 3 files changed, 126 insertions(+), 6 deletions(-)
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
@@ -75,17 +73,17 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		napi_gro_receive(&q->napi, skb);
  
  		done++;
-@@ -1639,26 +1658,69 @@ static u16 airoha_dev_select_queue(struc
+@@ -1639,25 +1658,74 @@ static u16 airoha_dev_select_queue(struc
  	return queue < dev->num_tx_queues ? queue : 0;
  }
  
 +static u32 airoha_get_dsa_tag(struct sk_buff *skb, struct net_device *dev)
 +{
 +#if IS_ENABLED(CONFIG_NET_DSA)
-+	__be16 *phdr = (__be16 *)(skb->data + 2 * ETH_ALEN);
-+	u16 tag = be16_to_cpu(*phdr);
-+	u8 xmit_tpid = tag >> 8;
++	struct ethhdr *ehdr;
 +	struct dsa_port *dp;
++	u8 xmit_tpid;
++	u16 tag;
 +
 +	if (!netdev_uses_dsa(dev))
 +		return 0;
@@ -97,19 +95,26 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	if (dp->tag_ops->proto != DSA_TAG_PROTO_MTK)
 +		return 0;
 +
++	if (skb_ensure_writable(skb, ETH_HLEN))
++		return 0;
++
++	ehdr = (struct ethhdr *)skb->data;
++	tag = be16_to_cpu(ehdr->h_proto);
++	xmit_tpid = tag >> 8;
++
 +	switch (xmit_tpid) {
 +	case MTK_HDR_XMIT_TAGGED_TPID_8100:
-+		*phdr = cpu_to_be16(ETH_P_8021Q);
++		ehdr->h_proto = cpu_to_be16(ETH_P_8021Q);
 +		break;
 +	case MTK_HDR_XMIT_TAGGED_TPID_88A8:
-+		*phdr = cpu_to_be16(ETH_P_8021AD);
++		ehdr->h_proto = cpu_to_be16(ETH_P_8021AD);
 +		break;
 +	default:
 +		/* PPE module requires untagged DSA packets to work properly,
 +		 * so move DSA tag to DMA descriptor.
 +		 */
 +		memmove(skb->data + MTK_HDR_LEN, skb->data, 2 * ETH_ALEN);
-+		skb_pull_rcsum(skb, MTK_HDR_LEN);
++		__skb_pull(skb, MTK_HDR_LEN);
 +		break;
 +	}
 +
@@ -122,12 +127,11 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
  				   struct net_device *dev)
  {
- 	struct skb_shared_info *sinfo = skb_shinfo(skb);
  	struct airoha_gdm_port *port = netdev_priv(dev);
+-	u32 nr_frags = 1 + skb_shinfo(skb)->nr_frags;
 -	u32 msg0, msg1, len = skb_headlen(skb);
-+	u32 tag, msg0, msg1, len = skb_headlen(skb);
  	struct airoha_qdma *qdma = port->qdma;
- 	u32 nr_frags = 1 + sinfo->nr_frags;
++	u32 nr_frags, tag, msg0, msg1, len;
  	struct netdev_queue *txq;
  	struct airoha_queue *q;
 -	void *data = skb->data;
@@ -148,17 +152,27 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (skb->ip_summed == CHECKSUM_PARTIAL)
  		msg0 |= FIELD_PREP(QDMA_ETH_TXMSG_TCO_MASK, 1) |
  			FIELD_PREP(QDMA_ETH_TXMSG_UCO_MASK, 1) |
-@@ -1695,7 +1757,9 @@ static netdev_tx_t airoha_dev_xmit(struc
+@@ -1688,6 +1756,8 @@ static netdev_tx_t airoha_dev_xmit(struc
+ 	spin_lock_bh(&q->lock);
+ 
+ 	txq = netdev_get_tx_queue(dev, qid);
++	nr_frags = 1 + skb_shinfo(skb)->nr_frags;
++
+ 	if (q->queued + nr_frags > q->ndesc) {
+ 		/* not enough space in the queue */
+ 		netif_tx_stop_queue(txq);
+@@ -1695,7 +1765,10 @@ static netdev_tx_t airoha_dev_xmit(struc
  		return NETDEV_TX_BUSY;
  	}
  
++	len = skb_headlen(skb);
 +	data = skb->data;
  	index = q->head;
 +
  	for (i = 0; i < nr_frags; i++) {
  		struct airoha_qdma_desc *desc = &q->desc[index];
  		struct airoha_queue_entry *e = &q->entry[index];
-@@ -2229,6 +2293,37 @@ static const struct ethtool_ops airoha_e
+@@ -2229,6 +2302,37 @@ static const struct ethtool_ops airoha_e
  	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
  };
  
@@ -196,7 +210,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static int airoha_alloc_gdm_port(struct airoha_eth *eth, struct device_node *np)
  {
  	const __be32 *id_ptr = of_get_property(np, "reg", NULL);
-@@ -2301,6 +2396,10 @@ static int airoha_alloc_gdm_port(struct
+@@ -2301,6 +2405,10 @@ static int airoha_alloc_gdm_port(struct
  	port->id = id;
  	eth->ports[index] = port;
  
@@ -207,7 +221,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return register_netdev(dev);
  }
  
-@@ -2393,8 +2492,10 @@ error_hw_cleanup:
+@@ -2393,8 +2501,10 @@ error_hw_cleanup:
  	for (i = 0; i < ARRAY_SIZE(eth->ports); i++) {
  		struct airoha_gdm_port *port = eth->ports[i];
  
@@ -219,7 +233,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	}
  	free_netdev(eth->napi_dev);
  	platform_set_drvdata(pdev, NULL);
-@@ -2419,6 +2520,7 @@ static void airoha_remove(struct platfor
+@@ -2419,6 +2529,7 @@ static void airoha_remove(struct platfor
  			continue;
  
  		airoha_dev_stop(port->dev);

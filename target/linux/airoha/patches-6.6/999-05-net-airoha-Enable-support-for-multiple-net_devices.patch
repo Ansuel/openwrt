@@ -69,7 +69,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return 0;
  }
  
-@@ -2324,13 +2330,14 @@ static void airoha_metadata_dst_free(str
+@@ -2333,13 +2339,14 @@ static void airoha_metadata_dst_free(str
  	}
  }
  
@@ -86,7 +86,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	u32 id;
  
  	if (!id_ptr) {
-@@ -2339,14 +2346,14 @@ static int airoha_alloc_gdm_port(struct
+@@ -2348,14 +2355,14 @@ static int airoha_alloc_gdm_port(struct
  	}
  
  	id = be32_to_cpup(id_ptr);
@@ -103,7 +103,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		dev_err(eth->dev, "duplicate gdm port id: %d\n", id);
  		return -EINVAL;
  	}
-@@ -2394,7 +2401,7 @@ static int airoha_alloc_gdm_port(struct
+@@ -2403,7 +2410,7 @@ static int airoha_alloc_gdm_port(struct
  	port->qdma = qdma;
  	port->dev = dev;
  	port->id = id;
@@ -112,7 +112,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	err = airoha_metadata_dst_alloc(port);
  	if (err)
-@@ -2466,6 +2473,7 @@ static int airoha_probe(struct platform_
+@@ -2475,6 +2482,7 @@ static int airoha_probe(struct platform_
  	for (i = 0; i < ARRAY_SIZE(eth->qdma); i++)
  		airoha_qdma_start_napi(&eth->qdma[i]);
  
@@ -120,7 +120,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	for_each_child_of_node(pdev->dev.of_node, np) {
  		if (!of_device_is_compatible(np, "airoha,eth-mac"))
  			continue;
-@@ -2473,7 +2481,7 @@ static int airoha_probe(struct platform_
+@@ -2482,7 +2490,7 @@ static int airoha_probe(struct platform_
  		if (!of_device_is_available(np))
  			continue;
  

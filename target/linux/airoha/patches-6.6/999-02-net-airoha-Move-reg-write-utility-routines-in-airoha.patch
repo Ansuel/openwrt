@@ -1,11 +1,11 @@
-From 3464136daca3d35efd9c501c269e360d640f16b9 Mon Sep 17 00:00:00 2001
-Message-ID: <3464136daca3d35efd9c501c269e360d640f16b9.1738763049.git.lorenzo@kernel.org>
-In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
-References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+From 9b516cc63b7d1ef822ae3e40df9d647bb2918f03 Mon Sep 17 00:00:00 2001
+Message-ID: <9b516cc63b7d1ef822ae3e40df9d647bb2918f03.1739033204.git.lorenzo@kernel.org>
+In-Reply-To: <7fb1390f0e9e6a62993b3b20f8364659fc123779.1739033204.git.lorenzo@kernel.org>
+References: <7fb1390f0e9e6a62993b3b20f8364659fc123779.1739033204.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 10 Dec 2024 14:48:15 +0100
-Subject: [PATCH net-next 02/11] net: airoha: Move reg/write utility routines
- in airoha_eth.h
+Subject: [PATCH net-next 3/4] net: airoha: Move reg/write utility routines in
+ airoha_eth.h
 
 This is a preliminary patch to introduce flowtable hw offloading
 support for airoha_eth driver.
@@ -16,6 +16,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/ethernet/airoha/airoha_eth.h | 26 ++++++++++++++++++++++
  2 files changed, 29 insertions(+), 25 deletions(-)
 
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
+index 0048a5665576..1c6fb7b9ccbb 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -673,17 +673,17 @@ struct airoha_qdma_fwd_desc {
@@ -39,7 +41,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  {
  	val |= (airoha_rr(base, offset) & ~mask);
  	airoha_wr(base, offset, val);
-@@ -691,28 +691,6 @@ static u32 airoha_rmw(void __iomem *base
+@@ -691,28 +691,6 @@ static u32 airoha_rmw(void __iomem *base, u32 offset, u32 mask, u32 val)
  	return val;
  }
  
@@ -68,6 +70,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_qdma_set_irqmask(struct airoha_qdma *qdma, int index,
  				    u32 clear, u32 set)
  {
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
+index 3310e0cf85f1..743aaf10235f 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -248,4 +248,30 @@ struct airoha_eth {
@@ -101,3 +105,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	airoha_rmw((qdma)->regs, (offset), (val), 0)
 +
  #endif /* AIROHA_ETH_H */
+-- 
+2.48.1
+

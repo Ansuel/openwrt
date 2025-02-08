@@ -79,7 +79,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	err = airoha_fe_init(eth);
  	if (err)
  		return err;
-@@ -2500,6 +2500,7 @@ static void airoha_remove(struct platfor
+@@ -2509,6 +2509,7 @@ static void airoha_remove(struct platfor
  	}
  	free_netdev(eth->napi_dev);
  

@@ -1,0 +1,23 @@
+From fbfcd542dfbf163eb116badada0715ec5cfcd5cd Mon Sep 17 00:00:00 2001
+Message-ID: <fbfcd542dfbf163eb116badada0715ec5cfcd5cd.1739024984.git.lorenzo@kernel.org>
+In-Reply-To: <45dbb88a83df21ec41595b76234d5d36aaaf3a4d.1739024984.git.lorenzo@kernel.org>
+References: <45dbb88a83df21ec41595b76234d5d36aaaf3a4d.1739024984.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sat, 8 Feb 2025 15:29:18 +0100
+Subject: [PATCH net-next 2/2] net: airoha: Enable TSO/SG for LAN port
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -2607,6 +2607,7 @@ static int airoha_alloc_gdm_port(struct
+ 			   NETIF_F_SG | NETIF_F_TSO |
+ 			   NETIF_F_HW_TC;
+ 	dev->features |= dev->hw_features;
++	dev->vlan_features = dev->hw_features;
+ 	dev->dev.of_node = np;
+ 	dev->irq = qdma->irq;
+ 	SET_NETDEV_DEV(dev, eth->dev);

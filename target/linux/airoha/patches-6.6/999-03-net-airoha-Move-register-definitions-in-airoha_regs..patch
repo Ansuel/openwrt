@@ -1,10 +1,10 @@
-From 637549e31f7908b52409c5e52584653f03b92788 Mon Sep 17 00:00:00 2001
-Message-ID: <637549e31f7908b52409c5e52584653f03b92788.1738763049.git.lorenzo@kernel.org>
-In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
-References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+From 562cdd574f9f06b6f9e1c8bb17846a8f3b8e2349 Mon Sep 17 00:00:00 2001
+Message-ID: <562cdd574f9f06b6f9e1c8bb17846a8f3b8e2349.1739033204.git.lorenzo@kernel.org>
+In-Reply-To: <7fb1390f0e9e6a62993b3b20f8364659fc123779.1739033204.git.lorenzo@kernel.org>
+References: <7fb1390f0e9e6a62993b3b20f8364659fc123779.1739033204.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 10 Dec 2024 14:53:40 +0100
-Subject: [PATCH net-next 03/11] net: airoha: Move register definitions in
+Subject: [PATCH net-next 4/4] net: airoha: Move register definitions in
  airoha_regs.h
 
 Move common airoha_eth register definitions in airoha_regs.h in order
@@ -19,6 +19,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  2 files changed, 671 insertions(+), 658 deletions(-)
  create mode 100644 drivers/net/ethernet/airoha/airoha_regs.h
 
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
+index 1c6fb7b9ccbb..b79556f1b495 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -13,666 +13,9 @@
@@ -689,6 +691,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  u32 airoha_rr(void __iomem *base, u32 offset)
  {
  	return readl(base + offset);
+diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
+new file mode 100644
+index 000000000000..7c9dadb34883
 --- /dev/null
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
 @@ -0,0 +1,670 @@
@@ -1210,7 +1215,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +#define REG_TXQ_DIS_CFG_BASE(_n)	((_n) ? 0x20a0 : 0x00a0)
 +#define REG_TXQ_DIS_CFG(_n, _m)		(REG_TXQ_DIS_CFG_BASE((_n)) + (_m) << 2)
 +
-+#define REG_CNTR_CFG(_n)		(0x0400 +((_n) << 3))
++#define REG_CNTR_CFG(_n)		(0x0400 + ((_n) << 3))
 +#define CNTR_EN_MASK			BIT(31)
 +#define CNTR_ALL_CHAN_EN_MASK		BIT(30)
 +#define CNTR_ALL_QUEUE_EN_MASK		BIT(29)
@@ -1220,7 +1225,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +#define CNTR_CHAN_MASK			GENMASK(7, 3)
 +#define CNTR_QUEUE_MASK			GENMASK(2, 0)
 +
-+#define REG_CNTR_VAL(_n)		(0x0404 +((_n) << 3))
++#define REG_CNTR_VAL(_n)		(0x0404 + ((_n) << 3))
 +
 +#define REG_LMGR_INIT_CFG		0x1000
 +#define LMGR_INIT_START			BIT(31)
@@ -1362,3 +1367,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +};
 +
 +#endif /* AIROHA_REGS_H */
+-- 
+2.48.1
+

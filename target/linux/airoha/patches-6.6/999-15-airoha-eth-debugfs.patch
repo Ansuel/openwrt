@@ -1,6 +1,6 @@
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2410,6 +2410,129 @@ static void airoha_metadata_dst_free(str
+@@ -2419,6 +2419,129 @@ static void airoha_metadata_dst_free(str
  	}
  }
  
@@ -130,7 +130,7 @@
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2487,6 +2610,10 @@ static int airoha_alloc_gdm_port(struct
+@@ -2496,6 +2619,10 @@ static int airoha_alloc_gdm_port(struct
  	if (err)
  		return err;
  
@@ -141,7 +141,7 @@
  	return register_netdev(dev);
  }
  
-@@ -2546,6 +2673,7 @@ static int airoha_probe(struct platform_
+@@ -2555,6 +2682,7 @@ static int airoha_probe(struct platform_
  	strscpy(eth->napi_dev->name, "qdma_eth", sizeof(eth->napi_dev->name));
  	platform_set_drvdata(pdev, eth);
  
@@ -149,7 +149,7 @@
  	err = airoha_hw_init(pdev, eth);
  	if (err)
  		goto error_hw_cleanup;
-@@ -2614,6 +2742,7 @@ static void airoha_remove(struct platfor
+@@ -2623,6 +2751,7 @@ static void airoha_remove(struct platfor
  	free_netdev(eth->napi_dev);
  
  	airoha_ppe_deinit(eth);
