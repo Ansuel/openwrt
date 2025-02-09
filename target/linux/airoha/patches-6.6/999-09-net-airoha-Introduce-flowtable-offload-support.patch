@@ -1163,7 +1163,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_ppe_hw_init(struct airoha_ppe *ppe)
  {
  	u32 sram_tb_size, sram_num_entries, dram_num_entries;
-@@ -107,33 +768,47 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -118,33 +779,47 @@ int airoha_ppe_init(struct airoha_eth *e
  	ppe->eth = eth;
  	eth->ppe = ppe;
  

@@ -1,8 +1,10 @@
-From 1c993764d67c9a0fe74b11cdee34f7bcbed3ef24 Mon Sep 17 00:00:00 2001
-Message-ID: <1c993764d67c9a0fe74b11cdee34f7bcbed3ef24.1738950182.git.lorenzo@kernel.org>
+From 23164e9201376001f83e05a942f6e384a87bfd1f Mon Sep 17 00:00:00 2001
+Message-ID: <23164e9201376001f83e05a942f6e384a87bfd1f.1739091238.git.lorenzo@kernel.org>
+In-Reply-To: <2d7258a579bf337e2f77c3df7fa87b5d2c7d7045.1739091238.git.lorenzo@kernel.org>
+References: <2d7258a579bf337e2f77c3df7fa87b5d2c7d7045.1739091238.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 7 Feb 2025 18:42:38 +0100
-Subject: [PATCH net-next] net: airoha: Add per-hwflow stats support (WIP)
+Subject: [PATCH net-next 6/6] net: airoha: Add per-hwflow stats support (WIP)
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---

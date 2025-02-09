@@ -1,0 +1,48 @@
+From 72891bd30ca4905a842e0eaaef4ceff8f77cacce Mon Sep 17 00:00:00 2001
+Message-ID: <72891bd30ca4905a842e0eaaef4ceff8f77cacce.1739091238.git.lorenzo@kernel.org>
+In-Reply-To: <2d7258a579bf337e2f77c3df7fa87b5d2c7d7045.1739091238.git.lorenzo@kernel.org>
+References: <2d7258a579bf337e2f77c3df7fa87b5d2c7d7045.1739091238.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sun, 9 Feb 2025 08:26:25 +0100
+Subject: [PATCH net-next 3/6] net: airoha: Introduce airoha_dev_change_mtu
+ callback
+
+Add airoha_dev_change_mtu callback to update the MTU of a running
+device.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -1701,6 +1701,20 @@ static void airoha_dev_get_stats64(struc
+ 	} while (u64_stats_fetch_retry(&port->stats.syncp, start));
+ }
+ 
++static int airoha_dev_change_mtu(struct net_device *dev, int mtu)
++{
++	struct airoha_gdm_port *port = netdev_priv(dev);
++	struct airoha_eth *eth = port->qdma->eth;
++	u32 len = ETH_HLEN + mtu + ETH_FCS_LEN;
++
++	airoha_fe_rmw(eth, REG_GDM_LEN_CFG(port->id),
++		      GDM_LONG_LEN_MASK,
++		      FIELD_PREP(GDM_LONG_LEN_MASK, len));
++	WRITE_ONCE(dev->mtu, mtu);
++
++	return 0;
++}
++
+ static u16 airoha_dev_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 				   struct net_device *sb_dev)
+ {
+@@ -2394,6 +2408,7 @@ static const struct net_device_ops airoh
+ 	.ndo_init		= airoha_dev_init,
+ 	.ndo_open		= airoha_dev_open,
+ 	.ndo_stop		= airoha_dev_stop,
++	.ndo_change_mtu		= airoha_dev_change_mtu,
+ 	.ndo_select_queue	= airoha_dev_select_queue,
+ 	.ndo_start_xmit		= airoha_dev_xmit,
+ 	.ndo_get_stats64        = airoha_dev_get_stats64,

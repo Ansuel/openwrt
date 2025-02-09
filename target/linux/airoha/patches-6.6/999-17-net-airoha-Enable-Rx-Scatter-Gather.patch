@@ -1,32 +1,24 @@
-From 16fedb51ef49e65474f173add462aea607857eef Mon Sep 17 00:00:00 2001
-Message-ID: <16fedb51ef49e65474f173add462aea607857eef.1738944321.git.lorenzo@kernel.org>
+From 2eef6b4c3d7b892d51cafbb4a588db3b5f538008 Mon Sep 17 00:00:00 2001
+Message-ID: <2eef6b4c3d7b892d51cafbb4a588db3b5f538008.1739091238.git.lorenzo@kernel.org>
+In-Reply-To: <2d7258a579bf337e2f77c3df7fa87b5d2c7d7045.1739091238.git.lorenzo@kernel.org>
+References: <2d7258a579bf337e2f77c3df7fa87b5d2c7d7045.1739091238.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Thu, 6 Feb 2025 11:22:12 +0100
-Subject: [PATCH net-next] net: airoha: Enable Rx Scatter-Gather
+Subject: [PATCH net-next 2/6] net: airoha: Enable Rx Scatter-Gather
 
 EN7581 SoC can receive 9k frames. Enable the reception of Scatter-Gather
 (SG) frames.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/airoha/airoha_eth.c  | 77 ++++++++++++++---------
- drivers/net/ethernet/airoha/airoha_eth.h  |  3 +-
- drivers/net/ethernet/airoha/airoha_ppe.c  |  8 +++
- drivers/net/ethernet/airoha/airoha_regs.h | 10 +++
- 4 files changed, 68 insertions(+), 30 deletions(-)
+ drivers/net/ethernet/airoha/airoha_eth.c  | 75 ++++++++++++++---------
+ drivers/net/ethernet/airoha/airoha_eth.h  |  1 +
+ drivers/net/ethernet/airoha/airoha_regs.h |  5 ++
+ 3 files changed, 53 insertions(+), 28 deletions(-)
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -141,7 +141,7 @@ static void airoha_fe_maccr_init(struct
- 		airoha_fe_rmw(eth, REG_GDM_LEN_CFG(p),
- 			      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
- 			      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
--			      FIELD_PREP(GDM_LONG_LEN_MASK, 4004));
-+			      FIELD_PREP(GDM_LONG_LEN_MASK, AIROHA_MAX_MTU));
- 	}
- 
- 	airoha_fe_rmw(eth, REG_CDM1_VLAN_CTRL, CDM1_VLAN_MASK,
-@@ -616,10 +616,10 @@ static int airoha_qdma_rx_process(struct
+@@ -611,10 +611,10 @@ static int airoha_qdma_rx_process(struct
  		struct airoha_qdma_desc *desc = &q->desc[q->tail];
  		u32 hash, reason, msg1 = le32_to_cpu(desc->msg1);
  		dma_addr_t dma_addr = le32_to_cpu(desc->addr);
@@ -39,7 +31,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  		if (!(desc_ctrl & QDMA_DESC_DONE_MASK))
  			break;
-@@ -637,30 +637,42 @@ static int airoha_qdma_rx_process(struct
+@@ -632,30 +632,42 @@ static int airoha_qdma_rx_process(struct
  		dma_sync_single_for_cpu(eth->dev, dma_addr,
  					SKB_WITH_OVERHEAD(q->buf_size), dir);
  
@@ -103,7 +95,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  		if (netdev_uses_dsa(port->dev)) {
  			/* PPE module requires untagged packets to work
-@@ -673,22 +685,29 @@ static int airoha_qdma_rx_process(struct
+@@ -668,22 +680,29 @@ static int airoha_qdma_rx_process(struct
  
  			if (sptag < ARRAY_SIZE(port->dsa_meta) &&
  			    port->dsa_meta[sptag])
@@ -137,7 +129,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	}
  	airoha_qdma_fill_rx_queue(q);
  
-@@ -764,6 +783,7 @@ static int airoha_qdma_init_rx_queue(str
+@@ -759,6 +778,7 @@ static int airoha_qdma_init_rx_queue(str
  			FIELD_PREP(RX_RING_THR_MASK, thr));
  	airoha_qdma_rmw(qdma, REG_RX_DMA_IDX(qid), RX_RING_DMA_IDX_MASK,
  			FIELD_PREP(RX_RING_DMA_IDX_MASK, q->head));
@@ -145,7 +137,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	airoha_qdma_fill_rx_queue(q);
  
-@@ -1163,7 +1183,6 @@ static int airoha_qdma_hw_init(struct ai
+@@ -1158,7 +1178,6 @@ static int airoha_qdma_hw_init(struct ai
  	}
  
  	airoha_qdma_wr(qdma, REG_QDMA_GLOBAL_CFG,
@@ -155,15 +147,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		       GLOBAL_CFG_PAYLOAD_BYTE_SWAP_MASK |
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -26,7 +26,7 @@
- #define AIROHA_MAX_DSA_PORTS		7
- #define AIROHA_MAX_NUM_RSTS		3
- #define AIROHA_MAX_NUM_XSI_RSTS		5
--#define AIROHA_MAX_MTU			2000
-+#define AIROHA_MAX_MTU			9216
- #define AIROHA_MAX_PACKET_SIZE		2048
- #define AIROHA_NUM_QOS_CHANNELS		4
- #define AIROHA_NUM_QOS_QUEUES		8
 @@ -183,6 +183,7 @@ struct airoha_queue {
  
  	struct napi_struct napi;
@@ -172,45 +155,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_tx_irq_queue {
---- a/drivers/net/ethernet/airoha/airoha_ppe.c
-+++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -695,6 +695,8 @@ static void airoha_ppe_hw_init(struct ai
- 	dram_num_entries = PPE_RAM_NUM_ENTRIES_SHIFT(PPE_DRAM_NUM_ENTRIES);
- 
- 	for (i = 0; i < PPE_NUM; i++) {
-+		int p;
-+
- 		airoha_fe_wr(eth, REG_PPE_TB_BASE(i),
- 			     ppe->foe_dma + sram_tb_size);
- 
-@@ -729,6 +731,12 @@ static void airoha_ppe_hw_init(struct ai
- 			      FIELD_PREP(PPE_TB_ENTRY_SIZE_MASK, 0));
- 
- 		airoha_fe_wr(eth, REG_PPE_HASH_SEED(i), PPE_HASH_SEED);
-+
-+		for (p = 0; p < ARRAY_SIZE(eth->ports); p++)
-+			airoha_fe_rmw(eth, REG_PPE_MTU(i, p),
-+				      FP0_EGRESS_MTU_MASK | FP1_EGRESS_MTU_MASK,
-+				      FIELD_PREP(FP0_EGRESS_MTU_MASK, AIROHA_MAX_MTU) |
-+				      FIELD_PREP(FP1_EGRESS_MTU_MASK, AIROHA_MAX_MTU));
- 	}
- 
- 	if (airoha_ppe2_is_enabled(eth)) {
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
-@@ -296,6 +296,11 @@
- #define PPE_SRAM_HASH0_MODE_MASK		GENMASK(7, 4)
- #define PPE_SRAM_TABLE_EN_MASK			BIT(0)
- 
-+#define REG_PPE_MTU_BASE(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x304)
-+#define REG_PPE_MTU(_m, _n)			(REG_PPE_MTU_BASE(_m) + ((_n) << 2))
-+#define FP1_EGRESS_MTU_MASK			GENMASK(29, 16)
-+#define FP0_EGRESS_MTU_MASK			GENMASK(13, 0)
-+
- #define REG_PPE_RAM_CTRL(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x31c)
- #define PPE_SRAM_CTRL_ACK_MASK			BIT(31)
- #define PPE_SRAM_CTRL_DUAL_SUCESS_MASK		BIT(30)
-@@ -621,10 +626,15 @@
+@@ -626,10 +626,15 @@
  #define REG_RX_DELAY_INT_IDX(_n)	\
  	(((_n) < 16) ? 0x0210 + ((_n) << 5) : 0x0e10 + (((_n) - 16) << 5))
  

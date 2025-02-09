@@ -675,7 +675,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +}
 --- /dev/null
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -0,0 +1,139 @@
+@@ -0,0 +1,150 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2025 AIROHA Inc
@@ -700,6 +700,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	dram_num_entries = PPE_RAM_NUM_ENTRIES_SHIFT(PPE_DRAM_NUM_ENTRIES);
 +
 +	for (i = 0; i < PPE_NUM; i++) {
++		int p;
++
 +		airoha_fe_wr(eth, REG_PPE_TB_BASE(i),
 +			     ppe->foe_dma + sram_tb_size);
 +
@@ -734,6 +736,15 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +			      FIELD_PREP(PPE_TB_ENTRY_SIZE_MASK, 0));
 +
 +		airoha_fe_wr(eth, REG_PPE_HASH_SEED(i), PPE_HASH_SEED);
++
++		for (p = 0; p < ARRAY_SIZE(eth->ports); p++)
++			airoha_fe_rmw(eth, REG_PPE_MTU(i, p),
++				      FP0_EGRESS_MTU_MASK |
++				      FP1_EGRESS_MTU_MASK,
++				      FIELD_PREP(FP0_EGRESS_MTU_MASK,
++						 AIROHA_MAX_MTU) |
++				      FIELD_PREP(FP1_EGRESS_MTU_MASK,
++						 AIROHA_MAX_MTU));
 +	}
 +
 +	if (airoha_ppe2_is_enabled(eth)) {
@@ -833,7 +844,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define REG_FE_WAN_MAC_H		0x0030
  #define REG_FE_LAN_MAC_H		0x0040
  
-@@ -192,11 +194,101 @@
+@@ -192,11 +194,106 @@
  #define REG_FE_GDM_RX_ETH_L511_CNT_L(_n)	(GDM_BASE(_n) + 0x198)
  #define REG_FE_GDM_RX_ETH_L1023_CNT_L(_n)	(GDM_BASE(_n) + 0x19c)
  
@@ -926,6 +937,11 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +#define PPE_SRAM_HASH1_EN_MASK			BIT(8)
 +#define PPE_SRAM_HASH0_MODE_MASK		GENMASK(7, 4)
 +#define PPE_SRAM_TABLE_EN_MASK			BIT(0)
++
++#define REG_PPE_MTU_BASE(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x304)
++#define REG_PPE_MTU(_m, _n)			(REG_PPE_MTU_BASE(_m) + ((_n) << 2))
++#define FP1_EGRESS_MTU_MASK			GENMASK(29, 16)
++#define FP0_EGRESS_MTU_MASK			GENMASK(13, 0)
 +
 +#define REG_PPE_RAM_CTRL(_n)			(((_n) ? PPE2_BASE : PPE1_BASE) + 0x31c)
 +#define PPE_SRAM_CTRL_ACK_MASK			BIT(31)

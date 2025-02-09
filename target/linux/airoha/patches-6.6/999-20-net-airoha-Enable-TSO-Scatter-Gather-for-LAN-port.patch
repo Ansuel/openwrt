@@ -1,0 +1,27 @@
+From 850c9b53a8a715ff0599ac63873120e0d8dec6ba Mon Sep 17 00:00:00 2001
+Message-ID: <850c9b53a8a715ff0599ac63873120e0d8dec6ba.1739091238.git.lorenzo@kernel.org>
+In-Reply-To: <2d7258a579bf337e2f77c3df7fa87b5d2c7d7045.1739091238.git.lorenzo@kernel.org>
+References: <2d7258a579bf337e2f77c3df7fa87b5d2c7d7045.1739091238.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sat, 8 Feb 2025 15:29:18 +0100
+Subject: [PATCH net-next 5/6] net: airoha: Enable TSO/Scatter Gather for LAN
+ port
+
+Set net_device vlan_features in order to enable TSO and Scatter Gather
+for DSA user ports.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -2622,6 +2622,7 @@ static int airoha_alloc_gdm_port(struct
+ 			   NETIF_F_SG | NETIF_F_TSO |
+ 			   NETIF_F_HW_TC;
+ 	dev->features |= dev->hw_features;
++	dev->vlan_features = dev->hw_features;
+ 	dev->dev.of_node = np;
+ 	dev->irq = qdma->irq;
+ 	SET_NETDEV_DEV(dev, eth->dev);

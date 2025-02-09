@@ -1,8 +1,8 @@
-From 74e0d25837a2960a7966616153d729e3c6d55474 Mon Sep 17 00:00:00 2001
-Message-ID: <74e0d25837a2960a7966616153d729e3c6d55474.1738924778.git.lorenzo@kernel.org>
+From c0428e7ccd064f5f6768ea943b175cb756916cca Mon Sep 17 00:00:00 2001
+Message-ID: <c0428e7ccd064f5f6768ea943b175cb756916cca.1739095131.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 26 Jan 2025 16:53:00 +0100
-Subject: [PATCH net-next 1/6] net: airoha: Add loopback support for GDM2
+Subject: [PATCH net-next] net: airoha: Add loopback support for GDM2
 
 Enable hw redirection for traffic received on GDM2 port to GDM{3,4}.
 This is required to apply Qdisc offloading (HTB or ETS) for traffic to
@@ -10,15 +10,17 @@ and from GDM{3,4} port.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/airoha/airoha_eth.c  | 65 ++++++++++++++++++++++-
+ drivers/net/ethernet/airoha/airoha_eth.c  | 69 ++++++++++++++++++++++-
  drivers/net/ethernet/airoha/airoha_eth.h  |  7 +++
- drivers/net/ethernet/airoha/airoha_ppe.c  | 13 ++---
+ drivers/net/ethernet/airoha/airoha_ppe.c  | 13 +++--
  drivers/net/ethernet/airoha/airoha_regs.h | 29 ++++++++++
- 4 files changed, 106 insertions(+), 8 deletions(-)
+ 4 files changed, 110 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
+index 46ef80b190e6..5845e7cda284 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1587,14 +1587,75 @@ static int airoha_dev_set_macaddr(struct
+@@ -1583,14 +1583,79 @@ static int airoha_dev_set_macaddr(struct net_device *dev, void *p)
  	return 0;
  }
  
@@ -38,6 +40,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	airoha_fe_rmw(eth, REG_GDM_LPBK_CFG(2),
 +		      LPBK_CHAN_MASK | LPBK_MODE_MASK | LPBK_EN_MASK,
 +		      FIELD_PREP(LPBK_CHAN_MASK, chan) | LPBK_EN_MASK);
++	airoha_fe_rmw(eth, REG_GDM_LEN_CFG(2),
++		      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
++		      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
++		      FIELD_PREP(GDM_LONG_LEN_MASK, AIROHA_MAX_MTU));
 +
 +	/* Disable VIP and IFC for GDM2 */
 +	airoha_fe_clear(eth, REG_FE_VIP_PORT_EN, BIT(2));
@@ -96,25 +102,29 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return 0;
  }
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
+index c51fa6713be0..464d92ad5371 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -74,6 +74,13 @@ enum {
+@@ -73,6 +73,13 @@ enum {
+ 	QDMA_INT_REG_MAX
  };
  
- enum {
++enum {
 +	HSGMII_LAN_PCIE0_SRCPORT = 0x16,
 +	HSGMII_LAN_PCIE1_SRCPORT,
 +	HSGMII_LAN_ETH_SRCPORT,
 +	HSGMII_LAN_USB_SRCPORT,
 +};
 +
-+enum {
+ enum {
  	XSI_PCIE0_VIP_PORT_MASK	= BIT(22),
  	XSI_PCIE1_VIP_PORT_MASK	= BIT(23),
- 	XSI_USB_VIP_PORT_MASK	= BIT(25),
+diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
+index 54f63b017bcf..52c8a40c353b 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -124,21 +124,22 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -124,21 +124,22 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
  	      AIROHA_FOE_IB1_BIND_TTL;
  	hwe->ib1 = val;
  
@@ -143,6 +153,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (is_multicast_ether_addr(dest_mac))
  		val |= AIROHA_FOE_IB2_MULTICAST;
  
+diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
+index 6cc64c60953a..1aa06cdffe23 100644
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
 @@ -38,6 +38,12 @@
@@ -183,7 +195,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define REG_FE_CPORT_CFG		(GDM1_BASE + 0x40)
  #define FE_CPORT_PAD			BIT(26)
  #define FE_CPORT_PORT_XFC_MASK		BIT(25)
-@@ -346,6 +363,18 @@
+@@ -351,6 +368,18 @@
  
  #define REG_MC_VLAN_DATA		0x2108
  
@@ -202,3 +214,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define REG_CDM5_RX_OQ1_DROP_CNT	0x29d4
  
  /* QDMA */
+-- 
+2.48.1
+
