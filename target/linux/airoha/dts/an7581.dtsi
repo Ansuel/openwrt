@@ -769,16 +769,10 @@
 			};
 		};
 
-		npu: npu@1e800000 {
-			compatible = "airoha,en7581-npu", "syscon";
+		npu: npu@1e900000 {
+			compatible = "airoha,en7581-npu";
 			reg = <0x0 0x1e900000 0x0 0x313000>;
-			interrupts = <GIC_SPI 118 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 120 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>,
+			interrupts = <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 109 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 113 IRQ_TYPE_LEVEL_HIGH>,
