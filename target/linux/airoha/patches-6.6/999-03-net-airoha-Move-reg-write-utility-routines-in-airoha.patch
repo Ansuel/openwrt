@@ -1,11 +1,11 @@
-From 9b516cc63b7d1ef822ae3e40df9d647bb2918f03 Mon Sep 17 00:00:00 2001
-Message-ID: <9b516cc63b7d1ef822ae3e40df9d647bb2918f03.1739033204.git.lorenzo@kernel.org>
-In-Reply-To: <7fb1390f0e9e6a62993b3b20f8364659fc123779.1739033204.git.lorenzo@kernel.org>
-References: <7fb1390f0e9e6a62993b3b20f8364659fc123779.1739033204.git.lorenzo@kernel.org>
+From 7c834115bccae447f4cd39154216fcef1892f0b5 Mon Sep 17 00:00:00 2001
+Message-ID: <7c834115bccae447f4cd39154216fcef1892f0b5.1739376492.git.lorenzo@kernel.org>
+In-Reply-To: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
+References: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 10 Dec 2024 14:48:15 +0100
-Subject: [PATCH net-next 3/4] net: airoha: Move reg/write utility routines in
- airoha_eth.h
+Subject: [PATCH net-next 03/15] net: airoha: Move reg/write utility routines
+ in airoha_eth.h
 
 This is a preliminary patch to introduce flowtable hw offloading
 support for airoha_eth driver.

@@ -147,7 +147,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		       GLOBAL_CFG_PAYLOAD_BYTE_SWAP_MASK |
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -183,6 +183,7 @@ struct airoha_queue {
+@@ -182,6 +182,7 @@ struct airoha_queue {
  
  	struct napi_struct napi;
  	struct page_pool *page_pool;

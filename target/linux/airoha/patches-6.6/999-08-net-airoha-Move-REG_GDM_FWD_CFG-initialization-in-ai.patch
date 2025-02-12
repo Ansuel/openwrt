@@ -1,10 +1,10 @@
-From 83c6d62cfc0eec68dd73650f6c9df59dc0e8b984 Mon Sep 17 00:00:00 2001
-Message-ID: <83c6d62cfc0eec68dd73650f6c9df59dc0e8b984.1738763049.git.lorenzo@kernel.org>
-In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
-References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+From 5a9edaf6f0235036774210994665e8d72e7a96e6 Mon Sep 17 00:00:00 2001
+Message-ID: <5a9edaf6f0235036774210994665e8d72e7a96e6.1739376492.git.lorenzo@kernel.org>
+In-Reply-To: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
+References: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 26 Jan 2025 09:26:37 +0100
-Subject: [PATCH net-next 06/11] net: airoha: Move REG_GDM_FWD_CFG()
+Subject: [PATCH net-next 08/15] net: airoha: Move REG_GDM_FWD_CFG()
  initialization in airoha_dev_init()
 
 Move REG_GDM_FWD_CFG() register initialization in airoha_dev_init

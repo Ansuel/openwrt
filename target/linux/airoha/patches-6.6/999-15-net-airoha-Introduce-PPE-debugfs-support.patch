@@ -1,10 +1,10 @@
-From a8b120856c5e9d1cc0855cc0326f53d9da8ff679 Mon Sep 17 00:00:00 2001
-Message-ID: <a8b120856c5e9d1cc0855cc0326f53d9da8ff679.1738763049.git.lorenzo@kernel.org>
-In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
-References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+From 3302949fbee0b50324320cb66e3c4c7cabdef0c5 Mon Sep 17 00:00:00 2001
+Message-ID: <3302949fbee0b50324320cb66e3c4c7cabdef0c5.1739376492.git.lorenzo@kernel.org>
+In-Reply-To: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
+References: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 1 Jan 2025 13:51:51 +0100
-Subject: [PATCH net-next 11/11] net: airoha: Introduce PPE debugfs support
+Subject: [PATCH net-next 15/15] net: airoha: Introduce PPE debugfs support
 
 Similar to PPE support for Mediatek devices, introduce PPE debugfs
 in order to dump binded and unbinded flows.
@@ -25,7 +25,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  obj-$(CONFIG_NET_AIROHA) += airoha-eth.o
  airoha-eth-y := airoha_eth.o airoha_ppe.o
 +airoha-eth-$(CONFIG_DEBUG_FS) += airoha_ppe_debugfs.o
- airoha-eth-$(CONFIG_NET_AIROHA_NPU) += airoha_npu.o
+ obj-$(CONFIG_NET_AIROHA_NPU) += airoha_npu.o
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -7,6 +7,7 @@
@@ -36,7 +36,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/etherdevice.h>
  #include <linux/iopoll.h>
  #include <linux/kernel.h>
-@@ -502,6 +503,8 @@ struct airoha_ppe {
+@@ -487,6 +488,8 @@ struct airoha_ppe {
  
  	struct hlist_head *foe_flow;
  	u16 foe_check_time[PPE_NUM_ENTRIES];
@@ -45,9 +45,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_eth {
-@@ -611,4 +614,13 @@ static inline int airoha_npu_foe_commit_
- }
- #endif /* CONFIG_NET_AIROHA_NPU */
+@@ -553,4 +556,13 @@ int airoha_npu_ppe_flush_sram_entries(st
+ int airoha_npu_foe_commit_entry(struct airoha_npu *npu, dma_addr_t addr,
+ 				u32 hash, bool ppe2);
  
 +#if CONFIG_DEBUG_FS
 +int airoha_ppe_debugfs_init(struct airoha_ppe *ppe);
@@ -61,19 +61,19 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #endif /* AIROHA_ETH_H */
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -806,6 +806,10 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -834,6 +834,10 @@ int airoha_ppe_init(struct airoha_eth *e
  	if (err)
- 		goto error_npu_deinit;
+ 		goto error_npu_put;
  
 +	err = airoha_ppe_debugfs_init(ppe);
 +	if (err)
-+		goto error_npu_deinit;
++		goto error_npu_put;
 +
  	return 0;
  
- error_npu_deinit:
-@@ -823,4 +827,5 @@ void airoha_ppe_deinit(struct airoha_eth
- 		airoha_npu_deinit(eth->npu);
+ error_npu_put:
+@@ -853,4 +857,5 @@ void airoha_ppe_deinit(struct airoha_eth
+ 		airoha_npu_put(eth, eth->npu);
  	}
  	rhashtable_destroy(&eth->flow_table);
 +	debugfs_remove(eth->ppe->debugfs_dir);

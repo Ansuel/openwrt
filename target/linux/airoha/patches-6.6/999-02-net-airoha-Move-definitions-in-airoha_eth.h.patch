@@ -1,10 +1,10 @@
-From fcb9021a885368008617312d3bcc0cbddfc5ce13 Mon Sep 17 00:00:00 2001
-Message-ID: <fcb9021a885368008617312d3bcc0cbddfc5ce13.1739033204.git.lorenzo@kernel.org>
-In-Reply-To: <7fb1390f0e9e6a62993b3b20f8364659fc123779.1739033204.git.lorenzo@kernel.org>
-References: <7fb1390f0e9e6a62993b3b20f8364659fc123779.1739033204.git.lorenzo@kernel.org>
+From e808d8cc957c4af6c5e1754e1afe089ac7293b7e Mon Sep 17 00:00:00 2001
+Message-ID: <e808d8cc957c4af6c5e1754e1afe089ac7293b7e.1739376492.git.lorenzo@kernel.org>
+In-Reply-To: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
+References: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 4 Dec 2024 17:31:02 +0100
-Subject: [PATCH net-next 2/4] net: airoha: Move definitions in airoha_eth.h
+Subject: [PATCH net-next 02/15] net: airoha: Move definitions in airoha_eth.h
 
 Move common airoha_eth definitions in airoha_eth.h in order to reuse
 them for Packet Processor Engine (PPE) codebase.

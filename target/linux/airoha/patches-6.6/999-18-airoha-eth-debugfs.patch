@@ -1,6 +1,6 @@
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2419,6 +2419,129 @@ static void airoha_metadata_dst_free(str
+@@ -2424,6 +2424,129 @@ static void airoha_metadata_dst_free(str
  	}
  }
  
@@ -130,7 +130,7 @@
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2496,6 +2619,10 @@ static int airoha_alloc_gdm_port(struct
+@@ -2501,6 +2624,10 @@ static int airoha_alloc_gdm_port(struct
  	if (err)
  		return err;
  
@@ -141,7 +141,7 @@
  	return register_netdev(dev);
  }
  
-@@ -2555,6 +2682,7 @@ static int airoha_probe(struct platform_
+@@ -2560,6 +2687,7 @@ static int airoha_probe(struct platform_
  	strscpy(eth->napi_dev->name, "qdma_eth", sizeof(eth->napi_dev->name));
  	platform_set_drvdata(pdev, eth);
  
@@ -149,7 +149,15 @@
  	err = airoha_hw_init(pdev, eth);
  	if (err)
  		goto error_hw_cleanup;
-@@ -2623,6 +2751,7 @@ static void airoha_remove(struct platfor
+@@ -2588,6 +2716,7 @@ error_napi_stop:
+ 	for (i = 0; i < ARRAY_SIZE(eth->qdma); i++)
+ 		airoha_qdma_stop_napi(&eth->qdma[i]);
+ error_hw_cleanup:
++	debugfs_remove_recursive(eth->debugfs_dir);
+ 	for (i = 0; i < ARRAY_SIZE(eth->qdma); i++)
+ 		airoha_hw_cleanup(&eth->qdma[i]);
+ 
+@@ -2628,6 +2757,7 @@ static void airoha_remove(struct platfor
  	free_netdev(eth->napi_dev);
  
  	airoha_ppe_deinit(eth);
@@ -159,7 +167,7 @@
  
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -155,6 +155,7 @@ enum trtcm_param {
+@@ -154,6 +154,7 @@ enum trtcm_param {
  #define MAX_TOKEN_SIZE_OFFSET			17
  #define TRTCM_TOKEN_RATE_MASK			GENMASK(23, 6)
  #define TRTCM_TOKEN_RATE_FRACTION_MASK		GENMASK(5, 0)
@@ -167,7 +175,7 @@
  
  struct airoha_queue_entry {
  	union {
-@@ -524,6 +525,8 @@ struct airoha_eth {
+@@ -509,6 +510,8 @@ struct airoha_eth {
  
  	struct airoha_qdma qdma[AIROHA_MAX_NUM_QDMA];
  	struct airoha_gdm_port *ports[AIROHA_MAX_NUM_GDM_PORTS];
@@ -178,8 +186,8 @@
  u32 airoha_rr(void __iomem *base, u32 offset);
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -838,5 +838,4 @@ void airoha_ppe_deinit(struct airoha_eth
- 		airoha_npu_deinit(eth->npu);
+@@ -868,5 +868,4 @@ void airoha_ppe_deinit(struct airoha_eth
+ 		airoha_npu_put(eth, eth->npu);
  	}
  	rhashtable_destroy(&eth->flow_table);
 -	debugfs_remove(eth->ppe->debugfs_dir);

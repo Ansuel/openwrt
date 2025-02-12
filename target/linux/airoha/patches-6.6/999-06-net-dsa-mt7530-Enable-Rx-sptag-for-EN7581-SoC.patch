@@ -1,8 +1,11 @@
-From e00caf4922b2f45d885cc6391dfadb679dcbd6da Mon Sep 17 00:00:00 2001
-Message-ID: <e00caf4922b2f45d885cc6391dfadb679dcbd6da.1738926105.git.lorenzo@kernel.org>
+From 6d0e0ba6fe54d2d32dd64a99450922fd668af997 Mon Sep 17 00:00:00 2001
+Message-ID: <6d0e0ba6fe54d2d32dd64a99450922fd668af997.1739376492.git.lorenzo@kernel.org>
+In-Reply-To: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
+References: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 24 Jan 2025 13:32:20 +0100
-Subject: [PATCH net-next] net: dsa: mt7530: Enable Rx sptag for EN7581 SoC
+Subject: [PATCH net-next 06/15] net: dsa: mt7530: Enable Rx sptag for EN7581
+ SoC
 
 Packet Processor Engine (PPE) module used for hw acceleration on EN7581
 mac block, in order to properly parse packets, requires DSA untagged

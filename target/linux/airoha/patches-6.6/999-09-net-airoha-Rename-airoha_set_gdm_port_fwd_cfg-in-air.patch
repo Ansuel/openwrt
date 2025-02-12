@@ -1,10 +1,10 @@
-From d33f2f84ecfab7c3c0c28f2edacc3006b413f51b Mon Sep 17 00:00:00 2001
-Message-ID: <d33f2f84ecfab7c3c0c28f2edacc3006b413f51b.1738763049.git.lorenzo@kernel.org>
-In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
-References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+From 917a175163d69e69e96f490584a64f5ef5a09c66 Mon Sep 17 00:00:00 2001
+Message-ID: <917a175163d69e69e96f490584a64f5ef5a09c66.1739376492.git.lorenzo@kernel.org>
+In-Reply-To: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
+References: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 26 Jan 2025 09:39:16 +0100
-Subject: [PATCH net-next 07/11] net: airoha: Rename
+Subject: [PATCH net-next 09/15] net: airoha: Rename
  airoha_set_gdm_port_fwd_cfg() in airoha_set_vip_for_gdm_port()
 
 Rename airoha_set_gdm_port() in airoha_set_vip_for_gdm_port().
@@ -94,7 +94,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (err)
  		return err;
  
-@@ -1567,7 +1540,7 @@ static int airoha_dev_stop(struct net_de
+@@ -1566,7 +1539,7 @@ static int airoha_dev_stop(struct net_de
  	int i, err;
  
  	netif_tx_disable(dev);

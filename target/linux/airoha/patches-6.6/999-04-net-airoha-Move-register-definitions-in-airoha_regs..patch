@@ -1,10 +1,10 @@
-From 562cdd574f9f06b6f9e1c8bb17846a8f3b8e2349 Mon Sep 17 00:00:00 2001
-Message-ID: <562cdd574f9f06b6f9e1c8bb17846a8f3b8e2349.1739033204.git.lorenzo@kernel.org>
-In-Reply-To: <7fb1390f0e9e6a62993b3b20f8364659fc123779.1739033204.git.lorenzo@kernel.org>
-References: <7fb1390f0e9e6a62993b3b20f8364659fc123779.1739033204.git.lorenzo@kernel.org>
+From 4eec666e4972346b2b160f9e4aecbb3a9d877e1b Mon Sep 17 00:00:00 2001
+Message-ID: <4eec666e4972346b2b160f9e4aecbb3a9d877e1b.1739376492.git.lorenzo@kernel.org>
+In-Reply-To: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
+References: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 10 Dec 2024 14:53:40 +0100
-Subject: [PATCH net-next 4/4] net: airoha: Move register definitions in
+Subject: [PATCH net-next 04/15] net: airoha: Move register definitions in
  airoha_regs.h
 
 Move common airoha_eth register definitions in airoha_regs.h in order

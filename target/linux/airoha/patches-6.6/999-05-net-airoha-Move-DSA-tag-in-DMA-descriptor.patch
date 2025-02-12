@@ -1,8 +1,10 @@
-From 1b08f3fa6b683abd80c2d9d0aec4e3bfde0d5159 Mon Sep 17 00:00:00 2001
-Message-ID: <1b08f3fa6b683abd80c2d9d0aec4e3bfde0d5159.1739032963.git.lorenzo@kernel.org>
+From e127558039ea4594e33ad8004a8c80240bd857ab Mon Sep 17 00:00:00 2001
+Message-ID: <e127558039ea4594e33ad8004a8c80240bd857ab.1739376492.git.lorenzo@kernel.org>
+In-Reply-To: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
+References: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 24 Jan 2025 10:49:46 +0100
-Subject: [PATCH net-next] net: airoha: Move DSA tag in DMA descriptor
+Subject: [PATCH net-next 05/15] net: airoha: Move DSA tag in DMA descriptor
 
 Packet Processor Engine (PPE) module reads DSA tags from the DMA descriptor
 and requires untagged DSA packets to properly parse them. Move DSA tag

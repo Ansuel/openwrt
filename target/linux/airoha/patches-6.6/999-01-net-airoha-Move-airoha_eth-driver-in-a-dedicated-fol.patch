@@ -1,8 +1,8 @@
-From 7fb1390f0e9e6a62993b3b20f8364659fc123779 Mon Sep 17 00:00:00 2001
-Message-ID: <7fb1390f0e9e6a62993b3b20f8364659fc123779.1739033204.git.lorenzo@kernel.org>
+From 896268ed1181e6edfaa19885ddda8f3bf1705af1 Mon Sep 17 00:00:00 2001
+Message-ID: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 5 Feb 2025 09:59:37 +0100
-Subject: [PATCH net-next 1/4] net: airoha: Move airoha_eth driver in a
+Subject: [PATCH net-next 01/15] net: airoha: Move airoha_eth driver in a
  dedicated folder
 
 The airoha_eth driver has no codebase shared with mtk_eth_soc one.

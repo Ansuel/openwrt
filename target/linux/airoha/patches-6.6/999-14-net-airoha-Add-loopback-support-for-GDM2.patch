@@ -1,8 +1,10 @@
-From c0428e7ccd064f5f6768ea943b175cb756916cca Mon Sep 17 00:00:00 2001
-Message-ID: <c0428e7ccd064f5f6768ea943b175cb756916cca.1739095131.git.lorenzo@kernel.org>
+From bd750173ce56786ad2877bbbddcf632691752fde Mon Sep 17 00:00:00 2001
+Message-ID: <bd750173ce56786ad2877bbbddcf632691752fde.1739376492.git.lorenzo@kernel.org>
+In-Reply-To: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
+References: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 26 Jan 2025 16:53:00 +0100
-Subject: [PATCH net-next] net: airoha: Add loopback support for GDM2
+Subject: [PATCH net-next 14/15] net: airoha: Add loopback support for GDM2
 
 Enable hw redirection for traffic received on GDM2 port to GDM{3,4}.
 This is required to apply Qdisc offloading (HTB or ETS) for traffic to
@@ -16,11 +18,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/ethernet/airoha/airoha_regs.h | 29 ++++++++++
  4 files changed, 110 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 46ef80b190e6..5845e7cda284 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1583,14 +1583,79 @@ static int airoha_dev_set_macaddr(struct net_device *dev, void *p)
+@@ -1588,14 +1588,79 @@ static int airoha_dev_set_macaddr(struct
  	return 0;
  }
  
@@ -102,29 +102,25 @@ index 46ef80b190e6..5845e7cda284 100644
  
  	return 0;
  }
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index c51fa6713be0..464d92ad5371 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -73,6 +73,13 @@ enum {
- 	QDMA_INT_REG_MAX
  };
  
-+enum {
+ enum {
 +	HSGMII_LAN_PCIE0_SRCPORT = 0x16,
 +	HSGMII_LAN_PCIE1_SRCPORT,
 +	HSGMII_LAN_ETH_SRCPORT,
 +	HSGMII_LAN_USB_SRCPORT,
 +};
 +
- enum {
++enum {
  	XSI_PCIE0_VIP_PORT_MASK	= BIT(22),
  	XSI_PCIE1_VIP_PORT_MASK	= BIT(23),
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index 54f63b017bcf..52c8a40c353b 100644
+ 	XSI_USB_VIP_PORT_MASK	= BIT(25),
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -124,21 +124,22 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
+@@ -124,21 +124,22 @@ static int airoha_ppe_foe_entry_prepare(
  	      AIROHA_FOE_IB1_BIND_TTL;
  	hwe->ib1 = val;
  
@@ -153,8 +149,6 @@ index 54f63b017bcf..52c8a40c353b 100644
  	if (is_multicast_ether_addr(dest_mac))
  		val |= AIROHA_FOE_IB2_MULTICAST;
  
-diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
-index 6cc64c60953a..1aa06cdffe23 100644
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
 @@ -38,6 +38,12 @@
@@ -214,6 +208,3 @@ index 6cc64c60953a..1aa06cdffe23 100644
  #define REG_CDM5_RX_OQ1_DROP_CNT	0x29d4
  
  /* QDMA */
--- 
-2.48.1
-

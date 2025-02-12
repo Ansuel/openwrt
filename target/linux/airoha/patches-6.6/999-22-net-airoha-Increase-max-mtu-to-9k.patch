@@ -13,11 +13,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/ethernet/airoha/airoha_eth.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index 4a82fc88d7c2..431ac06e517f 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -26,7 +26,7 @@
+@@ -25,7 +25,7 @@
  #define AIROHA_MAX_DSA_PORTS		7
  #define AIROHA_MAX_NUM_RSTS		3
  #define AIROHA_MAX_NUM_XSI_RSTS		5
@@ -26,6 +24,3 @@ index 4a82fc88d7c2..431ac06e517f 100644
  #define AIROHA_MAX_PACKET_SIZE		2048
  #define AIROHA_NUM_QOS_CHANNELS		4
  #define AIROHA_NUM_QOS_QUEUES		8
--- 
-2.48.1
-

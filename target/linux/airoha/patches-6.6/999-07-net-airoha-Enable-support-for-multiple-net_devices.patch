@@ -1,10 +1,10 @@
-From d49f337a19a50c4c574f472ffe0f5ee3e6d8e387 Mon Sep 17 00:00:00 2001
-Message-ID: <d49f337a19a50c4c574f472ffe0f5ee3e6d8e387.1738763049.git.lorenzo@kernel.org>
-In-Reply-To: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
-References: <2cb27492198116bc89802fb318d237f8b23b4954.1738763049.git.lorenzo@kernel.org>
+From f42e1fd6d9b059e53efc40edc90f99142b4224cd Mon Sep 17 00:00:00 2001
+Message-ID: <f42e1fd6d9b059e53efc40edc90f99142b4224cd.1739376492.git.lorenzo@kernel.org>
+In-Reply-To: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
+References: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 17 Jan 2025 21:00:26 +0100
-Subject: [PATCH net-next 05/11] net: airoha: Enable support for multiple
+Subject: [PATCH net-next 07/15] net: airoha: Enable support for multiple
  net_devices
 
 In the current codebase airoha_eth driver supports just a single
@@ -36,7 +36,15 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return 0;
  }
-@@ -1579,19 +1580,24 @@ static int airoha_dev_stop(struct net_de
+@@ -1571,7 +1572,6 @@ static int airoha_dev_stop(struct net_de
+ {
+ 	struct airoha_gdm_port *port = netdev_priv(dev);
+ 	struct airoha_qdma *qdma = port->qdma;
+-	struct netdev_queue *txq;
+ 	int i, err;
+ 
+ 	netif_tx_disable(dev);
+@@ -1579,19 +1579,25 @@ static int airoha_dev_stop(struct net_de
  	if (err)
  		return err;
  
@@ -47,7 +55,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	for (i = 0; i < ARRAY_SIZE(qdma->q_tx); i++) {
 -		if (!qdma->q_tx[i].ndesc)
 -			continue;
--
++		struct netdev_queue *txq;
+ 
 -		airoha_qdma_cleanup_tx_queue(&qdma->q_tx[i]);
  		txq = netdev_get_tx_queue(dev, i);
  		netdev_tx_reset_queue(txq);
@@ -57,7 +66,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		airoha_qdma_clear(qdma, REG_QDMA_GLOBAL_CFG,
 +				  GLOBAL_CFG_TX_DMA_EN_MASK |
 +				  GLOBAL_CFG_RX_DMA_EN_MASK);
-+
 +		for (i = 0; i < ARRAY_SIZE(qdma->q_tx); i++) {
 +			if (!qdma->q_tx[i].ndesc)
 +				continue;

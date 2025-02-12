@@ -43,7 +43,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (type == PPE_PKT_TYPE_BRIDGE) {
  		hwe->bridge.dest_mac_hi = get_unaligned_be32(dest_mac);
  		hwe->bridge.dest_mac_lo = get_unaligned_be16(dest_mac + 4);
-@@ -405,6 +411,7 @@ static int airoha_ppe_flow_offload_repla
+@@ -432,6 +438,7 @@ static int airoha_ppe_flow_offload_repla
  	int err, i, offload_type;
  	u16 addr_type = 0;
  	u8 l4proto = 0;
@@ -51,7 +51,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	if (rhashtable_lookup(&eth->flow_table, &f->cookie,
  			      airoha_flow_table_params))
-@@ -496,6 +503,9 @@ static int airoha_ppe_flow_offload_repla
+@@ -523,6 +530,9 @@ static int airoha_ppe_flow_offload_repla
  			data.pppoe.sid = act->pppoe.sid;
  			data.pppoe.num++;
  			break;
@@ -61,7 +61,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		default:
  			return -EOPNOTSUPP;
  		}
-@@ -506,7 +516,8 @@ static int airoha_ppe_flow_offload_repla
+@@ -533,7 +543,8 @@ static int airoha_ppe_flow_offload_repla
  		return -EINVAL;
  
  	err = airoha_ppe_foe_entry_prepare(&hwe, odev, offload_type, l4proto,

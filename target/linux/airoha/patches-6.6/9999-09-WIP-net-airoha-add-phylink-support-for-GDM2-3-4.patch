@@ -29,7 +29,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  #include "airoha_regs.h"
  #include "airoha_eth.h"
-@@ -1544,6 +1546,17 @@ static int airoha_dev_open(struct net_de
+@@ -1545,6 +1547,17 @@ static int airoha_dev_open(struct net_de
  	struct airoha_gdm_port *port = netdev_priv(dev);
  	struct airoha_qdma *qdma = port->qdma;
  
@@ -47,7 +47,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	netif_tx_start_all_queues(dev);
  	err = airoha_set_vip_for_gdm_port(port, true);
  	if (err)
-@@ -1600,19 +1613,34 @@ static int airoha_dev_stop(struct net_de
+@@ -1601,19 +1614,34 @@ static int airoha_dev_stop(struct net_de
  		}
  	}
  
@@ -83,7 +83,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  	return 0;
  }
-@@ -2587,6 +2615,199 @@ static int airoha_register_port_debugfs(
+@@ -2592,6 +2620,199 @@ static int airoha_register_port_debugfs(
  	return 0;
  }
  
@@ -283,7 +283,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2669,6 +2890,23 @@ static int airoha_alloc_gdm_port(struct
+@@ -2674,6 +2895,23 @@ static int airoha_alloc_gdm_port(struct
  	if (err)
  		return err;
  
@@ -307,7 +307,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	return register_netdev(dev);
  }
  
-@@ -2764,6 +3002,10 @@ error_hw_cleanup:
+@@ -2770,6 +3008,10 @@ error_hw_cleanup:
  
  		if (port && port->dev->reg_state == NETREG_REGISTERED) {
  			airoha_metadata_dst_free(port);
@@ -318,7 +318,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  			unregister_netdev(port->dev);
  		}
  	}
-@@ -2791,6 +3033,10 @@ static void airoha_remove(struct platfor
+@@ -2797,6 +3039,10 @@ static void airoha_remove(struct platfor
  
  		airoha_dev_stop(port->dev);
  		airoha_metadata_dst_free(port);
@@ -331,7 +331,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	free_netdev(eth->napi_dev);
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -474,6 +474,11 @@ struct airoha_gdm_port {
+@@ -473,6 +473,11 @@ struct airoha_gdm_port {
  	struct net_device *dev;
  	int id;
  
