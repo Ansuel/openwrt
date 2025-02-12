@@ -1,7 +1,7 @@
-From 53b101c180f3242d70a814757155b3c2196a233f Mon Sep 17 00:00:00 2001
+From e04048e42a708dee541721550d46d3b34916c249 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 17 Jan 2025 12:40:32 +0100
-Subject: [PATCH 2/3] net: pcs: airoha: add PCS driver for Airoha SoC
+Subject: [PATCH] net: pcs: airoha: add PCS driver for Airoha SoC
 
 Add PCS driver for Airoha SoC for ethernet SERDES and permit usage of
 external PHY or connected SFP cage. Supported modes are USXGMII, HSGMII
@@ -15,9 +15,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
  drivers/net/pcs/Kconfig        |    6 +
  drivers/net/pcs/Makefile       |    1 +
- drivers/net/pcs/pcs-airoha.c   | 2805 ++++++++++++++++++++++++++++++++
+ drivers/net/pcs/pcs-airoha.c   | 2868 ++++++++++++++++++++++++++++++++
  include/linux/pcs/pcs-airoha.h |   14 +
- 4 files changed, 2826 insertions(+)
+ 4 files changed, 2889 insertions(+)
  create mode 100644 drivers/net/pcs/pcs-airoha.c
  create mode 100644 include/linux/pcs/pcs-airoha.h
 
@@ -48,7 +48,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  obj-$(CONFIG_PCS_XPCS)		+= pcs_xpcs.o
 --- /dev/null
 +++ b/drivers/net/pcs/pcs-airoha.c
-@@ -0,0 +1,2805 @@
+@@ -0,0 +1,2868 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2024 AIROHA Inc
@@ -684,6 +684,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define   AIROHA_PCS_PMA_DISB_LEQ		BIT(0)
 +#define AIROHA_PCS_PMA_RX_FREQDET		0x530
 +#define   AIROHA_PCS_PMA_FL_OUT			GENMASK(31, 16)
++#define   AIROHA_PCS_PMA_FBCK_LOCK		BIT(0)
 +#define AIROHA_PCS_PMA_XPON_TX_RATE_CTRL	0x580
 +#define   AIROHA_PCS_PMA_PON_TX_RATE_CTRL	GENMASK(1, 0)
 +#define AIROHA_PCS_PMA_PXP_JCPLL_SDM_SCAN	0x768
@@ -1738,7 +1739,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	regmap_update_bits(priv->xfi_pma, AIROHA_PCS_PMA_RX_CTRL_SEQUENCE_CTRL_4,
 +			   AIROHA_PCS_PMA_RX_SDCAL_END |
 +			   AIROHA_PCS_PMA_RX_SDCAL_START,
-+			   FIELD_PREP(AIROHA_PCS_PMA_RX_SDCAL_END, 0xff) |
++			   FIELD_PREP(AIROHA_PCS_PMA_RX_SDCAL_END, 0x32) |
 +			   FIELD_PREP(AIROHA_PCS_PMA_RX_SDCAL_START, 0x2));
 +
 +	regmap_update_bits(priv->xfi_pma, AIROHA_PCS_PMA_RX_CTRL_SEQUENCE_CTRL_2,
@@ -1970,9 +1971,10 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +				phy_interface_t interface)
 +{
 +	unsigned int remaining_prcal_search_bits = 8;
-+	unsigned int prcal_search_bit = 0;
++	unsigned int prcal_search_bit;
++	bool prcal_search_from_bottom;
 +	unsigned int prcal_search;
-+	int fl_out_diff = INT_MAX;
++	unsigned int fl_out_diff = UINT_MAX;
 +	unsigned int fl_out;
 +	int cdr_pr_idac = 0;
 +
@@ -1999,6 +2001,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +	regmap_set_bits(priv->xfi_pma, AIROHA_PCS_PMA_SW_RST_SET,
 +			AIROHA_PCS_PMA_SW_REF_RST_N);
++
++	usleep_range(100, 200);
 +
 +	regmap_update_bits(priv->xfi_pma, AIROHA_PCS_PMA_SS_RX_FREQ_DET_2,
 +			   AIROHA_PCS_PMA_LOCK_TARGET_END |
@@ -2057,12 +2061,12 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	 * Then fine tune for the remaining 7 bit to find the one that
 +	 * produce the closest signal level.
 +	 */
-+	for (prcal_search = 1; prcal_search < 8 ; prcal_search++) {
++	for (prcal_search = 0; prcal_search < 8 ; prcal_search++) {
 +		u32 cdr_pr_idac_tmp;
 +
 +		/* try to find the upper value by setting the last 3 bit */
 +		cdr_pr_idac_tmp = FIELD_PREP(AIROHA_PCS_PMA_FORCE_CDR_PR_IDAC_MAJOR,
-+					    prcal_search);
++					     prcal_search);
 +		fl_out = airoha_pcs_test_cdr_pr_idac(priv, cdr_pr_idac_tmp);
 +
 +		/* Use absolute values to find the closest one to target */
@@ -2072,53 +2076,85 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		}
 +	}
 +
++	/* Understand if we need to fine tune by increasing or decreasing fl_out.
++	 * This is done by setting BIT (7) and check if the abs fl_out diff from target
++	 * increase or decrease.
++	 * If it does increase, we need to decrease fl_out, hence we search from MAX to MIN.
++	 * If it does decrease, we need to increase fl_out, hence we search from MIN to MAX.
++	 */
++	fl_out = airoha_pcs_test_cdr_pr_idac(priv, cdr_pr_idac | BIT(7));
++	if (abs(fl_out - target_fl_out) < fl_out_diff) {
++		prcal_search_from_bottom = true;
++		prcal_search_bit = 7;
++	} else {
++		prcal_search_from_bottom = false;
++		prcal_search_bit = 0;
++	}
++
 +	/* Fine tune part.
 +	 * Continue searching until we find a deadline where the signal
-+	 * level starts to increase. Once that is reached, start
++	 * level starts to increase/decrease. Once that is reached, start
 +	 * the loop again to progressely find a closer signal level to
 +	 * the target.
 +	 */
-+	while (prcal_search_bit < remaining_prcal_search_bits) {
++	while (remaining_prcal_search_bits) {
++		unsigned int fl_out_diff_new;
 +		u32 cdr_pr_idac_tmp;
 +
 +		cdr_pr_idac_tmp = cdr_pr_idac | BIT(prcal_search_bit);
 +		fl_out = airoha_pcs_test_cdr_pr_idac(priv, cdr_pr_idac_tmp);
 +
 +		/* Use absolute values to find the closest one to target */
-+		if (abs(fl_out - target_fl_out) > fl_out_diff) {
++		fl_out_diff_new = abs(fl_out - target_fl_out);
++		if (fl_out_diff_new > fl_out_diff) {
 +			/* Exit early if we are already at the deadline */
-+			if (!prcal_search_bit)
++			if (prcal_search_bit == 0 || prcal_search_bit == 7)
 +				break;
 +
 +			/* We found the deadline, set the value to the previous
 +			 * bit, and reset the loop to fine tune with the
 +			 * remaining values.
 +			 */
-+			cdr_pr_idac |= BIT(prcal_search_bit - 1);
-+			remaining_prcal_search_bits = prcal_search_bit - 1;
-+			prcal_search_bit = 0;
++			if (prcal_search_from_bottom) {
++				cdr_pr_idac |= BIT(prcal_search_bit - 1);
++				prcal_search_bit = 0;
++			} else {
++				cdr_pr_idac |= BIT(prcal_search_bit + 1);
++				prcal_search_bit = 7;
++			}
++
++			remaining_prcal_search_bits--;
 +		} else {
 +			/* Update the signal level diff and try the next bit */
-+			fl_out_diff = abs(fl_out - target_fl_out);
-+			prcal_search_bit++;
++			fl_out_diff = fl_out_diff_new;
 +
-+			/* If we didn't found the deadline, set the last bit and
-+			 * reset the loop. This should not happen as it's expected
++			/* If we didn't found the deadline, set the last bit
++			 * and stop searching. This should not happen as it's expected
 +			 * we find an high signal level and we decrease it as it's
 +			 * much harder to reach target level by increasing the
 +			 * signal (by using a lower DAC value).
 +			 */
-+			if (prcal_search_bit == remaining_prcal_search_bits) {
-+				cdr_pr_idac |= BIT(prcal_search_bit - 1);
-+				remaining_prcal_search_bits = prcal_search_bit - 1;
-+				prcal_search_bit = 0;
++			if (prcal_search_from_bottom) {
++				if (prcal_search_bit == 7) {
++					cdr_pr_idac |= BIT(prcal_search_bit);
++					break;
++				}
++
++				prcal_search_bit++;
++			} else {
++				if (prcal_search_bit == 0) {
++					cdr_pr_idac |= BIT(prcal_search_bit);
++					break;
++				}
++
++				prcal_search_bit--;
 +			}
 +		}
 +	}
 +
 +	dev_dbg(priv->dev, "Selected CDR Pr Idac: %x Fl Out: %x\n", cdr_pr_idac, fl_out);
 +	if (abs(fl_out - target_fl_out) > 100)
-+		dev_warn(priv->dev, "Fl Out is %d closer than target %d. PCS might not function properly.\n",
++		dev_warn(priv->dev, "Fl Out is %d far from target %d. PCS might not function properly.\n",
 +			 abs(fl_out - target_fl_out), target_fl_out);
 +
 +	/* FIXME: ask Airoha if it's expected that we disable TXPLL_SDM_PCW in the process */
@@ -2128,16 +2164,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +			   AIROHA_PCS_PMA_FORCE_CDR_PR_IDAC,
 +			   FIELD_PREP(AIROHA_PCS_PMA_FORCE_CDR_PR_IDAC,
 +				      cdr_pr_idac));
-+
-+	regmap_update_bits(priv->xfi_pma, AIROHA_PCS_PMA_SS_RX_FREQ_DET_4,
-+			   AIROHA_PCS_PMA_FREQLOCK_DET_EN,
-+			   AIROHA_PCS_PMA_FREQLOCK_DET_EN_FORCE_0);
-+
-+	regmap_update_bits(priv->xfi_pma, AIROHA_PCS_PMA_SS_RX_FREQ_DET_4,
-+			   AIROHA_PCS_PMA_FREQLOCK_DET_EN,
-+			   AIROHA_PCS_PMA_FREQLOCK_DET_EN_NORMAL);
-+
-+	usleep_range(5000, 7000);
 +
 +	/* Setup Load Band */
 +	regmap_clear_bits(priv->xfi_ana, AIROHA_PCS_ANA_PXP_CDR_PR_INJ_MODE,
@@ -2168,6 +2194,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +	regmap_clear_bits(priv->xfi_pma, AIROHA_PCS_PMA_SW_RST_SET,
 +			  AIROHA_PCS_PMA_SW_REF_RST_N);
++
++	usleep_range(100, 200);
 +}
 +
 +static void airoha_pcs_cal_seq(struct airoha_pcs_priv *priv,
@@ -2209,14 +2237,18 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +			  AIROHA_PCS_PMA_FORCE_SEL_DA_CDR_LPF_LCK2DATA);
 +}
 +
-+static void airoha_pcs_phya_bringup(struct airoha_pcs_priv *priv,
-+				    phy_interface_t interface)
++static int airoha_pcs_phya_bringup(struct airoha_pcs_priv *priv,
++				   phy_interface_t interface)
 +{
++	int calibration_try = 0;
++	u32 val;
++
 +	airoha_pcs_tx_bringup(priv, interface);
 +	airoha_pcs_rx_bringup(priv, interface);
 +
 +	usleep_range(100, 200);
 +
++retry_calibration:
 +	airoha_pcs_cal_seq(priv, interface);
 +
 +	/* Global reset clear */
@@ -2252,7 +2284,35 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +			AIROHA_PCS_PMA_SW_RX_RST_N |
 +			AIROHA_PCS_PMA_SW_RX_FIFO_RST_N);
 +
-+	usleep_range(100, 200);
++	usleep_range(5000, 7000);
++
++	/* It was discovered that after a global reset and auto mode gets
++	 * actually enabled, the fl_out from calibration might change and
++	 * might deviates a lot from the expected value it was calibrated for.
++	 * To correctly work, the PCS FreqDet module needs to Lock to the fl_out
++	 * (frequency level output) or no signal can correctly be transmitted.
++	 * This is detected by checking the FreqDet module Lock bit.
++	 *
++	 * If it's detected that the FreqDet module is not locked, retry
++	 * calibration. From observation on real hardware with a 10g SFP module,
++	 * it required a maximum of an additional calibration to actually make
++	 * the FreqDet module to lock. Try 10 times before failing to handle
++	 * really strange case.
++	 */
++	regmap_read(priv->xfi_pma, AIROHA_PCS_PMA_RX_FREQDET, &val);
++	if (!(val & AIROHA_PCS_PMA_FBCK_LOCK)) {
++		if (calibration_try > 10) {
++			dev_err(priv->dev, "No FBCK Lock from FreqDet module after 10 calibration try. PCS won't work.\n");
++			return -EIO;
++		}
++
++		calibration_try++;
++
++		dev_dbg(priv->dev, "No FBCK Lock from FreqDet module, retry calibration.\n");
++		goto retry_calibration;
++	}
++
++	return 0;
 +}
 +
 +static void airoha_pcs_get_state_sgmii(struct airoha_pcs_priv *priv,
@@ -2321,6 +2381,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	struct airoha_pcs_port *port = phylink_pcs_to_airoha_pcs_port(pcs);
 +	struct airoha_pcs_priv *priv = port->priv;
 +	u32 rate_adapt;
++	int ret;
 +
 +	priv->interface = interface;
 +
@@ -2335,7 +2396,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	airoha_pcs_pll_bringup(priv, interface);
 +
 +	/* Setup PHYA */
-+	airoha_pcs_phya_bringup(priv, interface);
++	ret = airoha_pcs_phya_bringup(priv, interface);
++	if (ret)
++		return ret;
 +
 +	/* Set final configuration for various modes */
 +	airoha_pcs_init(priv, interface);
