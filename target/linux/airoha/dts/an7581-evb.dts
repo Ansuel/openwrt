@@ -166,11 +166,15 @@
 		};
 
 		tclinux@600000 {
+			compatible = "denx,fit";
+
 			label = "tclinux";
 			reg = <0x00600000 0x03200000>;
 		};
 
-		tclinux_slave@3800000 {
+		tclinux_alt@3800000 {
+			compatible = "denx,fit";
+
 			label = "tclinux_alt";
 			reg = <0x03800000 0x03200000>;
 		};
