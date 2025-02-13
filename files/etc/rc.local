@@ -1,0 +1,12 @@
+# Put your custom commands here that should be executed once
+# the system init finished. By default this file does nothing.
+
+# Workaround while the auto port up is handled
+ip link set lan1 up
+ip link set lan2 up
+ip link set lan3 up
+ip link set lan4 up
+
+ip link set eth1 up
+
+exit 0
