@@ -630,6 +630,16 @@
 			status = "disable";
 		};
 
+		efuse@1fbf8200 {
+			compatible = "airoha,an7581-efuses";
+			reg = <0x0 0x1fbf8200 0x0 0x90>;
+		};
+
+		efuse@1faa0000 {
+			compatible = "airoha,an7581-efuses";
+			reg = <0x0 0x1faa0000 0x0 0x90>;
+		};
+
 		snfi: spi@1fa10000 {
 			compatible = "airoha,en7581-snand";
 			reg = <0x0 0x1fa10000 0x0 0x140>,

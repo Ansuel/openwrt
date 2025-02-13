@@ -1,0 +1,187 @@
+From 413449c561d8f9d054eaa79cec7512d312f2e6fd Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 13 Feb 2025 12:53:54 +0100
+Subject: [PATCH] nvmem: airoha: Add support for eFUSE on AN7581
+
+Add support for eFUSE on AN7581 SoC. The SoC have 2 set of 2048 bits of
+eFUSE that are used to read calibration value for PCIe, Thermal, USB and
+other specific info of the SoC like revision and HW device present.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/nvmem/Kconfig         |  12 +++
+ drivers/nvmem/Makefile        |   2 +
+ drivers/nvmem/airoha-efuses.c | 135 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 149 insertions(+)
+ create mode 100644 drivers/nvmem/airoha-efuses.c
+
+--- a/drivers/nvmem/Kconfig
++++ b/drivers/nvmem/Kconfig
+@@ -29,6 +29,18 @@ source "drivers/nvmem/layouts/Kconfig"
+ 
+ # Devices
+ 
++config NVMEM_AIROHA_EFUSES
++	tristate "Airoha eFuse support"
++	depends on ARCH_AIROHA || COMPILE_TEST
++	default ARCH_AIROHA
++	help
++	  Say y here to enable support for reading eFuses on Airoha AN7581
++	  SoCs. These are e.g. used to store factory programmed
++	  calibration data required for the PCIe or the USB-C PHY or Thermal.
++
++	  This driver can also be built as a module. If so, the module will
++	  be called nvmem-airoha-efuses.
++
+ config NVMEM_APPLE_EFUSES
+ 	tristate "Apple eFuse support"
+ 	depends on ARCH_APPLE || COMPILE_TEST
+--- a/drivers/nvmem/Makefile
++++ b/drivers/nvmem/Makefile
+@@ -10,6 +10,8 @@ nvmem_layouts-y			:= layouts.o
+ obj-y				+= layouts/
+ 
+ # Devices
++obj-$(CONFIG_NVMEM_AIROHA_EFUSES)	+= nvmem-airoha-efuses.o
++nvmem-airoha-efuses-y 			:= airoha-efuses.o
+ obj-$(CONFIG_NVMEM_APPLE_EFUSES)	+= nvmem-apple-efuses.o
+ nvmem-apple-efuses-y 			:= apple-efuses.o
+ obj-$(CONFIG_NVMEM_BCM_OCOTP)		+= nvmem-bcm-ocotp.o
+--- /dev/null
++++ b/drivers/nvmem/airoha-efuses.c
+@@ -0,0 +1,135 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ *  Author: Christian Marangi <ansuelsmth@gmail.com>
++ */
++
++#include <linux/mod_devicetable.h>
++#include <linux/module.h>
++#include <linux/nvmem-provider.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++
++#define AIROHA_EFUSE_CMD_CTL		0x0
++#define   AIROHA_EFUSE_RW_CMD		GENMASK(3, 0)
++#define   AIROHA_EFUSE_RW_CMD_POWER_DOWN FIELD_PREP_CONST(AIROHA_EFUSE_RW_CMD, 0x0)
++#define   AIROHA_EFUSE_RW_CMD_A_READ FIELD_PREP_CONST(AIROHA_EFUSE_RW_CMD, 0x1)
++#define   AIROHA_EFUSE_RW_CMD_A_PGM FIELD_PREP_CONST(AIROHA_EFUSE_RW_CMD, 0x2)
++#define   AIROHA_EFUSE_RW_CMD_R_READ FIELD_PREP_CONST(AIROHA_EFUSE_RW_CMD, 03)
++#define   AIROHA_EFUSE_RW_CMD_R_PGM FIELD_PREP_CONST(AIROHA_EFUSE_RW_CMD, 0x4)
++#define   AIROHA_EFUSE_RW_CMD_STAND_BY FIELD_PREP_CONST(AIROHA_EFUSE_RW_CMD, 0x5)
++#define   AIROHA_EFUSE_RW_CMD_MARGIN_A_READ1 FIELD_PREP_CONST(AIROHA_EFUSE_RW_CMD, 0x6)
++#define   AIROHA_EFUSE_RW_CMD_MARGIN_R_READ1 FIELD_PREP_CONST(AIROHA_EFUSE_RW_CMD, 0x7)
++#define AIROHA_EFUSE_ADR_CTRL		0x4
++#define   AIROHA_EFUSE_RW_ADDR		GENMASK(10, 0)
++#define AIROHA_EFUSE_CMD_DONE_REG	0x8
++#define   AIROHA_EFUSE_CMD_DONE		BIT(0)
++#define AIROHA_EFUSE_CMD_RD_DATA	0x14
++#define   AIROHA_EFUSE_RD_DATA		GENMASK(31, 0)
++
++#define AIROHA_EFUSE_CELLS		64
++#define AIROHA_EFUSE_SLEEP		20
++#define AIROHA_EFUSE_TIMEOUT		(AIROHA_EFUSE_SLEEP * 10)
++
++static int airoha_efuse_read(void *context, unsigned int offset,
++			     void *val, size_t bytes)
++{
++	struct regmap *regmap = context;
++
++	return regmap_bulk_read(regmap, offset,
++				val, bytes / sizeof(u32));
++}
++
++static int airoha_efuse_reg_read(void *context, unsigned int reg,
++				 unsigned int *val)
++{
++	struct regmap *regmap = context;
++	u32 busy;
++	int ret;
++
++	/* Power down */
++	ret = regmap_update_bits(regmap, AIROHA_EFUSE_CMD_CTL,
++				 AIROHA_EFUSE_RW_CMD,
++				 AIROHA_EFUSE_RW_CMD_POWER_DOWN);
++	if (ret)
++		return ret;
++
++	/* Program register */
++	ret = regmap_update_bits(regmap, AIROHA_EFUSE_ADR_CTRL,
++				 AIROHA_EFUSE_RW_ADDR,
++				 FIELD_PREP(AIROHA_EFUSE_RW_ADDR, reg));
++	if (ret)
++		return ret;
++
++	/* Set read command */
++	ret = regmap_update_bits(regmap, AIROHA_EFUSE_CMD_CTL,
++				 AIROHA_EFUSE_RW_CMD,
++				 AIROHA_EFUSE_RW_CMD_A_READ);
++	if (ret)
++		return ret;
++
++	/* Wait CMD done */
++	ret = regmap_read_poll_timeout(regmap, AIROHA_EFUSE_CMD_DONE_REG,
++				       busy, busy & AIROHA_EFUSE_CMD_DONE_REG,
++				       AIROHA_EFUSE_SLEEP, AIROHA_EFUSE_TIMEOUT);
++	if (ret)
++		return ret;
++
++	/* Read EFUSE */
++	return regmap_read(regmap, AIROHA_EFUSE_CMD_RD_DATA, val);
++}
++
++static const struct regmap_config airoha_efuse_regmap_config = {
++	.reg_read = airoha_efuse_reg_read,
++	.reg_bits = 32,
++	.val_bits = 32,
++	.reg_stride = 4,
++};
++
++static int airoha_efuse_probe(struct platform_device *pdev)
++{
++	struct nvmem_config airoha_nvmem_config = {
++		.id = NVMEM_DEVID_AUTO,
++		.name = "airoha-efuse",
++		.size = AIROHA_EFUSE_CELLS * sizeof(u32),
++		.stride = sizeof(u32),
++		.word_size = sizeof(u32),
++		.reg_read = airoha_efuse_read,
++	};
++	struct device *dev = &pdev->dev;
++	struct nvmem_device *nvmem;
++	struct regmap *regmap;
++	void *base;
++
++	base = devm_platform_ioremap_resource(pdev, 0);
++	if (IS_ERR(base))
++		return PTR_ERR(base);
++
++	regmap = devm_regmap_init_mmio(dev, base, &airoha_efuse_regmap_config);
++	if (IS_ERR(regmap))
++		return PTR_ERR(regmap);
++
++	airoha_nvmem_config.priv = regmap;
++	airoha_nvmem_config.dev = dev;
++	nvmem = devm_nvmem_register(dev, &airoha_nvmem_config);
++
++	return PTR_ERR_OR_ZERO(nvmem);
++}
++
++static const struct of_device_id airoha_efuse_of_match[] = {
++	{ .compatible = "airoha,an7581-efuses", },
++	{ /* sentinel */ }
++};
++MODULE_DEVICE_TABLE(of, airoha_efuse_of_match);
++
++static struct platform_driver airoha_efuse_driver = {
++	.probe = airoha_efuse_probe,
++	.driver = {
++		.name = "airoha-efuse",
++		.of_match_table = airoha_efuse_of_match,
++	},
++};
++module_platform_driver(airoha_efuse_driver);
++
++MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
++MODULE_DESCRIPTION("Driver for Airoha AN7581 EFUSE");
++MODULE_LICENSE("GPL");
