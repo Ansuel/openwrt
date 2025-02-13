@@ -17,7 +17,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2627,6 +2627,7 @@ static int airoha_alloc_gdm_port(struct
+@@ -2631,6 +2631,7 @@ static int airoha_alloc_gdm_port(struct
  			   NETIF_F_SG | NETIF_F_TSO |
  			   NETIF_F_HW_TC;
  	dev->features |= dev->hw_features;

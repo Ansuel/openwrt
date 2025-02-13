@@ -16,20 +16,24 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -4,10 +4,12 @@
-  * Author: Lorenzo Bianconi <lorenzo@kernel.org>
+@@ -5,6 +5,7 @@
   */
- #include <linux/tcp.h>
+ #include <linux/of.h>
+ #include <linux/of_net.h>
 +#include <linux/pcs/pcs-airoha.h>
+ #include <linux/platform_device.h>
+ #include <linux/tcp.h>
  #include <linux/u64_stats_sync.h>
- #include <net/dst_metadata.h>
+@@ -12,6 +13,8 @@
  #include <net/page_pool/helpers.h>
+ #include <net/pkt_cls.h>
  #include <uapi/linux/ppp_defs.h>
 +#include <linux/regmap.h>
++#include <linux/of_platform.h>
  
  #include "airoha_regs.h"
  #include "airoha_eth.h"
-@@ -1545,6 +1547,17 @@ static int airoha_dev_open(struct net_de
+@@ -1549,6 +1552,17 @@ static int airoha_dev_open(struct net_de
  	struct airoha_gdm_port *port = netdev_priv(dev);
  	struct airoha_qdma *qdma = port->qdma;
  
@@ -47,7 +51,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	netif_tx_start_all_queues(dev);
  	err = airoha_set_vip_for_gdm_port(port, true);
  	if (err)
-@@ -1601,19 +1614,34 @@ static int airoha_dev_stop(struct net_de
+@@ -1605,19 +1619,34 @@ static int airoha_dev_stop(struct net_de
  		}
  	}
  
@@ -83,7 +87,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
  	return 0;
  }
-@@ -2592,6 +2620,199 @@ static int airoha_register_port_debugfs(
+@@ -2596,6 +2625,199 @@ static int airoha_register_port_debugfs(
  	return 0;
  }
  
@@ -283,7 +287,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2674,6 +2895,23 @@ static int airoha_alloc_gdm_port(struct
+@@ -2678,6 +2900,23 @@ static int airoha_alloc_gdm_port(struct
  	if (err)
  		return err;
  
@@ -307,7 +311,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	return register_netdev(dev);
  }
  
-@@ -2770,6 +3008,10 @@ error_hw_cleanup:
+@@ -2774,6 +3013,10 @@ error_hw_cleanup:
  
  		if (port && port->dev->reg_state == NETREG_REGISTERED) {
  			airoha_metadata_dst_free(port);
@@ -318,7 +322,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  			unregister_netdev(port->dev);
  		}
  	}
-@@ -2797,6 +3039,10 @@ static void airoha_remove(struct platfor
+@@ -2801,6 +3044,10 @@ static void airoha_remove(struct platfor
  
  		airoha_dev_stop(port->dev);
  		airoha_metadata_dst_free(port);
@@ -331,7 +335,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	free_netdev(eth->napi_dev);
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -473,6 +473,11 @@ struct airoha_gdm_port {
+@@ -468,6 +468,11 @@ struct airoha_gdm_port {
  	struct net_device *dev;
  	int id;
  

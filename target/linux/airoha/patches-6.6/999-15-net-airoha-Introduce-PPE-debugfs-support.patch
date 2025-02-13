@@ -1,10 +1,10 @@
-From 3302949fbee0b50324320cb66e3c4c7cabdef0c5 Mon Sep 17 00:00:00 2001
-Message-ID: <3302949fbee0b50324320cb66e3c4c7cabdef0c5.1739376492.git.lorenzo@kernel.org>
-In-Reply-To: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
-References: <896268ed1181e6edfaa19885ddda8f3bf1705af1.1739376492.git.lorenzo@kernel.org>
+From 52ffca6616178846acb399060ad72e7d3a499cd7 Mon Sep 17 00:00:00 2001
+Message-ID: <52ffca6616178846acb399060ad72e7d3a499cd7.1739436715.git.lorenzo@kernel.org>
+In-Reply-To: <092ef46b8fbf17668117dceeaf5329d6d739ad66.1739436715.git.lorenzo@kernel.org>
+References: <092ef46b8fbf17668117dceeaf5329d6d739ad66.1739436715.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 1 Jan 2025 13:51:51 +0100
-Subject: [PATCH net-next 15/15] net: airoha: Introduce PPE debugfs support
+Subject: [PATCH net-next 4/4] net: airoha: Introduce PPE debugfs support
 
 Similar to PPE support for Mediatek devices, introduce PPE debugfs
 in order to dump binded and unbinded flows.
@@ -12,10 +12,10 @@ in order to dump binded and unbinded flows.
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
  drivers/net/ethernet/airoha/Makefile          |   1 +
- drivers/net/ethernet/airoha/airoha_eth.h      |  12 ++
- drivers/net/ethernet/airoha/airoha_ppe.c      |   5 +
+ drivers/net/ethernet/airoha/airoha_eth.h      |  14 ++
+ drivers/net/ethernet/airoha/airoha_ppe.c      |  17 +-
  .../net/ethernet/airoha/airoha_ppe_debugfs.c  | 175 ++++++++++++++++++
- 4 files changed, 193 insertions(+)
+ 4 files changed, 203 insertions(+), 4 deletions(-)
  create mode 100644 drivers/net/ethernet/airoha/airoha_ppe_debugfs.c
 
 --- a/drivers/net/ethernet/airoha/Makefile
@@ -36,7 +36,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #include <linux/etherdevice.h>
  #include <linux/iopoll.h>
  #include <linux/kernel.h>
-@@ -487,6 +488,8 @@ struct airoha_ppe {
+@@ -482,6 +483,8 @@ struct airoha_ppe {
  
  	struct hlist_head *foe_flow;
  	u16 foe_check_time[PPE_NUM_ENTRIES];
@@ -45,10 +45,13 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
  
  struct airoha_eth {
-@@ -553,4 +556,13 @@ int airoha_npu_ppe_flush_sram_entries(st
- int airoha_npu_foe_commit_entry(struct airoha_npu *npu, dma_addr_t addr,
- 				u32 hash, bool ppe2);
- 
+@@ -535,5 +538,16 @@ int airoha_ppe_setup_tc_block_cb(enum tc
+ 				 void *cb_priv);
+ int airoha_ppe_init(struct airoha_eth *eth);
+ void airoha_ppe_deinit(struct airoha_eth *eth);
++struct airoha_foe_entry *airoha_ppe_foe_get_entry(struct airoha_ppe *ppe,
++						  u32 hash);
++
 +#if CONFIG_DEBUG_FS
 +int airoha_ppe_debugfs_init(struct airoha_ppe *ppe);
 +#else
@@ -57,23 +60,49 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	return 0;
 +}
 +#endif
-+
+ 
  #endif /* AIROHA_ETH_H */
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -834,6 +834,10 @@ int airoha_ppe_init(struct airoha_eth *e
- 	if (err)
- 		goto error_npu_put;
+@@ -377,8 +377,8 @@ static u32 airoha_ppe_foe_get_entry_hash
+ 	return hash;
+ }
  
+-static struct airoha_foe_entry *
+-airoha_ppe_foe_get_entry(struct airoha_ppe *ppe, u32 hash)
++struct airoha_foe_entry *airoha_ppe_foe_get_entry(struct airoha_ppe *ppe,
++						  u32 hash)
+ {
+ 	if (hash < PPE_SRAM_NUM_ENTRIES) {
+ 		u32 *hwe = ppe->foe + hash * sizeof(struct airoha_foe_entry);
+@@ -842,7 +842,7 @@ void airoha_ppe_check_skb(struct airoha_
+ int airoha_ppe_init(struct airoha_eth *eth)
+ {
+ 	struct airoha_ppe *ppe;
+-	int foe_size;
++	int foe_size, err;
+ 
+ 	ppe = devm_kzalloc(eth->dev, sizeof(*ppe), GFP_KERNEL);
+ 	if (!ppe)
+@@ -863,7 +863,15 @@ int airoha_ppe_init(struct airoha_eth *e
+ 	if (!ppe->foe_flow)
+ 		return -ENOMEM;
+ 
+-	return rhashtable_init(&eth->flow_table, &airoha_flow_table_params);
++	err = rhashtable_init(&eth->flow_table, &airoha_flow_table_params);
++	if (err)
++		return err;
++
 +	err = airoha_ppe_debugfs_init(ppe);
 +	if (err)
-+		goto error_npu_put;
++		rhashtable_destroy(&eth->flow_table);
 +
- 	return 0;
++	return err;
+ }
  
- error_npu_put:
-@@ -853,4 +857,5 @@ void airoha_ppe_deinit(struct airoha_eth
- 		airoha_npu_put(eth, eth->npu);
+ void airoha_ppe_deinit(struct airoha_eth *eth)
+@@ -873,4 +881,5 @@ void airoha_ppe_deinit(struct airoha_eth
+ 		airoha_npu_put(eth->npu);
  	}
  	rhashtable_destroy(&eth->flow_table);
 +	debugfs_remove(eth->ppe->debugfs_dir);

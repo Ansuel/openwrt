@@ -20,7 +20,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1588,14 +1588,79 @@ static int airoha_dev_set_macaddr(struct
+@@ -1592,14 +1592,79 @@ static int airoha_dev_set_macaddr(struct
  	return 0;
  }
  
@@ -104,7 +104,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  }
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -73,6 +73,13 @@ enum {
+@@ -68,6 +68,13 @@ enum {
  };
  
  enum {
@@ -120,7 +120,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	XSI_USB_VIP_PORT_MASK	= BIT(25),
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -124,21 +124,22 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -213,21 +213,22 @@ static int airoha_ppe_foe_entry_prepare(
  	      AIROHA_FOE_IB1_BIND_TTL;
  	hwe->ib1 = val;
  

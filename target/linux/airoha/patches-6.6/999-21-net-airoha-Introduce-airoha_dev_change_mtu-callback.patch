@@ -17,7 +17,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1706,6 +1706,20 @@ static void airoha_dev_get_stats64(struc
+@@ -1710,6 +1710,20 @@ static void airoha_dev_get_stats64(struc
  	} while (u64_stats_fetch_retry(&port->stats.syncp, start));
  }
  
@@ -38,7 +38,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static u16 airoha_dev_select_queue(struct net_device *dev, struct sk_buff *skb,
  				   struct net_device *sb_dev)
  {
-@@ -2399,6 +2413,7 @@ static const struct net_device_ops airoh
+@@ -2403,6 +2417,7 @@ static const struct net_device_ops airoh
  	.ndo_init		= airoha_dev_init,
  	.ndo_open		= airoha_dev_open,
  	.ndo_stop		= airoha_dev_stop,
