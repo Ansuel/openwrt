@@ -1,0 +1,26 @@
+From ac9d73ddff633943709702096e2ea5972d04580b Mon Sep 17 00:00:00 2001
+Message-ID: <ac9d73ddff633943709702096e2ea5972d04580b.1739091238.git.lorenzo@kernel.org>
+In-Reply-To: <2d7258a579bf337e2f77c3df7fa87b5d2c7d7045.1739091238.git.lorenzo@kernel.org>
+References: <2d7258a579bf337e2f77c3df7fa87b5d2c7d7045.1739091238.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sun, 9 Feb 2025 09:50:54 +0100
+Subject: [PATCH net-next 4/6] net: airoha: Increase max mtu to 9k
+
+EN7581 SoC supports 9k maximum MTU.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -20,7 +20,7 @@
+ #define AIROHA_MAX_DSA_PORTS		7
+ #define AIROHA_MAX_NUM_RSTS		3
+ #define AIROHA_MAX_NUM_XSI_RSTS		4
+-#define AIROHA_MAX_MTU			2000
++#define AIROHA_MAX_MTU			9216
+ #define AIROHA_MAX_PACKET_SIZE		2048
+ #define AIROHA_NUM_QOS_CHANNELS		4
+ #define AIROHA_NUM_QOS_QUEUES		8
