@@ -6,6 +6,7 @@
 
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/input.h>
 #include "an7581.dtsi"
 
 / {
@@ -25,6 +26,114 @@
 	memory@80000000 {
 		device_type = "memory";
 		reg = <0x0 0x80000000 0x2 0x00000000>;
+	};
+
+	gpio-keys-polled {
+		compatible = "gpio-keys-polled";
+		poll-interval = <100>;
+
+		btn-0 {
+			label = "reset";
+			linux,code = <KEY_RESTART>;
+			gpios = <&en7581_pinctrl 0 GPIO_ACTIVE_LOW>;
+		};
+
+		btn-1 {
+			label = "wifi_2g";
+			gpios = <&en7581_pinctrl 4 GPIO_ACTIVE_LOW>;
+		};
+
+		btn-2 {
+			label = "wifi_5g";
+			gpios = <&en7581_pinctrl 5 GPIO_ACTIVE_LOW>;
+		};
+
+		btn-3 {
+			label = "led_enable";
+			gpios = <&en7581_pinctrl 6 GPIO_ACTIVE_LOW>;
+		};
+
+		btn-4 {
+			label = "wps";
+			gpios = <&en7581_pinctrl 7 GPIO_ACTIVE_LOW>;
+		};
+	};
+
+	pwmleds-0 {
+		compatible = "pwm-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_gpio25_idx0_pins>;
+
+		pwm-0 {
+			label = "xponLos:red";
+			pwms = <&en7581_pwm 0 4000000 0>;
+			max-brightness = <255>;
+			active-low;
+		};
+	};
+
+	pwmleds-1 {
+		compatible = "pwm-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_gpio16_idx1_pins>;
+
+		pwm-0 {
+			label = "wps:green";
+			pwms = <&en7581_pwm 1 4000000 0>;
+			max-brightness = <255>;
+			active-low;
+		};
+	};
+
+	pwmleds-2 {
+		compatible = "pwm-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_gpio28_idx2_pins>;
+
+		pwm-0 {
+			label = "xponStatus:green";
+			pwms = <&en7581_pwm 2 4000000 0>;
+			max-brightness = <255>;
+			active-low;
+		};
+	};
+
+	pwmleds-3 {
+		compatible = "pwm-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_gpio29_idx3_pins>;
+
+		pwm-0 {
+			label = "internet:green";
+			pwms = <&en7581_pwm 3 4000000 0>;
+			max-brightness = <255>;
+			active-low;
+		};
+	};
+
+	pwmleds-4 {
+		compatible = "pwm-leds";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pwm_gpio30_idx4_pins>;
+
+		pwm-0 {
+			label = "voip_hook:green";
+			pwms = <&en7581_pwm 4 4000000 0>;
+			max-brightness = <255>;
+			active-low;
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+
+		led-0 {
+			label = "power";
+			color = <LED_COLOR_ID_GREEN>;
+			function = LED_FUNCTION_POWER;
+			gpios = <&en7581_pinctrl 27 GPIO_ACTIVE_LOW>;
+			default-state = "on";
+		};
 	};
 };
 
@@ -85,9 +194,33 @@
 		};
 	};
 
-	pwm_gpio18_idx10_pins: pwm-gpio18-idx10-pins {
+	pwm_gpio25_idx0_pins: pwm-gpio25-idx0-pins {
 		function = "pwm";
-		pins = "gpio18";
+		pins = "gpio25";
+		output-enable;
+	};
+
+	pwm_gpio16_idx1_pins: pwm-gpio16-idx1-pins {
+		function = "pwm";
+		pins = "gpio16";
+		output-enable;
+	};
+
+	pwm_gpio28_idx2_pins: pwm-gpio28-idx2-pins {
+		function = "pwm";
+		pins = "gpio28";
+		output-enable;
+	};
+
+	pwm_gpio29_idx3_pins: pwm-gpio29-idx3-pins {
+		function = "pwm";
+		pins = "gpio29";
+		output-enable;
+	};
+
+	pwm_gpio30_idx4_pins: pwm-gpio30-idx4-pins {
+		function = "pwm";
+		pins = "gpio30";
 		output-enable;
 	};
 
