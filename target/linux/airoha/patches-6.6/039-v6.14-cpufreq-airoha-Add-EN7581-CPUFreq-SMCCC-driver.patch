@@ -52,7 +52,7 @@ Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
  obj-$(CONFIG_ARM_ARMADA_8K_CPUFREQ)	+= armada-8k-cpufreq.o
 --- /dev/null
 +++ b/drivers/cpufreq/airoha-cpufreq.c
-@@ -0,0 +1,166 @@
+@@ -0,0 +1,167 @@
 +// SPDX-License-Identifier: GPL-2.0
 +
 +#include <linux/bitfield.h>
@@ -87,15 +87,16 @@ Signed-off-by: Viresh Kumar <viresh.kumar@linaro.org>
 +
 +static int airoha_cpufreq_probe(struct platform_device *pdev)
 +{
++	struct device **virt_devs = NULL;
 +	struct dev_pm_opp_config config = {
 +		.clk_names = airoha_cpufreq_clk_names,
 +		.config_clks = airoha_cpufreq_config_clks_nop,
 +		.genpd_names = airoha_cpufreq_pd_names,
++		.virt_devs = &virt_devs,
 +	};
 +	struct platform_device *cpufreq_dt;
 +	struct airoha_cpufreq_priv *priv;
 +	struct device *dev = &pdev->dev;
-+	struct device **virt_devs = NULL;
 +	struct device *cpu_dev;
 +	int ret;
 +
