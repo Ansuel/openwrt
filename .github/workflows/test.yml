@@ -1,0 +1,79 @@
+name: TEST
+
+      # - uses: actions/github-script@v7
+      #   id: set-result
+      #   with:
+      #     script: |
+      #       return github.paginate(github.rest.repos.compareCommitsWithBasehead, {
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         per_page: 100,
+      #         basehead: 'f69ce1733bdfd544deceaa82befbafe8f1dd45c8...1da2e82c1182a3fd681da5760be96821213afadd'
+      #       },
+      #       (response) => response.data.commits.map((commit) => {
+      #         github.paginate(github.rest.repos.getCommit, {
+      #           owner: context.repo.owner,
+      #           repo: context.repo.repo,
+      #           per_page: 100,
+      #           ref: commit.sha
+      #         },
+      #         (response) => response.data.files.map((file) => console.log(file.filename)))
+      #       })
+      #       );
+
+
+          # script: |
+          #   return github.paginate(github.rest.repos.compareCommitsWithBasehead, {
+          #     owner: context.repo.owner,
+          #     repo: context.repo.repo,
+          #     per_page: 100,
+          #     basehead: 'openwrt-24.10...main'
+          #   },
+          #   (response) => response.data.commits.map((commit) => commit.sha)
+          #   ).then(
+          #     (commits) => commits.forEach(
+          #       (commit) => github.paginate(github.rest.repos.getCommit, {
+          #           owner: context.repo.owner,
+          #           repo: context.repo.repo,
+          #           per_page: 100,
+          #           ref: commit
+          #         },
+          #         (response) => response.data.files.map((file) => console.log(file.filename))
+          #       )
+          #     )
+          #   )
+
+on:
+  push:
+
+jobs:
+  build-tools:
+    name: Build host tools for linux and macos based systemsù
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/github-script@v7
+        id: set-result
+        with:
+          script: |
+            return github.paginate(github.rest.repos.compareCommitsWithBasehead, {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                per_page: 100,
+                basehead: 'openwrt-24.10...main'
+              },
+              (response) => response.data.commits.map((commit) => commit.sha)
+            ).then((commits) => Promise.all(
+              commits.map(
+                (commit) => github.paginate(github.rest.repos.getCommit, {
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    per_page: 100,
+                    ref: commit
+                  },
+                  (response) => response.data.files.map((file) => file.filename)
+                )
+              )
+            )).then((files) => Array.from(new Set(files.flat())).join(' '))
+      - name: Get result
+        run: echo "${{steps.set-result.outputs.result}}"
