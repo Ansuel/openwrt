@@ -1,7 +1,7 @@
-From 7cec29898bc529a570a42c70511982a0b54263b6 Mon Sep 17 00:00:00 2001
+From 8d9e860ae7ad593d7f0e9d46fec3d343d2f577f7 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Sat, 7 Dec 2024 01:24:56 +0100
-Subject: [PATCH 09/13] mfd: an8855: Add support for Airoha AN8855 Switch MFD
+Subject: [PATCH 10/14] mfd: an8855: Add support for Airoha AN8855 Switch MFD
 
 Add support for Airoha AN8855 Switch MFD that provide support for a DSA
 switch and a NVMEM provider. Also provide support for a virtual MDIO
@@ -11,17 +11,17 @@ address.
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
  MAINTAINERS                 |   1 +
- drivers/mfd/Kconfig         |  10 +
+ drivers/mfd/Kconfig         |  12 +
  drivers/mfd/Makefile        |   1 +
- drivers/mfd/airoha-an8855.c | 445 ++++++++++++++++++++++++++++++++++++
- 4 files changed, 457 insertions(+)
+ drivers/mfd/airoha-an8855.c | 429 ++++++++++++++++++++++++++++++++++++
+ 4 files changed, 443 insertions(+)
  create mode 100644 drivers/mfd/airoha-an8855.c
 
-# diff --git a/MAINTAINERS b/MAINTAINERS
-# index e82fbe6d1875..db32a0dd5ca1 100644
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 65709e47adc7..aec293953382 100644
 # --- a/MAINTAINERS
 # +++ b/MAINTAINERS
-# @@ -722,6 +722,7 @@ F:	Documentation/devicetree/bindings/net/airoha,an8855-mdio.yaml
+# @@ -730,6 +730,7 @@ F:	Documentation/devicetree/bindings/net/airoha,an8855-mdio.yaml
 #  F:	Documentation/devicetree/bindings/net/airoha,an8855-phy.yaml
 #  F:	Documentation/devicetree/bindings/net/dsa/airoha,an8855-switch.yaml
 #  F:	Documentation/devicetree/bindings/nvmem/airoha,an8855-efuse.yaml
@@ -30,28 +30,30 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 #  AIROHA ETHERNET DRIVER
 #  M:	Lorenzo Bianconi <lorenzo@kernel.org>
 diff --git a/drivers/mfd/Kconfig b/drivers/mfd/Kconfig
-index ae23b317a64e..3a0b84991408 100644
+index 6b0682af6e32..ebdced27e96a 100644
 --- a/drivers/mfd/Kconfig
 +++ b/drivers/mfd/Kconfig
-@@ -53,6 +53,16 @@ config MFD_ALTERA_SYSMGR
+@@ -53,6 +53,18 @@ config MFD_ALTERA_SYSMGR
  	  using regmap_mmio accesses for ARM32 parts and SMC calls to
  	  EL3 for ARM64 parts.
  
 +config MFD_AIROHA_AN8855
-+	tristate "Airoha AN8855 Switch MFD"
++	tristate "Airoha AN8855 Switch Core"
 +	select MFD_CORE
 +	select MDIO_DEVICE
 +	depends on NETDEVICES && OF
 +	help
-+	  Support for the Airoha AN8855 Switch MFD. This is a SoC Switch
-+	  that provides various peripherals. Currently it provides a
-+	  DSA switch and a NVMEM provider.
++	  Support for the Airoha AN8855 Switch Core. This is an SoC
++	  that provides various peripherals, to count, i2c, an Ethrnet
++	  Switch, a CPU timer, GPIO, eFUSE.
++
++	  Currently it provides a DSA switch and a NVMEM provider.
 +
  config MFD_ACT8945A
  	tristate "Active-semi ACT8945A"
  	select MFD_CORE
 diff --git a/drivers/mfd/Makefile b/drivers/mfd/Makefile
-index e057d6d6faef..bcbeb36ab19d 100644
+index 9220eaf7cf12..37677f65a981 100644
 --- a/drivers/mfd/Makefile
 +++ b/drivers/mfd/Makefile
 @@ -8,6 +8,7 @@ obj-$(CONFIG_MFD_88PM860X)	+= 88pm860x.o
@@ -64,13 +66,13 @@ index e057d6d6faef..bcbeb36ab19d 100644
  obj-$(CONFIG_ARCH_BCM2835)	+= bcm2835-pm.o
 diff --git a/drivers/mfd/airoha-an8855.c b/drivers/mfd/airoha-an8855.c
 new file mode 100644
-index 000000000000..0a6440bd4118
+index 000000000000..fb2edf3132f9
 --- /dev/null
 +++ b/drivers/mfd/airoha-an8855.c
-@@ -0,0 +1,445 @@
+@@ -0,0 +1,429 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +/*
-+ * MFD driver for Airoha AN8855 Switch
++ * Core driver for Airoha AN8855 Switch
 + */
 +
 +#include <linux/bitfield.h>
@@ -82,7 +84,7 @@ index 000000000000..0a6440bd4118
 +#include <linux/phy.h>
 +#include <linux/regmap.h>
 +
-+/* Register for hw trap status */
++/* Register for HW trap status */
 +#define AN8855_HWTRAP			0x1000009c
 +
 +#define AN8855_CREV			0x10005000
@@ -110,14 +112,14 @@ index 000000000000..0a6440bd4118
 +#define AN8855_PBUS_RD_DATA_HIGH	0x17
 +#define AN8855_PBUS_RD_DATA_LOW		0x18
 +
-+struct an8855_mfd_priv {
++struct an8855_core_priv {
 +	struct mii_bus *bus;
 +
 +	unsigned int switch_addr;
 +	u16 current_page;
 +};
 +
-+static const struct mfd_cell an8855_mfd_devs[] = {
++static const struct mfd_cell an8855_core_childs[] = {
 +	{
 +		.name = "an8855-efuse",
 +		.of_compatible = "airoha,an8855-efuse",
@@ -130,20 +132,21 @@ index 000000000000..0a6440bd4118
 +	}
 +};
 +
-+static int an8855_mii_set_page(struct an8855_mfd_priv *priv, u8 phy_id,
++static int an8855_mii_set_page(struct an8855_core_priv *priv, u8 addr,
 +			       u8 page) __must_hold(&priv->bus->mdio_lock)
 +{
 +	struct mii_bus *bus = priv->bus;
 +	int ret;
 +
-+	ret = __mdiobus_write(bus, phy_id, AN8855_PHY_SELECT_PAGE, page);
-+	if (ret < 0)
-+		dev_err_ratelimited(&bus->dev,
-+				    "failed to set an8855 mii page\n");
++	ret = __mdiobus_write(bus, addr, AN8855_PHY_SELECT_PAGE, page);
++	if (ret) {
++		dev_err_ratelimited(&bus->dev, "failed to set mii page\n");
++		return ret;
++	}
 +
-+	/* Cache current page if next mii read/write is for switch */
++	/* Cache current page if next MII read/write is for Switch page */
 +	priv->current_page = page;
-+	return ret < 0 ? ret : 0;
++	return 0;
 +}
 +
 +static int an8855_mii_read32(struct mii_bus *bus, u8 phy_id, u32 reg,
@@ -153,16 +156,17 @@ index 000000000000..0a6440bd4118
 +
 +	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_MODE,
 +			      AN8855_PBUS_MODE_ADDR_FIXED);
-+	if (ret < 0)
++	if (ret)
 +		goto err;
 +
 +	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_RD_ADDR_HIGH,
 +			      upper_16_bits(reg));
-+	if (ret < 0)
++	if (ret)
 +		goto err;
++
 +	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_RD_ADDR_LOW,
 +			      lower_16_bits(reg));
-+	if (ret < 0)
++	if (ret)
 +		goto err;
 +
 +	hi = __mdiobus_read(bus, phy_id, AN8855_PBUS_RD_DATA_HIGH);
@@ -170,6 +174,7 @@ index 000000000000..0a6440bd4118
 +		ret = hi;
 +		goto err;
 +	}
++
 +	lo = __mdiobus_read(bus, phy_id, AN8855_PBUS_RD_DATA_LOW);
 +	if (lo < 0) {
 +		ret = lo;
@@ -180,14 +185,13 @@ index 000000000000..0a6440bd4118
 +
 +	return 0;
 +err:
-+	dev_err_ratelimited(&bus->dev,
-+			    "failed to read an8855 register\n");
++	dev_err_ratelimited(&bus->dev, "failed to read register\n");
 +	return ret;
 +}
 +
 +static int an8855_regmap_read(void *ctx, uint32_t reg, uint32_t *val)
 +{
-+	struct an8855_mfd_priv *priv = ctx;
++	struct an8855_core_priv *priv = ctx;
 +	struct mii_bus *bus = priv->bus;
 +	u16 addr = priv->switch_addr;
 +	int ret;
@@ -212,25 +216,26 @@ index 000000000000..0a6440bd4118
 +
 +	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_MODE,
 +			      AN8855_PBUS_MODE_ADDR_FIXED);
-+	if (ret < 0)
++	if (ret)
 +		goto err;
 +
 +	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_WR_ADDR_HIGH,
 +			      upper_16_bits(reg));
-+	if (ret < 0)
++	if (ret)
 +		goto err;
 +	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_WR_ADDR_LOW,
 +			      lower_16_bits(reg));
-+	if (ret < 0)
++	if (ret)
 +		goto err;
 +
 +	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_WR_DATA_HIGH,
 +			      upper_16_bits(val));
-+	if (ret < 0)
++	if (ret)
 +		goto err;
++
 +	ret = __mdiobus_write(bus, phy_id, AN8855_PBUS_WR_DATA_LOW,
 +			      lower_16_bits(val));
-+	if (ret < 0)
++	if (ret)
 +		goto err;
 +
 +	return 0;
@@ -242,14 +247,14 @@ index 000000000000..0a6440bd4118
 +
 +static int an8855_regmap_write(void *ctx, uint32_t reg, uint32_t val)
 +{
-+	struct an8855_mfd_priv *priv = ctx;
++	struct an8855_core_priv *priv = ctx;
 +	struct mii_bus *bus = priv->bus;
 +	u16 addr = priv->switch_addr;
 +	int ret;
 +
 +	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
 +	ret = an8855_mii_set_page(priv, addr, AN8855_PHY_PAGE_EXTENDED_4);
-+	if (ret < 0)
++	if (ret)
 +		goto exit;
 +
 +	ret = an8855_mii_write32(bus, addr, reg, val);
@@ -263,7 +268,7 @@ index 000000000000..0a6440bd4118
 +static int an8855_regmap_update_bits(void *ctx, uint32_t reg, uint32_t mask,
 +				     uint32_t write_val)
 +{
-+	struct an8855_mfd_priv *priv = ctx;
++	struct an8855_core_priv *priv = ctx;
 +	struct mii_bus *bus = priv->bus;
 +	u16 addr = priv->switch_addr;
 +	u32 val;
@@ -271,7 +276,7 @@ index 000000000000..0a6440bd4118
 +
 +	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
 +	ret = an8855_mii_set_page(priv, addr, AN8855_PHY_PAGE_EXTENDED_4);
-+	if (ret < 0)
++	if (ret)
 +		goto exit;
 +
 +	ret = an8855_mii_read32(bus, addr, reg, &val);
@@ -336,67 +341,37 @@ index 000000000000..0a6440bd4118
 +	.rd_table = &an8855_readable_table,
 +};
 +
-+static int an855_regmap_phy_reset_page(struct an8855_mfd_priv *priv,
++static int an855_regmap_phy_reset_page(struct an8855_core_priv *priv,
 +				       int phy) __must_hold(&priv->bus->mdio_lock)
 +{
 +	/* Check PHY page only for addr shared with switch */
 +	if (phy != priv->switch_addr)
 +		return 0;
 +
-+	/* Don't restore page if it's not set to switch page */
++	/* Don't restore page if it's not set to Switch page */
 +	if (priv->current_page != FIELD_GET(AN8855_PHY_PAGE,
 +					    AN8855_PHY_PAGE_EXTENDED_4))
 +		return 0;
 +
-+	/* Restore page to 0, PHY might change page right after but that
++	/*
++	 * Restore page to 0, PHY might change page right after but that
 +	 * will be ignored as it won't be a switch page.
 +	 */
 +	return an8855_mii_set_page(priv, phy, AN8855_PHY_PAGE_STANDARD);
 +}
 +
-+static int an8855_regmap_phy_read(void *ctx, uint32_t reg, uint32_t *val)
++static int an8855_regmap_phy_read(void *ctx, int addr, int regnum)
 +{
-+	struct an8855_mfd_priv *priv = ctx;
++	struct an8855_core_priv *priv = ctx;
 +	struct mii_bus *bus = priv->bus;
-+	u16 phy_id, addr;
 +	int ret;
 +
-+	phy_id = FIELD_GET(MDIO_REGMAP_PHY_ADDR, reg);
-+	addr = FIELD_GET(MDIO_REGMAP_PHY_REG, reg);
-+
 +	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
-+	ret = an855_regmap_phy_reset_page(priv, phy_id);
++	ret = an855_regmap_phy_reset_page(priv, addr);
 +	if (ret)
 +		goto exit;
 +
-+	ret = __mdiobus_read(priv->bus, phy_id, addr);
-+
-+exit:
-+	mutex_unlock(&bus->mdio_lock);
-+
-+	if (ret < 0)
-+		return ret;
-+
-+	*val = ret;
-+	return 0;
-+}
-+
-+static int an8855_regmap_phy_write(void *ctx, uint32_t reg, uint32_t val)
-+{
-+	struct an8855_mfd_priv *priv = ctx;
-+	struct mii_bus *bus = priv->bus;
-+	u16 phy_id, addr;
-+	int ret;
-+
-+	phy_id = FIELD_GET(MDIO_REGMAP_PHY_ADDR, reg);
-+	addr = FIELD_GET(MDIO_REGMAP_PHY_REG, reg);
-+
-+	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
-+	ret = an855_regmap_phy_reset_page(priv, phy_id);
-+	if (ret)
-+		goto exit;
-+
-+	ret = __mdiobus_write(priv->bus, phy_id, addr, val);
++	ret = __mdiobus_read(priv->bus, addr, regnum);
 +
 +exit:
 +	mutex_unlock(&bus->mdio_lock);
@@ -404,18 +379,29 @@ index 000000000000..0a6440bd4118
 +	return ret;
 +}
 +
-+/* Regmap for MDIO Passtrough
-+ * PHY Addr and PHY Reg are encoded in the regmap register.
-+ */
-+static const struct regmap_config an8855_regmap_phy_config = {
++static int an8855_regmap_phy_write(void *ctx, int addr, int regnum, u16 val)
++{
++	struct an8855_core_priv *priv = ctx;
++	struct mii_bus *bus = priv->bus;
++	int ret;
++
++	mutex_lock_nested(&bus->mdio_lock, MDIO_MUTEX_NESTED);
++	ret = an855_regmap_phy_reset_page(priv, addr);
++	if (ret)
++		goto exit;
++
++	ret = __mdiobus_write(priv->bus, addr, regnum, val);
++
++exit:
++	mutex_unlock(&bus->mdio_lock);
++
++	return ret;
++}
++
++static const struct mdio_regmap_init_config an8855_regmap_phy_config = {
 +	.name = "phy",
-+	.reg_bits = 20,
-+	.val_bits = 16,
-+	.reg_stride = 1,
-+	.max_register = MDIO_REGMAP_PHY_ADDR | MDIO_REGMAP_PHY_REG,
-+	.reg_read = an8855_regmap_phy_read,
-+	.reg_write = an8855_regmap_phy_write,
-+	.disable_locking = true,
++	.mdio_read = an8855_regmap_phy_read,
++	.mdio_write = an8855_regmap_phy_write,
 +};
 +
 +static int an8855_read_switch_id(struct device *dev, struct regmap *regmap)
@@ -428,7 +414,7 @@ index 000000000000..0a6440bd4118
 +		return ret;
 +
 +	if (id != AN8855_ID) {
-+		dev_err(dev, "Switch ID detected %x but expected %x\n",
++		dev_err(dev, "Detected Switch ID %x but %x was expected\n",
 +			id, AN8855_ID);
 +		return -ENODEV;
 +	}
@@ -436,11 +422,11 @@ index 000000000000..0a6440bd4118
 +	return 0;
 +}
 +
-+static int an8855_mfd_probe(struct mdio_device *mdiodev)
++static int an8855_core_probe(struct mdio_device *mdiodev)
 +{
 +	struct regmap *regmap, *regmap_phy;
 +	struct device *dev = &mdiodev->dev;
-+	struct an8855_mfd_priv *priv;
++	struct an8855_core_priv *priv;
 +	struct gpio_desc *reset_gpio;
 +	u32 val;
 +	int ret;
@@ -451,7 +437,7 @@ index 000000000000..0a6440bd4118
 +
 +	priv->bus = mdiodev->bus;
 +	priv->switch_addr = mdiodev->addr;
-+	/* no DMA for mdiobus, mute warning for DMA mask not set */
++	/* No DMA for mdiobus, mute warning for DMA mask not set */
 +	dev->dma_mask = &dev->coherent_dma_mask;
 +
 +	regmap = devm_regmap_init(dev, NULL, priv, &an8855_regmap_config);
@@ -459,7 +445,7 @@ index 000000000000..0a6440bd4118
 +		return dev_err_probe(dev, PTR_ERR(regmap),
 +				     "regmap initialization failed\n");
 +
-+	regmap_phy = devm_regmap_init(dev, NULL, priv, &an8855_regmap_phy_config);
++	regmap_phy = devm_mdio_regmap_init(dev, priv, &an8855_regmap_phy_config);
 +	if (IS_ERR(regmap_phy))
 +		return dev_err_probe(dev, PTR_ERR(regmap_phy),
 +				     "regmap phy initialization failed\n");
@@ -490,29 +476,29 @@ index 000000000000..0a6440bd4118
 +	if (ret)
 +		return ret;
 +
-+	return devm_mfd_add_devices(dev, PLATFORM_DEVID_AUTO, an8855_mfd_devs,
-+				    ARRAY_SIZE(an8855_mfd_devs), NULL, 0,
++	return devm_mfd_add_devices(dev, PLATFORM_DEVID_AUTO, an8855_core_childs,
++				    ARRAY_SIZE(an8855_core_childs), NULL, 0,
 +				    NULL);
 +}
 +
-+static const struct of_device_id an8855_mfd_of_match[] = {
++static const struct of_device_id an8855_core_of_match[] = {
 +	{ .compatible = "airoha,an8855" },
 +	{ /* sentinel */ }
 +};
-+MODULE_DEVICE_TABLE(of, an8855_mfd_of_match);
++MODULE_DEVICE_TABLE(of, an8855_core_of_match);
 +
-+static struct mdio_driver an8855_mfd_driver = {
-+	.probe = an8855_mfd_probe,
++static struct mdio_driver an8855_core_driver = {
++	.probe = an8855_core_probe,
 +	.mdiodrv.driver = {
 +		.name = "an8855",
-+		.of_match_table = an8855_mfd_of_match,
++		.of_match_table = an8855_core_of_match,
 +	},
 +};
-+mdio_module_driver(an8855_mfd_driver);
++mdio_module_driver(an8855_core_driver);
 +
 +MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 +MODULE_DESCRIPTION("Driver for Airoha AN8855 MFD");
 +MODULE_LICENSE("GPL");
 -- 
-2.47.1
+2.48.1
 

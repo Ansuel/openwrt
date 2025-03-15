@@ -263,7 +263,6 @@
 
 			internal_phy1: phy@1 {
 				reg = <1>;
-				airoha,ext-surge;
 
 				nvmem-cells = <&shift_sel_port0_tx_a>,
 						<&shift_sel_port0_tx_b>,
@@ -274,7 +273,6 @@
 
 			internal_phy2: phy@2 {
 				reg = <2>;
-				airoha,ext-surge;
 
 				nvmem-cells = <&shift_sel_port1_tx_a>,
 						<&shift_sel_port1_tx_b>,
@@ -285,7 +283,6 @@
 
 			internal_phy3: phy@3 {
 				reg = <3>;
-				airoha,ext-surge;
 
 				nvmem-cells = <&shift_sel_port2_tx_a>,
 						<&shift_sel_port2_tx_b>,
@@ -296,7 +293,6 @@
 
 			internal_phy4: phy@4 {
 				reg = <4>;
-				airoha,ext-surge;
 
 				nvmem-cells = <&shift_sel_port3_tx_a>,
 						<&shift_sel_port3_tx_b>,
@@ -307,7 +303,6 @@
 
 			internal_phy5: phy@5 {
 				reg = <5>;
-				airoha,ext-surge;
 
 				nvmem-cells = <&shift_sel_port4_tx_a>,
 						<&shift_sel_port4_tx_b>,

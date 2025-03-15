@@ -1,0 +1,60 @@
+From 17cfc7dd1cdc26d97a7cf8884cff8047652fcad5 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Sat, 15 Mar 2025 15:19:32 +0100
+Subject: [PATCH 08/14] net: mdio: regmap: add support for multiple valid addr
+
+Add support for multiple valid addr for mdio regmap. This can be done by
+defining the new valid_addr_mask value in the mdio regmap config.
+
+This makes use of the new implementation used by C45 to encode
+additional info in the regmap address to support multiple MDIO address.
+
+To actually use this, support_encoded_addr MUST be enabled and
+(indirectly) devm_mdio_regmap_init must be used to create the regmap.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/mdio/mdio-regmap.c   | 8 +++++++-
+ include/linux/mdio/mdio-regmap.h | 1 +
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/mdio/mdio-regmap.c b/drivers/net/mdio/mdio-regmap.c
+index f263e4ae2477..ed0443eb039f 100644
+--- a/drivers/net/mdio/mdio-regmap.c
++++ b/drivers/net/mdio/mdio-regmap.c
+@@ -113,13 +113,19 @@ struct mii_bus *devm_mdio_regmap_register(struct device *dev,
+ 	if (!config->parent)
+ 		return ERR_PTR(-EINVAL);
+ 
++	if (config->valid_addr_mask && !config->support_encoded_addr) {
++		dev_err(dev, "encoded address support is required to support multiple MDIO address\n");
++		return ERR_PTR(-EINVAL);
++	}
++
+ 	mii = devm_mdiobus_alloc_size(config->parent, sizeof(*mr));
+ 	if (!mii)
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	mr = mii->priv;
+ 	mr->regmap = config->regmap;
+-	mr->valid_addr_mask = BIT(config->valid_addr);
++	mr->valid_addr_mask = config->valid_addr_mask ? config->valid_addr_mask :
++							BIT(config->valid_addr);
+ 	mr->encode_addr = config->support_encoded_addr;
+ 
+ 	mii->name = DRV_NAME;
+diff --git a/include/linux/mdio/mdio-regmap.h b/include/linux/mdio/mdio-regmap.h
+index 504fa2046043..bb0e7dc9c0dc 100644
+--- a/include/linux/mdio/mdio-regmap.h
++++ b/include/linux/mdio/mdio-regmap.h
+@@ -17,6 +17,7 @@ struct mdio_regmap_config {
+ 	struct regmap *regmap;
+ 	char name[MII_BUS_ID_SIZE];
+ 	u8 valid_addr;
++	u32 valid_addr_mask;
+ 	/* devm_mdio_regmap_init is required with this enabled */
+ 	bool support_encoded_addr;
+ 	bool autoscan;
+-- 
+2.48.1
+

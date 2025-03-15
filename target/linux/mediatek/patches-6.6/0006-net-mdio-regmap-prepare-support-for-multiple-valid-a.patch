@@ -1,7 +1,7 @@
-From 908f2ea498771da56297cb867a6e761b3c93c2a9 Mon Sep 17 00:00:00 2001
+From d02874d90f3357a4ede28dc3de16c8d05dc93c82 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Thu, 9 Jan 2025 15:12:46 +0100
-Subject: [PATCH 06/13] net: mdio: regmap: prepare support for multiple valid
+Subject: [PATCH 06/14] net: mdio: regmap: prepare support for multiple valid
  addr
 
 Rework the valid_addr and convert it to a mask in preparation for mdio
@@ -63,5 +63,5 @@ index 8a742a8d6387..810ba0a736f0 100644
  		mii->phy_mask = ~0;
  
 -- 
-2.47.1
+2.48.1
 

@@ -1,7 +1,7 @@
-From cf55972c94a7bd34490e17d16f25b37b1226637a Mon Sep 17 00:00:00 2001
+From edc55614997af4f9d6b15f57770c96657e5ac632 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Mon, 21 Oct 2024 13:34:39 +0200
-Subject: [PATCH 13/13] net: phy: Add Airoha AN8855 Internal Switch Gigabit PHY
+Subject: [PATCH 14/14] net: phy: Add Airoha AN8855 Internal Switch Gigabit PHY
 
 Add support for Airoha AN8855 Internal Switch Gigabit PHY.
 
@@ -18,10 +18,10 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  create mode 100644 drivers/net/phy/air_an8855.c
 
 # diff --git a/MAINTAINERS b/MAINTAINERS
-# index 7058a618f5a3..1e0a04be2c2d 100644
+# index e285fa2702f5..41fb4d0d7fdb 100644
 # --- a/MAINTAINERS
 # +++ b/MAINTAINERS
-# @@ -726,6 +726,7 @@ F:	drivers/mfd/airoha-an8855.c
+# @@ -734,6 +734,7 @@ F:	drivers/mfd/airoha-an8855.c
 #  F:	drivers/net/dsa/an8855.c
 #  F:	drivers/net/dsa/an8855.h
 #  F:	drivers/net/mdio/mdio-an8855.c
@@ -30,7 +30,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
 #  AIROHA ETHERNET DRIVER
 diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 15828f4710a9..9b4a7c12b138 100644
+index d29f9f7fd2e1..e96f61b8eaba 100644
 --- a/drivers/net/phy/Kconfig
 +++ b/drivers/net/phy/Kconfig
 @@ -79,6 +79,11 @@ config SFP
@@ -46,10 +46,10 @@ index 15828f4710a9..9b4a7c12b138 100644
  	tristate "Airoha EN8811H 2.5 Gigabit PHY"
  	help
 diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index e6145153e837..38ca7432780e 100644
+index 8f9ba5e8290d..d4f537ba006c 100644
 --- a/drivers/net/phy/Makefile
 +++ b/drivers/net/phy/Makefile
-@@ -35,6 +35,7 @@ obj-y				+= $(sfp-obj-y) $(sfp-obj-m)
+@@ -36,6 +36,7 @@ obj-y				+= $(sfp-obj-y) $(sfp-obj-m)
  
  obj-$(CONFIG_ADIN_PHY)		+= adin.o
  obj-$(CONFIG_ADIN1100_PHY)	+= adin1100.o
@@ -59,7 +59,7 @@ index e6145153e837..38ca7432780e 100644
  obj-$(CONFIG_AMCC_QT2025_PHY)	+= qt2025.o
 diff --git a/drivers/net/phy/air_an8855.c b/drivers/net/phy/air_an8855.c
 new file mode 100644
-index 000000000000..9c54c604690f
+index 000000000000..a740dbaacf9a
 --- /dev/null
 +++ b/drivers/net/phy/air_an8855.c
 @@ -0,0 +1,261 @@
@@ -165,8 +165,8 @@ index 000000000000..9c54c604690f
 +	if (!priv)
 +		return -ENOMEM;
 +
-+	priv->needs_calibration = of_property_read_bool(dev->of_node,
-+							"airoha,ext-surge");
++	priv->needs_calibration = of_property_present(dev->of_node,
++						      "nvmem-cells");
 +
 +	phydev->priv = priv;
 +
@@ -325,5 +325,5 @@ index 000000000000..9c54c604690f
 +MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 +MODULE_LICENSE("GPL");
 -- 
-2.47.1
+2.48.1
 

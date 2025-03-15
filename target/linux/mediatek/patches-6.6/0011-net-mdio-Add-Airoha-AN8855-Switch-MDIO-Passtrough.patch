@@ -1,7 +1,7 @@
-From 10364993c3272979a1d1db568976286f9f29131e Mon Sep 17 00:00:00 2001
+From c13988aa99779fd96a787e32b7d6f0b5d54a90d1 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Sat, 7 Dec 2024 02:09:17 +0100
-Subject: [PATCH 10/13] net: mdio: Add Airoha AN8855 Switch MDIO Passtrough
+Subject: [PATCH 11/14] net: mdio: Add Airoha AN8855 Switch MDIO Passtrough
 
 Add Airoha AN8855 Switch driver to register a MDIO passtrough as switch
 address is shared with the internal PHYs and require additional page
@@ -13,17 +13,17 @@ work.
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
  MAINTAINERS                    |  1 +
- drivers/net/mdio/Kconfig       |  9 +++++++
+ drivers/net/mdio/Kconfig       | 10 +++++++
  drivers/net/mdio/Makefile      |  1 +
- drivers/net/mdio/mdio-an8855.c | 48 ++++++++++++++++++++++++++++++++++
- 4 files changed, 59 insertions(+)
+ drivers/net/mdio/mdio-an8855.c | 49 ++++++++++++++++++++++++++++++++++
+ 4 files changed, 61 insertions(+)
  create mode 100644 drivers/net/mdio/mdio-an8855.c
 
-# diff --git a/MAINTAINERS b/MAINTAINERS
-# index db32a0dd5ca1..3d30eb197d35 100644
+diff --git a/MAINTAINERS b/MAINTAINERS
+index aec293953382..f4c8054d3980 100644
 # --- a/MAINTAINERS
 # +++ b/MAINTAINERS
-# @@ -723,6 +723,7 @@ F:	Documentation/devicetree/bindings/net/airoha,an8855-phy.yaml
+# @@ -731,6 +731,7 @@ F:	Documentation/devicetree/bindings/net/airoha,an8855-phy.yaml
 #  F:	Documentation/devicetree/bindings/net/dsa/airoha,an8855-switch.yaml
 #  F:	Documentation/devicetree/bindings/nvmem/airoha,an8855-efuse.yaml
 #  F:	drivers/mfd/airoha-an8855.c
@@ -32,7 +32,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 #  AIROHA ETHERNET DRIVER
 #  M:	Lorenzo Bianconi <lorenzo@kernel.org>
 diff --git a/drivers/net/mdio/Kconfig b/drivers/net/mdio/Kconfig
-index 4a7a303be2f7..3d417948e73a 100644
+index 4a7a303be2f7..e31a37064934 100644
 --- a/drivers/net/mdio/Kconfig
 +++ b/drivers/net/mdio/Kconfig
 @@ -61,6 +61,16 @@ config MDIO_XGENE
@@ -66,10 +66,10 @@ index 1015f0db4531..546c4e55b475 100644
  obj-$(CONFIG_MDIO_BCM_UNIMAC)		+= mdio-bcm-unimac.o
 diff --git a/drivers/net/mdio/mdio-an8855.c b/drivers/net/mdio/mdio-an8855.c
 new file mode 100644
-index 000000000000..d45f71c4b0b1
+index 000000000000..22d199942f1c
 --- /dev/null
 +++ b/drivers/net/mdio/mdio-an8855.c
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,49 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +/*
 + * MDIO passthrough driver for Airoha AN8855 Switch
@@ -89,6 +89,7 @@ index 000000000000..d45f71c4b0b1
 +	mrc.regmap = dev_get_regmap(dev->parent, "phy");
 +	mrc.parent = dev;
 +	mrc.valid_addr_mask = GENMASK(31, 0);
++	mrc.support_encoded_addr = true;
 +	mrc.autoscan = true;
 +	mrc.np = dev->of_node;
 +	snprintf(mrc.name, MII_BUS_ID_SIZE, KBUILD_MODNAME);
@@ -119,5 +120,5 @@ index 000000000000..d45f71c4b0b1
 +MODULE_DESCRIPTION("Driver for AN8855 MDIO passthrough");
 +MODULE_LICENSE("GPL");
 -- 
-2.47.1
+2.48.1
 

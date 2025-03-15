@@ -1,7 +1,7 @@
-From 4a8bc3c4ecfdadd21511a3b9d635785f5416aaf9 Mon Sep 17 00:00:00 2001
+From e7e1ea34bbed2170f5543f13e122db11d897020b Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Mon, 21 Oct 2024 13:24:54 +0200
-Subject: [PATCH 12/13] net: dsa: Add Airoha AN8855 5-Port Gigabit DSA Switch
+Subject: [PATCH 13/14] net: dsa: Add Airoha AN8855 5-Port Gigabit DSA Switch
  driver
 
 Add Airoha AN8855 5-Port Gigabit DSA switch. Switch can support
@@ -14,17 +14,17 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  MAINTAINERS              |    2 +
  drivers/net/dsa/Kconfig  |    9 +
  drivers/net/dsa/Makefile |    1 +
- drivers/net/dsa/an8855.c | 2297 ++++++++++++++++++++++++++++++++++++++
- drivers/net/dsa/an8855.h |  771 +++++++++++++
- 5 files changed, 3080 insertions(+)
+ drivers/net/dsa/an8855.c | 2395 ++++++++++++++++++++++++++++++++++++++
+ drivers/net/dsa/an8855.h |  773 ++++++++++++
+ 5 files changed, 3180 insertions(+)
  create mode 100644 drivers/net/dsa/an8855.c
  create mode 100644 drivers/net/dsa/an8855.h
 
-# diff --git a/MAINTAINERS b/MAINTAINERS
-# index ac8cdef1ed58..7058a618f5a3 100644
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2cc8871186d5..e285fa2702f5 100644
 # --- a/MAINTAINERS
 # +++ b/MAINTAINERS
-# @@ -723,6 +723,8 @@ F:	Documentation/devicetree/bindings/net/airoha,an8855-phy.yaml
+# @@ -731,6 +731,8 @@ F:	Documentation/devicetree/bindings/net/airoha,an8855-phy.yaml
 #  F:	Documentation/devicetree/bindings/net/dsa/airoha,an8855-switch.yaml
 #  F:	Documentation/devicetree/bindings/nvmem/airoha,an8855-efuse.yaml
 #  F:	drivers/mfd/airoha-an8855.c
@@ -34,7 +34,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 #  F:	drivers/nvmem/an8855-efuse.c
  
 diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
-index 2d10b4d6cfbb..12557c6dfc2e 100644
+index bb9812b3b0e8..5b02f0d74af3 100644
 --- a/drivers/net/dsa/Kconfig
 +++ b/drivers/net/dsa/Kconfig
 @@ -24,6 +24,15 @@ config NET_DSA_LOOP
@@ -67,10 +67,10 @@ index cb9a97340e58..a74afb41a491 100644
  obj-$(CONFIG_NET_DSA_MT7530_MDIO) += mt7530-mdio.o
 diff --git a/drivers/net/dsa/an8855.c b/drivers/net/dsa/an8855.c
 new file mode 100644
-index 000000000000..5c69f298bf89
+index 000000000000..50a7081c718f
 --- /dev/null
 +++ b/drivers/net/dsa/an8855.c
-@@ -0,0 +1,2297 @@
+@@ -0,0 +1,2395 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Airoha AN8855 DSA Switch driver
@@ -1606,6 +1606,10 @@ index 000000000000..5c69f298bf89
 +static void an8855_phylink_get_caps(struct dsa_switch *ds, int port,
 +				    struct phylink_config *config)
 +{
++	//struct an8855_priv *priv = ds->priv;
++	//u32 reg;
++	//int ret;
++
 +	switch (port) {
 +	case 0:
 +	case 1:
@@ -1628,6 +1632,15 @@ index 000000000000..5c69f298bf89
 +
 +	config->mac_capabilities = MAC_ASYM_PAUSE | MAC_SYM_PAUSE |
 +				   MAC_10 | MAC_100 | MAC_1000FD | MAC_2500FD;
++
++	//ret = regmap_read(priv->regmap, AN8855_CKGCR, &reg);
++	//if (ret)
++	//	dev_err(ds->dev, "failed to read EEE LPI timer\n");
++//
++	//config->lpi_capabilities = MAC_100FD | MAC_1000FD;
++	///* Global LPI TXIDLE Threshold, default 60ms (unit 2us) */
++	//config->lpi_timer_default = FIELD_GET(AN8855_LPI_TXIDLE_THD_MASK, reg) *
++	//			    AN8855_TX_LPI_UNIT;
 +}
 +
 +static void an8855_phylink_mac_link_down(struct phylink_config *config,
@@ -1695,10 +1708,6 @@ index 000000000000..5c69f298bf89
 +		reg &= ~AN8855_PMCR_TX_FC_EN;
 +		if (rx_pause || dsa_port_is_cpu(dp))
 +			reg |= AN8855_PMCR_TX_FC_EN;
-+
-+		/* Disable any EEE options */
-+		reg &= ~(AN8855_PMCR_FORCE_EEE5G | AN8855_PMCR_FORCE_EEE2P5G |
-+			 AN8855_PMCR_FORCE_EEE1G | AN8855_PMCR_FORCE_EEE100);
 +	}
 +
 +	reg |= AN8855_PMCR_TX_EN | AN8855_PMCR_RX_EN;
@@ -1706,6 +1715,94 @@ index 000000000000..5c69f298bf89
 +	regmap_write(priv->regmap, AN8855_PMCR_P(port), reg);
 +}
 +
++//static void an8855_phylink_mac_disable_tx_lpi(struct phylink_config *config)
++//{
++//	struct dsa_port *dp = dsa_phylink_to_port(config);
++//	struct an8855_priv *priv = dp->ds->priv;
++//	int port = dp->index;
++//	int ret;
++//
++//	ret = regmap_clear_bits(priv->regmap, AN8855_PMCR_P(port),
++//				AN8855_PMCR_FORCE_EEE1G |
++//				AN8855_PMCR_FORCE_EEE100);
++//	if (ret)
++//		dev_err(dp->ds->dev, "failed to disable EEE for port %d\n",
++//			port);
++//
++//	ret = regmap_clear_bits(priv->regmap, AN8855_PMEEECR_P(port),
++//				AN8855_LPI_MODE_EN);
++//	if (ret)
++//		dev_err(dp->ds->dev, "failed to disable LPI for port %d\n",
++//			port);
++//}
++//
++//static int an8855_phylink_mac_enable_tx_lpi(struct phylink_config *config,
++//					    u32 timer, bool tx_clock_stop)
++//{
++//	struct dsa_port *dp, *other_dp;
++//	struct an8855_priv *priv;
++//	struct dsa_switch *ds;
++//	int port;
++//	u32 val;
++//	int ret;
++//
++//	dp = dsa_phylink_to_port(config);
++//	port = dp->index;
++//	ds = dp->ds;
++//	priv = ds->priv;
++//
++//	/* TX LPI timer is global, find the highest timer
++//	 * across all port.
++//	 * If requested timer is 0, set to enter LPI immediately
++//	 * for the single port.
++//	 */
++//	if (timer) {
++//		dsa_switch_for_each_user_port(other_dp, ds) {
++//			struct phy_device *phydev;
++//			struct net_device *dev;
++//
++//			if (other_dp == dp)
++//				continue;
++//
++//			dev = other_dp->user;
++//			phydev = dev->phydev;
++//
++//			if (timer > phydev->eee_cfg.tx_lpi_timer)
++//				timer = phydev->eee_cfg.tx_lpi_timer;
++//		}
++//
++//		timer /= AN8855_TX_LPI_UNIT;
++//		if (FIELD_FIT(AN8855_LPI_TXIDLE_THD_MASK, timer))
++//			val = FIELD_PREP(AN8855_LPI_TXIDLE_THD_MASK, timer);
++//		else
++//			val = AN8855_LPI_TXIDLE_THD_MASK;
++//
++//		ret = regmap_update_bits(priv->regmap, AN8855_CKGCR,
++//					 AN8855_LPI_TXIDLE_THD_MASK, val);
++//		if (ret) {
++//			dev_err(dp->ds->dev, "failed to set global LPI timer\n");
++//			return ret;
++//		}
++//	} else {
++//		ret = regmap_set_bits(priv->regmap, AN8855_PMEEECR_P(port),
++//				      AN8855_LPI_MODE_EN);
++//		if (ret) {
++//			dev_err(dp->ds->dev, "failed to enable LPI for port %d\n",
++//				port);
++//			return ret;
++//		}
++//	}
++//
++//	ret = regmap_set_bits(priv->regmap, AN8855_PMCR_P(port),
++//			      AN8855_PMCR_FORCE_EEE1G |
++//			      AN8855_PMCR_FORCE_EEE100);
++//	if (ret)
++//		dev_err(dp->ds->dev, "failed to enable EEE for port %d\n",
++//			port);
++//
++//	return ret;
++//}
++//
 +//static unsigned int an8855_pcs_inband_caps(struct phylink_pcs *pcs,
 +//					   phy_interface_t interface)
 +//{
@@ -1714,7 +1811,7 @@ index 000000000000..5c69f298bf89
 +//		return LINK_INBAND_DISABLE | LINK_INBAND_ENABLE;
 +//
 +//	/* inband is not supported in 2500-baseX and must be disabled */
-+//	return  LINK_INBAND_DISABLE;
++//	return LINK_INBAND_DISABLE;
 +//}
 +
 +static void an8855_pcs_get_state(struct phylink_pcs *pcs,
@@ -1749,7 +1846,7 @@ index 000000000000..5c69f298bf89
 +		state->speed = SPEED_2500;
 +		break;
 +	case AN8855_PMSR_SPEED_5000:
-+		dev_err(priv->ds->dev, "Missing support for 5G speed. Setting Unknown.\n");
++		dev_err(priv->ds->dev, "Switch doesn't support 5G speed. Setting Unknown.\n");
 +		fallthrough;
 +	default:
 +		state->speed = SPEED_UNKNOWN;
@@ -2257,6 +2354,8 @@ index 000000000000..5c69f298bf89
 +	.mac_config	= an8855_phylink_mac_config,
 +	.mac_link_down	= an8855_phylink_mac_link_down,
 +	.mac_link_up	= an8855_phylink_mac_link_up,
++	//.mac_disable_tx_lpi = an8855_phylink_mac_disable_tx_lpi,
++	//.mac_enable_tx_lpi = an8855_phylink_mac_enable_tx_lpi,
 +};
 +
 +static const struct dsa_switch_ops an8855_switch_ops = {
@@ -2315,7 +2414,6 @@ index 000000000000..5c69f298bf89
 +	priv->ds->phylink_mac_ops = &an8855_phylink_mac_ops;
 +
 +	priv->pcs.ops = &an8855_pcs_ops;
-+	priv->pcs.neg_mode = true;
 +	priv->pcs.poll = true;
 +
 +	dev_set_drvdata(&pdev->dev, priv);
@@ -2370,10 +2468,10 @@ index 000000000000..5c69f298bf89
 +MODULE_LICENSE("GPL");
 diff --git a/drivers/net/dsa/an8855.h b/drivers/net/dsa/an8855.h
 new file mode 100644
-index 000000000000..ccde07eab800
+index 000000000000..15cafbb37ae5
 --- /dev/null
 +++ b/drivers/net/dsa/an8855.h
-@@ -0,0 +1,771 @@
+@@ -0,0 +1,773 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +/*
 + * Copyright (C) 2023 Min Yao <min.yao@airoha.com>
@@ -2395,6 +2493,8 @@ index 000000000000..ccde07eab800
 +#define AN8855_MAX_MTU			(15360 - ETH_HLEN - ETH_FCS_LEN - MTK_TAG_LEN)
 +
 +#define AN8855_L2_AGING_MS_CONSTANT	1024
++
++#define AN8855_TX_LPI_UNIT		2 /* us */
 +
 +/*	AN8855_SCU			0x10000000 */
 +#define AN8855_RG_GPIO_LED_MODE		0x10000054
@@ -3146,5 +3246,5 @@ index 000000000000..ccde07eab800
 +
 +#endif /* __AN8855_H */
 -- 
-2.47.1
+2.48.1
 

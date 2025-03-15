@@ -1,12 +1,16 @@
-From 998549301af32d37eb12e85e902a3b541d430fb9 Mon Sep 17 00:00:00 2001
+From ffa68c43244b057c5c7199d60d20310d96c9d956 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Mon, 20 Jan 2025 23:53:12 +0100
-Subject: [PATCH 08/13] net: mdio: regmap: add OF support
+Subject: [PATCH 09/14] net: mdio: regmap: add OF support
 
-Permit to pass the device node pointer to mdio regmap config and permit
-mdio registration with an OF node to support DT PHY probe.
+Permit to pass a device tree node to mdio regmap config and use
+the OF variant of mdiobus_register.
 
-With the device node pointer NULL, the normal mdio registration is used.
+This is done to autoprobe PHY defined in device tree as the current
+mdiobus_register only permits probing PHY using the MDIO mask value.
+
+Previous implementation is not changed as of_mdiobus_register fallback
+to mdiobus_register if the passed device tree pointer is NULL.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
@@ -15,10 +19,10 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  2 files changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/mdio/mdio-regmap.c b/drivers/net/mdio/mdio-regmap.c
-index 8bfcd9e415c8..329839ab68e6 100644
+index ed0443eb039f..8e89068c844d 100644
 --- a/drivers/net/mdio/mdio-regmap.c
 +++ b/drivers/net/mdio/mdio-regmap.c
-@@ -90,7 +90,7 @@ struct mii_bus *devm_mdio_regmap_register(struct device *dev,
+@@ -143,7 +143,7 @@ struct mii_bus *devm_mdio_regmap_register(struct device *dev,
  	else
  		mii->phy_mask = ~0;
  
@@ -28,10 +32,10 @@ index 8bfcd9e415c8..329839ab68e6 100644
  		dev_err(config->parent, "Cannot register MDIO bus![%s] (%d)\n", mii->id, rc);
  		return ERR_PTR(rc);
 diff --git a/include/linux/mdio/mdio-regmap.h b/include/linux/mdio/mdio-regmap.h
-index 8c7061e39ccb..23fc2dd9d752 100644
+index bb0e7dc9c0dc..228f12e90750 100644
 --- a/include/linux/mdio/mdio-regmap.h
 +++ b/include/linux/mdio/mdio-regmap.h
-@@ -22,6 +22,7 @@ struct regmap;
+@@ -14,6 +14,7 @@ struct regmap;
  
  struct mdio_regmap_config {
  	struct device *parent;
@@ -40,5 +44,5 @@ index 8c7061e39ccb..23fc2dd9d752 100644
  	char name[MII_BUS_ID_SIZE];
  	u8 valid_addr;
 -- 
-2.47.1
+2.48.1
 
