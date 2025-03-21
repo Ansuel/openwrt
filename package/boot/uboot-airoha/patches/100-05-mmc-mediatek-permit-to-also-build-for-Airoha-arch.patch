@@ -1,0 +1,29 @@
+From f1932eec4ffd4af9abf0445500d8bf20e525dfd0 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 6 Mar 2025 10:21:16 +0100
+Subject: [PATCH 05/15] mmc: mediatek: permit to also build for Airoha arch
+
+Airoha new SoC implement the same Mediatek driver for MMC. Permit to
+also build for Airoha arch.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/mmc/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/mmc/Kconfig b/drivers/mmc/Kconfig
+index 4827834b4aa..2e33dbd3fb7 100644
+--- a/drivers/mmc/Kconfig
++++ b/drivers/mmc/Kconfig
+@@ -860,7 +860,7 @@ config FTSDC010_SDIO
+ 
+ config MMC_MTK
+ 	bool "MediaTek SD/MMC Card Interface support"
+-	depends on ARCH_MEDIATEK || ARCH_MTMIPS
++	depends on ARCH_MEDIATEK || ARCH_MTMIPS || ARCH_AIROHA
+ 	depends on DM_MMC
+ 	depends on OF_CONTROL
+ 	help
+-- 
+2.48.1
+

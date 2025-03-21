@@ -1,0 +1,24 @@
+From 43070ead281e00ae61bf8387dece00af8beb0016 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 20 Mar 2025 19:23:43 +0100
+Subject: [PATCH 03/15] airoha: Add Ethernet config to defconfig
+
+Add Ethrnet config to defconfig to enable Ethernet support.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ configs/an7581_evb_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
+index f09b5b603a2..f5bd647cb6e 100644
+--- a/configs/an7581_evb_defconfig
++++ b/configs/an7581_evb_defconfig
+@@ -76,3 +76,4 @@ CONFIG_SYS_NS16550=y
+ CONFIG_SPI=y
+ CONFIG_DM_SPI=y
+ CONFIG_SHA512=y
++CONFIG_AIROHA_ETH=y
+-- 
+2.48.1
+

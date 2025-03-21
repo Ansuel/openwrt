@@ -1,0 +1,25 @@
+From 598ef8ddf25e57fc123af6aec64de98fa77de658 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 7 Mar 2025 01:50:21 +0100
+Subject: [PATCH 14/15] configs: airoha: an7581_evb: Enable Airoha SNFI SPI
+ config
+
+Enable Airoha SNFI SPI config to enable support for SNAND flash.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ configs/an7581_evb_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
+index fa41a4bca97..c74247e13db 100644
+--- a/configs/an7581_evb_defconfig
++++ b/configs/an7581_evb_defconfig
+@@ -78,3 +78,4 @@ CONFIG_DM_SPI=y
+ CONFIG_SHA512=y
+ CONFIG_AIROHA_ETH=y
+ CONFIG_MMC_MTK=y
++CONFIG_AIROHA_SNFI_SPI=y
+-- 
+2.48.1
+

@@ -1,0 +1,489 @@
+From 788009744674e72add2091f3ed3658a09823be8a Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 21 Mar 2025 02:13:53 +0100
+Subject: [PATCH 1/2] env: Introduce support for SPI NAND flash
+
+Introduce support for SPI NAND flash. Currently we only support SPI
+flash based on the lagacy sf cmd that assume SPI flash are always NOR.
+This is not the case as to SPI controller also NAND can be attached. Add
+support for it by adding an env driver that base entirely on the MTD
+api.
+
+Introduce a new kconfig ENV_IS_IN_SPI_NAND_FLASH and
+CONFIG_SYS_SNAND_ENV_DEV to define the name of the SPI nand as exposed
+by mtd list.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ env/Kconfig            |  41 ++++-
+ env/Makefile           |   1 +
+ env/env.c              |   3 +
+ env/snand.c            | 337 +++++++++++++++++++++++++++++++++++++++++
+ include/env_internal.h |   1 +
+ 5 files changed, 379 insertions(+), 4 deletions(-)
+ create mode 100644 env/snand.c
+
+diff --git a/env/Kconfig b/env/Kconfig
+index 4438f0b392c..484786b5bd8 100644
+--- a/env/Kconfig
++++ b/env/Kconfig
+@@ -74,7 +74,7 @@ config ENV_IS_DEFAULT
+ 		     !ENV_IS_IN_MMC && !ENV_IS_IN_NAND && \
+ 		     !ENV_IS_IN_NVRAM && !ENV_IS_IN_ONENAND && \
+ 		     !ENV_IS_IN_REMOTE && !ENV_IS_IN_SPI_FLASH && \
+-		     !ENV_IS_IN_UBI
++		     !ENV_IS_IN_UBI && !ENV_IS_IN_SPI_NAND_FLASH
+ 	select ENV_IS_NOWHERE
+ 
+ config ENV_IS_NOWHERE
+@@ -387,6 +387,33 @@ config ENV_IS_IN_SPI_FLASH
+ 	  during a "saveenv" operation. CONFIG_ENV_OFFSET_REDUND must be
+ 	  aligned to an erase sector boundary.
+ 
++config ENV_IS_IN_SPI_NAND_FLASH
++	bool "Environment is in SPI NAND flash"
++	depends on !CHAIN_OF_TRUST && (SPI_FLASH || DM_SPI_FLASH)
++	default y if ARMADA_XP
++	default y if INTEL_BAYTRAIL
++	default y if INTEL_BRASWELL
++	default y if INTEL_BROADWELL
++	default y if NORTHBRIDGE_INTEL_IVYBRIDGE
++	default y if INTEL_QUARK
++	default y if INTEL_QUEENSBAY
++	default y if ARCH_SUNXI
++	default y if ARCH_AIROHA
++	help
++	  Define this if you have a SPI NAND Flash memory device which you
++	  want to use for the environment.
++
++	  - CONFIG_SYS_SNAND_ENV_DEV:
++
++	  Specifies which SPI NAND device the environment is stored in.
++
++	  - CONFIG_ENV_OFFSET:
++	  - CONFIG_ENV_SIZE:
++
++	  These two #defines specify the offset and size of the
++	  environment area within the SPI NAND Flash.
++	  CONFIG_ENV_OFFSET must be aligned to an erase sector boundary.
++
+ config ENV_SECT_SIZE_AUTO
+ 	bool "Use automatically detected sector size"
+ 	depends on ENV_IS_IN_SPI_FLASH
+@@ -562,8 +589,8 @@ config ENV_EXT4_FILE
+ config ENV_ADDR
+ 	hex "Environment address"
+ 	depends on ENV_IS_IN_FLASH || ENV_IS_IN_NVRAM || ENV_IS_IN_ONENAND || \
+-		     ENV_IS_IN_REMOTE || ENV_IS_IN_SPI_FLASH
+-	default 0x0 if ENV_IS_IN_SPI_FLASH
++		     ENV_IS_IN_REMOTE || ENV_IS_IN_SPI_FLASH || ENV_IS_IN_SPI_NAND_FLASH
++	default 0x0 if ENV_IS_IN_SPI_FLASH || ENV_IS_IN_SPI_NAND_FLASH
+ 	help
+ 	  Offset from the start of the device (or partition)
+ 
+@@ -577,7 +604,7 @@ config ENV_ADDR_REDUND
+ config ENV_OFFSET
+ 	hex "Environment offset"
+ 	depends on ENV_IS_IN_EEPROM || ENV_IS_IN_MMC || ENV_IS_IN_NAND || \
+-		    ENV_IS_IN_SPI_FLASH
++		    ENV_IS_IN_SPI_FLASH || ENV_IS_IN_SPI_NAND_FLASH
+ 	default 0x3f8000 if ARCH_ROCKCHIP && ENV_IS_IN_MMC
+ 	default 0x140000 if ARCH_ROCKCHIP && ENV_IS_IN_SPI_FLASH
+ 	default 0xF0000 if ARCH_SUNXI
+@@ -666,6 +693,12 @@ config SYS_RELOC_GD_ENV_ADDR
+ 	  Relocate the early env_addr pointer so we know it is not inside
+ 	  the binary. Some systems need this and for the rest, it doesn't hurt.
+ 
++config SYS_SNAND_ENV_DEV
++	string "spi nand device name"
++	depends on ENV_IS_IN_SPI_NAND_FLASH
++	help
++	  SPI NAND device name on the platform where the environment is stored.
++
+ config SYS_MMC_ENV_DEV
+ 	int "mmc device number"
+ 	depends on ENV_IS_IN_MMC || ENV_IS_IN_FAT || ENV_IS_IN_EXT4 || \
+diff --git a/env/Makefile b/env/Makefile
+index a54e924d419..14295a5fd4a 100644
+--- a/env/Makefile
++++ b/env/Makefile
+@@ -26,6 +26,7 @@ obj-$(CONFIG_$(PHASE_)ENV_IS_IN_FAT) += fat.o
+ obj-$(CONFIG_$(PHASE_)ENV_IS_IN_EXT4) += ext4.o
+ obj-$(CONFIG_$(PHASE_)ENV_IS_IN_NAND) += nand.o
+ obj-$(CONFIG_$(PHASE_)ENV_IS_IN_SPI_FLASH) += sf.o
++obj-$(CONFIG_$(PHASE_)ENV_IS_IN_SPI_NAND_FLASH) += snand.o
+ obj-$(CONFIG_$(PHASE_)ENV_IS_IN_FLASH) += flash.o
+ 
+ CFLAGS_embedded.o := -Wa,--no-warn -DENV_CRC=$(shell tools/envcrc 2>/dev/null)
+diff --git a/env/env.c b/env/env.c
+index bcc189e14db..b795cf24625 100644
+--- a/env/env.c
++++ b/env/env.c
+@@ -58,6 +58,9 @@ static enum env_location env_locations[] = {
+ #ifdef CONFIG_ENV_IS_IN_SPI_FLASH
+ 	ENVL_SPI_FLASH,
+ #endif
++#ifdef CONFIG_ENV_IS_IN_SPI_NAND_FLASH
++	ENVL_SPI_NAND_FLASH,
++#endif
+ #ifdef CONFIG_ENV_IS_IN_UBI
+ 	ENVL_UBI,
+ #endif
+diff --git a/env/snand.c b/env/snand.c
+new file mode 100644
+index 00000000000..74f1973b4c8
+--- /dev/null
++++ b/env/snand.c
+@@ -0,0 +1,337 @@
++// SPDX-License-Identifier: GPL-2.0+
++/*
++ *  Author: Christian Marangi <ansuelsmth@gmail.com>
++ */
++#include <env_internal.h>
++#include <errno.h>
++#include <malloc.h>
++#include <mtd.h>
++#include <asm/cache.h>
++#include <asm/global_data.h>
++#include <linux/mtd/mtd.h>
++#include <u-boot/crc.h>
++
++DECLARE_GLOBAL_DATA_PTR;
++
++static int setup_mtd_device(struct mtd_info **mtd_env)
++{
++	struct mtd_info *mtd;
++
++	mtd_probe_devices();
++
++	mtd = get_mtd_device_nm(CONFIG_SYS_SNAND_ENV_DEV);
++	if (IS_ERR_OR_NULL(mtd)) {
++		env_set_default("get_mtd_device_nm() failed", 0);
++		return mtd == NULL ? -EINVAL : PTR_ERR(mtd);
++	}
++
++	*mtd_env = mtd;
++
++	return 0;
++}
++
++static int env_snand_save(void)
++{
++	char *saved_buf, *write_buf, *tmp;
++	struct erase_info ei = { };
++	struct mtd_info *mtd_env;
++	u32 sect_size, sect_num;
++	size_t ret_len = 0;
++    	u32 write_size;
++	env_t env_new;
++	int remaining;
++	u32 offset;
++	int ret;
++
++	ret = setup_mtd_device(&mtd_env);
++	if (ret)
++		return ret;
++
++	sect_size = mtd_env->erasesize;
++
++	/* Is the sector larger than the env (i.e. embedded) */
++	if (sect_size > CONFIG_ENV_SIZE) {
++		saved_buf = malloc(sect_size);
++		if (!saved_buf) {
++			ret = -ENOMEM;
++			goto done;
++		}
++
++		offset = CONFIG_ENV_OFFSET;
++		remaining = sect_size;
++		tmp = saved_buf;
++
++		while (remaining) {
++			/* Skip the block if it is bad */
++			if (!(offset % sect_size) &&
++			    mtd_block_isbad(mtd_env, offset)) {
++				offset += sect_size;
++				continue;
++			}
++
++			ret = mtd_read(mtd_env, offset, mtd_env->writesize,
++				       &ret_len, tmp);
++			if (ret)
++				goto done;
++
++			tmp += ret_len;
++			offset += ret_len;
++			remaining -= ret_len;
++		}
++	}
++
++	ret = env_export(&env_new);
++	if (ret)
++		goto done;
++
++	sect_num = DIV_ROUND_UP(CONFIG_ENV_SIZE, sect_size);
++
++	ei.mtd = mtd_env;
++	ei.addr = CONFIG_ENV_OFFSET;
++	ei.len = sect_num * sect_size;
++
++	puts("Erasing SPI NAND flash...");
++	ret = mtd_erase(mtd_env, &ei);
++	if (ret)
++		goto done;
++
++	if (sect_size > CONFIG_ENV_SIZE) {
++		memcpy(saved_buf, &env_new, CONFIG_ENV_SIZE);
++		write_size = sect_size;
++		write_buf = saved_buf;
++	} else {
++		write_size = sect_num * sect_size;
++		write_buf = (char *)&env_new;
++	}
++
++	offset = CONFIG_ENV_OFFSET;
++	remaining = sect_size;
++	tmp = write_buf;
++
++	puts("Writing to SPI NAND flash...");
++	while (remaining) {
++		/* Skip the block if it is bad */
++		if (!(offset % sect_size) &&
++			mtd_block_isbad(mtd_env, offset)) {
++			offset += sect_size;
++			continue;
++		}
++
++		ret = mtd_write(mtd_env, offset, mtd_env->writesize,
++				&ret_len, tmp);
++		if (ret)
++			goto done;
++
++		offset += mtd_env->writesize;
++		remaining -= ret_len;
++		tmp += ret_len;
++	}
++
++	ret = 0;
++    	puts("done\n");
++
++done:
++	if (saved_buf)
++		free(saved_buf);
++
++	return ret;
++}
++
++static int env_snand_load(void)
++{
++	struct mtd_info *mtd_env;
++	char *buf, *tmp;
++	size_t ret_len;
++	int remaining;
++	u32 sect_size;
++	u32 offset;
++	int ret;
++
++	buf = (char *)memalign(ARCH_DMA_MINALIGN, CONFIG_ENV_SIZE);
++	if (!buf) {
++		env_set_default("malloc() failed", 0);
++		return -EIO;
++	}
++
++	ret = setup_mtd_device(&mtd_env);
++	if (ret)
++		goto out;
++
++	sect_size = mtd_env->erasesize;
++
++	offset = CONFIG_ENV_OFFSET;
++	remaining = CONFIG_ENV_SIZE;
++	tmp = buf;
++
++	while (remaining) {
++		/* Skip the block if it is bad */
++		if (!(offset % sect_size) &&
++			mtd_block_isbad(mtd_env, offset)) {
++			offset += sect_size;
++			continue;
++		}
++
++		ret = mtd_read(mtd_env, offset, mtd_env->writesize,
++			       &ret_len, tmp);
++		if (ret) {
++			env_set_default("mtd_read() failed", 1);
++			goto out;
++		}
++
++		tmp += ret_len;
++		offset += ret_len;
++		remaining -= ret_len;
++	}
++
++	ret = env_import(buf, 1, H_EXTERNAL);
++	if (!ret)
++		gd->env_valid = ENV_VALID;
++
++out:
++	free(buf);
++
++	return ret;
++}
++
++static int env_snand_erase(void)
++{
++	struct mtd_info *mtd_env;
++	u32 sect_size, sect_num;
++	char *saved_buf, *tmp;
++	struct erase_info ei;
++	size_t ret_len;
++	int remaining;
++	u32 offset;
++	int ret;
++
++	ret = setup_mtd_device(&mtd_env);
++	if (ret)
++		return ret;
++
++	sect_size = mtd_env->erasesize;
++
++	/* Is the sector larger than the env (i.e. embedded) */
++	if (sect_size > CONFIG_ENV_SIZE) {
++		saved_buf = malloc(sect_size);
++		if (!saved_buf) {
++			ret = -ENOMEM;
++			goto done;
++		}
++
++		offset = CONFIG_ENV_OFFSET;
++		remaining = sect_size;
++		tmp = saved_buf;
++
++		while (remaining) {
++			/* Skip the block if it is bad */
++			if (!(offset % sect_size) &&
++			    mtd_block_isbad(mtd_env, offset)) {
++				offset += sect_size;
++				continue;
++			}
++
++			ret = mtd_read(mtd_env, offset, mtd_env->writesize,
++				       &ret_len, tmp);
++			if (ret)
++				goto done;
++
++			tmp += ret_len;
++			offset += ret_len;
++			remaining -= ret_len;
++		}
++	}
++
++	sect_num = DIV_ROUND_UP(CONFIG_ENV_SIZE, sect_size);
++
++	ei.mtd = mtd_env;
++	ei.addr = CONFIG_ENV_OFFSET;
++	ei.len = sect_num * sect_size;
++
++	ret = mtd_erase(mtd_env, &ei);
++	if (ret)
++		goto done;
++
++	if (sect_size > CONFIG_ENV_SIZE) {
++		memset(saved_buf, 0, CONFIG_ENV_SIZE);
++
++		offset = CONFIG_ENV_OFFSET;
++		remaining = sect_size;
++		tmp = saved_buf;
++
++		while (remaining) {
++			/* Skip the block if it is bad */
++			if (!(offset % sect_size) &&
++				mtd_block_isbad(mtd_env, offset)) {
++				offset += sect_size;
++				continue;
++			}
++
++			ret = mtd_write(mtd_env, offset, mtd_env->writesize,
++					&ret_len, tmp);
++			if (ret)
++				goto done;
++
++			offset += mtd_env->writesize;
++			remaining -= ret_len;
++			tmp += ret_len;
++		}
++	}
++
++	ret = 0;
++
++done:
++	if (saved_buf)
++		free(saved_buf);
++
++	return ret;
++}
++
++__weak void *env_snand_get_env_addr(void)
++{
++	return (void *)CONFIG_ENV_ADDR;
++}
++
++/*
++ * check if Environment on CONFIG_ENV_ADDR is valid.
++ */
++static int env_snand_init_addr(void)
++{
++	env_t *env_ptr = (env_t *)env_snand_get_env_addr();
++
++	if (!env_ptr)
++		return -ENOENT;
++
++	if (crc32(0, env_ptr->data, ENV_SIZE) == env_ptr->crc) {
++		gd->env_addr = (ulong)&(env_ptr->data);
++		gd->env_valid = ENV_VALID;
++	} else {
++		gd->env_valid = ENV_INVALID;
++	}
++
++	return 0;
++}
++
++
++static int env_snand_init(void)
++{
++	int ret = env_snand_init_addr();
++	if (ret != -ENOENT)
++		return ret;
++
++	/*
++	 * return here -ENOENT, so env_init()
++	 * can set the init bit and later if no
++	 * other Environment storage is defined
++	 * can set the default environment
++	 */
++	return -ENOENT;
++}
++
++U_BOOT_ENV_LOCATION(snand) = {
++	.location	= ENVL_SPI_NAND_FLASH,
++	ENV_NAME("SNANDFlash")
++	.load		= env_snand_load,
++	.save		= ENV_SAVE_PTR(env_snand_save),
++	.erase		= ENV_ERASE_PTR(env_snand_erase),
++	.init		= env_snand_init,
++};
+diff --git a/include/env_internal.h b/include/env_internal.h
+index c1c0727e4d0..eabe480b70c 100644
+--- a/include/env_internal.h
++++ b/include/env_internal.h
+@@ -113,6 +113,7 @@ enum env_location {
+ 	ENVL_ONENAND,
+ 	ENVL_REMOTE,
+ 	ENVL_SPI_FLASH,
++	ENVL_SPI_NAND_FLASH,
+ 	ENVL_UBI,
+ 	ENVL_NOWHERE,
+ 
+-- 
+2.48.1
+

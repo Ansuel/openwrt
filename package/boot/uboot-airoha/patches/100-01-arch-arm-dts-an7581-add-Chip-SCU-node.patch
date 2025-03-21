@@ -1,0 +1,33 @@
+From 6a85d43e8fd6a4428df21a9edbda681680c000e8 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 20 Mar 2025 19:42:18 +0100
+Subject: [PATCH 01/15] arch: arm: dts: an7581: add Chip SCU node
+
+Add pending Chip SCU node for clock node.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ arch/arm/dts/an7581-u-boot.dtsi | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/arch/arm/dts/an7581-u-boot.dtsi b/arch/arm/dts/an7581-u-boot.dtsi
+index 0316b73f3a5..9f8abfc3bcf 100644
+--- a/arch/arm/dts/an7581-u-boot.dtsi
++++ b/arch/arm/dts/an7581-u-boot.dtsi
+@@ -11,6 +11,13 @@
+ 			reg = <0x0 0x80000000 0x0 0x40000>;
+ 		};
+ 	};
++
++	soc {
++		chip_scu: syscon@1fa20000 {
++			compatible = "airoha,en7581-chip-scu", "syscon";
++			reg = <0x0 0x1fa20000 0x0 0x388>;
++		};
++	};
+ };
+ 
+ &uart1 {
+-- 
+2.48.1
+

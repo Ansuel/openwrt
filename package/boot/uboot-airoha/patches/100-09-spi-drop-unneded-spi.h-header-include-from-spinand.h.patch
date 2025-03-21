@@ -1,0 +1,33 @@
+From 387ffbd66903a440816ea894c3c269d8eb64d1f0 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 6 Mar 2025 16:41:59 +0100
+Subject: [PATCH 09/15] spi: drop unneded spi.h header include from spinand.h
+
+Drop unneded spi.h header include from spinand.h, nothing included by
+spi.h is actually used in this header and .c should correctly included
+spi.h if actually needed.
+
+Replace spi.h with linux/bitops.h as this is what is actually required
+for spinand.h
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ include/linux/mtd/spinand.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/include/linux/mtd/spinand.h b/include/linux/mtd/spinand.h
+index 13b5a52f8b9..6fe6fd520a4 100644
+--- a/include/linux/mtd/spinand.h
++++ b/include/linux/mtd/spinand.h
+@@ -17,7 +17,7 @@
+ #include <linux/spi/spi.h>
+ #include <linux/spi/spi-mem.h>
+ #else
+-#include <spi.h>
++#include <linux/bitops.h>
+ #include <spi-mem.h>
+ #include <linux/mtd/nand.h>
+ #endif
+-- 
+2.48.1
+

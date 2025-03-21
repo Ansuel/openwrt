@@ -1,0 +1,28 @@
+From e44177931f935f1e4350f3569c03667b957881fd Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 21 Mar 2025 02:22:10 +0100
+Subject: [PATCH 2/2] configs: airoha: an7581_evb: Enable ENV in SPI NAND
+
+Enable config ENV in SPI NAND and define the name of the nand device.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ configs/an7581_evb_defconfig | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
+index c74247e13db..31d6c92aa54 100644
+--- a/configs/an7581_evb_defconfig
++++ b/configs/an7581_evb_defconfig
+@@ -41,6 +41,8 @@ CONFIG_CMD_LOG=y
+ CONFIG_OF_UPSTREAM=y
+ CONFIG_ENV_OVERWRITE=y
+ CONFIG_ENV_IS_IN_MMC=y
++CONFIG_ENV_IS_IN_SPI_NAND_FLASH=y
++CONFIG_SYS_SNAND_ENV_DEV="spi-nand0"
+ CONFIG_SYS_RELOC_GD_ENV_ADDR=y
+ CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
+ CONFIG_NET_RANDOM_ETHADDR=y
+-- 
+2.48.1
+

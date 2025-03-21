@@ -1,0 +1,40 @@
+From 5d0df328831a0a229d758e9ec32cc53b561e9ad0 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 7 Mar 2025 01:54:23 +0100
+Subject: [PATCH 15/15] clk: fix crash on clk_set_rate clean rate cache
+
+It's currently possible to make the bootloader crash on calling
+clk_set_rate caused by the loop in clk_clean_rate_cache.
+
+The loop assume that every child of the clock node are also clock
+device but this is not always the case. For example it's common for a
+clock to bind to a reset device or also expose a syscon if the clock
+register map is also used to apply special configuration.
+
+In such case, on accessing a device as a clock, the bootloader crash. To
+correctly handle this, check if the child device is actually a clock and
+ignore otherwise.
+
+Fixes: 6b7fd3128f71 ("clk: fix set_rate to clean up cached rates for the hierarchy")
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/clk-uclass.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/clk/clk-uclass.c b/drivers/clk/clk-uclass.c
+index 353ae476068..8f3309d9530 100644
+--- a/drivers/clk/clk-uclass.c
++++ b/drivers/clk/clk-uclass.c
+@@ -554,6 +554,9 @@ static void clk_clean_rate_cache(struct clk *clk)
+ 	clk->rate = 0;
+ 
+ 	list_for_each_entry(child_dev, &clk->dev->child_head, sibling_node) {
++		if (device_get_uclass_id(child_dev) != UCLASS_CLK)
++			continue;
++
+ 		clkp = dev_get_clk_ptr(child_dev);
+ 		clk_clean_rate_cache(clkp);
+ 	}
+-- 
+2.48.1
+

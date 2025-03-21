@@ -1,0 +1,25 @@
+From 02678e81ae8ae0fdfff2abf8e69d5297361f0024 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 6 Mar 2025 10:19:38 +0100
+Subject: [PATCH 07/15] airoha: Add eMMC config to defconfig
+
+Enable Mediatek MMC driver in Airoha AN7581 EVB defconfig to add support
+for it in default images.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ configs/an7581_evb_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
+index f5bd647cb6e..fa41a4bca97 100644
+--- a/configs/an7581_evb_defconfig
++++ b/configs/an7581_evb_defconfig
+@@ -77,3 +77,4 @@ CONFIG_SPI=y
+ CONFIG_DM_SPI=y
+ CONFIG_SHA512=y
+ CONFIG_AIROHA_ETH=y
++CONFIG_MMC_MTK=y
+-- 
+2.48.1
+

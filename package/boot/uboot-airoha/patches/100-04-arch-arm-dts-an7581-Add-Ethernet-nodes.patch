@@ -1,0 +1,65 @@
+From b16d8e3c9084c40fcdf3e598f142182b45f118f4 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 6 Mar 2025 10:36:30 +0100
+Subject: [PATCH 04/15] arch: arm: dts: an7581: Add Ethernet nodes
+
+Add Ethrnet nodes for Airoha AN7581 EVB board.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ arch/arm/dts/an7581-u-boot.dtsi | 30 ++++++++++++++++++++++++++++++
+ 1 file changed, 30 insertions(+)
+
+diff --git a/arch/arm/dts/an7581-u-boot.dtsi b/arch/arm/dts/an7581-u-boot.dtsi
+index 9f8abfc3bcf..a569044195d 100644
+--- a/arch/arm/dts/an7581-u-boot.dtsi
++++ b/arch/arm/dts/an7581-u-boot.dtsi
+@@ -1,5 +1,7 @@
+ // SPDX-License-Identifier: GPL-2.0+
+ 
++#include <dt-bindings/reset/airoha,en7581-reset.h>
++
+ / {
+ 	reserved-memory {
+ 		#address-cells = <2>;
+@@ -17,9 +19,37 @@
+ 			compatible = "airoha,en7581-chip-scu", "syscon";
+ 			reg = <0x0 0x1fa20000 0x0 0x388>;
+ 		};
++
++		eth: ethernet@1fb50000 {
++			compatible = "airoha,en7581-eth";
++			reg = <0 0x1fb50000 0 0x2600>,
++				<0 0x1fb54000 0 0x2000>,
++				<0 0x1fb56000 0 0x2000>;
++			reg-names = "fe", "qdma0", "qdma1";
++
++			resets = <&scuclk EN7581_FE_RST>,
++				 <&scuclk EN7581_FE_PDMA_RST>,
++				 <&scuclk EN7581_FE_QDMA_RST>,
++				 <&scuclk EN7581_DUAL_HSI0_MAC_RST>,
++				 <&scuclk EN7581_DUAL_HSI1_MAC_RST>,
++				 <&scuclk EN7581_HSI_MAC_RST>,
++				 <&scuclk EN7581_XFP_MAC_RST>;
++			reset-names = "fe", "pdma", "qdma",
++				      "hsi0-mac", "hsi1-mac", "hsi-mac",
++				      "xfp-mac";
++		};
++
++		switch: switch@1fb58000 {
++			compatible = "airoha,en7581-switch";
++			reg = <0 0x1fb58000 0 0x8000>;
++		};
+ 	};
+ };
+ 
++&scuclk {
++	compatible = "airoha,en7581-scu", "syscon";
++};
++
+ &uart1 {
+ 	bootph-all;
+ };
+-- 
+2.48.1
+

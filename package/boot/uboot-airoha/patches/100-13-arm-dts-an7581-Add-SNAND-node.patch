@@ -1,0 +1,47 @@
+From 1cf47b3bd64df9564f7b4b553aae89929140beaa Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 7 Mar 2025 01:49:31 +0100
+Subject: [PATCH 13/15] arm: dts: an7581: Add SNAND node
+
+Add SNAND node to Airoha AN7581 EVB DTS to enable support for attached
+SNAND flash.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ arch/arm/dts/an7581-u-boot.dtsi | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/arch/arm/dts/an7581-u-boot.dtsi b/arch/arm/dts/an7581-u-boot.dtsi
+index 46526ff0f0f..a9297ca6503 100644
+--- a/arch/arm/dts/an7581-u-boot.dtsi
++++ b/arch/arm/dts/an7581-u-boot.dtsi
+@@ -59,6 +59,26 @@
+ 			reg = <0 0x1fb58000 0 0x8000>;
+ 		};
+ 
++		snfi: spi@1fa10000 {
++			compatible = "airoha,en7581-snand";
++			reg = <0x0 0x1fa10000 0x0 0x140>,
++			      <0x0 0x1fa11000 0x0 0x600>;
++
++			clocks = <&scuclk EN7523_CLK_SPI>;
++			clock-names = "spi";
++
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			spi_nand: nand@0 {
++				compatible = "spi-nand";
++				reg = <0>;
++				spi-max-frequency = <50000000>;
++				spi-tx-bus-width = <1>;
++				spi-rx-bus-width = <2>;
++			};
++		};
++
+ 		mmc0: mmc@1fa0e000 {
+ 			compatible = "mediatek,mt7622-mmc";
+ 			reg = <0x0 0x1fa0e000 0x0 0x1000>,
+-- 
+2.48.1
+
