@@ -1,0 +1,55 @@
+name: TEST
+
+on:
+  push:
+
+jobs:
+  build-macos-latest:
+    name: Build tools with macos latest
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          path: openwrt
+
+      - name: Setup MacOS
+        run: |
+          echo "WORKPATH=/Volumes/OpenWrt" >> "$GITHUB_ENV"
+          hdiutil create -size 20g -type SPARSE -fs "Case-sensitive HFS+" -volname OpenWrt OpenWrt.sparseimage
+          hdiutil attach OpenWrt.sparseimage
+          mv "$GITHUB_WORKSPACE/openwrt" /Volumes/OpenWrt/
+
+      - name: Install required prereq on MacOS
+        working-directory: ${{ env.WORKPATH }}/openwrt
+        run: |
+          brew install \
+            automake \
+            coreutils \
+            diffutils \
+            findutils \
+            gawk \
+            git-extras \
+            gnu-getopt \
+            gnu-sed \
+            grep \
+            gpatch \
+            make
+
+            echo "/bin" >> "$GITHUB_PATH"
+            echo "/sbin/Library/Apple/usr/bin" >> "$GITHUB_PATH"
+            echo "/usr/bin" >> "$GITHUB_PATH"
+            echo "/opt/homebrew/bin" >> "$GITHUB_PATH"
+            echo "/opt/homebrew/opt/coreutils/bin" >> "$GITHUB_PATH"
+            echo "/opt/homebrew/opt/findutils/libexec/gnubin" >> "$GITHUB_PATH"
+            echo "/opt/homebrew/opt/gnu-getopt/bin" >> "$GITHUB_PATH"
+            echo "/opt/homebrew/opt/make/libexec/gnubin" >> "$GITHUB_PATH"
+            echo "/usr/sbin" >> "$GITHUB_PATH"
+
+      - name: Make prereq
+        working-directory: ${{ env.WORKPATH }}/openwrt
+        run: make defconfig
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
