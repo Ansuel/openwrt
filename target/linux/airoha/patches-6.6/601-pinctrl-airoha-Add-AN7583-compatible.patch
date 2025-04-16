@@ -1,0 +1,30 @@
+From 2f520d41e8d266a4fdfe72879185d0580ab458a3 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Wed, 16 Apr 2025 13:28:41 +0200
+Subject: [PATCH] pinctrl: airoha: Add AN7583 compatible
+
+Add AN7583 compatible to support Airoha AN7583 SoC.
+
+The register map is similar with only some addition for the dedicated
+MDIO lines.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/pinctrl/mediatek/pinctrl-airoha.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/pinctrl/mediatek/pinctrl-airoha.c b/drivers/pinctrl/mediatek/pinctrl-airoha.c
+index 547a798b71c8..b4e3d362dea5 100644
+--- a/drivers/pinctrl/mediatek/pinctrl-airoha.c
++++ b/drivers/pinctrl/mediatek/pinctrl-airoha.c
+@@ -2951,6 +2951,7 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
+ 
+ static const struct of_device_id airoha_pinctrl_of_match[] = {
+ 	{ .compatible = "airoha,en7581-pinctrl" },
++	{ .compatible = "airoha,en7583-pinctrl" },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, airoha_pinctrl_of_match);
+-- 
+2.48.1
+

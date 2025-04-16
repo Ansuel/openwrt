@@ -1,0 +1,205 @@
+From 53151b368a4d395a12d1e24f300d7c1b216660be Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Wed, 16 Apr 2025 13:34:44 +0200
+Subject: [PATCH] net: mdio: airoha: Add MDIO bus controller for AN7583
+
+Airoha AN7583 SoC have 2 dedicated MDIO bus controller in the SCU
+register map.
+
+This is very similar to the MT7530 internal MDIO bus but lacks some
+additional feature for C45 and incremental read/write.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/mdio/Kconfig       |   7 ++
+ drivers/net/mdio/Makefile      |   1 +
+ drivers/net/mdio/mdio-airoha.c | 147 +++++++++++++++++++++++++++++++++
+ 3 files changed, 155 insertions(+)
+ create mode 100644 drivers/net/mdio/mdio-airoha.c
+
+diff --git a/drivers/net/mdio/Kconfig b/drivers/net/mdio/Kconfig
+index 4a7a303be2f7..2222c3011c93 100644
+--- a/drivers/net/mdio/Kconfig
++++ b/drivers/net/mdio/Kconfig
+@@ -61,6 +61,13 @@ config MDIO_XGENE
+ 	  This module provides a driver for the MDIO busses found in the
+ 	  APM X-Gene SoC's.
+ 
++config MDIO_AIROHA
++	tristate "Airoha AN7583 MDIO bus controller"
++	depends on ARCH_AIROHA || COMPILE_TEST
++	help
++	  This module provides a driver for the MDIO busses found in the
++	  Airoha AN7583 SoC's.
++
+ config MDIO_ASPEED
+ 	tristate "ASPEED MDIO bus controller"
+ 	depends on ARCH_ASPEED || COMPILE_TEST
+diff --git a/drivers/net/mdio/Makefile b/drivers/net/mdio/Makefile
+index 1015f0db4531..5dd8ed093155 100644
+--- a/drivers/net/mdio/Makefile
++++ b/drivers/net/mdio/Makefile
+@@ -5,6 +5,7 @@ obj-$(CONFIG_ACPI_MDIO)		+= acpi_mdio.o
+ obj-$(CONFIG_FWNODE_MDIO)	+= fwnode_mdio.o
+ obj-$(CONFIG_OF_MDIO)		+= of_mdio.o
+ 
++obj-$(CONFIG_MDIO_AIROHA)		+= mdio-airoha.o
+ obj-$(CONFIG_MDIO_ASPEED)		+= mdio-aspeed.o
+ obj-$(CONFIG_MDIO_BCM_IPROC)		+= mdio-bcm-iproc.o
+ obj-$(CONFIG_MDIO_BCM_UNIMAC)		+= mdio-bcm-unimac.o
+diff --git a/drivers/net/mdio/mdio-airoha.c b/drivers/net/mdio/mdio-airoha.c
+new file mode 100644
+index 000000000000..97af1dee4c52
+--- /dev/null
++++ b/drivers/net/mdio/mdio-airoha.c
+@@ -0,0 +1,147 @@
++// SPDX-License-Identifier: GPL-2.0
++/* Airoha AN7583 MDIO interface driver
++ *
++ * Copyright (C) 2024 Christian Marangi <ansuelsmth@gmail.com>
++ */
++
++#include <linux/delay.h>
++#include <linux/kernel.h>
++#include <linux/mfd/syscon.h>
++#include <linux/module.h>
++#include <linux/of_mdio.h>
++#include <linux/of_address.h>
++#include <linux/platform_device.h>
++#include <linux/regmap.h>
++
++/* MII address register definitions */
++#define AN7583_MDIO0_ADDR			0xc8
++#define AN7583_MDIO1_ADDR			0xcc
++#define MII_BUSY				BIT(31)
++#define MII_RDY					BIT(30) /* RO signal BUS is ready */
++#define MII_REG_ADDR				GENMASK(29, 25)
++#define MII_PHY_ADDR				GENMASK(24, 20)
++#define MII_CMD					GENMASK(19, 18)
++#define MII_WRITE				FIELD_PREP_CONST(MII_CMD, 0x1)
++#define MII_READ				FIELD_PREP_CONST(MII_CMD, 0x2)
++#define MII_ST					GENMASK(17, 16)
++#define MII_START				FIELD_PREP_CONST(MII_ST, 0x1)
++#define MII_RWDATA				GENMASK(15, 0)
++
++#define MII_MDIO_DELAY_USEC			(1000)
++#define MII_MDIO_RETRY_MSEC			(10)
++
++static const u32 airoha_mdio_bus_base_addrs[] = {
++	[0] = AN7583_MDIO0_ADDR,
++	[1] = AN7583_MDIO1_ADDR,
++};
++
++struct airoha_mdio_data {
++	struct regmap *regmap;
++	u32 base_addr;
++};
++
++static int
++airoha_mdio_wait_busy(struct airoha_mdio_data *priv)
++{
++	u32 busy;
++
++	return regmap_read_poll_timeout(priv->regmap, priv->base_addr, busy,
++					!(busy & MII_BUSY), MII_MDIO_DELAY_USEC,
++					MII_MDIO_RETRY_MSEC * USEC_PER_MSEC);
++}
++
++static int airoha_mdio_read(struct mii_bus *bus, int phy, int regnum)
++{
++	struct airoha_mdio_data *priv = bus->priv;
++	u32 val;
++	int ret;
++
++	val = MII_BUSY | MII_START | MII_READ;
++	val |= FIELD_PREP(MII_PHY_ADDR, phy);
++	val |= FIELD_PREP(MII_REG_ADDR, regnum);
++
++	ret = regmap_write(priv->regmap, priv->base_addr, val);
++	if (ret)
++		return ret;
++
++	ret = airoha_mdio_wait_busy(priv);
++	if (ret)
++		return ret;
++
++	ret = regmap_read(priv->regmap, priv->base_addr, &val);
++	if (ret)
++		return ret;
++
++	return FIELD_GET(MII_RWDATA, val);
++}
++
++static int airoha_mdio_write(struct mii_bus *bus, int phy, int regnum,
++			     u16 value)
++{
++	struct airoha_mdio_data *priv = bus->priv;
++	u32 val;
++	int ret;
++
++	val = MII_BUSY | MII_START | MII_WRITE;
++	val |= FIELD_PREP(MII_PHY_ADDR, phy);
++	val |= FIELD_PREP(MII_REG_ADDR, regnum);
++	val |= FIELD_PREP(MII_RWDATA, value);
++
++	ret = regmap_write(priv->regmap, priv->base_addr, val);
++	if (ret)
++		return ret;
++
++	return airoha_mdio_wait_busy(priv);
++}
++
++static int airoha_mdio_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct airoha_mdio_data *priv;
++	struct mii_bus *bus;
++	int ret;
++	u32 id;
++
++	ret = of_property_read_u32(dev->of_node, "airoha,bus-id", &id);
++	if (ret)
++		return ret;
++
++	if (id > 2)
++		return -EINVAL;
++
++	bus = devm_mdiobus_alloc_size(dev, sizeof(*priv));
++	if (!bus)
++		return -ENOMEM;
++
++	priv = bus->priv;
++	priv->regmap = device_node_to_regmap(dev->parent->of_node);
++	priv->base_addr = airoha_mdio_bus_base_addrs[id];
++
++	bus->name = "airoha_mdio_bus";
++	bus->read = airoha_mdio_read;
++	bus->write = airoha_mdio_write;
++	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-mii", dev_name(dev));
++	bus->parent = dev;
++
++	return devm_of_mdiobus_register(dev, bus, dev->of_node);
++}
++
++static const struct of_device_id airoha_mdio_dt_ids[] = {
++	{ .compatible = "airoha,an7583-mdio" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, airoha_mdio_dt_ids);
++
++static struct platform_driver airoha_mdio_driver = {
++	.probe = airoha_mdio_probe,
++	.driver = {
++		.name = "airoha-mdio",
++		.of_match_table = airoha_mdio_dt_ids,
++	},
++};
++
++module_platform_driver(airoha_mdio_driver);
++
++MODULE_DESCRIPTION("Airoha AN7583 MDIO interface driver");
++MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
++MODULE_LICENSE("GPL");
+-- 
+2.48.1
+
