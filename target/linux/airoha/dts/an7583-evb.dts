@@ -56,3 +56,7 @@
 	pinctrl-0 = <&pcie1_rst_pins>;
 	status = "okay";
 };
+
+&i2c0 {
+	status = "okay";
+};
