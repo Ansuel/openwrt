@@ -23,8 +23,21 @@ define U-Boot/an7581_rfb
   BL31_IMAGE:=an7581-bl31.lzma
 endef
 
+define U-Boot/an7583_rfb
+  NAME:=AN7583 Reference Board
+  UBOOT_CONFIG:=an7583_evb
+  BUILD_DEVICES:=an7583-evb
+  BUILD_TARGET:=airoha
+  BUILD_SUBTARGET:=an7583
+  UBOOT_IMAGE:=u-boot.fip
+  FIP_COMPRESS:=1
+  BL2_IMAGE:=an7583-bl2.bin
+  BL31_IMAGE:=an7583-bl31.lzma
+endef
+
 UBOOT_TARGETS := \
-	an7581_rfb
+	an7581_rfb \
+	an7583_rfb
 
 UBOOT_CUSTOMIZE_CONFIG := \
 	--disable TOOLS_KWBIMAGE \
