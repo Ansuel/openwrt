@@ -11,20 +11,16 @@ include $(INCLUDE_DIR)/u-boot.mk
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/host-build.mk
 
-define U-Boot/Default
-  BUILD_TARGET:=airoha
-  UBOOT_IMAGE:=u-boot-mtk.bin
-endef
-
 define U-Boot/an7581_rfb
   NAME:=AN7581 Reference Board
   UBOOT_CONFIG:=an7581_evb
   BUILD_DEVICES:=an7581-evb
   BUILD_TARGET:=airoha
   BUILD_SUBTARGET:=an7581
-  UBOOT_IMAGE:=u-boot.bin
   UBOOT_IMAGE:=u-boot.fip
   FIP_COMPRESS:=1
+  BL2_IMAGE:=an7581-bl2.bin
+  BL31_IMAGE:=an7581-bl31.lzma
 endef
 
 UBOOT_TARGETS := \
@@ -35,15 +31,15 @@ UBOOT_CUSTOMIZE_CONFIG := \
 	--disable TOOLS_LIBCRYPTO \
 	--disable TOOLS_MKEFICAPSULE \
 	--enable SERIAL_RX_BUFFER \
-  --set-val SERIAL_RX_BUFFER_SIZE 256
+	--set-val SERIAL_RX_BUFFER_SIZE 256
 
 define Build/fip-image
 	$(if $(FIP_COMPRESS), $(STAGING_DIR_HOST)/bin/lzma e \
-    $(PKG_BUILD_DIR)/u-boot.bin \
-    $(PKG_BUILD_DIR)/u-boot.bin.lzma)
+		$(PKG_BUILD_DIR)/u-boot.bin \
+		$(PKG_BUILD_DIR)/u-boot.bin.lzma)
 	$(STAGING_DIR_HOST)/bin/fiptool create \
-    --tb-fw files/bl2.bin \
-		--soc-fw files/bl31.lzma \
+		--tb-fw files/$(BL2_IMAGE) \
+		--soc-fw files/$(BL31_IMAGE) \
 		--nt-fw $(PKG_BUILD_DIR)/u-boot.bin$(if $(FIP_COMPRESS),.lzma) \
 		$(PKG_BUILD_DIR)/u-boot.fip
 endef
