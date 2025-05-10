@@ -21,16 +21,17 @@
  u32 airoha_rr(void __iomem *base, u32 offset)
  {
  	return readl(base + offset);
-@@ -754,7 +759,7 @@ static int airoha_qdma_rx_process(struct
+@@ -754,7 +759,8 @@ static int airoha_qdma_rx_process(struct
  
  		reason = FIELD_GET(AIROHA_RXD4_PPE_CPU_REASON, msg1);
  		if (reason == PPE_CPU_REASON_HIT_UNBIND_RATE_REACHED)
 -			airoha_ppe_check_skb(eth->ppe, q->skb, hash);
-+			airoha_ppe_check_skb(eth->ppe, q->skb, hash, false);
++			airoha_ppe_check_skb(&eth->ppe->dev, q->skb, hash,
++					     false);
  
  		done++;
  		napi_gro_receive(&q->napi, q->skb);
-@@ -1117,9 +1122,11 @@ static void airoha_qdma_cleanup_tx_queue
+@@ -1117,9 +1123,11 @@ static void airoha_qdma_cleanup_tx_queue
  static int airoha_qdma_init_hfwd_queues(struct airoha_qdma *qdma)
  {
  	struct airoha_eth *eth = qdma->eth;
@@ -44,7 +45,7 @@
  
  	size = HW_DSCP_NUM * sizeof(struct airoha_qdma_fwd_desc);
  	qdma->hfwd.desc = dmam_alloc_coherent(eth->dev, size, &dma_addr,
-@@ -1129,12 +1136,36 @@ static int airoha_qdma_init_hfwd_queues(
+@@ -1129,12 +1137,36 @@ static int airoha_qdma_init_hfwd_queues(
  
  	airoha_qdma_wr(qdma, REG_FWD_DSCP_BASE, dma_addr);
  
@@ -85,7 +86,7 @@
  	airoha_qdma_wr(qdma, REG_FWD_BUF_BASE, dma_addr);
  
  	airoha_qdma_rmw(qdma, REG_HW_FWD_DSCP_CFG,
-@@ -1142,11 +1173,14 @@ static int airoha_qdma_init_hfwd_queues(
+@@ -1142,11 +1174,14 @@ static int airoha_qdma_init_hfwd_queues(
  			FIELD_PREP(HW_FWD_DSCP_PAYLOAD_SIZE_MASK, 0));
  	airoha_qdma_rmw(qdma, REG_FWD_DSCP_LOW_THR, FWD_DSCP_LOW_THR_MASK,
  			FIELD_PREP(FWD_DSCP_LOW_THR_MASK, 128));
@@ -103,7 +104,7 @@
  
  	return read_poll_timeout(airoha_qdma_rr, status,
  				 !(status & LMGR_INIT_START), USEC_PER_MSEC,
-@@ -2627,11 +2661,10 @@ static int airoha_tc_matchall_act_valida
+@@ -2627,11 +2662,10 @@ static int airoha_tc_matchall_act_valida
  	return 0;
  }
  
@@ -116,7 +117,7 @@
  	u32 rate = 0, bucket_size = 0;
  
  	switch (f->command) {
-@@ -2666,16 +2699,17 @@ static int airoha_dev_tc_matchall(struct
+@@ -2666,16 +2700,17 @@ static int airoha_dev_tc_matchall(struct
  static int airoha_dev_setup_tc_block_cb(enum tc_setup_type type,
  					void *type_data, void *cb_priv)
  {
@@ -131,14 +132,14 @@
  	switch (type) {
  	case TC_SETUP_CLSFLOWER:
 -		return airoha_ppe_setup_tc_block_cb(dev, type_data);
-+		return airoha_ppe_setup_tc_block_cb(eth->ppe, type_data);
++		return airoha_ppe_setup_tc_block_cb(&eth->ppe->dev, type_data);
  	case TC_SETUP_CLSMATCHALL:
 -		return airoha_dev_tc_matchall(dev, type_data);
 +		return airoha_dev_tc_matchall(port, type_data);
  	default:
  		return -EOPNOTSUPP;
  	}
-@@ -2699,7 +2733,7 @@ static int airoha_dev_setup_tc_block(str
+@@ -2699,7 +2734,7 @@ static int airoha_dev_setup_tc_block(str
  			flow_block_cb_incref(block_cb);
  			return 0;
  		}
@@ -147,7 +148,7 @@
  		if (IS_ERR(block_cb))
  			return PTR_ERR(block_cb);
  
-@@ -3416,6 +3450,8 @@ static int airoha_probe(struct platform_
+@@ -3416,6 +3451,8 @@ static int airoha_probe(struct platform_
  	if (err)
  		goto error_napi_stop;
  
@@ -202,38 +203,24 @@
  /* RX queue to IRQ mapping: BIT(q) in IRQ(n) */
  #define RX_IRQ0_BANK_PIN_MASK			0x839f
  #define RX_IRQ1_BANK_PIN_MASK			0x7fe00000
-@@ -545,23 +553,6 @@ struct airoha_gdm_port {
- #define AIROHA_RXD4_PPE_CPU_REASON	GENMASK(20, 16)
+@@ -546,6 +554,7 @@ struct airoha_gdm_port {
  #define AIROHA_RXD4_FOE_ENTRY		GENMASK(15, 0)
  
--struct airoha_ppe {
--	struct airoha_eth *eth;
--
--	void *foe;
--	dma_addr_t foe_dma;
--
--	struct rhashtable l2_flows;
--
--	struct hlist_head *foe_flow;
--	u16 foe_check_time[PPE_NUM_ENTRIES];
--
--	struct airoha_foe_stats *foe_stats;
--	dma_addr_t foe_stats_dma;
--
--	struct dentry *debugfs_dir;
--};
--
- struct airoha_eth {
- 	struct device *dev;
+ struct airoha_ppe {
++	struct airoha_ppe_dev dev;
+ 	struct airoha_eth *eth;
  
-@@ -618,8 +609,8 @@ bool airoha_is_valid_gdm_port(struct air
+ 	void *foe;
+@@ -617,9 +626,9 @@ u32 airoha_rmw(void __iomem *base, u32 o
+ bool airoha_is_valid_gdm_port(struct airoha_eth *eth,
  			      struct airoha_gdm_port *port);
  
- void airoha_ppe_check_skb(struct airoha_ppe *ppe, struct sk_buff *skb,
+-void airoha_ppe_check_skb(struct airoha_ppe *ppe, struct sk_buff *skb,
 -			  u16 hash);
 -int airoha_ppe_setup_tc_block_cb(struct net_device *dev, void *type_data);
++void airoha_ppe_check_skb(struct airoha_ppe_dev *dev, struct sk_buff *skb,
 +			  u16 hash, bool rx_wlan);
-+int airoha_ppe_setup_tc_block_cb(struct airoha_ppe *ppe, void *type_data);
++int airoha_ppe_setup_tc_block_cb(struct airoha_ppe_dev *dev, void *type_data);
  int airoha_ppe_init(struct airoha_eth *eth);
  void airoha_ppe_deinit(struct airoha_eth *eth);
  void airoha_ppe_init_upd_mem(struct airoha_gdm_port *port);
@@ -1365,7 +1352,7 @@
  
  	err = npu->ops.ppe_init(npu);
  	if (err)
-@@ -1208,31 +1279,26 @@ static int airoha_ppe_offload_setup(stru
+@@ -1208,32 +1279,29 @@ static int airoha_ppe_offload_setup(stru
  
  error_npu_put:
  	airoha_npu_put(npu);
@@ -1376,7 +1363,7 @@
  }
  
 -int airoha_ppe_setup_tc_block_cb(struct net_device *dev, void *type_data)
-+int airoha_ppe_setup_tc_block_cb(struct airoha_ppe *ppe, void *type_data)
++int airoha_ppe_setup_tc_block_cb(struct airoha_ppe_dev *dev, void *type_data)
  {
 -	struct airoha_gdm_port *port = netdev_priv(dev);
 -	struct flow_cls_offload *cls = type_data;
@@ -1384,6 +1371,7 @@
 -	int err = 0;
 -
 -	mutex_lock(&flow_offload_mutex);
++	struct airoha_ppe *ppe = dev->priv;
 +	struct airoha_eth *eth = ppe->eth;
 +	int err;
  
@@ -1399,13 +1387,16 @@
  	return err;
  }
  
- void airoha_ppe_check_skb(struct airoha_ppe *ppe, struct sk_buff *skb,
+-void airoha_ppe_check_skb(struct airoha_ppe *ppe, struct sk_buff *skb,
 -			  u16 hash)
++void airoha_ppe_check_skb(struct airoha_ppe_dev *dev, struct sk_buff *skb,
 +			  u16 hash, bool rx_wlan)
  {
++	struct airoha_ppe *ppe = dev->priv;
  	u16 now, diff;
  
-@@ -1245,7 +1311,7 @@ void airoha_ppe_check_skb(struct airoha_
+ 	if (hash > PPE_HASH_MASK)
+@@ -1245,7 +1313,7 @@ void airoha_ppe_check_skb(struct airoha_
  		return;
  
  	ppe->foe_check_time[hash] = now;
@@ -1414,11 +1405,11 @@
  }
  
  void airoha_ppe_init_upd_mem(struct airoha_gdm_port *port)
-@@ -1269,6 +1335,60 @@ void airoha_ppe_init_upd_mem(struct airo
+@@ -1269,6 +1337,61 @@ void airoha_ppe_init_upd_mem(struct airo
  		     PPE_UPDMEM_WR_MASK | PPE_UPDMEM_REQ_MASK);
  }
  
-+struct airoha_ppe *airoha_ppe_get(struct device *dev)
++struct airoha_ppe_dev *airoha_ppe_get_dev(struct device *dev)
 +{
 +	struct platform_device *pdev;
 +	struct device_node *np;
@@ -1452,7 +1443,7 @@
 +		goto error_module_put;
 +	}
 +
-+	return eth->ppe;
++	return &eth->ppe->dev;
 +
 +error_module_put:
 +	module_put(THIS_MODULE);
@@ -1461,43 +1452,32 @@
 +
 +	return ERR_PTR(-ENODEV);
 +}
-+EXPORT_SYMBOL_GPL(airoha_ppe_get);
++EXPORT_SYMBOL_GPL(airoha_ppe_get_dev);
 +
-+void airoha_ppe_put(struct airoha_ppe *ppe)
++void airoha_ppe_put_dev(struct airoha_ppe_dev *dev)
 +{
++	struct airoha_ppe *ppe = dev->priv;
 +	struct airoha_eth *eth = ppe->eth;
 +
 +	module_put(THIS_MODULE);
 +	put_device(eth->dev);
 +}
-+EXPORT_SYMBOL_GPL(airoha_ppe_put);
++EXPORT_SYMBOL_GPL(airoha_ppe_put_dev);
 +
  int airoha_ppe_init(struct airoha_eth *eth)
  {
  	struct airoha_ppe *ppe;
-@@ -1278,6 +1398,9 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -1278,6 +1401,10 @@ int airoha_ppe_init(struct airoha_eth *e
  	if (!ppe)
  		return -ENOMEM;
  
-+	ppe->ops.setup_tc_block_cb = airoha_ppe_setup_tc_block_cb;
-+	ppe->ops.check_skb = airoha_ppe_check_skb;
++	ppe->dev.ops.setup_tc_block_cb = airoha_ppe_setup_tc_block_cb;
++	ppe->dev.ops.check_skb = airoha_ppe_check_skb;
++	ppe->dev.priv = ppe;
 +
  	foe_size = PPE_NUM_ENTRIES * sizeof(struct airoha_foe_entry);
  	ppe->foe = dmam_alloc_coherent(eth->dev, foe_size, &ppe->foe_dma,
  				       GFP_KERNEL);
-@@ -1293,6 +1416,12 @@ int airoha_ppe_init(struct airoha_eth *e
- 	if (!ppe->foe_flow)
- 		return -ENOMEM;
- 
-+	ppe->foe_check_time = devm_kzalloc(eth->dev,
-+					   PPE_NUM_ENTRIES * sizeof(*ppe->foe_check_time),
-+					   GFP_KERNEL);
-+	if (!ppe->foe_check_time)
-+		return -ENOMEM;
-+
- 	foe_size = PPE_STATS_NUM_ENTRIES * sizeof(*ppe->foe_stats);
- 	if (foe_size) {
- 		ppe->foe_stats = dmam_alloc_coherent(eth->dev, foe_size,
 --- a/drivers/net/ethernet/airoha/airoha_ppe_debugfs.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe_debugfs.c
 @@ -4,8 +4,14 @@
@@ -1517,7 +1497,7 @@
  					   u16 *src_port, u16 *dest_port,
 --- /dev/null
 +++ b/include/linux/soc/airoha/airoha_offload.h
-@@ -0,0 +1,209 @@
+@@ -0,0 +1,163 @@
 +/* SPDX-License-Identifier: GPL-2.0-only */
 +/*
 + * Copyright (c) 2025 AIROHA Inc
@@ -1528,73 +1508,32 @@
 +
 +#include <linux/skbuff.h>
 +
-+#ifndef TCSUPPORT_CPU_EN7581
-+#define TCSUPPORT_CPU_EN7581
-+#endif
-+#ifndef TCSUPPORT_CPU_ARMV8_64
-+#define TCSUPPORT_CPU_ARMV8_64
-+#endif
-+#ifndef TCSUPPORT_NPU_V2
-+#define TCSUPPORT_NPU_V2
-+#endif
-+#ifndef TCSUPPORT_NPU_TUNNEL_OFFLOAD
-+#define TCSUPPORT_NPU_TUNNEL_OFFLOAD
-+#endif
-+#ifndef TCSUPPORT_NPU_WIFI_TX
-+#define TCSUPPORT_NPU_WIFI_TX
-+#endif
-+#ifndef TCSUPPORT_WLAN_MT7992
-+#define TCSUPPORT_WLAN_MT7992
-+#endif
-+#ifndef TCSUPPORT_TR471_NPU_OFFLOAD
-+#define TCSUPPORT_TR471_NPU_OFFLOAD
-+#endif
-+#ifndef TCSUPPORT_NPU_WIFI_OFFLOAD
-+#define TCSUPPORT_NPU_WIFI_OFFLOAD
-+#endif
-+
-+struct airoha_eth;
-+struct airoha_foe_stats;
-+
 +enum {
 +	PPE_CPU_REASON_HIT_UNBIND_RATE_REACHED = 0x0f,
 +};
 +
-+struct airoha_ppe {
-+#if (IS_BUILTIN(CONFIG_NET_AIROHA) || IS_MODULE(CONFIG_NET_AIROHA))
++struct airoha_ppe_dev {
 +	struct {
-+		int (*setup_tc_block_cb)(struct airoha_ppe *ppe,
++		int (*setup_tc_block_cb)(struct airoha_ppe_dev *dev,
 +					 void *type_data);
-+		void (*check_skb)(struct airoha_ppe *ppe, struct sk_buff *skb,
-+				  u16 hash, bool rx_wlan);
++		void (*check_skb)(struct airoha_ppe_dev *dev,
++				  struct sk_buff *skb, u16 hash,
++				  bool rx_wlan);
 +	} ops;
-+	struct airoha_eth *eth;
 +
-+	void *foe;
-+	dma_addr_t foe_dma;
-+
-+	struct rhashtable l2_flows;
-+
-+	struct hlist_head *foe_flow;
-+	u16 *foe_check_time;
-+
-+	struct airoha_foe_stats *foe_stats;
-+	dma_addr_t foe_stats_dma;
-+
-+	struct dentry *debugfs_dir;
-+#endif
++	void *priv;
 +};
 +
 +#if (IS_BUILTIN(CONFIG_NET_AIROHA) || IS_MODULE(CONFIG_NET_AIROHA))
-+struct airoha_ppe *airoha_ppe_get(struct device *dev);
-+void airoha_ppe_put(struct airoha_ppe *ppe);
++struct airoha_ppe_dev *airoha_ppe_get_dev(struct device *dev);
++void airoha_ppe_put_dev(struct airoha_ppe_dev *dev);
 +#else
-+static inline airoha_ppe *airoha_ppe_get(struct device *dev)
++static inline airoha_ppe_dev *airoha_ppe_get_dev(struct device *dev)
 +{
 +	return NULL;
 +}
 +
-+static inline void airoha_ppe_put(struct airoha_ppe *ppe)
++static inline void airoha_ppe_put_dev(struct airoha_ppe_dev *dev)
 +{
 +}
 +#endif
@@ -1704,11 +1643,6 @@
 +	} ops;
 +#endif
 +};
-+
-+static inline bool airoha_npu_device_active(struct airoha_npu *npu)
-+{
-+	return !!npu;
-+}
 +
 +#if (IS_BUILTIN(CONFIG_NET_AIROHA_NPU) || IS_MODULE(CONFIG_NET_AIROHA_NPU))
 +struct airoha_npu *airoha_npu_get(struct device *dev,
