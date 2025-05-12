@@ -215,8 +215,8 @@
 	pinctrl-0 = <&pcie0_rst_pins>;
 	status = "okay";
 
-	pcie@0,0 { reg = <0x0000 0 0 0 0>;
-
+	pcie@0,0 {
+		reg = <0x0000 0 0 0 0>;
 		wifi@0,0 {
 			compatible = "mediatek,mt76";
 			reg = <0x0000 0 0 0 0>;
@@ -231,8 +231,8 @@
 	pinctrl-0 = <&pcie1_rst_pins>;
 	status = "okay";
 
-	pcie@1,0 { reg = <0x0000 0 0 0 0>;
-
+	pcie@1,0 {
+		reg = <0x0000 0 0 0 0>;
 		wifi@1,0 {
 			compatible = "mediatek,mt76";
 			reg = <0x0000 0 0 0 0>;
