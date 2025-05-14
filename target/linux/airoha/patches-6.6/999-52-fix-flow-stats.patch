@@ -1,0 +1,95 @@
+--- a/drivers/net/ethernet/airoha/airoha_npu.c
++++ b/drivers/net/ethernet/airoha/airoha_npu.c
+@@ -461,7 +461,7 @@ static int airoha_npu_stats_setup(struct
+ 	struct ppe_mbox_data *ppe_data;
+ 	void *stats;
+ 
+-	if (!size)
++	if (!size) /* flow stats are disabled */
+ 		return 0;
+ 
+ 	ppe_data = kzalloc(sizeof(*ppe_data), GFP_ATOMIC);
+@@ -477,8 +477,8 @@ static int airoha_npu_stats_setup(struct
+ 	if (err)
+ 		return err;
+ 
+-	stats = devm_ioremap(npu->dev, ppe_data->stats_info.npu_stats_addr,
+-			     size);
++	stats = devm_ioremap(npu->dev,
++			     ppe_data->stats_info.npu_stats_addr, size);
+ 	if (!stats)
+ 		return -ENOMEM;
+ 
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -516,7 +516,7 @@ static void airoha_ppe_foe_flow_stats_up
+ 	u8 nbq;
+ 
+ 	index = airoha_ppe_foe_get_flow_stats_index(ppe, hash);
+-	if (index == PPE_STATS_NUM_ENTRIES)
++	if (index >= PPE_STATS_NUM_ENTRIES)
+ 		return;
+ 
+ 	if (type == PPE_PKT_TYPE_BRIDGE) {
+@@ -620,8 +620,10 @@ static int airoha_ppe_foe_commit_entry(s
+ 	rcu_read_lock();
+ 
+ 	npu = rcu_dereference(eth->npu);
+-	if (!npu)
+-		return -ENODEV;
++	if (!npu) {
++		err = -ENODEV;
++		goto unlock;
++	}
+ 
+ 	if (!rx_wlan)
+ 		airoha_ppe_foe_flow_stats_update(ppe, npu, hwe, hash);
+@@ -634,7 +636,7 @@ static int airoha_ppe_foe_commit_entry(s
+ 		err = npu->ops.ppe_foe_commit_entry(npu, addr, sizeof(*hwe),
+ 						    hash, ppe2);
+ 	}
+-
++unlock:
+ 	rcu_read_unlock();
+ 
+ 	return err;
+@@ -889,7 +891,7 @@ airoha_ppe_foe_flow_l2_entry_update(stru
+ static void airoha_ppe_foe_flow_entry_update(struct airoha_ppe *ppe,
+ 					     struct airoha_flow_table_entry *e)
+ {
+-	struct airoha_foe_entry *hwe;
++	struct airoha_foe_entry *hwe_p, hwe = {};
+ 
+ 	spin_lock_bh(&ppe_lock);
+ 
+@@ -901,14 +903,17 @@ static void airoha_ppe_foe_flow_entry_up
+ 	if (e->hash == 0xffff)
+ 		goto unlock;
+ 
+-	hwe = airoha_ppe_foe_get_entry(ppe, e->hash);
+-	if (!hwe)
++	hwe_p = airoha_ppe_foe_get_entry(ppe, e->hash);
++	if (!hwe_p)
+ 		goto unlock;
+ 
+-	if (!airoha_ppe_foe_compare_entry(e, hwe))
++	memcpy(&hwe, hwe_p, sizeof(*hwe_p));
++	if (!airoha_ppe_foe_compare_entry(e, &hwe)) {
++		e->hash = 0xffff;
+ 		goto unlock;
++	}
+ 
+-	e->data.ib1 = hwe->ib1;
++	e->data.ib1 = hwe.ib1;
+ unlock:
+ 	spin_unlock_bh(&ppe_lock);
+ }
+@@ -1170,7 +1175,7 @@ static int airoha_ppe_flow_offload_stats
+ 					 struct flow_cls_offload *f)
+ {
+ 	struct airoha_flow_table_entry *e;
+-	int idle;
++	u32 idle;
+ 
+ 	e = rhashtable_lookup(&eth->flow_table, &f->cookie,
+ 			      airoha_flow_table_params);
