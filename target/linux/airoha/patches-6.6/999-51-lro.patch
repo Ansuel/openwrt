@@ -200,11 +200,14 @@
  		}
  	}
  	airoha_qdma_fill_rx_queue(q);
-@@ -809,13 +921,15 @@ static int airoha_qdma_rx_napi_poll(stru
+@@ -807,15 +919,17 @@ static int airoha_qdma_rx_napi_poll(stru
+ }
+ 
  static int airoha_qdma_init_rx_queue(struct airoha_queue *q,
- 				     struct airoha_qdma *qdma, int ndesc)
+-				     struct airoha_qdma *qdma, int ndesc)
++				     struct airoha_qdma *qdma,
++				     int ndesc, bool lro_queue)
  {
-+	bool lro_queue = airoha_qdma_is_lro_rx_queue(q, q->qdma);
 +	int pp_order = lro_queue ? 5 : 0;
  	const struct page_pool_params pp_params = {
 -		.order = 0,
@@ -228,7 +231,29 @@
  	q->ndesc = ndesc;
  	q->qdma = qdma;
  
-@@ -1973,6 +2087,47 @@ static u32 airoha_get_dsa_tag(struct sk_
+@@ -886,15 +1000,18 @@ static int airoha_qdma_init_rx(struct ai
+ 	int i;
+ 
+ 	for (i = 0; i < ARRAY_SIZE(qdma->q_rx); i++) {
+-		int err;
++		struct airoha_queue *q = &qdma->q_rx[i];
++		bool lro_queue;
++		int err, ndesc;
+ 
+ 		if (!(RX_DONE_INT_MASK & BIT(i))) {
+ 			/* rx-queue not binded to irq */
+ 			continue;
+ 		}
+ 
+-		err = airoha_qdma_init_rx_queue(&qdma->q_rx[i], qdma,
+-						RX_DSCP_NUM(i));
++		lro_queue = airoha_qdma_is_lro_rx_queue(q, qdma);
++		ndesc = lro_queue ? RX_DSCP_NUM(1) : RX_DSCP_NUM(i);
++		err = airoha_qdma_init_rx_queue(q, qdma, ndesc, lro_queue);
+ 		if (err)
+ 			return err;
+ 	}
+@@ -1973,6 +2090,47 @@ static u32 airoha_get_dsa_tag(struct sk_
  #endif
  }
  
@@ -276,7 +301,7 @@
  static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
  				   struct net_device *dev)
  {
-@@ -2878,6 +3033,7 @@ static const struct net_device_ops airoh
+@@ -2878,6 +3036,7 @@ static const struct net_device_ops airoh
  	.ndo_stop		= airoha_dev_stop,
  	.ndo_change_mtu		= airoha_dev_change_mtu,
  	.ndo_select_queue	= airoha_dev_select_queue,
@@ -284,7 +309,7 @@
  	.ndo_start_xmit		= airoha_dev_xmit,
  	.ndo_get_stats64        = airoha_dev_get_stats64,
  	.ndo_set_mac_address	= airoha_dev_set_macaddr,
-@@ -3152,6 +3308,31 @@ static int airoha_xmit_rings_show(struct
+@@ -3152,6 +3311,31 @@ static int airoha_xmit_rings_show(struct
  }
  DEFINE_SHOW_ATTRIBUTE(airoha_xmit_rings);
  
@@ -316,7 +341,7 @@
  static int airoha_tx_meter_show(struct seq_file *s, void *data)
  {
  	struct airoha_gdm_port *port = s->private;
-@@ -3234,6 +3415,8 @@ static int airoha_register_port_debugfs(
+@@ -3234,6 +3418,8 @@ static int airoha_register_port_debugfs(
  			    &airoha_tx_meter_fops);
  	debugfs_create_file("xmit-rings", 0400, root, port,
  			    &airoha_xmit_rings_fops);
@@ -325,7 +350,7 @@
  
  	return 0;
  }
-@@ -3290,12 +3473,9 @@ static int airoha_alloc_gdm_port(struct
+@@ -3290,12 +3476,9 @@ static int airoha_alloc_gdm_port(struct
  	dev->ethtool_ops = &airoha_ethtool_ops;
  	dev->max_mtu = AIROHA_MAX_MTU;
  	dev->watchdog_timeo = 5 * HZ;
