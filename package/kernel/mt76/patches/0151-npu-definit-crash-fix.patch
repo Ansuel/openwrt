@@ -1,0 +1,12 @@
+--- a/npu.c
++++ b/npu.c
+@@ -64,6 +64,9 @@ static void mt76_npu_queue_cleanup(struc
+ 	}
+ 	spin_unlock_bh(&q->lock);
+ 
++	if (!q->rx_page.va)
++		return;
++
+ 	page = virt_to_page(q->rx_page.va);
+ 	__page_frag_cache_drain(page, q->rx_page.pagecnt_bias);
+ 	memset(&q->rx_page, 0, sizeof(q->rx_page));

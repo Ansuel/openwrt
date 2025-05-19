@@ -1,0 +1,130 @@
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -80,28 +80,6 @@ static void airoha_qdma_irq_disable(stru
+ 	airoha_qdma_set_irqmask(irq_bank, index, mask, 0);
+ }
+ 
+-static bool airhoa_is_lan_gdm_port(struct airoha_eth *eth,
+-				   struct airoha_gdm_port *port)
+-{
+-	/* GDM1 port on EN7581 SoC is connected to the lan dsa switch.
+-	 * GDM{2,3,4} can be used as wan port connected to an external
+-	 * phy module.
+-	 */
+-
+-	/* GDM2 is always used as WAN port */
+-	if (port->id == 2)
+-		return false;
+-
+-	if (eth->ports[1])
+-		return true;
+-
+-	/* GDM1 is always used as LAN port */
+-	if (port->id == 1)
+-		return true;
+-
+-	return !eth->ports[0];
+-}
+-
+ static bool airhoa_is_phy_external(struct airoha_gdm_port *port)
+ {
+ 	return port->id != 1;
+@@ -1247,9 +1225,7 @@ static int airoha_qdma_init_hfwd_queues(
+ 	u32 status, val;
+ 
+ 	size = HW_DSCP_NUM * sizeof(struct airoha_qdma_fwd_desc);
+-	qdma->hfwd.desc = dmam_alloc_coherent(eth->dev, size, &dma_addr,
+-					      GFP_KERNEL);
+-	if (!qdma->hfwd.desc)
++	if (!dmam_alloc_coherent(eth->dev, size, &dma_addr, GFP_KERNEL))
+ 		return -ENOMEM;
+ 
+ 	airoha_qdma_wr(qdma, REG_FWD_DSCP_BASE, dma_addr);
+@@ -1271,16 +1247,11 @@ static int airoha_qdma_init_hfwd_queues(
+ 
+ 		rmem = of_reserved_mem_lookup(np);
+ 		of_node_put(np);
+-
+ 		dma_addr = rmem->base;
+-		qdma->hfwd.q = devm_ioremap(eth->dev, rmem->base, rmem->size);
+-		if (!qdma->hfwd.q)
+-			return -ENOMEM;
+ 	} else {
+ 		size = AIROHA_MAX_PACKET_SIZE * HW_DSCP_NUM;
+-		qdma->hfwd.q = dmam_alloc_coherent(eth->dev, size, &dma_addr,
+-						   GFP_KERNEL);
+-		if (!qdma->hfwd.q)
++		if (!dmam_alloc_coherent(eth->dev, size, &dma_addr,
++					 GFP_KERNEL))
+ 			return -ENOMEM;
+ 	}
+ 
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -531,12 +531,6 @@ struct airoha_qdma {
+ 
+ 	struct airoha_queue q_tx[AIROHA_NUM_TX_RING];
+ 	struct airoha_queue q_rx[AIROHA_NUM_RX_RING];
+-
+-	/* descriptor and packet buffers for qdma hw forward */
+-	struct {
+-		void *desc;
+-		void *q;
+-	} hfwd;
+ };
+ 
+ struct airoha_gdm_port {
+@@ -647,6 +641,28 @@ struct airoha_foe_entry *airoha_ppe_foe_
+ void airoha_ppe_foe_entry_get_stats(struct airoha_ppe *ppe, u32 hash,
+ 				    struct airoha_foe_stats64 *stats);
+ 
++static inline bool airhoa_is_lan_gdm_port(struct airoha_eth *eth,
++					  struct airoha_gdm_port *port)
++{
++	/* GDM1 port on EN7581 SoC is connected to the lan dsa switch.
++	 * GDM{2,3,4} can be used as wan port connected to an external
++	 * phy module.
++	 */
++
++	/* GDM2 is always used as WAN port */
++	if (port->id == 2)
++		return false;
++
++	if (eth->ports[1])
++		return true;
++
++	/* GDM1 is always used as LAN port */
++	if (port->id == 1)
++		return true;
++
++	return !eth->ports[0];
++}
++
+ #if CONFIG_DEBUG_FS
+ int airoha_ppe_debugfs_init(struct airoha_ppe *ppe);
+ #else
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -282,7 +282,7 @@ static int airoha_ppe_foe_entry_prepare(
+ 						info.wcid);
+ 		} else {
+ 			struct airoha_gdm_port *port = netdev_priv(dev);
+-			u32 qid, channel;
++			u32 qid, channel, lmgr_conf;
+ 			u8 pse_port;
+ 
+ 			if (!airoha_is_valid_gdm_port(eth, port))
+@@ -300,6 +300,13 @@ static int airoha_ppe_foe_entry_prepare(
+ 				val |= FIELD_PREP(AIROHA_FOE_IB2_NBQ,
+ 						  dsa_port);
+ 
++			/* Consume SRAM buffer for downlink traffic if available */
++			lmgr_conf = airoha_qdma_rr(port->qdma,
++						   REG_LMGR_INIT_CFG);
++			if (FIELD_GET(LMGR_SRAM_MODE_MASK, lmgr_conf) &&
++			    airhoa_is_lan_gdm_port(eth, port))
++				val |= AIROHA_FOE_IB2_FAST_PATH;
++
+ 			channel = dsa_port >= 0 ? dsa_port : port->id;
+ 			channel = channel % AIROHA_NUM_QOS_CHANNELS;
+ 

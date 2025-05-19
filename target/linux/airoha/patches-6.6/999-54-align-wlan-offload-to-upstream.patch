@@ -1,0 +1,839 @@
+--- a/include/linux/soc/airoha/airoha_offload.h
++++ b/include/linux/soc/airoha/airoha_offload.h
+@@ -27,6 +27,19 @@ struct airoha_ppe_dev {
+ #if (IS_BUILTIN(CONFIG_NET_AIROHA) || IS_MODULE(CONFIG_NET_AIROHA))
+ struct airoha_ppe_dev *airoha_ppe_get_dev(struct device *dev);
+ void airoha_ppe_put_dev(struct airoha_ppe_dev *dev);
++
++static inline int airoha_ppe_dev_setup_tc_block_cb(struct airoha_ppe_dev *dev,
++						   void *type_data)
++{
++	return dev->ops.setup_tc_block_cb(dev, type_data);
++}
++
++static inline void airoha_ppe_dev_check_skb(struct airoha_ppe_dev *dev,
++					    struct sk_buff *skb, u16 hash,
++					    bool rx_wlan)
++{
++	dev->ops.check_skb(dev, skb, hash, rx_wlan);
++}
+ #else
+ static inline airoha_ppe_dev *airoha_ppe_get_dev(struct device *dev)
+ {
+@@ -36,6 +49,18 @@ static inline airoha_ppe_dev *airoha_ppe
+ static inline void airoha_ppe_put_dev(struct airoha_ppe_dev *dev)
+ {
+ }
++
++static inline int airoha_ppe_setup_tc_block_cb(struct airoha_ppe_dev *dev,
++					       void *type_data)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline void airoha_ppe_dev_check_skb(struct airoha_ppe_dev *dev,
++					    struct sk_buff *skb, u16 hash,
++					    bool rx_wlan)
++{
++}
+ #endif
+ 
+ #define NPU_NUM_CORES		8
+@@ -112,42 +137,118 @@ struct airoha_npu {
+ 					    u32 entry_size, u32 hash,
+ 					    bool ppe2);
+ 		int (*wlan_set_txrx_reg_addr)(struct airoha_npu *npu,
+-					      int index, u32 dir,
++					      int ifindex, u32 dir,
+ 					      u32 in_counter_addr,
+ 					      u32 out_status_addr,
+ 					      u32 out_counter_addr);
+ 		int (*wlan_set_pcie_port_type)(struct airoha_npu *npu,
+-					       int index, u32 port_type);
+-		int (*wlan_set_dram_ba_node_addr)(struct airoha_npu *npu,
+-						  int index, u32 addr);
+-		int (*wlan_set_pcie_addr)(struct airoha_npu *npu, int index,
++					       int ifindex, u32 port_type);
++		int (*wlan_set_pcie_addr)(struct airoha_npu *npu, int ifindex,
+ 					  u32 addr);
+-		int (*wlan_set_desc)(struct airoha_npu *npu, int index,
++		int (*wlan_set_desc)(struct airoha_npu *npu, int ifindex,
+ 				     u32 desc);
+ 		int (*wlan_set_tx_ring_pcie_addr)(struct airoha_npu *npu,
+-						  int index, u32 addr);
++						  int ifindex, u32 addr);
+ 		int (*wlan_get_rx_desc_base)(struct airoha_npu *npu,
+-					     int index, u32 *data);
++					     int ifindex, u32 *data);
+ 		int (*wlan_set_tx_buf_space_base)(struct airoha_npu *npu,
+-						  int index, u32 addr);
++						  int ifindex, u32 addr);
+ 		int (*wlan_set_rx_ring_for_txdone)(struct airoha_npu *npu,
+-						   int index, u32 addr);
+-		int (*wlan_get_npu_support_map)(struct airoha_npu *npu,
+-						int index, u32 *map);
++						   int ifindex, u32 addr);
+ 		u32 (*wlan_get_queue_addr)(struct airoha_npu *npu, int qid,
+ 					   bool xmit);
+ 		void (*wlan_set_irq_mask)(struct airoha_npu *npu, int q);
+-		u32 (*wlan_get_irq)(struct airoha_npu *npu, int q);
+-		void (*wlan_irq_enable)(struct airoha_npu *npu, int q);
+-		void (*wlan_irq_disable)(struct airoha_npu *npu, int q);
++		u32 (*wlan_get_irq_status)(struct airoha_npu *npu, int q);
++		void (*wlan_enable_irq)(struct airoha_npu *npu, int q);
++		void (*wlan_disable_irq)(struct airoha_npu *npu, int q);
+ 	} ops;
+ #endif
+ };
+ 
+ #if (IS_BUILTIN(CONFIG_NET_AIROHA_NPU) || IS_MODULE(CONFIG_NET_AIROHA_NPU))
+-struct airoha_npu *airoha_npu_get(struct device *dev,
+-				  dma_addr_t *foe_stats_addr);
++struct airoha_npu *airoha_npu_get(struct device *dev, dma_addr_t *stats_addr);
+ void airoha_npu_put(struct airoha_npu *npu);
++
++static inline int airoha_npu_wlan_set_txrx_reg_addr(struct airoha_npu *npu,
++						    int ifindex, u32 dir,
++						    u32 in_counter_addr,
++						    u32 out_status_addr,
++						    u32 out_counter_addr)
++{
++	return npu->ops.wlan_set_txrx_reg_addr(npu, ifindex, dir,
++					       in_counter_addr,
++					       out_status_addr,
++					       out_counter_addr);
++}
++
++static inline int airoha_npu_wlan_set_pcie_port_type(struct airoha_npu *npu,
++						     int ifindex,
++						     u32 port_type)
++{
++	return npu->ops.wlan_set_pcie_port_type(npu, ifindex, port_type);
++}
++
++static inline int airoha_npu_wlan_set_pcie_addr(struct airoha_npu *npu,
++						int ifindex, u32 addr)
++{
++	return npu->ops.wlan_set_pcie_addr(npu, ifindex, addr);
++}
++
++static inline int airoha_npu_wlan_set_desc(struct airoha_npu *npu, int ifindex,
++					   u32 desc)
++{
++	return npu->ops.wlan_set_desc(npu, ifindex, desc);
++}
++
++static inline int airoha_npu_wlan_set_tx_ring_pcie_addr(struct airoha_npu *npu,
++							int ifindex, u32 addr)
++{
++	return npu->ops.wlan_set_tx_ring_pcie_addr(npu, ifindex, addr);
++}
++
++static inline int airoha_npu_wlan_get_rx_desc_base(struct airoha_npu *npu, int ifindex,
++						   u32 *data)
++{
++	return npu->ops.wlan_get_rx_desc_base(npu, ifindex, data);
++}
++
++static inline int airoha_npu_wlan_set_tx_buf_space_base(struct airoha_npu *npu,
++							int ifindex, u32 addr)
++{
++	return npu->ops.wlan_set_tx_buf_space_base(npu, ifindex, addr);
++}
++
++static inline int airoha_npu_wlan_set_rx_ring_for_txdone(struct airoha_npu *npu,
++							 int ifindex, u32 addr)
++{
++	return npu->ops.wlan_set_rx_ring_for_txdone(npu, ifindex, addr);
++}
++
++static inline u32 airoha_npu_wlan_get_queue_addr(struct airoha_npu *npu, int qid,
++						 bool xmit)
++{
++	return npu->ops.wlan_get_queue_addr(npu, qid, xmit);
++}
++
++static inline void airoha_npu_wlan_set_irq_mask(struct airoha_npu *npu, int q)
++{
++	npu->ops.wlan_set_irq_mask(npu, q);
++}
++
++static inline u32 airoha_npu_wlan_get_irq_status(struct airoha_npu *npu, int q)
++{
++	return npu->ops.wlan_get_irq_status(npu, q);
++}
++
++static inline void airoha_npu_wlan_enable_irq(struct airoha_npu *npu, int q)
++{
++	npu->ops.wlan_enable_irq(npu, q);
++}
++
++static inline void airoha_npu_wlan_disable_irq(struct airoha_npu *npu, int q)
++{
++	npu->ops.wlan_disable_irq(npu, q);
++}
+ #else
+ static inline struct airoha_npu *airoha_npu_get(struct device *dev,
+ 						dma_addr_t *foe_stats_addr)
+@@ -158,6 +259,81 @@ static inline struct airoha_npu *airoha_
+ static inline void airoha_npu_put(struct airoha_npu *npu)
+ {
+ }
++
++static inline int airoha_npu_wlan_set_txrx_reg_addr(struct airoha_npu *npu,
++						    int ifindex, u32 dir,
++						    u32 in_counter_addr,
++						    u32 out_status_addr,
++						    u32 out_counter_addr)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int airoha_npu_wlan_set_pcie_port_type(struct airoha_npu *npu,
++						     int ifindex, u32 port_type)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int airoha_npu_wlan_set_pcie_addr(struct airoha_npu *npu,
++						int ifindex, u32 addr)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int airoha_npu_wlan_set_desc(struct airoha_npu *npu, int ifindex,
++					   u32 desc)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int airoha_npu_wlan_set_tx_ring_pcie_addr(struct airoha_npu *npu,
++							int ifindex, u32 addr)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int airoha_npu_wlan_get_rx_desc_base(struct airoha_npu *npu,
++						   int ifindex, u32 *data)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int airoha_npu_wlan_set_tx_buf_space_base(struct airoha_npu *npu,
++							int ifindex, u32 addr)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline int airoha_npu_wlan_set_rx_ring_for_txdone(struct airoha_npu *npu,
++							 int ifindex, u32 addr)
++{
++	return -EOPNOTSUPP;
++}
++
++static inline u32 airoha_npu_wlan_get_queue_addr(struct airoha_npu *npu,
++						 int qid, bool xmit)
++{
++	return 0;
++}
++
++static inline void airoha_npu_wlan_set_irq_mask(struct airoha_npu *npu, int q)
++{
++}
++
++static inline u32 airoha_npu_wlan_get_irq_status(struct airoha_npu *npu,
++						 int q)
++{
++	return 0;
++}
++
++static inline void airoha_npu_wlan_enable_irq(struct airoha_npu *npu, int q)
++{
++}
++
++static inline void airoha_npu_wlan_disable_irq(struct airoha_npu *npu, int q)
++{
++}
+ #endif
+ 
+ #endif /* AIROHA_OFFLOAD_H */
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -2791,10 +2791,11 @@ static int airoha_tc_matchall_act_valida
+ 	return 0;
+ }
+ 
+-static int airoha_dev_tc_matchall(struct airoha_gdm_port *port,
++static int airoha_dev_tc_matchall(struct net_device *dev,
+ 				  struct tc_cls_matchall_offload *f)
+ {
+ 	enum trtcm_unit_type unit_type = TRTCM_BYTE_UNIT;
++	struct airoha_gdm_port *port = netdev_priv(dev);
+ 	u32 rate = 0, bucket_size = 0;
+ 
+ 	switch (f->command) {
+@@ -2829,17 +2830,18 @@ static int airoha_dev_tc_matchall(struct
+ static int airoha_dev_setup_tc_block_cb(enum tc_setup_type type,
+ 					void *type_data, void *cb_priv)
+ {
+-	struct airoha_gdm_port *port = cb_priv;
++	struct net_device *dev = cb_priv;
++	struct airoha_gdm_port *port = netdev_priv(dev);
+ 	struct airoha_eth *eth = port->qdma->eth;
+ 
+-	if (!tc_can_offload(port->dev))
++	if (!tc_can_offload(dev))
+ 		return -EOPNOTSUPP;
+ 
+ 	switch (type) {
+ 	case TC_SETUP_CLSFLOWER:
+ 		return airoha_ppe_setup_tc_block_cb(&eth->ppe->dev, type_data);
+ 	case TC_SETUP_CLSMATCHALL:
+-		return airoha_dev_tc_matchall(port, type_data);
++		return airoha_dev_tc_matchall(dev, type_data);
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+@@ -2863,7 +2865,7 @@ static int airoha_dev_setup_tc_block(str
+ 			flow_block_cb_incref(block_cb);
+ 			return 0;
+ 		}
+-		block_cb = flow_block_cb_alloc(cb, port->dev, port, NULL);
++		block_cb = flow_block_cb_alloc(cb, port->dev, port->dev, NULL);
+ 		if (IS_ERR(block_cb))
+ 			return PTR_ERR(block_cb);
+ 
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -13,6 +13,7 @@
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
+ #include <linux/reset.h>
++#include <linux/soc/airoha/airoha_offload.h>
+ #include <net/dsa.h>
+ 
+ #define AIROHA_MAX_NUM_GDM_PORTS	4
+--- a/drivers/net/ethernet/airoha/airoha_npu.c
++++ b/drivers/net/ethernet/airoha/airoha_npu.c
+@@ -11,7 +11,6 @@
+ #include <linux/of_platform.h>
+ #include <linux/of_reserved_mem.h>
+ #include <linux/regmap.h>
+-#include <linux/soc/airoha/airoha_offload.h>
+ 
+ #include "airoha_eth.h"
+ 
+@@ -123,12 +122,13 @@ struct ppe_mbox_data {
+ 			u8 wan_xsi;
+ 			u8 ct_joyme4;
+ 			u8 max_packet;
+-			int ppe_type;
+-			int wan_mode;
+-			int wan_sel;
++			u8 rsv[3];
++			u32 ppe_type;
++			u32 wan_mode;
++			u32 wan_sel;
+ 		} init_info;
+ 		struct {
+-			int func_id;
++			u32 func_id;
+ 			u32 size;
+ 			u32 data;
+ 		} set_info;
+@@ -189,9 +189,7 @@ enum {
+ 	WLAN_FUNC_GET_WAIT_MDC_LOCK_ADDRESS,
+ };
+ 
+-#define WLAN_MAX_SSID	8
+-#define WLAN_MAX_ENTRY	128
+-
++#define WLAN_MAX_STATS_SIZE	4408
+ struct wlan_mbox_data {
+ 	u32 ifindex:4;
+ 	u32 func_type:4;
+@@ -204,21 +202,7 @@ struct wlan_mbox_data {
+ 			u32 out_status_addr;
+ 			u32 out_counter_addr;
+ 		} txrx_addr;
+-		struct {
+-			u32 tx_pkts;
+-			u64 rx_pkts_2g[WLAN_MAX_SSID];
+-			u64 rx_pkts_5g[WLAN_MAX_SSID];
+-			u64 rx_bytes_2g[WLAN_MAX_SSID];
+-			u64 rx_bytes_5g[WLAN_MAX_SSID];
+-			u8 omac_idx_5g[WLAN_MAX_SSID];
+-			u8 omac_idx_2g[WLAN_MAX_SSID];
+-			u64 rx_ap_cli_pkts_2g;
+-			u64 rx_ap_cli_pkts_5g;
+-			u64 rx_ap_cli_bytes_2g;
+-			u64 rx_ap_cli_bytes_5g;
+-			u64 rx_pkts_entry[2][WLAN_MAX_ENTRY];
+-			u64 rx_bytes_entry[2][WLAN_MAX_ENTRY];
+-		} stats;
++		u8 stats[WLAN_MAX_STATS_SIZE];
+ 	};
+ };
+ 
+@@ -488,17 +472,17 @@ out:
+ 	return err;
+ }
+ 
+-static int airoha_npu_wlan_send_msg(struct airoha_npu *npu, int index,
+-				    int func_id, u32 data)
++static int airoha_npu_wlan_send_msg(struct airoha_npu *npu, int ifindex,
++				    int func_id, u32 data, gfp_t gfp)
+ {
+ 	struct wlan_mbox_data *wlan_data;
+ 	int err;
+ 
+-	wlan_data = kzalloc(sizeof(*wlan_data), GFP_ATOMIC);
++	wlan_data = kzalloc(sizeof(*wlan_data), gfp);
+ 	if (!wlan_data)
+ 		return -ENOMEM;
+ 
+-	wlan_data->ifindex = index;
++	wlan_data->ifindex = ifindex;
+ 	wlan_data->func_type = NPU_OP_SET;
+ 	wlan_data->func_id = func_id;
+ 	wlan_data->data = data;
+@@ -528,14 +512,14 @@ static int airoha_npu_wlan_get_msg(struc
+ 				  sizeof(*wlan_data));
+ 	if (!err)
+ 		*data = wlan_data->data;
+-
+ 	kfree(wlan_data);
+ 
+ 	return err;
+ }
+ 
+-static struct reserved_mem *
+-airoha_npu_get_reserved_memory(struct airoha_npu *npu, const char *name)
++static int airoha_npu_wlan_set_reserved_memory(struct airoha_npu *npu,
++					       int ifindex, const char *name,
++					       int func_id)
+ {
+ 	struct device *dev = npu->dev;
+ 	struct reserved_mem *rmem;
+@@ -545,33 +529,21 @@ airoha_npu_get_reserved_memory(struct ai
+ 	index = of_property_match_string(dev->of_node, "memory-region-names",
+ 					 name);
+ 	if (index < 0)
+-		return NULL;
++		return -ENODEV;
+ 
+-	 np = of_parse_phandle(dev->of_node, "memory-region", index);
+-        if (!np)
+-                return NULL;
++	np = of_parse_phandle(dev->of_node, "memory-region", index);
++	if (!np)
++		return -ENODEV;
+ 
+-        rmem = of_reserved_mem_lookup(np);
++	rmem = of_reserved_mem_lookup(np);
+ 	of_node_put(np);
+ 
+-	return rmem;
++	return airoha_npu_wlan_send_msg(npu, ifindex, func_id, rmem->base,
++					GFP_KERNEL);
+ }
+ 
+-static int airoha_npu_wlan_set_reserved_memory(struct airoha_npu *npu,
+-					       int index, const char *name,
+-					       int func_id)
+-{
+-	struct reserved_mem *rmem;
+-
+-	rmem = airoha_npu_get_reserved_memory(npu, name);
+-	if (!rmem)
+-		return -ENODEV;
+-
+-	return airoha_npu_wlan_send_msg(npu, index, func_id, rmem->base);
+-}
+-
+-static int airoha_npu_wlan_set_txrx_reg_addr(struct airoha_npu *npu,
+-					     int index, u32 dir,
++static int airoha_npu_wlan_txrx_reg_addr_set(struct airoha_npu *npu,
++					     int ifindex, u32 dir,
+ 					     u32 in_counter_addr,
+ 					     u32 out_status_addr,
+ 					     u32 out_counter_addr)
+@@ -583,7 +555,7 @@ static int airoha_npu_wlan_set_txrx_reg_
+ 	if (!wlan_data)
+ 		return -ENOMEM;
+ 
+-	wlan_data->ifindex = index;
++	wlan_data->ifindex = ifindex;
+ 	wlan_data->func_type = NPU_OP_SET;
+ 	wlan_data->func_id = WLAN_FUNC_SET_WAIT_INODE_TXRX_REG_ADDR;
+ 	wlan_data->txrx_addr.dir = dir;
+@@ -598,75 +570,63 @@ static int airoha_npu_wlan_set_txrx_reg_
+ 	return err;
+ }
+ 
+-static int airoha_npu_wlan_set_pcie_port_type(struct airoha_npu *npu,
+-					      int index, u32 port_type)
++static int airoha_npu_wlan_pcie_port_type_set(struct airoha_npu *npu,
++					      int ifindex, u32 port_type)
+ {
+-	return airoha_npu_wlan_send_msg(npu, index,
++	return airoha_npu_wlan_send_msg(npu, ifindex,
+ 					WLAN_FUNC_SET_WAIT_PCIE_PORT_TYPE,
+-					port_type);
+-}
+-
+-static int airoha_npu_wlan_set_dram_ba_node_addr(struct airoha_npu *npu,
+-						 int index, u32 addr)
+-{
+-	return airoha_npu_wlan_send_msg(npu, index,
+-					WLAN_FUNC_SET_WAIT_DRAM_BA_NODE_ADDR,
+-					addr);
++					port_type, GFP_ATOMIC);
+ }
+ 
+-static int airoha_npu_wlan_set_pcie_addr(struct airoha_npu *npu,
+-					 int index, u32 addr)
++static int airoha_npu_wlan_pcie_addr_set(struct airoha_npu *npu,
++					 int ifindex, u32 addr)
+ {
+-	return airoha_npu_wlan_send_msg(npu, index,
+-					WLAN_FUNC_SET_WAIT_PCIE_ADDR, addr);
++	return airoha_npu_wlan_send_msg(npu, ifindex,
++					WLAN_FUNC_SET_WAIT_PCIE_ADDR, addr,
++					GFP_ATOMIC);
+ }
+ 
+-static int airoha_npu_wlan_set_desc(struct airoha_npu *npu, int index,
++static int airoha_npu_wlan_desc_set(struct airoha_npu *npu, int ifindex,
+ 				    u32 desc)
+ {
+-	return airoha_npu_wlan_send_msg(npu, index,
+-					WLAN_FUNC_SET_WAIT_DESC, desc);
++	return airoha_npu_wlan_send_msg(npu, ifindex,
++					WLAN_FUNC_SET_WAIT_DESC, desc,
++					GFP_ATOMIC);
+ }
+ 
+-static int airoha_npu_wlan_set_tx_ring_pcie_addr(struct airoha_npu *npu,
+-						 int index, u32 addr)
++static int airoha_npu_wlan_tx_ring_pcie_addr_set(struct airoha_npu *npu,
++						 int ifindex, u32 addr)
+ {
+-	return airoha_npu_wlan_send_msg(npu, index,
++	return airoha_npu_wlan_send_msg(npu, ifindex,
+ 					WLAN_FUNC_SET_WAIT_TX_RING_PCIE_ADDR,
+-					addr);
++					addr, GFP_ATOMIC);
+ }
+ 
+-static int airoha_npu_wlan_get_rx_desc_base(struct airoha_npu *npu, int index,
+-					    u32 *data)
++static int airoha_npu_wlan_rx_desc_base_get(struct airoha_npu *npu,
++					    int ifindex, u32 *data)
+ 
+ {
+-	return airoha_npu_wlan_get_msg(npu, index,
++	return airoha_npu_wlan_get_msg(npu, ifindex,
+ 				       WLAN_FUNC_GET_WAIT_RXDESC_BASE, data);
+ }
+ 
+-static int airoha_npu_wlan_set_tx_buf_space_base(struct airoha_npu *npu,
+-						 int index, u32 addr)
+-{
+-	return airoha_npu_wlan_send_msg(npu, index,
+-			WLAN_FUNC_SET_WAIT_TX_BUF_SPACE_HW_BASE, addr);
+-}
+-
+-static int airoha_npu_wlan_set_rx_ring_for_txdone(struct airoha_npu *npu,
+-						  int index, u32 addr)
++static int airoha_npu_wlan_tx_buf_space_base_set(struct airoha_npu *npu,
++						 int ifindex, u32 addr)
+ {
+-	return airoha_npu_wlan_send_msg(npu, index,
+-			WLAN_FUNC_SET_WAIT_RX_RING_FOR_TXDONE_HW_BASE, addr);
++	return airoha_npu_wlan_send_msg(npu, ifindex,
++			WLAN_FUNC_SET_WAIT_TX_BUF_SPACE_HW_BASE,
++			addr, GFP_ATOMIC);
+ }
+ 
+-static int airoha_npu_wlan_get_npu_support_map(struct airoha_npu *npu,
+-					       int index, u32 *map)
++static int airoha_npu_wlan_rx_ring_for_txdone_set(struct airoha_npu *npu,
++						  int ifindex, u32 addr)
+ {
+-	return airoha_npu_wlan_get_msg(npu, index,
+-				       WLAN_FUNC_GET_WAIT_NPU_SUPPORT_MAP,
+-				       map);
++	return airoha_npu_wlan_send_msg(npu, ifindex,
++			WLAN_FUNC_SET_WAIT_RX_RING_FOR_TXDONE_HW_BASE,
++			addr, GFP_ATOMIC);
+ }
+ 
+-static u32 airoha_npu_wlan_get_queue_addr(struct airoha_npu *npu, int qid,
++static u32 airoha_npu_wlan_queue_addr_get(struct airoha_npu *npu, int qid,
+ 					  bool xmit)
+ {
+ 	if (xmit)
+@@ -677,45 +637,42 @@ static u32 airoha_npu_wlan_get_queue_add
+ 
+ static int airoha_npu_wlan_init(struct airoha_npu *npu)
+ {
+-	int err;
++	int err, cmd = WLAN_FUNC_SET_WAIT_NPU_BAND0_ONCPU;
+ 
+-	err = airoha_npu_wlan_send_msg(npu, 1,
+-				       WLAN_FUNC_SET_WAIT_NPU_BAND0_ONCPU, 0);
++	err = airoha_npu_wlan_send_msg(npu, 1, cmd, 0, GFP_KERNEL);
+ 	if (err)
+ 		return err;
+ 
+-	err = airoha_npu_wlan_set_reserved_memory(npu, 0, "tx-bufid",
+-			WLAN_FUNC_SET_WAIT_TX_BUF_CHECK_ADDR);
++	cmd = WLAN_FUNC_SET_WAIT_TX_BUF_CHECK_ADDR;
++	err = airoha_npu_wlan_set_reserved_memory(npu, 0, "tx-bufid", cmd);
+ 	if (err)
+ 		return err;
+ 
+-	err = airoha_npu_wlan_set_reserved_memory(npu, 0, "pkt",
+-			WLAN_FUNC_SET_WAIT_PKT_BUF_ADDR);
++	cmd = WLAN_FUNC_SET_WAIT_PKT_BUF_ADDR;
++	err = airoha_npu_wlan_set_reserved_memory(npu, 0, "pkt", cmd);
+ 	if (err)
+ 		return err;
+ 
+-	err = airoha_npu_wlan_set_reserved_memory(npu, 0, "tx-pkt",
+-			WLAN_FUNC_SET_WAIT_TX_PKT_BUF_ADDR);
++	cmd = WLAN_FUNC_SET_WAIT_TX_PKT_BUF_ADDR;
++	err = airoha_npu_wlan_set_reserved_memory(npu, 0, "tx-pkt", cmd);
+ 	if (err)
+ 		return err;
+ 
+-	return airoha_npu_wlan_send_msg(npu, 0,
+-					WLAN_FUNC_SET_WAIT_IS_FORCE_TO_CPU, 0);
++	cmd = WLAN_FUNC_SET_WAIT_IS_FORCE_TO_CPU;
++	return airoha_npu_wlan_send_msg(npu, 0, cmd, 0, GFP_KERNEL);
+ }
+ 
+-static void airoha_npu_wlan_set_irq_mask(struct airoha_npu *npu, int q)
++static void airoha_npu_wlan_irq_mask_set(struct airoha_npu *npu, int q)
+ {
+-	/* FIXME */
+ 	regmap_set_bits(npu->regmap, REG_IRQ_STATUS, NPU_IRQ_RX_MASK(q));
+ }
+ 
+-static u32 airoha_npu_wlan_get_irq(struct airoha_npu *npu, int q)
++static u32 airoha_npu_wlan_irq_status_get(struct airoha_npu *npu, int q)
+ {
+-	/* FIXME */
+ 	u32 val;
+ 
+ 	regmap_read(npu->regmap, REG_IRQ_STATUS, &val);
+-	return val;
++	return (val & NPU_IRQ_RX_MASK(q)) >> __bf_shf(NPU_IRQ_RX_MASK(q));
+ }
+ 
+ static void airoha_npu_wlan_irq_enable(struct airoha_npu *npu, int q)
+@@ -728,13 +685,11 @@ static void airoha_npu_wlan_irq_disable(
+ 	regmap_clear_bits(npu->regmap, REG_IRQ_RXDONE(q), NPU_IRQ_RX_MASK(q));
+ }
+ 
+-struct airoha_npu *airoha_npu_get(struct device *dev,
+-				  dma_addr_t *foe_stats_addr)
++struct airoha_npu *airoha_npu_get(struct device *dev, dma_addr_t *stats_addr)
+ {
+ 	struct platform_device *pdev;
+ 	struct device_node *np;
+ 	struct airoha_npu *npu;
+-	int err;
+ 
+ 	np = of_parse_phandle(dev->of_node, "airoha,npu", 0);
+ 	if (!np)
+@@ -768,8 +723,10 @@ struct airoha_npu *airoha_npu_get(struct
+ 		goto error_module_put;
+ 	}
+ 
+-	if (foe_stats_addr) {
+-		err = airoha_npu_stats_setup(npu, *foe_stats_addr);
++	if (stats_addr) {
++		int err;
++
++		err = airoha_npu_stats_setup(npu, *stats_addr);
+ 		if (err) {
+ 			dev_err(dev, "failed to allocate npu stats buffer\n");
+ 			npu = ERR_PTR(err);
+@@ -831,26 +788,22 @@ static int airoha_npu_probe(struct platf
+ 	npu->ops.ppe_deinit = airoha_npu_ppe_deinit;
+ 	npu->ops.ppe_flush_sram_entries = airoha_npu_ppe_flush_sram_entries;
+ 	npu->ops.ppe_foe_commit_entry = airoha_npu_foe_commit_entry;
+-	npu->ops.wlan_set_txrx_reg_addr = airoha_npu_wlan_set_txrx_reg_addr;
+-	npu->ops.wlan_set_pcie_port_type = airoha_npu_wlan_set_pcie_port_type;
+-	npu->ops.wlan_set_dram_ba_node_addr =
+-		airoha_npu_wlan_set_dram_ba_node_addr;
+-	npu->ops.wlan_set_pcie_addr = airoha_npu_wlan_set_pcie_addr;
+-	npu->ops.wlan_set_desc = airoha_npu_wlan_set_desc;
++	npu->ops.wlan_set_txrx_reg_addr = airoha_npu_wlan_txrx_reg_addr_set;
++	npu->ops.wlan_set_pcie_port_type = airoha_npu_wlan_pcie_port_type_set;
++	npu->ops.wlan_set_pcie_addr = airoha_npu_wlan_pcie_addr_set;
++	npu->ops.wlan_set_desc = airoha_npu_wlan_desc_set;
+ 	npu->ops.wlan_set_tx_ring_pcie_addr =
+-		airoha_npu_wlan_set_tx_ring_pcie_addr;
+-	npu->ops.wlan_get_rx_desc_base = airoha_npu_wlan_get_rx_desc_base;
++		airoha_npu_wlan_tx_ring_pcie_addr_set;
++	npu->ops.wlan_get_rx_desc_base = airoha_npu_wlan_rx_desc_base_get;
+ 	npu->ops.wlan_set_tx_buf_space_base =
+-		airoha_npu_wlan_set_tx_buf_space_base;
++		airoha_npu_wlan_tx_buf_space_base_set;
+ 	npu->ops.wlan_set_rx_ring_for_txdone =
+-		airoha_npu_wlan_set_rx_ring_for_txdone;
+-	npu->ops.wlan_get_npu_support_map =
+-		airoha_npu_wlan_get_npu_support_map;
+-	npu->ops.wlan_get_queue_addr = airoha_npu_wlan_get_queue_addr;
+-	npu->ops.wlan_set_irq_mask = airoha_npu_wlan_set_irq_mask;
+-	npu->ops.wlan_get_irq = airoha_npu_wlan_get_irq;
+-	npu->ops.wlan_irq_enable = airoha_npu_wlan_irq_enable;
+-	npu->ops.wlan_irq_disable = airoha_npu_wlan_irq_disable;
++		airoha_npu_wlan_rx_ring_for_txdone_set;
++	npu->ops.wlan_get_queue_addr = airoha_npu_wlan_queue_addr_get;
++	npu->ops.wlan_set_irq_mask = airoha_npu_wlan_irq_mask_set;
++	npu->ops.wlan_get_irq_status = airoha_npu_wlan_irq_status_get;
++	npu->ops.wlan_enable_irq = airoha_npu_wlan_irq_enable;
++	npu->ops.wlan_disable_irq = airoha_npu_wlan_irq_disable;
+ 
+ 	npu->regmap = devm_regmap_init_mmio(dev, base, &regmap_config);
+ 	if (IS_ERR(npu->regmap))
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -7,8 +7,8 @@
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/of_platform.h>
++#include <linux/platform_device.h>
+ #include <linux/rhashtable.h>
+-#include <linux/soc/airoha/airoha_offload.h>
+ #include <net/ipv6.h>
+ #include <net/pkt_cls.h>
+ 
+@@ -289,10 +289,12 @@ static int airoha_ppe_foe_entry_prepare(
+ 				return -EINVAL;
+ 
+ 			if (dsa_port >= 0 || eth->ports[1])
+-				pse_port = port->id == 4 ? FE_PSE_PORT_GDM4 : port->id;
++				pse_port = port->id == 4 ? FE_PSE_PORT_GDM4
++							 : port->id;
+ 			else
+-				/* uplink relies on GDM2 loopback for GDM3 and GDM4 */
+-				pse_port = 2;
++				pse_port = 2; /* uplink relies on GDM2
++					       * loopback
++					       */
+ 
+ 			val |= FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT, pse_port) |
+ 			       AIROHA_FOE_IB2_PSE_QOS;
+@@ -556,9 +558,9 @@ static void airoha_ppe_foe_flow_stats_up
+ 	*meter |= FIELD_PREP(AIROHA_FOE_TUNNEL_MTU, val);
+ 
+ 	nbq = pse_port == 1 ? 6 : 5;
+-        *ib2 &= ~(AIROHA_FOE_IB2_NBQ | AIROHA_FOE_IB2_PSE_PORT |
++	*ib2 &= ~(AIROHA_FOE_IB2_NBQ | AIROHA_FOE_IB2_PSE_PORT |
+ 		  AIROHA_FOE_IB2_PSE_QOS);
+-        *ib2 |= FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT, 6) |
++	*ib2 |= FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT, 6) |
+ 		FIELD_PREP(AIROHA_FOE_IB2_NBQ, nbq);
+ }
+ 
+@@ -686,12 +688,14 @@ static void airoha_ppe_foe_remove_l2_flo
+ static void airoha_ppe_foe_flow_remove_entry(struct airoha_ppe *ppe,
+ 					     struct airoha_flow_table_entry *e)
+ {
+-	lockdep_assert_held(&ppe_lock);
++	spin_lock_bh(&ppe_lock);
+ 
+ 	if (e->type == FLOW_TYPE_L2)
+ 		airoha_ppe_foe_remove_l2_flow(ppe, e);
+ 	else
+ 		airoha_ppe_foe_remove_flow(ppe, e);
++
++	spin_unlock_bh(&ppe_lock);
+ }
+ 
+ static int
+@@ -723,18 +727,15 @@ airoha_ppe_foe_commit_subflow_entry(stru
+ 	memcpy(l2, &e->data.bridge.l2, sizeof(*l2));
+ 
+ 	type = FIELD_GET(AIROHA_FOE_IB1_BIND_PACKET_TYPE, hwe.ib1);
+-	if (type == PPE_PKT_TYPE_IPV4_HNAPT){
++	if (type == PPE_PKT_TYPE_IPV4_HNAPT)
+ 		memcpy(&hwe.ipv4.new_tuple, &hwe.ipv4.orig_tuple,
+ 		       sizeof(hwe.ipv4.new_tuple));
+-	}
+ 	else if (type >= PPE_PKT_TYPE_IPV6_ROUTE_3T &&
+ 		 l2->common.etype == ETH_P_IP)
+ 		l2->common.etype = ETH_P_IPV6;
+ 
+ 	hwe.bridge.ib2 = e->data.bridge.ib2;
+-
+ 	hwe.bridge.data = e->data.bridge.data;
+-
+ 	airoha_ppe_foe_commit_entry(ppe, &hwe, hash, rx_wlan);
+ 
+ 	return 0;
+@@ -744,8 +745,8 @@ static void airoha_ppe_foe_insert_entry(
+ 					struct sk_buff *skb,
+ 					u32 hash, bool rx_wlan)
+ {
+-	struct airoha_foe_bridge br = {};
+ 	struct airoha_flow_table_entry *e;
++	struct airoha_foe_bridge br = {};
+ 	struct airoha_foe_entry *hwe;
+ 	bool commit_done = false;
+ 	struct hlist_node *n;
+@@ -824,6 +825,7 @@ static int airoha_ppe_foe_flow_commit_en
+ 		return airoha_ppe_foe_l2_flow_commit_entry(ppe, e);
+ 
+ 	hash = airoha_ppe_foe_get_entry_hash(&e->data);
++	e->type = FLOW_TYPE_L4;
+ 	e->hash = 0xffff;
+ 
+ 	spin_lock_bh(&ppe_lock);
+@@ -833,15 +835,6 @@ static int airoha_ppe_foe_flow_commit_en
+ 	return 0;
+ }
+ 
+-static void
+-airoha_ppe_foe_flow_remove_entry_locked(struct airoha_ppe *ppe,
+-					struct airoha_flow_table_entry *e)
+-{
+-	spin_lock_bh(&ppe_lock);
+-	airoha_ppe_foe_flow_remove_entry(ppe, e);
+-	spin_unlock_bh(&ppe_lock);
+-}
+-
+ static int airoha_ppe_get_entry_idle_time(struct airoha_ppe *ppe, u32 ib1)
+ {
+ 	u32 state = FIELD_GET(AIROHA_FOE_IB1_BIND_STATE, ib1);
+@@ -1131,7 +1124,7 @@ static int airoha_ppe_flow_offload_repla
+ 	return 0;
+ 
+ remove_foe_entry:
+-	airoha_ppe_foe_flow_remove_entry_locked(eth->ppe, e);
++	airoha_ppe_foe_flow_remove_entry(eth->ppe, e);
+ free_entry:
+ 	kfree(e);
+ 
+@@ -1148,7 +1141,7 @@ static int airoha_ppe_flow_offload_destr
+ 	if (!e)
+ 		return -ENOENT;
+ 
+-	airoha_ppe_foe_flow_remove_entry_locked(eth->ppe, e);
++	airoha_ppe_foe_flow_remove_entry(eth->ppe, e);
+ 	rhashtable_remove_fast(&eth->flow_table, &e->node,
+ 			       airoha_flow_table_params);
+ 	kfree(e);
+@@ -1464,6 +1457,7 @@ error_l2_flow_table_destroy:
+ 	rhashtable_destroy(&ppe->l2_flows);
+ error_flow_table_destroy:
+ 	rhashtable_destroy(&eth->flow_table);
++
+ 	return err;
+ }
+ 
