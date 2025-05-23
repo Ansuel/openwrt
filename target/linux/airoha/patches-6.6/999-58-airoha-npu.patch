@@ -1,0 +1,66 @@
+--- a/include/linux/soc/airoha/airoha_offload.h
++++ b/include/linux/soc/airoha/airoha_offload.h
+@@ -157,7 +157,7 @@ struct airoha_npu {
+ 						   int ifindex, u32 addr);
+ 		u32 (*wlan_get_queue_addr)(struct airoha_npu *npu, int qid,
+ 					   bool xmit);
+-		void (*wlan_set_irq_mask)(struct airoha_npu *npu, int q);
++		void (*wlan_set_irq_status)(struct airoha_npu *npu, u32 val);
+ 		u32 (*wlan_get_irq_status)(struct airoha_npu *npu, int q);
+ 		void (*wlan_enable_irq)(struct airoha_npu *npu, int q);
+ 		void (*wlan_disable_irq)(struct airoha_npu *npu, int q);
+@@ -230,9 +230,10 @@ static inline u32 airoha_npu_wlan_get_qu
+ 	return npu->ops.wlan_get_queue_addr(npu, qid, xmit);
+ }
+ 
+-static inline void airoha_npu_wlan_set_irq_mask(struct airoha_npu *npu, int q)
++static inline void airoha_npu_wlan_set_irq_status(struct airoha_npu *npu,
++						  u32 val)
+ {
+-	npu->ops.wlan_set_irq_mask(npu, q);
++	npu->ops.wlan_set_irq_status(npu, val);
+ }
+ 
+ static inline u32 airoha_npu_wlan_get_irq_status(struct airoha_npu *npu, int q)
+@@ -317,7 +318,8 @@ static inline u32 airoha_npu_wlan_get_qu
+ 	return 0;
+ }
+ 
+-static inline void airoha_npu_wlan_set_irq_mask(struct airoha_npu *npu, int q)
++static inline void airoha_npu_wlan_set_irq_status(struct airoha_npu *npu,
++						  u32 val)
+ {
+ }
+ 
+--- a/drivers/net/ethernet/airoha/airoha_npu.c
++++ b/drivers/net/ethernet/airoha/airoha_npu.c
+@@ -662,9 +662,9 @@ static int airoha_npu_wlan_init(struct a
+ 	return airoha_npu_wlan_send_msg(npu, 0, cmd, 0, GFP_KERNEL);
+ }
+ 
+-static void airoha_npu_wlan_irq_mask_set(struct airoha_npu *npu, int q)
++static void airoha_npu_wlan_irq_status_set(struct airoha_npu *npu, u32 val)
+ {
+-	regmap_set_bits(npu->regmap, REG_IRQ_STATUS, NPU_IRQ_RX_MASK(q));
++	regmap_write(npu->regmap, REG_IRQ_STATUS, val);
+ }
+ 
+ static u32 airoha_npu_wlan_irq_status_get(struct airoha_npu *npu, int q)
+@@ -672,7 +672,7 @@ static u32 airoha_npu_wlan_irq_status_ge
+ 	u32 val;
+ 
+ 	regmap_read(npu->regmap, REG_IRQ_STATUS, &val);
+-	return (val & NPU_IRQ_RX_MASK(q)) >> __bf_shf(NPU_IRQ_RX_MASK(q));
++	return val;
+ }
+ 
+ static void airoha_npu_wlan_irq_enable(struct airoha_npu *npu, int q)
+@@ -800,7 +800,7 @@ static int airoha_npu_probe(struct platf
+ 	npu->ops.wlan_set_rx_ring_for_txdone =
+ 		airoha_npu_wlan_rx_ring_for_txdone_set;
+ 	npu->ops.wlan_get_queue_addr = airoha_npu_wlan_queue_addr_get;
+-	npu->ops.wlan_set_irq_mask = airoha_npu_wlan_irq_mask_set;
++	npu->ops.wlan_set_irq_status = airoha_npu_wlan_irq_status_set;
+ 	npu->ops.wlan_get_irq_status = airoha_npu_wlan_irq_status_get;
+ 	npu->ops.wlan_enable_irq = airoha_npu_wlan_irq_enable;
+ 	npu->ops.wlan_disable_irq = airoha_npu_wlan_irq_disable;

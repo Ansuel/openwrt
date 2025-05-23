@@ -1,0 +1,23 @@
+--- a/npu.c
++++ b/npu.c
+@@ -197,6 +197,7 @@ static irqreturn_t mt76_npu_irq_handler(
+ 	int qid = q - &dev->q_rx[0];
+ 	int index = qid - MT_RXQ_NPU0;
+ 	struct airoha_npu *npu;
++	u32 status;
+ 
+ 	rcu_read_lock();
+ 
+@@ -204,10 +205,8 @@ static irqreturn_t mt76_npu_irq_handler(
+ 	if (!npu)
+ 		goto out;
+ 
+-	if (!airoha_npu_wlan_get_irq_status(npu, index))
+-		goto out;
+-
+-	airoha_npu_wlan_set_irq_mask(npu, index);
++	status = airoha_npu_wlan_get_irq_status(npu, index);
++	airoha_npu_wlan_set_irq_status(npu, status);
+ 
+ 	airoha_npu_wlan_disable_irq(npu, index);
+ 	napi_schedule(&dev->napi[qid]);
