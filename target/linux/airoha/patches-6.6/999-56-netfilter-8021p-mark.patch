@@ -1,6 +1,12 @@
 --- a/net/netfilter/nft_flow_offload.c
 +++ b/net/netfilter/nft_flow_offload.c
-@@ -83,6 +83,7 @@ struct nft_forward_info {
+@@ -1,4 +1,5 @@
+ // SPDX-License-Identifier: GPL-2.0-only
++#include <linux/bitfield.h>
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/init.h>
+@@ -83,6 +84,7 @@ struct nft_forward_info {
  	struct id {
  		__u16	id;
  		__be16	proto;
@@ -8,80 +14,75 @@
  	} encap[NF_FLOW_TABLE_ENCAP_MAX];
  	u8 num_encaps;
  	u8 ingress_vlans;
-@@ -91,7 +92,18 @@ struct nft_forward_info {
+@@ -91,9 +93,23 @@ struct nft_forward_info {
  	enum flow_offload_xmit_type xmit_type;
  };
  
--static void nft_dev_path_info(const struct net_device_path_stack *stack,
-+static u8 nft_dev_get_vlan_prio(const struct net_device_path *path,
++static u8 nft_dev_get_encap_prio(const struct net_device_path *path,
 +				struct sk_buff *skb)
 +{
 +	struct net_device *dev = (struct net_device *)path->dev;
 +	u16 vlan_prio;
 +
++	if (path->type != DEV_PATH_VLAN)
++		return 0;
++
 +	vlan_prio = vlan_dev_get_egress_qos_mask(dev, skb->priority);
-+	return vlan_prio >> VLAN_PRIO_SHIFT;
++	return FIELD_GET(VLAN_PRIO_MASK, vlan_prio);
 +}
 +
-+static void nft_dev_path_info(struct sk_buff *skb,
-+			      const struct net_device_path_stack *stack,
+ static void nft_dev_path_info(const struct net_device_path_stack *stack,
  			      struct nft_forward_info *info,
- 			      unsigned char *ha, struct nf_flowtable *flowtable)
+-			      unsigned char *ha, struct nf_flowtable *flowtable)
++			      unsigned char *ha, struct nf_flowtable *flowtable,
++			      struct sk_buff *skb)
  {
-@@ -127,6 +139,9 @@ static void nft_dev_path_info(const stru
+ 	const struct net_device_path *path;
+ 	int i;
+@@ -127,6 +143,8 @@ static void nft_dev_path_info(const stru
  				info->outdev = path->dev;
  			info->encap[info->num_encaps].id = path->encap.id;
  			info->encap[info->num_encaps].proto = path->encap.proto;
-+			if (path->type == DEV_PATH_VLAN)
-+				info->encap[info->num_encaps].prio =
-+					nft_dev_get_vlan_prio(path, skb);
++			info->encap[info->num_encaps].prio =
++				nft_dev_get_encap_prio(path, skb);
  			info->num_encaps++;
  			if (path->type == DEV_PATH_PPPOE)
  				memcpy(info->h_dest, path->encap.h_dest, ETH_ALEN);
-@@ -142,6 +157,8 @@ static void nft_dev_path_info(const stru
- 			case DEV_PATH_BR_VLAN_TAG:
- 				info->encap[info->num_encaps].id = path->bridge.vlan_id;
- 				info->encap[info->num_encaps].proto = path->bridge.vlan_proto;
-+				info->encap[info->num_encaps].prio =
-+					nft_dev_get_vlan_prio(path, skb);
- 				info->num_encaps++;
- 				break;
- 			case DEV_PATH_BR_VLAN_UNTAG:
-@@ -184,7 +201,8 @@ static bool nft_flowtable_find_dev(const
- 	return found;
- }
- 
--static void nft_dev_forward_path(struct nf_flow_route *route,
-+static void nft_dev_forward_path(struct sk_buff *skb,
-+				 struct nf_flow_route *route,
+@@ -187,7 +205,8 @@ static bool nft_flowtable_find_dev(const
+ static void nft_dev_forward_path(struct nf_flow_route *route,
  				 const struct nf_conn *ct,
  				 enum ip_conntrack_dir dir,
- 				 struct nft_flowtable *ft)
-@@ -196,7 +214,7 @@ static void nft_dev_forward_path(struct
+-				 struct nft_flowtable *ft)
++				 struct nft_flowtable *ft,
++				 struct sk_buff *skb)
+ {
+ 	const struct dst_entry *dst = route->tuple[dir].dst;
+ 	struct net_device_path_stack stack;
+@@ -196,7 +215,7 @@ static void nft_dev_forward_path(struct
  	int i;
  
  	if (nft_dev_fill_forward_path(route, dst, ct, dir, ha, &stack) >= 0)
 -		nft_dev_path_info(&stack, &info, ha, &ft->data);
-+		nft_dev_path_info(skb, &stack, &info, ha, &ft->data);
++		nft_dev_path_info(&stack, &info, ha, &ft->data, skb);
  
  	if (!info.indev || !nft_flowtable_find_dev(info.indev, ft))
  		return;
-@@ -205,6 +223,7 @@ static void nft_dev_forward_path(struct
+@@ -204,6 +223,7 @@ static void nft_dev_forward_path(struct
+ 	route->tuple[!dir].in.ifindex = info.indev->ifindex;
  	for (i = 0; i < info.num_encaps; i++) {
  		route->tuple[!dir].in.encap[i].id = info.encap[i].id;
- 		route->tuple[!dir].in.encap[i].proto = info.encap[i].proto;
 +		route->tuple[!dir].in.encap[i].prio = info.encap[i].prio;
+ 		route->tuple[!dir].in.encap[i].proto = info.encap[i].proto;
  	}
  	route->tuple[!dir].in.num_encaps = info.num_encaps;
- 	route->tuple[!dir].in.ingress_vlans = info.ingress_vlans;
-@@ -264,8 +283,8 @@ static int nft_flow_route(const struct n
+@@ -264,8 +284,8 @@ static int nft_flow_route(const struct n
  
  	if (route->tuple[dir].xmit_type	== FLOW_OFFLOAD_XMIT_NEIGH &&
  	    route->tuple[!dir].xmit_type == FLOW_OFFLOAD_XMIT_NEIGH) {
 -		nft_dev_forward_path(route, ct, dir, ft);
 -		nft_dev_forward_path(route, ct, !dir, ft);
-+		nft_dev_forward_path(pkt->skb, route, ct, dir, ft);
-+		nft_dev_forward_path(pkt->skb, route, ct, !dir, ft);
++		nft_dev_forward_path(route, ct, dir, ft, pkt->skb);
++		nft_dev_forward_path(route, ct, !dir, ft, pkt->skb);
  	}
  
  	return 0;
@@ -91,20 +92,20 @@
  			entry->id = FLOW_ACTION_VLAN_PUSH;
  			entry->vlan.vid = other_tuple->encap[i].id;
  			entry->vlan.proto = other_tuple->encap[i].proto;
-+			entry->vlan.prio = other_tuple->encap[i].prio;
++			entry->vlan.prio = other_tuple->encap_prio[i];
  			break;
  		}
  	}
 --- a/include/net/netfilter/nf_flow_table.h
 +++ b/include/net/netfilter/nf_flow_table.h
-@@ -127,6 +127,7 @@ struct flow_offload_tuple {
- 	struct {
- 		u16			id;
- 		__be16			proto;
-+		u8			prio;
- 	} encap[NF_FLOW_TABLE_ENCAP_MAX];
- 
- 	/* All members above are keys for lookups, see flow_offload_hash(). */
+@@ -138,6 +138,7 @@ struct flow_offload_tuple {
+ 					in_vlan_ingress:2;
+ 	u16				mtu;
+ 	u32				priority;
++	u8				encap_prio[NF_FLOW_TABLE_ENCAP_MAX];
+ 	union {
+ 		struct {
+ 			struct dst_entry *dst_cache;
 @@ -204,6 +205,7 @@ struct nf_flow_route {
  			struct {
  				u16		id;
@@ -119,7 +120,7 @@
  	for (i = route->tuple[dir].in.num_encaps - 1; i >= 0; i--) {
  		flow_tuple->encap[j].id = route->tuple[dir].in.encap[i].id;
  		flow_tuple->encap[j].proto = route->tuple[dir].in.encap[i].proto;
-+		flow_tuple->encap[j].prio = route->tuple[dir].in.encap[i].prio;
++		flow_tuple->encap_prio[j] = route->tuple[dir].in.encap[i].prio;
  		if (route->tuple[dir].in.ingress_vlans & BIT(i))
  			flow_tuple->in_vlan_ingress |= BIT(j);
  		j++;
