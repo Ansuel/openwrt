@@ -1,0 +1,40 @@
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -265,7 +265,8 @@ static int airoha_ppe_foe_entry_prepare(
+ 	      AIROHA_FOE_IB1_BIND_TTL;
+ 	hwe->ib1 = val;
+ 
+-	val = FIELD_PREP(AIROHA_FOE_IB2_PORT_AG, 0x1f);
++	val = FIELD_PREP(AIROHA_FOE_IB2_PORT_AG, 0x1f) |
++	      FIELD_PREP(AIROHA_FOE_IB2_DSCP, priority);
+ 	if (dev) {
+ 		struct airoha_wdma_info info = {};
+ 
+@@ -357,8 +358,14 @@ static int airoha_ppe_foe_entry_prepare(
+ 				 FIELD_PREP(AIROHA_FOE_MAC_PPPOE_ID,
+ 					    data->pppoe.sid);
+ 	}
+-	l2->vlan1 = data->vlan.hdr[0].id;
+-	l2->vlan2 = data->vlan.hdr[1].id;
++
++	if (data->vlan.num) {
++		u16 tci = FIELD_PREP(VLAN_PRIO_MASK, priority);
++
++		l2->vlan1 = tci | data->vlan.hdr[0].id;
++		if (data->vlan.num == 2)
++			l2->vlan2 = tci | data->vlan.hdr[1].id;
++	}
+ 
+ 	if (wlan_etype >= 0) {
+ 		l2->etype = wlan_etype;
+--- a/drivers/net/ethernet/airoha/airoha_ppe_debugfs.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe_debugfs.c
+@@ -158,7 +158,7 @@ static int airoha_ppe_debugfs_foe_show(s
+ 		*((__be32 *)h_source) = cpu_to_be32(l2->src_mac_hi);
+ 
+ 		seq_printf(m, " eth=%pM->%pM etype=%04x data=%08x"
+-			      " vlan=%d,%d ib1=%08x ib2=%08x"
++			      " vlan=%04x,%04x ib1=%08x ib2=%08x"
+ 			      " packets=%llu bytes=%llu\n",
+ 			   h_source, h_dest, l2->etype, data,
+ 			   l2->vlan1, l2->vlan2, hwe->ib1, ib2,
