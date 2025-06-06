@@ -30,32 +30,22 @@
 
 		qdma1_buf: qdma1-buf@89000000 {
 			no-map;
-			reg = <0x0 0x89000000 0x0 0x500000>;
+			reg = <0x0 0x89000000 0x0 0x400000>;
 		};
 
-		npu_pkt: npu-pkt@89500000 {
+		npu_pkt: npu-pkt@89400000 {
 			no-map;
-			reg = <0x0 0x89500000 0x0 0x2c00000>;
+			reg = <0x0 0x89400000 0x0 0x2c00000>;
 		};
 
-		npu_txpkt: npu-txpkt@8c100000 {
+		npu_txpkt: npu-txpkt@8c000000 {
 			no-map;
-			reg = <0x0 0x8c100000 0x0 0x4000000>;
+			reg = <0x0 0x8c000000 0x0 0x4000000>;
 		};
 
-		npu_ba: npu-ba@90100000 {
+		npu_txbufid: npu-txbufid@90000000 {
 			no-map;
-			reg = <0x0 0x90100000 0x0 0x200000>;
-		};
-
-		npu_txbufid: npu-txbufid@90300000 {
-			no-map;
-			reg = <0x0 0x90300000 0x0 0x6800>;
-		};
-
-		npu_dbg: npu-dbg@90306800 {
-			no-map;
-			reg = <0x0 0x90306800 0x0 0x5780>;
+			reg = <0x0 0x90000000 0x0 0x6800>;
 		};
 	};
 
@@ -813,9 +803,9 @@
 				     <GIC_SPI 122 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>;
 			memory-region = <&npu_binary>, <&npu_pkt>, <&npu_txpkt>,
-					<&npu_ba>, <&npu_txbufid>, <&npu_dbg>;
-			memory-region-names = "binary", "pkt", "tx-pkt", "ba",
-					      "tx-bufid", "dbg";
+					<&npu_txbufid>;
+			memory-region-names = "binary", "pkt", "tx-pkt",
+					      "tx-bufid";
 			status = "disabled";
 		};
 
