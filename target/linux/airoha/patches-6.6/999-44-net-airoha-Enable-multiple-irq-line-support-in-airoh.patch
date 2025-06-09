@@ -302,7 +302,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	 RX19_DONE_INT_MASK | RX18_DONE_INT_MASK |	\
 +	 RX17_DONE_INT_MASK | RX16_DONE_INT_MASK)
 +
-+#define RX_DONE_INT_MASK	(RX_DONE_HIGH_INT_MASK | RX_DONE_LOW_INT_MASK)
++#define RX_DONE_INT_MASK	(0xFFFFFFFF)
 +#define RX_DONE_HIGH_OFFSET	fls(RX_DONE_HIGH_INT_MASK)
 +
 +#define INT_RX2_MASK(_n)				\
