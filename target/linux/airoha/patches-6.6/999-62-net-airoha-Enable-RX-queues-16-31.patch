@@ -1,0 +1,32 @@
+From 7b4f106476d77d6109a527c0816df8d8c3848359 Mon Sep 17 00:00:00 2001
+Message-ID: <7b4f106476d77d6109a527c0816df8d8c3848359.1749494257.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Mon, 9 Jun 2025 16:07:40 +0200
+Subject: [PATCH net-next] net: airoha: Enable RX queues 16-31
+
+Fix RX_DONE_INT_MASK definitions in order to enable RX queues 16-31.
+
+Fixes: f252493e18353 ("net: airoha: Enable multiple IRQ lines support in airoha_eth driver.")
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_regs.h | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
+index 04187eb40ec6..150c85995cc1 100644
+--- a/drivers/net/ethernet/airoha/airoha_regs.h
++++ b/drivers/net/ethernet/airoha/airoha_regs.h
+@@ -614,8 +614,9 @@
+ 	 RX19_DONE_INT_MASK | RX18_DONE_INT_MASK |	\
+ 	 RX17_DONE_INT_MASK | RX16_DONE_INT_MASK)
+ 
+-#define RX_DONE_INT_MASK	(RX_DONE_HIGH_INT_MASK | RX_DONE_LOW_INT_MASK)
+ #define RX_DONE_HIGH_OFFSET	fls(RX_DONE_HIGH_INT_MASK)
++#define RX_DONE_INT_MASK	\
++	((RX_DONE_HIGH_INT_MASK << RX_DONE_HIGH_OFFSET) | RX_DONE_LOW_INT_MASK)
+ 
+ #define INT_RX2_MASK(_n)				\
+ 	((RX_NO_CPU_DSCP_HIGH_INT_MASK & (_n)) |	\
+-- 
+2.49.0
+
