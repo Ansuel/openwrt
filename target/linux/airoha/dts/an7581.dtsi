@@ -30,22 +30,22 @@
 
 		qdma1_buf: qdma1-buf@89000000 {
 			no-map;
-			reg = <0x0 0x89000000 0x0 0x400000>;
+			reg = <0x0 0x89000000 0x0 0x1000000>;
 		};
 
-		npu_pkt: npu-pkt@89400000 {
+		npu_pkt: npu-pkt@8a000000 {
 			no-map;
-			reg = <0x0 0x89400000 0x0 0x2c00000>;
+			reg = <0x0 0x8a000000 0x0 0x2c00000>;
 		};
 
-		npu_txpkt: npu-txpkt@8c000000 {
+		npu_txpkt: npu-txpkt@8cc00000 {
 			no-map;
-			reg = <0x0 0x8c000000 0x0 0x4000000>;
+			reg = <0x0 0x8cc00000 0x0 0x4000000>;
 		};
 
-		npu_txbufid: npu-txbufid@90000000 {
+		npu_txbufid: npu-txbufid@90c00000 {
 			no-map;
-			reg = <0x0 0x90000000 0x0 0x6800>;
+			reg = <0x0 0x90c00000 0x0 0x6800>;
 		};
 	};
 

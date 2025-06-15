@@ -12,11 +12,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/ethernet/airoha/airoha_regs.h | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
-index 04187eb40ec6..150c85995cc1 100644
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
-@@ -614,8 +614,9 @@
+@@ -635,8 +635,9 @@
  	 RX19_DONE_INT_MASK | RX18_DONE_INT_MASK |	\
  	 RX17_DONE_INT_MASK | RX16_DONE_INT_MASK)
  
@@ -27,6 +25,3 @@ index 04187eb40ec6..150c85995cc1 100644
  
  #define INT_RX2_MASK(_n)				\
  	((RX_NO_CPU_DSCP_HIGH_INT_MASK & (_n)) |	\
--- 
-2.49.0
-
