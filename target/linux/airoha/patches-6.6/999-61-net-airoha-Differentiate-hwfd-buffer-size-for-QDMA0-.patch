@@ -49,7 +49,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		 * reserved memory size and the payload buffer size
  		 */
 -		num_desc = rmem->size / AIROHA_MAX_PACKET_SIZE;
-+		num_desc = rmem->size / buf_size;
++		num_desc = div_u64(rmem->size, buf_size);
  	} else {
 -		size = AIROHA_MAX_PACKET_SIZE * num_desc;
 +		size = buf_size * num_desc;
