@@ -1,0 +1,64 @@
+--- a/drivers/net/ethernet/airoha/airoha_npu.c
++++ b/drivers/net/ethernet/airoha/airoha_npu.c
+@@ -635,7 +635,7 @@ static u32 airoha_npu_wlan_queue_addr_ge
+ 	return REG_RX_BASE(qid);
+ }
+ 
+-static int airoha_npu_wlan_init(struct airoha_npu *npu)
++static int airoha_npu_wlan_init_memory(struct airoha_npu *npu)
+ {
+ 	int err, cmd = WLAN_FUNC_SET_WAIT_NPU_BAND0_ONCPU;
+ 
+@@ -788,6 +788,7 @@ static int airoha_npu_probe(struct platf
+ 	npu->ops.ppe_deinit = airoha_npu_ppe_deinit;
+ 	npu->ops.ppe_flush_sram_entries = airoha_npu_ppe_flush_sram_entries;
+ 	npu->ops.ppe_foe_commit_entry = airoha_npu_foe_commit_entry;
++	npu->ops.wlan_init_reserved_memory = airoha_npu_wlan_init_memory;
+ 	npu->ops.wlan_set_txrx_reg_addr = airoha_npu_wlan_txrx_reg_addr_set;
+ 	npu->ops.wlan_set_pcie_port_type = airoha_npu_wlan_pcie_port_type_set;
+ 	npu->ops.wlan_set_pcie_addr = airoha_npu_wlan_pcie_addr_set;
+@@ -879,10 +880,6 @@ static int airoha_npu_probe(struct platf
+ 	regmap_write(npu->regmap, REG_CR_BOOT_TRIGGER, 0x1);
+ 	msleep(100);
+ 
+-	err = airoha_npu_wlan_init(npu);
+-	if (err)
+-		return err;
+-
+ 	platform_set_drvdata(pdev, npu);
+ 
+ 	return 0;
+--- a/include/linux/soc/airoha/airoha_offload.h
++++ b/include/linux/soc/airoha/airoha_offload.h
+@@ -136,6 +136,7 @@ struct airoha_npu {
+ 					    dma_addr_t foe_addr,
+ 					    u32 entry_size, u32 hash,
+ 					    bool ppe2);
++		int (*wlan_init_reserved_memory)(struct airoha_npu *npu);
+ 		int (*wlan_set_txrx_reg_addr)(struct airoha_npu *npu,
+ 					      int ifindex, u32 dir,
+ 					      u32 in_counter_addr,
+@@ -169,6 +170,11 @@ struct airoha_npu {
+ struct airoha_npu *airoha_npu_get(struct device *dev, dma_addr_t *stats_addr);
+ void airoha_npu_put(struct airoha_npu *npu);
+ 
++static inline int airoha_npu_wlan_init_reserved_memory(struct airoha_npu *npu)
++{
++	return npu->ops.wlan_init_reserved_memory(npu);
++}
++
+ static inline int airoha_npu_wlan_set_txrx_reg_addr(struct airoha_npu *npu,
+ 						    int ifindex, u32 dir,
+ 						    u32 in_counter_addr,
+@@ -261,6 +267,11 @@ static inline void airoha_npu_put(struct
+ {
+ }
+ 
++static inline int airoha_npu_wlan_init_reserved_memory(struct airoha_npu *npu)
++{
++	return -EOPNOTSUPP;
++}
++
+ static inline int airoha_npu_wlan_set_txrx_reg_addr(struct airoha_npu *npu,
+ 						    int ifindex, u32 dir,
+ 						    u32 in_counter_addr,
