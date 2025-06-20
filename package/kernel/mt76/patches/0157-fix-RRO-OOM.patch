@@ -1,0 +1,81 @@
+--- a/mt76.h
++++ b/mt76.h
+@@ -25,7 +25,6 @@
+ #endif
+ #include "util.h"
+ #include "testmode.h"
+-#define MAGIC_ENABLE 0
+ 
+ #define CHAN2G(_idx, _freq) {			\
+ 	.band = NL80211_BAND_2GHZ,		\
+@@ -2014,6 +2013,12 @@ static inline bool mt76_queue_is_wed_rro
+ 	return q->flags & MT_QFLAG_WED_RRO;
+ }
+ 
++static inline bool mt76_queue_is_rro_active(struct mt76_queue *q)
++{
++	return !mt76_npu_device_active(q->dev) &&
++	       (q->flags & MT_QFLAG_WED_RRO_EN);
++}
++
+ static inline bool mt76_queue_is_wed_rro_ind(struct mt76_queue *q)
+ {
+ 	return mt76_queue_is_wed_rro(q) &&
+--- a/dma.c
++++ b/dma.c
+@@ -157,13 +157,13 @@ EXPORT_SYMBOL_GPL(mt76_free_pending_rxwi
+ static void
+ mt76_dma_sync_idx(struct mt76_dev *dev, struct mt76_queue *q)
+ {
++	u32 val = q->ndesc;
++
+ 	Q_WRITE(q, desc_base, q->desc_dma);
+-#if MAGIC_ENABLE	
+-	if (q->flags & MT_QFLAG_WED_RRO_EN)
+-		Q_WRITE(q, ring_size, MT_DMA_RRO_EN | q->ndesc);
+-	else
+-#endif		
+-		Q_WRITE(q, ring_size, q->ndesc);
++
++	if (mt76_queue_is_rro_active(q))
++		val |= MT_DMA_RRO_EN;
++	Q_WRITE(q, ring_size, val);
+ 
+ 	if (mt76_queue_is_npu_tx(q)) {
+ 		writel(q->desc_dma, &q->regs->desc_base);
+@@ -255,13 +255,13 @@ mt76_dma_add_rx_buf(struct mt76_dev *dev
+ 		if (dev->drv->rx_rro_fill_msdu_pg(dev, q, buf->addr, data))
+ 			return	-ENOMEM;
+ 	}
+-#if MAGIC_ENABLE
+-	if (q->flags & MT_QFLAG_WED_RRO_EN) {
++
++	if (mt76_queue_is_rro_active(q)) {
+ 		info |= FIELD_PREP(MT_DMA_MAGIC_MASK, q->magic_cnt);
+ 		if ((q->head + 1) == q->ndesc)
+ 			q->magic_cnt = (q->magic_cnt + 1) % MT_DMA_MAGIC_CNT;
+ 	}
+-#endif
++
+ 	WRITE_ONCE(desc->buf0, cpu_to_le32(buf->addr));
+ 	WRITE_ONCE(desc->buf1, cpu_to_le32(buf1));
+ 	WRITE_ONCE(desc->ctrl, cpu_to_le32(ctrl));
+@@ -989,14 +989,14 @@ mt76_dma_rx_process(struct mt76_dev *dev
+ 	bool check_ddone = false;
+ 	bool allow_direct = !mt76_queue_is_wed_rx(q);
+ 	bool more;
+-#if MAGIC_ENABLE
+-	if ((q->flags & MT_QFLAG_WED_RRO_EN) ||
++
++	if (mt76_queue_is_rro_active(q) ||
+ 	    (IS_ENABLED(CONFIG_NET_MEDIATEK_SOC_WED) &&
+-	    mt76_queue_is_wed_tx_free(q))) {
++	     mt76_queue_is_wed_tx_free(q))) {
+ 		dma_idx = Q_READ(q, dma_idx);
+ 		check_ddone = true;
+ 	}
+-#endif
++
+ 	while (done < budget) {
+ 		bool drop = false;
+ 		u32 info;
