@@ -1,0 +1,134 @@
+diff -uNr old/mac80211.c new/mac80211.c
+--- old/mac80211.c	2025-05-28 18:18:27.977648000 +0800
++++ new/mac80211.c	2025-05-28 16:00:02.454367000 +0800
+@@ -659,7 +659,11 @@
+ 
+ 	INIT_LIST_HEAD(&dev->wcid_list);
+ 	INIT_LIST_HEAD(&dev->sta_poll_list);
++
++	INIT_LIST_HEAD(&dev->sta_pool_chk_list);
++	
+ 	spin_lock_init(&dev->sta_poll_lock);
++	spin_lock_init(&dev->sta_poll_chk_lock);
+ 
+ 	INIT_LIST_HEAD(&dev->txwi_cache);
+ 	INIT_LIST_HEAD(&dev->rxwi_cache);
+diff -uNr old/mt76.h new/mt76.h
+--- old/mt76.h	2025-05-28 18:18:28.132635000 +0800
++++ new/mt76.h	2025-05-28 15:59:18.366228000 +0800
+@@ -1168,6 +1168,9 @@
+ 	struct list_head wcid_list;
+ 
+ 	struct list_head sta_poll_list;
++	struct list_head sta_pool_chk_list;
++
++	spinlock_t sta_poll_chk_lock;
+ 	spinlock_t sta_poll_lock;
+ 
+ 	u32 rev;
+diff -uNr old/mt7996/mac.c new/mt7996/mac.c
+--- old/mt7996/mac.c	2025-05-28 18:18:28.173634000 +0800
++++ new/mt7996/mac.c	2025-05-28 16:42:25.568058000 +0800
+@@ -1274,6 +1274,21 @@
+ #endif
+ 
+ 
++int check_sta_valid(struct mt76_dev *dev, struct ieee80211_sta *sta){
++	int ret = 0;
++	struct sta_pool_check *sta_pool_chk = NULL, *sta_pool_tmp = NULL;
++	spin_lock_bh(&dev->sta_poll_chk_lock);
++	list_for_each_entry_safe(sta_pool_chk, sta_pool_tmp, &dev->sta_pool_chk_list, list){
++		if(sta_pool_chk->sta_pointer == (void *)sta){
++			ret = 1;
++			goto out;
++		}
++	}
++out:
++	spin_unlock_bh(&dev->sta_poll_chk_lock);
++	return ret;
++}
++
+ static void
+ mt7996_mac_tx_free(struct mt7996_dev *dev, void *data, int len)
+ {
+@@ -1328,13 +1343,15 @@
+ 			unsigned int link_id;
+ 			u32 next_info;
+ 			u16 idx;
+-
+ 			idx = FIELD_GET(MT_TXFREE_INFO_WLAN_ID, info);
++			if(idx >= MT76_N_WCIDS)
++				goto next;
+ 			wcid = rcu_dereference(dev->mt76.wcid[idx]);
+-			sta = wcid_to_sta(wcid);
++			sta = wcid_to_sta(wcid);			
+ 			if (!sta)
+ 				goto next;
+-
++			if(!check_sta_valid(mdev, sta))
++				goto next;
+ 			valid_links = sta->valid_links ?: BIT(0);
+ 			msta = (struct mt7996_sta *)sta->drv_priv;
+ 			/* for MLD STA, add all link's wcid to sta_poll_list */
+diff -uNr old/mt7996/main.c new/mt7996/main.c
+--- old/mt7996/main.c	2025-05-28 18:18:28.039647000 +0800
++++ new/mt7996/main.c	2025-05-28 16:35:38.504050000 +0800
+@@ -1397,6 +1397,7 @@
+ 	struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+ 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
+ 	struct mt7996_bss_conf *mconf;
++	struct sta_pool_check *sta_pool_new = NULL;
+ 	u8 link_id = sta->valid_links ? __ffs(sta->valid_links) : 0;
+ 	unsigned long add = BIT(link_id);
+ 	int ret;
+@@ -1409,7 +1410,11 @@
+ 	ret = mt7996_mac_sta_add_links(dev, vif, sta, add, false);
+ 	if (ret)
+ 		return ret;
+-
++	sta_pool_new = kmalloc(sizeof(*sta_pool_new), GFP_KERNEL);
++	sta_pool_new->sta_pointer = (void *)sta;
++	spin_lock_bh(&mdev->sta_poll_chk_lock);
++	list_add(&sta_pool_new->list, &mdev->sta_pool_chk_list);
++	spin_unlock_bh(&mdev->sta_poll_chk_lock);
+ #ifdef CONFIG_MTK_VENDOR
+ 	mconf = mconf_dereference_protected(mvif, link_id);
+ 	mt7996_vendor_amnt_sta_remove(mconf->phy, sta);
+@@ -1504,12 +1509,23 @@
+ {
+ 	struct mt7996_dev *dev = container_of(mdev, struct mt7996_dev, mt76);
+ 	struct mt7996_sta *msta = (struct mt7996_sta *)sta->drv_priv;
++	struct sta_pool_check *sta_pool_rm = NULL, *sta_pool_tmp = NULL;
+ 	unsigned long rem = sta->valid_links ?: BIT(0);
+ 
+ #ifdef CONFIG_MTK_VENDOR
+ 	mt7996_mcu_set_csi(&dev->phy, 2, 8, 1, 0, sta->addr);
+ #endif
+ 	mt7996_mac_sta_remove_links(dev, vif, sta, rem | msta->valid_links);
++	spin_lock_bh(&mdev->sta_poll_chk_lock);
++	list_for_each_entry_safe(sta_pool_rm, sta_pool_tmp, &mdev->sta_pool_chk_list, list){
++		if(sta_pool_rm->sta_pointer == (void *)sta){
++			list_del(&sta_pool_rm->list);
++			kfree(sta_pool_rm);
++			goto out;
++		}
++	}
++out:
++	spin_unlock_bh(&mdev->sta_poll_chk_lock);	
+ }
+ 
+ static void
+diff -uNr old/mt7996/mt7996.h new/mt7996/mt7996.h
+--- old/mt7996/mt7996.h	2025-05-28 18:18:28.070628000 +0800
++++ new/mt7996/mt7996.h	2025-05-28 16:18:04.256157000 +0800
+@@ -433,6 +433,10 @@
+ 	unsigned long last_addba_req_time[IEEE80211_NUM_TIDS];
+ };
+ 
++struct sta_pool_check{
++	void *sta_pointer;
++	struct list_head list;
++};
+ struct mt7996_bss_conf {
+ 	struct mt76_vif mt76; /* must be first */
+ 	struct rcu_head rcu_head;
