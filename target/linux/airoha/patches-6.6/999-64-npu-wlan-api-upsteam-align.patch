@@ -85,7 +85,7 @@
 +				     u32 data, gfp_t gfp);
 +		int (*wlan_get_msg)(struct airoha_npu *npu, int ifindex,
 +				    enum airoha_npu_wlan_get_cmd func_id,
-+				    u32 *data);
++				    u32 *data, gfp_t gfp);
  		u32 (*wlan_get_queue_addr)(struct airoha_npu *npu, int qid,
  					   bool xmit);
  		void (*wlan_set_irq_status)(struct airoha_npu *npu, u32 val);
@@ -127,10 +127,10 @@
 -					   u32 desc)
 +static inline int airoha_npu_wlan_get_msg(struct airoha_npu *npu, int ifindex,
 +					  enum airoha_npu_wlan_get_cmd cmd,
-+					  u32 *data)
++					  u32 *data, gfp_t gfp)
  {
 -	return npu->ops.wlan_set_desc(npu, ifindex, desc);
-+	return npu->ops.wlan_get_msg(npu, ifindex, cmd, data);
++	return npu->ops.wlan_get_msg(npu, ifindex, cmd, data, gfp);
  }
  
 -static inline int airoha_npu_wlan_set_tx_ring_pcie_addr(struct airoha_npu *npu,
@@ -221,7 +221,7 @@
 -							 int ifindex, u32 addr)
 +static inline int airoha_npu_wlan_get_msg(struct airoha_npu *npu, int ifindex,
 +					  enum airoha_npu_wlan_get_cmd cmd,
-+					  u32 *data)
++					  u32 *data, gfp_t gfp)
  {
  	return -EOPNOTSUPP;
  }
@@ -304,7 +304,7 @@
  {
  	struct wlan_mbox_data *wlan_data;
  	int err;
-@@ -494,8 +446,9 @@ static int airoha_npu_wlan_send_msg(stru
+@@ -494,17 +446,18 @@ static int airoha_npu_wlan_send_msg(stru
  	return err;
  }
  
@@ -312,11 +312,13 @@
 -				   int func_id, u32 *data)
 +static int airoha_npu_wlan_msg_get(struct airoha_npu *npu, int ifindex,
 +				   enum airoha_npu_wlan_get_cmd func_id,
-+				   u32 *data)
++				   u32 *data, gfp_t gfp)
  {
  	struct wlan_mbox_data *wlan_data;
  	int err;
-@@ -504,7 +457,7 @@ static int airoha_npu_wlan_get_msg(struc
+ 
+-	wlan_data = kzalloc(sizeof(*wlan_data), GFP_ATOMIC);
++	wlan_data = kzalloc(sizeof(*wlan_data), gfp);
  	if (!wlan_data)
  		return -ENOMEM;
  
