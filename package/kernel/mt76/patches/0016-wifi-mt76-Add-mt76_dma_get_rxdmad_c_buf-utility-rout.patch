@@ -1,0 +1,171 @@
+From f6d9eb444f169a66fb2e35e18b15b01221c5e67d Mon Sep 17 00:00:00 2001
+Message-ID: <f6d9eb444f169a66fb2e35e18b15b01221c5e67d.1753523038.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Wed, 23 Jul 2025 17:24:34 +0200
+Subject: [PATCH 16/22] wifi: mt76: Add mt76_dma_get_rxdmad_c_buf utility
+ routione
+
+Introduce mt76_dma_get_rxdmad_c_buf routine to process packets received
+by HW-RRO v3.1 module.
+This is a preliminary patch to introduce SW path for HW-RRO v3.1 module
+available on MT7992 chipset.
+
+Co-developed-by: Rex Lu <rex.lu@mediatek.com>
+Signed-off-by: Rex Lu <rex.lu@mediatek.com>
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ dma.c  | 43 ++++++++++++++++++++++++++++++++++++++++++-
+ dma.h  | 33 +++++++++++++++++++++++++++++++++
+ mt76.h |  8 ++++++++
+ 3 files changed, 83 insertions(+), 1 deletion(-)
+
+diff --git a/dma.c b/dma.c
+index eb7ccee2..86428d38 100644
+--- a/dma.c
++++ b/dma.c
+@@ -427,6 +427,43 @@ mt76_dma_tx_cleanup(struct mt76_dev *dev, struct mt76_queue *q, bool flush)
+ 		wake_up(&dev->tx_wait);
+ }
+ 
++static void *
++mt76_dma_get_rxdmad_c_buf(struct mt76_dev *dev, struct mt76_queue *q,
++			  int idx, int *len, bool *more)
++{
++	struct mt76_queue_entry *e = &q->entry[idx];
++	struct mt76_rro_rxdmad_c *dmad = e->buf;
++	struct mt76_txwi_cache *t;
++	void *buf;
++
++	t = mt76_rx_token_release(dev, dmad->rx_token_id);
++	if (!t)
++		return NULL;
++
++	q = &dev->q_rx[t->qid];
++	dma_sync_single_for_cpu(dev->dma_dev, t->dma_addr,
++				SKB_WITH_OVERHEAD(q->buf_size),
++				page_pool_get_dma_dir(q->page_pool));
++
++	if (len)
++		*len = dmad->sdl0;
++	if (more)
++		*more = !dmad->ls;
++
++	buf = t->ptr;
++	if (dmad->ind_reason == MT_DMA_WED_IND_REASON_REPEAT ||
++	    dmad->ind_reason == MT_DMA_WED_IND_REASON_OLDPKT) {
++		mt76_put_page_pool_buf(buf, false);
++		buf = NULL;
++	}
++	t->ptr = NULL;
++	t->dma_addr = 0;
++
++	mt76_put_rxwi(dev, t);
++
++	return buf;
++}
++
+ static void *
+ mt76_dma_get_buf(struct mt76_dev *dev, struct mt76_queue *q, int idx,
+ 		 int *len, u32 *info, bool *more, bool *drop)
+@@ -436,6 +473,9 @@ mt76_dma_get_buf(struct mt76_dev *dev, struct mt76_queue *q, int idx,
+ 	u32 ctrl, desc_info, buf1;
+ 	void *buf = e->buf;
+ 
++	if (mt76_queue_is_wed_rro_rxdmad_c(q))
++		buf = mt76_dma_get_rxdmad_c_buf(dev, q, idx, len, more);
++
+ 	if (mt76_queue_is_wed_rro(q))
+ 		goto done;
+ 
+@@ -888,7 +928,8 @@ mt76_dma_rx_process(struct mt76_dev *dev, struct mt76_queue *q, int budget)
+ 		if (mt76_queue_is_wed_rro_ind(q) && dev->drv->rx_rro_ind_process)
+ 			dev->drv->rx_rro_ind_process(dev, data);
+ 
+-		if (mt76_queue_is_wed_rro(q)) {
++		if (mt76_queue_is_wed_rro(q) &&
++		    !mt76_queue_is_wed_rro_rxdmad_c(q)) {
+ 			done++;
+ 			continue;
+ 		}
+diff --git a/dma.h b/dma.h
+index 2fc63c90..d053dc0f 100644
+--- a/dma.h
++++ b/dma.h
+@@ -58,6 +58,39 @@ struct mt76_wed_rro_desc {
+ 	__le32 buf1;
+ } __packed __aligned(4);
+ 
++struct mt76_rro_rxdmad_c {
++	u32 sdp0_31_0;
++	u32 header_ofst	: 7;
++	u32 ver		: 1;
++	u32 to_host	: 1;
++	u32 ring_info	: 2;
++	u32 dst_sel	: 2;
++	u32 pn_chk_fail	: 1;
++	u32 rsv		: 2;
++	u32 sdl0	: 14;
++	u32 ls		: 1;
++	u32 rsv2	: 1;
++	u32 sdp0_35_32	: 4;
++	u32 rsv3	: 2;
++	u32 sca_gat	: 1;
++	u32 par_se	: 1;
++	u32 rss_hash	: 4;
++	u32 ind_reason	: 4;
++	u32 rx_token_id	: 16;
++	u32 cs_status	: 4;
++	u32 cs_type	: 4;
++	u32 c		: 1;
++	u32 f		: 1;
++	u32 un		: 1;
++	u32 is_fc_data	: 1;
++	u32 uc		: 1;
++	u32 mc		: 1;
++	u32 bc		: 1;
++	u32 rsv4	: 1;
++	u32 wcid	: 12;
++	u32 magic_cnt	: 4;
++};
++
+ enum mt76_qsel {
+ 	MT_QSEL_MGMT,
+ 	MT_QSEL_HCCA,
+diff --git a/mt76.h b/mt76.h
+index c692f124..1903faef 100644
+--- a/mt76.h
++++ b/mt76.h
+@@ -50,6 +50,7 @@
+ #define MT_WED_RRO_Q_DATA(_n)	__MT_WED_RRO_Q(MT76_WED_RRO_Q_DATA, _n)
+ #define MT_WED_RRO_Q_MSDU_PG(_n)	__MT_WED_RRO_Q(MT76_WED_RRO_Q_MSDU_PG, _n)
+ #define MT_WED_RRO_Q_IND	__MT_WED_RRO_Q(MT76_WED_RRO_Q_IND, 0)
++#define MT_WED_RRO_Q_RXDMAD_C	__MT_WED_RRO_Q(MT76_WED_RRO_Q_RXDMAD_C, 0)
+ 
+ struct mt76_dev;
+ struct mt76_phy;
+@@ -76,6 +77,7 @@ enum mt76_wed_type {
+ 	MT76_WED_RRO_Q_DATA,
+ 	MT76_WED_RRO_Q_MSDU_PG,
+ 	MT76_WED_RRO_Q_IND,
++	MT76_WED_RRO_Q_RXDMAD_C,
+ };
+ 
+ struct mt76_bus_ops {
+@@ -1798,6 +1800,12 @@ static inline bool mt76_queue_is_wed_rro_ind(struct mt76_queue *q)
+ 	       FIELD_GET(MT_QFLAG_WED_TYPE, q->flags) == MT76_WED_RRO_Q_IND;
+ }
+ 
++static inline bool mt76_queue_is_wed_rro_rxdmad_c(struct mt76_queue *q)
++{
++	return mt76_queue_is_wed_rro(q) &&
++	       FIELD_GET(MT_QFLAG_WED_TYPE, q->flags) == MT76_WED_RRO_Q_RXDMAD_C;
++}
++
+ static inline bool mt76_queue_is_wed_rro_data(struct mt76_queue *q)
+ {
+ 	return mt76_queue_is_wed_rro(q) &&
+-- 
+2.50.1
+

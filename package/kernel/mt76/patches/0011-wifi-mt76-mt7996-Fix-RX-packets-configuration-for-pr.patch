@@ -1,0 +1,42 @@
+From c8090c01bfbb0d8bd2b17b9bea10a12c8d93cb61 Mon Sep 17 00:00:00 2001
+Message-ID: <c8090c01bfbb0d8bd2b17b9bea10a12c8d93cb61.1753523038.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sun, 20 Jul 2025 20:16:41 +0200
+Subject: [PATCH 11/22] wifi: mt76: mt7996: Fix RX packets configuration for
+ primary WED device
+
+In order to properly set the number of rx packets for primary WED device
+if hif device is available, move hif pointer initialization before
+running mt7996_mmio_wed_init routine.
+
+Fixes: 83eafc9251d6d ("wifi: mt76: mt7996: add wed tx support")
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ mt7996/pci.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/mt7996/pci.c b/mt7996/pci.c
+index 19e99bc1..f5ce5005 100644
+--- a/mt7996/pci.c
++++ b/mt7996/pci.c
+@@ -137,6 +137,7 @@ static int mt7996_pci_probe(struct pci_dev *pdev,
+ 	mdev = &dev->mt76;
+ 	mt7996_wfsys_reset(dev);
+ 	hif2 = mt7996_pci_init_hif2(pdev);
++	dev->hif2 = hif2;
+ 
+ 	ret = mt7996_mmio_wed_init(dev, pdev, false, &irq);
+ 	if (ret < 0)
+@@ -161,7 +162,6 @@ static int mt7996_pci_probe(struct pci_dev *pdev,
+ 
+ 	if (hif2) {
+ 		hif2_dev = container_of(hif2->dev, struct pci_dev, dev);
+-		dev->hif2 = hif2;
+ 
+ 		ret = mt7996_mmio_wed_init(dev, hif2_dev, true, &hif2_irq);
+ 		if (ret < 0)
+-- 
+2.50.1
+

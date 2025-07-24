@@ -1,0 +1,105 @@
+From f797f67cd7917f060f4296742e2fa8a9f4bd0f39 Mon Sep 17 00:00:00 2001
+Message-ID: <f797f67cd7917f060f4296742e2fa8a9f4bd0f39.1753523038.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Mon, 14 Jul 2025 13:51:25 +0200
+Subject: [PATCH 18/22] wifi: mt76: Move Q_READ/Q_WRITE definitions in dma.h
+
+This is a preliminary patch to enable traffic forward offloading between
+the MT76 NIC and Airoha ethernet one via the Airoha NPU module available
+on the Airoha EN7581 SoC.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ dma.c | 31 -------------------------------
+ dma.h | 31 +++++++++++++++++++++++++++++++
+ 2 files changed, 31 insertions(+), 31 deletions(-)
+
+diff --git a/dma.c b/dma.c
+index 45943891..73bd87bd 100644
+--- a/dma.c
++++ b/dma.c
+@@ -7,37 +7,6 @@
+ #include "mt76.h"
+ #include "dma.h"
+ 
+-#if IS_ENABLED(CONFIG_NET_MEDIATEK_SOC_WED)
+-
+-#define Q_READ(_q, _field) ({						\
+-	u32 _offset = offsetof(struct mt76_queue_regs, _field);		\
+-	u32 _val;							\
+-	if ((_q)->flags & MT_QFLAG_WED)					\
+-		_val = mtk_wed_device_reg_read((_q)->wed,		\
+-					       ((_q)->wed_regs +	\
+-					        _offset));		\
+-	else								\
+-		_val = readl(&(_q)->regs->_field);			\
+-	_val;								\
+-})
+-
+-#define Q_WRITE(_q, _field, _val)	do {				\
+-	u32 _offset = offsetof(struct mt76_queue_regs, _field);		\
+-	if ((_q)->flags & MT_QFLAG_WED)					\
+-		mtk_wed_device_reg_write((_q)->wed,			\
+-					 ((_q)->wed_regs + _offset),	\
+-					 _val);				\
+-	else								\
+-		writel(_val, &(_q)->regs->_field);			\
+-} while (0)
+-
+-#else
+-
+-#define Q_READ(_q, _field)		readl(&(_q)->regs->_field)
+-#define Q_WRITE(_q, _field, _val)	writel(_val, &(_q)->regs->_field)
+-
+-#endif
+-
+ static struct mt76_txwi_cache *
+ mt76_alloc_txwi(struct mt76_dev *dev)
+ {
+diff --git a/dma.h b/dma.h
+index d053dc0f..820b7e95 100644
+--- a/dma.h
++++ b/dma.h
+@@ -46,6 +46,37 @@
+ #define MT_FCE_INFO_LEN			4
+ #define MT_RX_RXWI_LEN			32
+ 
++#if IS_ENABLED(CONFIG_NET_MEDIATEK_SOC_WED)
++
++#define Q_READ(_q, _field) ({						\
++	u32 _offset = offsetof(struct mt76_queue_regs, _field);		\
++	u32 _val;							\
++	if ((_q)->flags & MT_QFLAG_WED)					\
++		_val = mtk_wed_device_reg_read((_q)->wed,		\
++					       ((_q)->wed_regs +	\
++					        _offset));		\
++	else								\
++		_val = readl(&(_q)->regs->_field);			\
++	_val;								\
++})
++
++#define Q_WRITE(_q, _field, _val)	do {				\
++	u32 _offset = offsetof(struct mt76_queue_regs, _field);		\
++	if ((_q)->flags & MT_QFLAG_WED)					\
++		mtk_wed_device_reg_write((_q)->wed,			\
++					 ((_q)->wed_regs + _offset),	\
++					 _val);				\
++	else								\
++		writel(_val, &(_q)->regs->_field);			\
++} while (0)
++
++#else
++
++#define Q_READ(_q, _field)		readl(&(_q)->regs->_field)
++#define Q_WRITE(_q, _field, _val)	writel(_val, &(_q)->regs->_field)
++
++#endif
++
+ struct mt76_desc {
+ 	__le32 buf0;
+ 	__le32 ctrl;
+-- 
+2.50.1
+

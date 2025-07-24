@@ -1,0 +1,44 @@
+From 293a152e8db019150cc8e57a1da5666a0e0f74bc Mon Sep 17 00:00:00 2001
+Message-ID: <293a152e8db019150cc8e57a1da5666a0e0f74bc.1753523038.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Mon, 14 Jul 2025 13:57:57 +0200
+Subject: [PATCH 19/22] wifi: mt76: Add mt76_dev pointer in mt76_queue struct.
+
+This is a preliminary patch to enable traffic forward offloading via the
+Airoha NPU module available on the Airoha EN7581 SoC.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ dma.c  | 1 +
+ mt76.h | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/dma.c b/dma.c
+index 73bd87bd..1602fd19 100644
+--- a/dma.c
++++ b/dma.c
+@@ -750,6 +750,7 @@ mt76_dma_alloc_queue(struct mt76_dev *dev, struct mt76_queue *q,
+ 	q->ndesc = n_desc;
+ 	q->buf_size = bufsize;
+ 	q->hw_idx = idx;
++	q->dev = dev;
+ 
+ 	size = mt76_queue_is_wed_rro_ind(q) ? sizeof(struct mt76_wed_rro_desc)
+ 					    : sizeof(struct mt76_desc);
+diff --git a/mt76.h b/mt76.h
+index dadbb04b..e75cc886 100644
+--- a/mt76.h
++++ b/mt76.h
+@@ -252,6 +252,7 @@ struct mt76_queue {
+ 	__le16 *emi_cpu_idx;
+ 
+ 	struct mtk_wed_device *wed;
++	struct mt76_dev *dev;
+ 	u32 wed_regs;
+ 
+ 	dma_addr_t desc_dma;
+-- 
+2.50.1
+
