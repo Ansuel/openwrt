@@ -1,5 +1,5 @@
-From fb95d62af99ac9e8b0fa05fdbf6010bc1e71fb91 Mon Sep 17 00:00:00 2001
-Message-ID: <fb95d62af99ac9e8b0fa05fdbf6010bc1e71fb91.1753605058.git.lorenzo@kernel.org>
+From dfd6957fab5bd175ca20573ea4db9a83a526b67d Mon Sep 17 00:00:00 2001
+Message-ID: <dfd6957fab5bd175ca20573ea4db9a83a526b67d.1753607102.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 14 Jul 2025 16:25:38 +0200
 Subject: [PATCH] wifi: mt76: mt7996: Add NPU offload support to MT7996 driver
@@ -17,9 +17,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  mt7996/main.c   |  26 ++--
  mt7996/mmio.c   |  13 +-
  mt7996/mt7996.h |  21 +++
- mt7996/npu.c    | 351 ++++++++++++++++++++++++++++++++++++++++++++++++
+ mt7996/npu.c    | 361 ++++++++++++++++++++++++++++++++++++++++++++++++
  mt7996/pci.c    |   3 +
- 9 files changed, 426 insertions(+), 16 deletions(-)
+ 9 files changed, 436 insertions(+), 16 deletions(-)
  create mode 100644 mt7996/npu.c
 
 diff --git a/mt7996/Makefile b/mt7996/Makefile
@@ -281,10 +281,10 @@ index cbe7cef6..10cff369 100644
  #endif
 diff --git a/mt7996/npu.c b/mt7996/npu.c
 new file mode 100644
-index 00000000..bb1eb724
+index 00000000..fce11e91
 --- /dev/null
 +++ b/mt7996/npu.c
-@@ -0,0 +1,351 @@
+@@ -0,0 +1,361 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2025 AIROHA Inc
@@ -299,15 +299,25 @@ index 00000000..bb1eb724
 +				   struct airoha_npu *npu)
 +{
 +	phys_addr_t phy_addr = dev->mt76.mmio.phy_addr;
-+	u32 hif1_ofs = 0, dma_addr;
++	u32 val, hif1_ofs = 0, dma_addr;
 +	int i, err;
++
++	err = airoha_npu_wlan_get_msg(npu, 0, WLAN_FUNC_GET_WAIT_NPU_VERSION,
++				      &val, GFP_KERNEL);
++	if (err) {
++		dev_warn(dev->mt76.dev, "failed getting NPU fw version\n");
++		return err;
++	}
++
++	dev_info(dev->mt76.dev, "NPU version: %0d.%d\n",
++		 (val >> 16) & 0xffff, val & 0xffff);
 +
 +	err = airoha_npu_wlan_send_msg(npu, 0,
 +				       WLAN_FUNC_SET_WAIT_PCIE_PORT_TYPE,
 +				       dev->mt76.mmio.npu_type, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
-+			 "failed setting npu wlan PCIe port type\n");
++			 "failed setting NPU wlan PCIe port type\n");
 +		return err;
 +	}
 +
@@ -327,7 +337,7 @@ index 00000000..bb1eb724
 +					       dma_addr, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
-+				 "failed setting npu wlan PCIe desc addr\n");
++				 "failed setting NPU wlan PCIe desc addr\n");
 +			return err;
 +		}
 +
@@ -335,7 +345,7 @@ index 00000000..bb1eb724
 +					       MT7996_RX_RING_SIZE, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
-+				 "failed setting npu wlan PCIe desc size\n");
++				 "failed setting NPU wlan PCIe desc size\n");
 +			return err;
 +		}
 +
@@ -350,7 +360,7 @@ index 00000000..bb1eb724
 +					       dma_addr, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
-+				 "failed setting npu wlan tx desc addr\n");
++				 "failed setting NPU wlan tx desc addr\n");
 +			return err;
 +		}
 +	}
@@ -360,7 +370,7 @@ index 00000000..bb1eb724
 +				       GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
-+			 "failed setting npu wlan rxdmad_c addr\n");
++			 "failed setting NPU wlan rxdmad_c addr\n");
 +		return err;
 +	}
 +
@@ -368,7 +378,7 @@ index 00000000..bb1eb724
 +				       MT7996_RX_RING_SIZE, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
-+			 "failed setting npu wlan rxdmad_c desc size\n");
++			 "failed setting NPU wlan rxdmad_c desc size\n");
 +		return err;
 +	}
 +
@@ -378,7 +388,7 @@ index 00000000..bb1eb724
 +				       GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
-+			 "failed setting npu wlan rro_ack_sn desc addr\n");
++			 "failed setting NPU wlan rro_ack_sn desc addr\n");
 +		return err;
 +	}
 +
@@ -402,7 +412,7 @@ index 00000000..bb1eb724
 +				      &val, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
-+			 "failed retriving npu wlan rx ring0 addr\n");
++			 "failed retriving NPU wlan rx ring0 addr\n");
 +		return err;
 +	}
 +	writel(val, &dev->mt76.q_rx[MT_RXQ_RRO_BAND0].regs->desc_base);
@@ -411,7 +421,7 @@ index 00000000..bb1eb724
 +				      &val, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
-+			 "failed retriving npu wlan rx ring1 addr\n");
++			 "failed retriving NPU wlan rx ring1 addr\n");
 +		return err;
 +	}
 +	writel(val, &dev->mt76.q_rx[MT_RXQ_RRO_BAND1].regs->desc_base);
@@ -420,7 +430,7 @@ index 00000000..bb1eb724
 +				      &val, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
-+			 "failed retriving npu wlan rxdmad_c ring addr\n");
++			 "failed retriving NPU wlan rxdmad_c ring addr\n");
 +		return err;
 +	}
 +	writel(val, &dev->mt76.q_rx[MT_RXQ_RRO_RXDMAD_C].regs->desc_base);
@@ -441,7 +451,7 @@ index 00000000..bb1eb724
 +					      &val, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
-+				 "failed retriving npu wlan tx ring addr\n");
++				 "failed retriving NPU wlan tx ring addr\n");
 +			return err;
 +		}
 +		writel(val, &dev->mt76.phys[i]->q_tx[0]->regs->desc_base);
@@ -456,7 +466,7 @@ index 00000000..bb1eb724
 +					       dma_addr, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
-+				 "failed setting npu wlan queue buf addr\n");
++				 "failed setting NPU wlan queue buf addr\n");
 +			return err;
 +		}
 +
@@ -470,7 +480,7 @@ index 00000000..bb1eb724
 +					       dma_addr, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
-+				 "failed setting npu wlan tx buf addr\n");
++				 "failed setting NPU wlan tx buf addr\n");
 +			return err;
 +		}
 +
@@ -483,7 +493,7 @@ index 00000000..bb1eb724
 +					       dma_addr, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
-+				 "failed setting npu wlan tx buf base\n");
++				 "failed setting NPU wlan tx buf base\n");
 +			return err;
 +		}
 +	}
@@ -503,7 +513,7 @@ index 00000000..bb1eb724
 +				       q->desc_dma, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
-+			 "failed setting npu wlan tx-done ring\n");
++			 "failed setting NPU wlan tx-done ring\n");
 +		return err;
 +	}
 +
@@ -511,7 +521,7 @@ index 00000000..bb1eb724
 +				       MT7996_RX_MCU_RING_SIZE, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
-+			 "failed setting npu wlan descriptors\n");
++			 "failed setting NPU wlan descriptors\n");
 +		return err;
 +	}
 +
@@ -520,7 +530,7 @@ index 00000000..bb1eb724
 +				       phy_addr, GFP_KERNEL);
 +	if (err)
 +		dev_warn(dev->mt76.dev,
-+			 "failed setting npu wlan rx pcie address\n");
++			 "failed setting NPU wlan rx pcie address\n");
 +	return err;
 +}
 +
@@ -533,7 +543,7 @@ index 00000000..bb1eb724
 +				       WLAN_FUNC_SET_WAIT_INODE_TXRX_REG_ADDR, 0,
 +				       GFP_KERNEL);
 +	if (err) {
-+		dev_warn(dev->mt76.dev, "failed setting npu wlan txrx addr2\n");
++		dev_warn(dev->mt76.dev, "failed setting NPU wlan txrx addr2\n");
 +		return err;
 +	}
 +
@@ -541,7 +551,7 @@ index 00000000..bb1eb724
 +				       WLAN_FUNC_SET_WAIT_INODE_TXRX_REG_ADDR, 0,
 +				       GFP_KERNEL);
 +	if (err)
-+		dev_warn(dev->mt76.dev, "failed setting npu wlan txrx addr7\n");
++		dev_warn(dev->mt76.dev, "failed setting NPU wlan txrx addr7\n");
 +
 +	return err;
 +}
