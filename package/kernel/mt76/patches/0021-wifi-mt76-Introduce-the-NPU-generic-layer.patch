@@ -1,10 +1,8 @@
-From a1908240244f6e365cf6115bc5d73000f3573d4f Mon Sep 17 00:00:00 2001
-Message-ID: <a1908240244f6e365cf6115bc5d73000f3573d4f.1753523038.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+From 5043efd10a3fe79a58a38d00864c963d2080f186 Mon Sep 17 00:00:00 2001
+Message-ID: <5043efd10a3fe79a58a38d00864c963d2080f186.1753602212.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 14 Jul 2025 15:16:13 +0200
-Subject: [PATCH 21/22] wifi: mt76: Introduce the NPU generic layer
+Subject: [PATCH 1/2] wifi: mt76: Introduce the NPU generic layer
 
 Add the NPU generic layer in mt76 module. NPU will be used to enable
 traffic forward offloading between the MT76 NIC and Airoha ethernet one
@@ -12,13 +10,15 @@ available on the Airoha EN7581 SoC using Netfilter Flowtable APIs.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- Makefile   |   1 +
- dma.c      |  39 ++++-
- dma.h      |  36 ++++
- mac80211.c |   6 +-
- mt76.h     | 115 +++++++++++++
- npu.c      | 491 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 682 insertions(+), 6 deletions(-)
+ Makefile      |   1 +
+ dma.c         |  41 ++++-
+ dma.h         |  36 ++++
+ mac80211.c    |   6 +-
+ mt76.h        | 115 ++++++++++++
+ mt7996/dma.c  |   3 +-
+ mt7996/init.c |   3 +-
+ npu.c         | 491 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 8 files changed, 687 insertions(+), 9 deletions(-)
  create mode 100644 npu.c
 
 diff --git a/Makefile b/Makefile
@@ -34,10 +34,15 @@ index a4663ccd..1c80cc83 100644
  mt76-$(CONFIG_NL80211_TESTMODE) += testmode.o
  
 diff --git a/dma.c b/dma.c
-index 1602fd19..e7fe0f0a 100644
+index 1602fd19..327a225a 100644
 --- a/dma.c
 +++ b/dma.c
-@@ -162,6 +162,11 @@ mt76_dma_sync_idx(struct mt76_dev *dev, struct mt76_queue *q)
+@@ -158,10 +158,15 @@ static void
+ mt76_dma_sync_idx(struct mt76_dev *dev, struct mt76_queue *q)
+ {
+ 	Q_WRITE(q, desc_base, q->desc_dma);
+-	if (q->flags & MT_QFLAG_WED_RRO_EN)
++	if ((q->flags & MT_QFLAG_WED_RRO_EN) && !mt76_npu_device_active(dev))
  		Q_WRITE(q, ring_size, MT_DMA_RRO_EN | q->ndesc);
  	else
  		Q_WRITE(q, ring_size, q->ndesc);
@@ -392,6 +397,34 @@ index 1880c0e1..752486d9 100644
  struct mt76_txwi_cache *
  mt76_token_release(struct mt76_dev *dev, int token, bool *wake);
  int mt76_token_consume(struct mt76_dev *dev, struct mt76_txwi_cache **ptxwi);
+diff --git a/mt7996/dma.c b/mt7996/dma.c
+index 8e370539..e973d4de 100644
+--- a/mt7996/dma.c
++++ b/mt7996/dma.c
+@@ -500,7 +500,8 @@ int mt7996_dma_rro_init(struct mt7996_dev *dev)
+ 	if (dev->mt76.hwrro_mode == MT76_HWRRO_V3_1) {
+ 		/* rxdmad_c */
+ 		mdev->q_rx[MT_RXQ_RRO_RXDMAD_C].flags = MT_WED_RRO_Q_RXDMAD_C;
+-		mdev->q_rx[MT_RXQ_RRO_RXDMAD_C].flags |= MT_QFLAG_EMI_EN;
++		if (!mt76_npu_device_active(&dev->mt76))
++			mdev->q_rx[MT_RXQ_RRO_RXDMAD_C].flags |= MT_QFLAG_EMI_EN;
+ 		ret = mt76_queue_alloc(dev, &mdev->q_rx[MT_RXQ_RRO_RXDMAD_C],
+ 				       MT_RXQ_ID(MT_RXQ_RRO_RXDMAD_C),
+ 				       MT7996_RX_RING_SIZE,
+diff --git a/mt7996/init.c b/mt7996/init.c
+index ae4cc4f7..dcf80709 100644
+--- a/mt7996/init.c
++++ b/mt7996/init.c
+@@ -799,7 +799,8 @@ void mt7996_rro_hw_init(struct mt7996_dev *dev)
+ 				   MT_RRO_3_0_EMU_CONF_EN_MASK);
+ 			mt76_set(dev, MT_RRO_3_1_GLOBAL_CONFIG,
+ 				 MT_RRO_3_1_GLOBAL_CONFIG_RXDMAD_SEL);
+-			if (!mtk_wed_device_active(&dev->mt76.mmio.wed)) {
++			if (!mtk_wed_device_active(&dev->mt76.mmio.wed) &&
++			    !mt76_npu_device_active(&dev->mt76)) {
+ 				mt76_set(dev, MT_RRO_3_1_GLOBAL_CONFIG,
+ 					 MT_RRO_3_1_GLOBAL_CONFIG_RX_DIDX_WR_EN |
+ 					 MT_RRO_3_1_GLOBAL_CONFIG_RX_CIDX_RD_EN);
 diff --git a/npu.c b/npu.c
 new file mode 100644
 index 00000000..09f66682
