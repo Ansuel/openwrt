@@ -1,11 +1,8 @@
-From 46e03a0ce824635dfe6064240a22e6bcf4d4e212 Mon Sep 17 00:00:00 2001
-Message-ID: <46e03a0ce824635dfe6064240a22e6bcf4d4e212.1753602212.git.lorenzo@kernel.org>
-In-Reply-To: <5043efd10a3fe79a58a38d00864c963d2080f186.1753602212.git.lorenzo@kernel.org>
-References: <5043efd10a3fe79a58a38d00864c963d2080f186.1753602212.git.lorenzo@kernel.org>
+From fb95d62af99ac9e8b0fa05fdbf6010bc1e71fb91 Mon Sep 17 00:00:00 2001
+Message-ID: <fb95d62af99ac9e8b0fa05fdbf6010bc1e71fb91.1753605058.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 14 Jul 2025 16:25:38 +0200
-Subject: [PATCH 2/2] wifi: mt76: mt7996: Add NPU offload support to MT7996
- driver
+Subject: [PATCH] wifi: mt76: mt7996: Add NPU offload support to MT7996 driver
 
 Introduce Airoha NPU support to MT7996 driver. NPU is used to enable
 traffic forward offloading between the MT76 NIC and Airoha ethernet one
@@ -20,9 +17,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  mt7996/main.c   |  26 ++--
  mt7996/mmio.c   |  13 +-
  mt7996/mt7996.h |  21 +++
- mt7996/npu.c    | 342 ++++++++++++++++++++++++++++++++++++++++++++++++
+ mt7996/npu.c    | 351 ++++++++++++++++++++++++++++++++++++++++++++++++
  mt7996/pci.c    |   3 +
- 9 files changed, 417 insertions(+), 16 deletions(-)
+ 9 files changed, 426 insertions(+), 16 deletions(-)
  create mode 100644 mt7996/npu.c
 
 diff --git a/mt7996/Makefile b/mt7996/Makefile
@@ -284,10 +281,10 @@ index cbe7cef6..10cff369 100644
  #endif
 diff --git a/mt7996/npu.c b/mt7996/npu.c
 new file mode 100644
-index 00000000..2d721500
+index 00000000..bb1eb724
 --- /dev/null
 +++ b/mt7996/npu.c
-@@ -0,0 +1,342 @@
+@@ -0,0 +1,351 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2025 AIROHA Inc
@@ -379,11 +376,21 @@ index 00000000..2d721500
 +				       WLAN_FUNC_SET_WAIT_TX_RING_PCIE_ADDR,
 +				       phy_addr + MT_RRO_ACK_SN_CTRL,
 +				       GFP_KERNEL);
-+	if (err)
++	if (err) {
 +		dev_warn(dev->mt76.dev,
 +			 "failed setting npu wlan rro_ack_sn desc addr\n");
++		return err;
++	}
 +
-+	return err;
++	err = airoha_npu_wlan_send_msg(npu, 0,
++				       WLAN_FUNC_SET_WAIT_TOKEN_ID_SIZE,
++				       MT7996_HW_TOKEN_SIZE, GFP_KERNEL);
++	if (err)
++		return err;
++
++	dev->mt76.token_start = MT7996_HW_TOKEN_SIZE;
++
++	return 0;
 +}
 +
 +static int mt7996_npu_rxd_init(struct mt7996_dev *dev, struct airoha_npu *npu)
@@ -586,7 +593,6 @@ index 00000000..2d721500
 +	if (err)
 +		goto unlock;
 +
-+	dev->mt76.token_start = MT7996_TOKEN_SIZE;
 +	for (i = MT_RXQ_NPU0; i <= MT_RXQ_NPU1; i++)
 +		airoha_npu_wlan_enable_irq(npu, i - MT_RXQ_NPU0);
 +unlock:
