@@ -1,0 +1,44 @@
+--- a/drivers/net/ethernet/airoha/airoha_npu.c
++++ b/drivers/net/ethernet/airoha/airoha_npu.c
+@@ -140,21 +140,11 @@ struct ppe_mbox_data {
+ 	};
+ };
+ 
+-#define WLAN_MAX_STATS_SIZE	4408
+ struct wlan_mbox_data {
+ 	u32 ifindex:4;
+ 	u32 func_type:4;
+ 	u32 func_id;
+-	union {
+-		u32 data;
+-		struct {
+-			u32 dir;
+-			u32 in_counter_addr;
+-			u32 out_status_addr;
+-			u32 out_counter_addr;
+-		} txrx_addr;
+-		u8 stats[WLAN_MAX_STATS_SIZE];
+-	};
++	u32 data;
+ };
+ 
+ static int airoha_npu_send_msg(struct airoha_npu *npu, int func_id,
+--- a/include/linux/soc/airoha/airoha_offload.h
++++ b/include/linux/soc/airoha/airoha_offload.h
+@@ -144,7 +144,7 @@ enum airoha_npu_wlan_set_cmd {
+ 	WLAN_FUNC_SET_WAIT_HWNAT_INIT,
+ 	WLAN_FUNC_SET_WAIT_ARHT_CHIP_INFO,
+ 	WLAN_FUNC_SET_WAIT_TX_BUF_CHECK_ADDR,
+-	WLAN_FUNC_SET_WAIT_DEBUG_ARRAY_ADDR,
++	WLAN_FUNC_SET_WAIT_TOKEN_ID_SIZE,
+ };
+ 
+ enum airoha_npu_wlan_get_cmd {
+@@ -158,6 +158,7 @@ enum airoha_npu_wlan_get_cmd {
+ 	WLAN_FUNC_GET_WAIT_RING_SIZE,
+ 	WLAN_FUNC_GET_WAIT_NPU_SUPPORT_MAP,
+ 	WLAN_FUNC_GET_WAIT_MDC_LOCK_ADDRESS,
++	WLAN_FUNC_GET_WAIT_NPU_VERSION,
+ };
+ 
+ struct airoha_npu {
