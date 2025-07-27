@@ -1,8 +1,11 @@
-From dfd6957fab5bd175ca20573ea4db9a83a526b67d Mon Sep 17 00:00:00 2001
-Message-ID: <dfd6957fab5bd175ca20573ea4db9a83a526b67d.1753607102.git.lorenzo@kernel.org>
+From e623028112578bda71db13f4b6c0bcf3301e8909 Mon Sep 17 00:00:00 2001
+Message-ID: <e623028112578bda71db13f4b6c0bcf3301e8909.1753629819.git.lorenzo@kernel.org>
+In-Reply-To: <3f5d38f1e7faa7b30435679db2c99e025792d0e8.1753629819.git.lorenzo@kernel.org>
+References: <3f5d38f1e7faa7b30435679db2c99e025792d0e8.1753629819.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 14 Jul 2025 16:25:38 +0200
-Subject: [PATCH] wifi: mt76: mt7996: Add NPU offload support to MT7996 driver
+Subject: [PATCH 2/2] wifi: mt76: mt7996: Add NPU offload support to MT7996
+ driver
 
 Introduce Airoha NPU support to MT7996 driver. NPU is used to enable
 traffic forward offloading between the MT76 NIC and Airoha ethernet one
@@ -11,7 +14,7 @@ available on the Airoha EN7581 SoC using Netfilter Flowtable APIs.
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
  mt7996/Makefile |   1 +
- mt7996/dma.c    |  13 +-
+ mt7996/dma.c    |  14 +-
  mt7996/init.c   |  10 +-
  mt7996/mac.c    |   4 +
  mt7996/main.c   |  26 ++--
@@ -19,7 +22,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  mt7996/mt7996.h |  21 +++
  mt7996/npu.c    | 361 ++++++++++++++++++++++++++++++++++++++++++++++++
  mt7996/pci.c    |   3 +
- 9 files changed, 436 insertions(+), 16 deletions(-)
+ 9 files changed, 437 insertions(+), 16 deletions(-)
  create mode 100644 mt7996/npu.c
 
 diff --git a/mt7996/Makefile b/mt7996/Makefile
@@ -33,7 +36,7 @@ index 07c8b555..c3783a23 100644
 +mt7996e-$(CONFIG_NET_AIROHA_NPU) += npu.o
  mt7996e-$(CONFIG_DEV_COREDUMP) += coredump.o
 diff --git a/mt7996/dma.c b/mt7996/dma.c
-index e973d4de..400ff8db 100644
+index e973d4de..f7205235 100644
 --- a/mt7996/dma.c
 +++ b/mt7996/dma.c
 @@ -23,6 +23,9 @@ int mt7996_init_tx_queues(struct mt7996_phy *phy, int idx, int n_desc,
@@ -77,6 +80,14 @@ index e973d4de..400ff8db 100644
  	netif_napi_add_tx(&dev->mt76.tx_napi_dev, &dev->mt76.tx_napi,
  			  mt7996_poll_tx);
  	napi_enable(&dev->mt76.tx_napi);
+@@ -939,6 +948,7 @@ void mt7996_dma_reset(struct mt7996_dev *dev, bool force)
+ 	if (mtk_wed_device_active(&dev->mt76.mmio.wed))
+ 		mtk_wed_device_dma_reset(&dev->mt76.mmio.wed);
+ 
++	mt76_npu_disable_irqs(&dev->mt76);
+ 	mt7996_dma_disable(dev, force);
+ 	mt76_wed_dma_reset(&dev->mt76);
+ 
 diff --git a/mt7996/init.c b/mt7996/init.c
 index dcf80709..28094abb 100644
 --- a/mt7996/init.c
@@ -309,7 +320,7 @@ index 00000000..fce11e91
 +		return err;
 +	}
 +
-+	dev_info(dev->mt76.dev, "NPU version: %0d.%d\n",
++	dev_info(dev->mt76.dev, "NPU version:%0d.%d\n",
 +		 (val >> 16) & 0xffff, val & 0xffff);
 +
 +	err = airoha_npu_wlan_send_msg(npu, 0,
