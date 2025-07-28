@@ -1,0 +1,89 @@
+From 9dfd7258b1b4b0029732ae9d7e40f68944c10199 Mon Sep 17 00:00:00 2001
+Message-ID: <9dfd7258b1b4b0029732ae9d7e40f68944c10199.1753692114.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Mon, 28 Jul 2025 10:36:28 +0200
+Subject: [PATCH net] net: airoha: Fix PPE table access in
+ airoha_ppe_debugfs_foe_show()
+
+In order to avoid any possible race we need to hold the ppe_lock
+spinlock accessing the hw PPE table. airoha_ppe_foe_get_entry routine is
+always executed holding ppe_lock except in airoha_ppe_debugfs_foe_show
+routine. Fix the problem introducing airoha_ppe_foe_get_entry_locked
+routine.
+
+Fixes: 3fe15c640f380 ("net: airoha: Introduce PPE debugfs support")
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.h       |  4 ++--
+ drivers/net/ethernet/airoha/airoha_ppe.c       | 18 ++++++++++++++++--
+ .../net/ethernet/airoha/airoha_ppe_debugfs.c   |  2 +-
+ 3 files changed, 19 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
+index a970b789cf23..cf33d731ad0d 100644
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -615,8 +615,8 @@ int airoha_ppe_setup_tc_block_cb(struct net_device *dev, void *type_data);
+ int airoha_ppe_init(struct airoha_eth *eth);
+ void airoha_ppe_deinit(struct airoha_eth *eth);
+ void airoha_ppe_init_upd_mem(struct airoha_gdm_port *port);
+-struct airoha_foe_entry *airoha_ppe_foe_get_entry(struct airoha_ppe *ppe,
+-						  u32 hash);
++struct airoha_foe_entry *
++airoha_ppe_foe_get_entry_locked(struct airoha_ppe *ppe, u32 hash);
+ void airoha_ppe_foe_entry_get_stats(struct airoha_ppe *ppe, u32 hash,
+ 				    struct airoha_foe_stats64 *stats);
+ 
+diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
+index 0e217acfc5ef..4dbf2bf187d0 100644
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -498,9 +498,11 @@ static void airoha_ppe_foe_flow_stats_update(struct airoha_ppe *ppe,
+ 		FIELD_PREP(AIROHA_FOE_IB2_NBQ, nbq);
+ }
+ 
+-struct airoha_foe_entry *airoha_ppe_foe_get_entry(struct airoha_ppe *ppe,
+-						  u32 hash)
++static struct airoha_foe_entry *
++airoha_ppe_foe_get_entry(struct airoha_ppe *ppe, u32 hash)
+ {
++	lockdep_assert_held(&ppe_lock);
++
+ 	if (hash < PPE_SRAM_NUM_ENTRIES) {
+ 		u32 *hwe = ppe->foe + hash * sizeof(struct airoha_foe_entry);
+ 		struct airoha_eth *eth = ppe->eth;
+@@ -527,6 +529,18 @@ struct airoha_foe_entry *airoha_ppe_foe_get_entry(struct airoha_ppe *ppe,
+ 	return ppe->foe + hash * sizeof(struct airoha_foe_entry);
+ }
+ 
++struct airoha_foe_entry *
++airoha_ppe_foe_get_entry_locked(struct airoha_ppe *ppe, u32 hash)
++{
++	struct airoha_foe_entry *hwe;
++
++	spin_lock_bh(&ppe_lock);
++	hwe = airoha_ppe_foe_get_entry(ppe, hash);
++	spin_unlock_bh(&ppe_lock);
++
++	return hwe;
++}
++
+ static bool airoha_ppe_foe_compare_entry(struct airoha_flow_table_entry *e,
+ 					 struct airoha_foe_entry *hwe)
+ {
+diff --git a/drivers/net/ethernet/airoha/airoha_ppe_debugfs.c b/drivers/net/ethernet/airoha/airoha_ppe_debugfs.c
+index 05a756233f6a..992bf2e95984 100644
+--- a/drivers/net/ethernet/airoha/airoha_ppe_debugfs.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe_debugfs.c
+@@ -67,7 +67,7 @@ static int airoha_ppe_debugfs_foe_show(struct seq_file *m, void *private,
+ 		u32 type, state, ib2, data;
+ 		bool ipv6 = false;
+ 
+-		hwe = airoha_ppe_foe_get_entry(ppe, i);
++		hwe = airoha_ppe_foe_get_entry_locked(ppe, i);
+ 		if (!hwe)
+ 			continue;
+ 
+-- 
+2.50.1
+
