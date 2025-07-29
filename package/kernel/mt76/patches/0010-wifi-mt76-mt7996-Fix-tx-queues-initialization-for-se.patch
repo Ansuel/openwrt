@@ -1,10 +1,10 @@
 From d41281e2ae3f789ecd86db1a6a001278d3820b49 Mon Sep 17 00:00:00 2001
-Message-ID: <d41281e2ae3f789ecd86db1a6a001278d3820b49.1753790487.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+Message-ID: <d41281e2ae3f789ecd86db1a6a001278d3820b49.1753796558.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 20 Jul 2025 10:59:18 +0200
-Subject: [PATCH 10/24] wifi: mt76: mt7996: Fix tx-queues initialization for
+Subject: [PATCH 10/22] wifi: mt76: mt7996: Fix tx-queues initialization for
  second phy on mt7996
 
 Fix the second phy tx queue initialization if hif device is not

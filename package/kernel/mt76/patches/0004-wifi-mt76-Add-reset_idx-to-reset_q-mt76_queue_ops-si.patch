@@ -1,10 +1,10 @@
 From 274cd5f38edb966b6cbf5e5487bd1d953317423e Mon Sep 17 00:00:00 2001
-Message-ID: <274cd5f38edb966b6cbf5e5487bd1d953317423e.1753790487.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+Message-ID: <274cd5f38edb966b6cbf5e5487bd1d953317423e.1753796558.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sat, 19 Jul 2025 11:29:57 +0200
-Subject: [PATCH 04/24] wifi: mt76: Add reset_idx to reset_q mt76_queue_ops
+Subject: [PATCH 04/22] wifi: mt76: Add reset_idx to reset_q mt76_queue_ops
  signature.
 
 Remove __mt76_dma_queue_reset routine and use mt76_dma_queue_reset

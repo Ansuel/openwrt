@@ -1,10 +1,10 @@
 From 8c856854ceff4fee973a3ab2cf692d5e648b6971 Mon Sep 17 00:00:00 2001
-Message-ID: <8c856854ceff4fee973a3ab2cf692d5e648b6971.1753790487.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+Message-ID: <8c856854ceff4fee973a3ab2cf692d5e648b6971.1753796558.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
 From: Rex Lu <rex.lu@mediatek.com>
 Date: Wed, 23 Jul 2025 13:06:08 +0200
-Subject: [PATCH 15/24] wifi: mt76: mt7996: Decouple RRO logic from WED support
+Subject: [PATCH 15/22] wifi: mt76: mt7996: Decouple RRO logic from WED support
 
 Decouple RRO logic from WED support in MT7996 driver in order to reuse
 it when WED module is not available.

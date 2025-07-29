@@ -1,10 +1,10 @@
 From 13a46ffeea9aec38986a101a227eb44e2610e563 Mon Sep 17 00:00:00 2001
-Message-ID: <13a46ffeea9aec38986a101a227eb44e2610e563.1753790487.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+Message-ID: <13a46ffeea9aec38986a101a227eb44e2610e563.1753796558.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 14 Jul 2025 13:57:57 +0200
-Subject: [PATCH 19/24] wifi: mt76: Add mt76_dev pointer in mt76_queue struct.
+Subject: [PATCH 19/22] wifi: mt76: Add mt76_dev pointer in mt76_queue struct.
 
 This is a preliminary patch to enable traffic forward offloading via the
 Airoha NPU module available on the Airoha EN7581 SoC.

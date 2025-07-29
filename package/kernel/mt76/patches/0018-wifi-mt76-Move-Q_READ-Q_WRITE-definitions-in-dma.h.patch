@@ -1,10 +1,10 @@
 From ca725f7bcd79a22b88a11854bdf5bcb9d9414540 Mon Sep 17 00:00:00 2001
-Message-ID: <ca725f7bcd79a22b88a11854bdf5bcb9d9414540.1753790487.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+Message-ID: <ca725f7bcd79a22b88a11854bdf5bcb9d9414540.1753796558.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 14 Jul 2025 13:51:25 +0200
-Subject: [PATCH 18/24] wifi: mt76: Move Q_READ/Q_WRITE definitions in dma.h
+Subject: [PATCH 18/22] wifi: mt76: Move Q_READ/Q_WRITE definitions in dma.h
 
 This is a preliminary patch to enable traffic forward offloading between
 the MT76 NIC and Airoha ethernet one via the Airoha NPU module available

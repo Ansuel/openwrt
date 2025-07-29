@@ -1,10 +1,10 @@
 From 8fa038de9f09dfd58eab1bd6278b6caf89b78e4b Mon Sep 17 00:00:00 2001
-Message-ID: <8fa038de9f09dfd58eab1bd6278b6caf89b78e4b.1753790487.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+Message-ID: <8fa038de9f09dfd58eab1bd6278b6caf89b78e4b.1753796558.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
 From: Rex Lu <rex.lu@mediatek.com>
 Date: Sat, 19 Jul 2025 16:26:25 +0200
-Subject: [PATCH 08/24] wifi: mt76: mt7996: Enable HW RRO for MT7992 chipset
+Subject: [PATCH 08/22] wifi: mt76: mt7996: Enable HW RRO for MT7992 chipset
 
 This is a preliminary patch to enable WED support for MT7992 Kite
 chipset supported by MT7996 driver.

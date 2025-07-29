@@ -1,10 +1,10 @@
 From fc6f3028bfde2c4351e59cf3d0f1a8c0e2741668 Mon Sep 17 00:00:00 2001
-Message-ID: <fc6f3028bfde2c4351e59cf3d0f1a8c0e2741668.1753790487.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+Message-ID: <fc6f3028bfde2c4351e59cf3d0f1a8c0e2741668.1753796558.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 23 Jul 2025 17:24:34 +0200
-Subject: [PATCH 16/24] wifi: mt76: Add mt76_dma_get_rxdmad_c_buf utility
+Subject: [PATCH 16/22] wifi: mt76: Add mt76_dma_get_rxdmad_c_buf utility
  routione
 
 Introduce mt76_dma_get_rxdmad_c_buf routine to process packets received

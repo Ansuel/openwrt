@@ -1,10 +1,8 @@
-From 7bbd159649dcdf353074b9d13820072af85c407c Mon Sep 17 00:00:00 2001
-Message-ID: <7bbd159649dcdf353074b9d13820072af85c407c.1753790487.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+From 56f77c1890af7eb6fb650c00080341a73c415248 Mon Sep 17 00:00:00 2001
+Message-ID: <56f77c1890af7eb6fb650c00080341a73c415248.1753796801.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 14 Jul 2025 15:16:13 +0200
-Subject: [PATCH 21/24] wifi: mt76: Introduce the NPU generic layer
+Subject: [PATCH 1/2] wifi: mt76: Introduce the NPU generic layer
 
 Add the NPU generic layer in mt76 module. NPU will be used to enable
 traffic forward offloading between the MT76 NIC and Airoha ethernet one
@@ -17,10 +15,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  dma.h         |  36 ++++
  mac80211.c    |   6 +-
  mt76.h        | 119 ++++++++++++
- mt7996/dma.c  |   3 +-
+ mt7996/dma.c  |   5 +-
  mt7996/init.c |   3 +-
- npu.c         | 491 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 8 files changed, 691 insertions(+), 9 deletions(-)
+ npu.c         | 493 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 8 files changed, 695 insertions(+), 9 deletions(-)
  create mode 100644 npu.c
 
 diff --git a/Makefile b/Makefile
@@ -404,15 +402,17 @@ index 1880c0e1..67d15c15 100644
  mt76_token_release(struct mt76_dev *dev, int token, bool *wake);
  int mt76_token_consume(struct mt76_dev *dev, struct mt76_txwi_cache **ptxwi);
 diff --git a/mt7996/dma.c b/mt7996/dma.c
-index 8e370539..e973d4de 100644
+index 8e370539..c0a2796a 100644
 --- a/mt7996/dma.c
 +++ b/mt7996/dma.c
-@@ -500,7 +500,8 @@ int mt7996_dma_rro_init(struct mt7996_dev *dev)
+@@ -500,7 +500,10 @@ int mt7996_dma_rro_init(struct mt7996_dev *dev)
  	if (dev->mt76.hwrro_mode == MT76_HWRRO_V3_1) {
  		/* rxdmad_c */
  		mdev->q_rx[MT_RXQ_RRO_RXDMAD_C].flags = MT_WED_RRO_Q_RXDMAD_C;
 -		mdev->q_rx[MT_RXQ_RRO_RXDMAD_C].flags |= MT_QFLAG_EMI_EN;
-+		if (!mt76_npu_device_active(&dev->mt76))
++		if (mtk_wed_device_active(&mdev->mmio.wed))
++			mdev->q_rx[MT_RXQ_RRO_RXDMAD_C].wed = &mdev->mmio.wed;
++		else if (!mt76_npu_device_active(&dev->mt76))
 +			mdev->q_rx[MT_RXQ_RRO_RXDMAD_C].flags |= MT_QFLAG_EMI_EN;
  		ret = mt76_queue_alloc(dev, &mdev->q_rx[MT_RXQ_RRO_RXDMAD_C],
  				       MT_RXQ_ID(MT_RXQ_RRO_RXDMAD_C),
@@ -433,10 +433,10 @@ index ae4cc4f7..dcf80709 100644
  					 MT_RRO_3_1_GLOBAL_CONFIG_RX_CIDX_RD_EN);
 diff --git a/npu.c b/npu.c
 new file mode 100644
-index 00000000..09f66682
+index 00000000..91a19077
 --- /dev/null
 +++ b/npu.c
-@@ -0,0 +1,491 @@
+@@ -0,0 +1,493 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2025 AIROHA Inc
@@ -826,7 +826,6 @@ index 00000000..09f66682
 +void mt76_npu_disable_irqs(struct mt76_dev *dev)
 +{
 +	struct airoha_npu *npu;
-+	u32 status;
 +	int i;
 +
 +	rcu_read_lock();
@@ -836,9 +835,12 @@ index 00000000..09f66682
 +		goto unlock;
 +
 +	for (i = MT_RXQ_NPU0; i <= MT_RXQ_NPU1; i++) {
-+		status = airoha_npu_wlan_get_irq_status(npu, i);
++		int qid = i - MT_RXQ_NPU0;
++		u32 status;
++
++		status = airoha_npu_wlan_get_irq_status(npu, qid);
 +		airoha_npu_wlan_set_irq_status(npu, status);
-+		airoha_npu_wlan_disable_irq(npu, i);
++		airoha_npu_wlan_disable_irq(npu, qid);
 +	}
 +unlock:
 +	rcu_read_unlock();

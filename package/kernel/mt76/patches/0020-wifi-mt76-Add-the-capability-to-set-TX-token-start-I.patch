@@ -1,10 +1,10 @@
 From 3545fa5ec2093a7647537254df327ef24fb8317c Mon Sep 17 00:00:00 2001
-Message-ID: <3545fa5ec2093a7647537254df327ef24fb8317c.1753790487.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+Message-ID: <3545fa5ec2093a7647537254df327ef24fb8317c.1753796558.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 25 Jul 2025 12:38:26 +0200
-Subject: [PATCH 20/24] wifi: mt76: Add the capability to set TX token start ID
+Subject: [PATCH 20/22] wifi: mt76: Add the capability to set TX token start ID
 
 This is a preliminary patch to enable traffic forward offloading via the
 Airoha NPU module available on the Airoha EN7581 SoC.

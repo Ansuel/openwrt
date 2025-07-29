@@ -1,10 +1,10 @@
 From c8090c01bfbb0d8bd2b17b9bea10a12c8d93cb61 Mon Sep 17 00:00:00 2001
-Message-ID: <c8090c01bfbb0d8bd2b17b9bea10a12c8d93cb61.1753790487.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+Message-ID: <c8090c01bfbb0d8bd2b17b9bea10a12c8d93cb61.1753796558.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 20 Jul 2025 20:16:41 +0200
-Subject: [PATCH 11/24] wifi: mt76: mt7996: Fix RX packets configuration for
+Subject: [PATCH 11/22] wifi: mt76: mt7996: Fix RX packets configuration for
  primary WED device
 
 In order to properly set the number of rx packets for primary WED device
