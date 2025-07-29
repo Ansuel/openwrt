@@ -1,10 +1,10 @@
 From 71e8723d36ef51b5dc6a3b29c84925bd9ca1c53c Mon Sep 17 00:00:00 2001
-Message-ID: <71e8723d36ef51b5dc6a3b29c84925bd9ca1c53c.1753523038.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+Message-ID: <71e8723d36ef51b5dc6a3b29c84925bd9ca1c53c.1753790487.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Wed, 23 Jul 2025 12:27:57 +0200
-Subject: [PATCH 14/22] wifi: mt76: Add rx_queue_init callback
+Subject: [PATCH 14/24] wifi: mt76: Add rx_queue_init callback
 
 Introduce rx_queue_init DMA callback. This is a preliminary patch to
 configure RRO RX queues and decouple RRO logic from WED support.

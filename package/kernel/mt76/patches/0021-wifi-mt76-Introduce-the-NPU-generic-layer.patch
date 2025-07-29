@@ -1,8 +1,10 @@
-From 3f5d38f1e7faa7b30435679db2c99e025792d0e8 Mon Sep 17 00:00:00 2001
-Message-ID: <3f5d38f1e7faa7b30435679db2c99e025792d0e8.1753629819.git.lorenzo@kernel.org>
+From 7bbd159649dcdf353074b9d13820072af85c407c Mon Sep 17 00:00:00 2001
+Message-ID: <7bbd159649dcdf353074b9d13820072af85c407c.1753790487.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 14 Jul 2025 15:16:13 +0200
-Subject: [PATCH 1/2] wifi: mt76: Introduce the NPU generic layer
+Subject: [PATCH 21/24] wifi: mt76: Introduce the NPU generic layer
 
 Add the NPU generic layer in mt76 module. NPU will be used to enable
 traffic forward offloading between the MT76 NIC and Airoha ethernet one
@@ -34,7 +36,7 @@ index a4663ccd..1c80cc83 100644
  mt76-$(CONFIG_NL80211_TESTMODE) += testmode.o
  
 diff --git a/dma.c b/dma.c
-index 1602fd19..327a225a 100644
+index b79cf0af..033caa9b 100644
 --- a/dma.c
 +++ b/dma.c
 @@ -158,10 +158,15 @@ static void

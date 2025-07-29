@@ -1,10 +1,10 @@
 From 69a0f041316563ca48b988f149ecdc237a082ec2 Mon Sep 17 00:00:00 2001
-Message-ID: <69a0f041316563ca48b988f149ecdc237a082ec2.1753523038.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+Message-ID: <69a0f041316563ca48b988f149ecdc237a082ec2.1753790487.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
 From: Rex Lu <rex.lu@mediatek.com>
 Date: Wed, 23 Jul 2025 11:48:58 +0200
-Subject: [PATCH 13/22] wifi: mt76: mt7996: Introduce RRO MSDU callbacks
+Subject: [PATCH 13/24] wifi: mt76: mt7996: Introduce RRO MSDU callbacks
 
 Introduce rx_rro_ind_process and rx_rro_add_msdu_page callbacks and the
 related logic in the MT7996 driver. This is a preliminary patch to

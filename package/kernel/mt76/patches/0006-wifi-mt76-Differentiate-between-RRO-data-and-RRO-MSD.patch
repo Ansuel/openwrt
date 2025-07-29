@@ -1,10 +1,10 @@
 From a92faf4e45be9d37765f9768af790ea72ceb4779 Mon Sep 17 00:00:00 2001
-Message-ID: <a92faf4e45be9d37765f9768af790ea72ceb4779.1753523038.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753523038.git.lorenzo@kernel.org>
+Message-ID: <a92faf4e45be9d37765f9768af790ea72ceb4779.1753790487.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
 From: Rex Lu <rex.lu@mediatek.com>
 Date: Sat, 19 Jul 2025 12:32:33 +0200
-Subject: [PATCH 06/22] wifi: mt76: Differentiate between RRO data and RRO MSDU
+Subject: [PATCH 06/24] wifi: mt76: Differentiate between RRO data and RRO MSDU
  queues
 
 This is a preliminary patch to enable WED support for MT7992 Kite

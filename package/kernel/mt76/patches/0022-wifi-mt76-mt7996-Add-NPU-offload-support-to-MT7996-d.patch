@@ -1,10 +1,10 @@
-From e623028112578bda71db13f4b6c0bcf3301e8909 Mon Sep 17 00:00:00 2001
-Message-ID: <e623028112578bda71db13f4b6c0bcf3301e8909.1753629819.git.lorenzo@kernel.org>
-In-Reply-To: <3f5d38f1e7faa7b30435679db2c99e025792d0e8.1753629819.git.lorenzo@kernel.org>
-References: <3f5d38f1e7faa7b30435679db2c99e025792d0e8.1753629819.git.lorenzo@kernel.org>
+From 938844b4a957a7262232befcadd194c6068782b4 Mon Sep 17 00:00:00 2001
+Message-ID: <938844b4a957a7262232befcadd194c6068782b4.1753790487.git.lorenzo@kernel.org>
+In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
+References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753790487.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 14 Jul 2025 16:25:38 +0200
-Subject: [PATCH 2/2] wifi: mt76: mt7996: Add NPU offload support to MT7996
+Subject: [PATCH 22/24] wifi: mt76: mt7996: Add NPU offload support to MT7996
  driver
 
 Introduce Airoha NPU support to MT7996 driver. NPU is used to enable
@@ -13,6 +13,7 @@ available on the Airoha EN7581 SoC using Netfilter Flowtable APIs.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
+ mt76.h          |  16 +++
  mt7996/Makefile |   1 +
  mt7996/dma.c    |  14 +-
  mt7996/init.c   |  10 +-
@@ -20,11 +21,38 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  mt7996/main.c   |  26 ++--
  mt7996/mmio.c   |  13 +-
  mt7996/mt7996.h |  21 +++
- mt7996/npu.c    | 361 ++++++++++++++++++++++++++++++++++++++++++++++++
+ mt7996/npu.c    | 352 ++++++++++++++++++++++++++++++++++++++++++++++++
  mt7996/pci.c    |   3 +
- 9 files changed, 437 insertions(+), 16 deletions(-)
+ 10 files changed, 444 insertions(+), 16 deletions(-)
  create mode 100644 mt7996/npu.c
 
+diff --git a/mt76.h b/mt76.h
+index 67d15c15..7f9f1297 100644
+--- a/mt76.h
++++ b/mt76.h
+@@ -1704,6 +1704,22 @@ static inline bool mt76_ppe_device_active(struct mt76_dev *dev)
+ 	return !!rcu_access_pointer(dev->mmio.ppe_dev);
+ }
+ 
++static inline int mt76_npu_send_msg(struct airoha_npu *npu, int ifindex,
++				    enum airoha_npu_wlan_set_cmd cmd,
++				    u32 val, gfp_t gfp)
++{
++	return airoha_npu_wlan_send_msg(npu, ifindex, cmd, &val, sizeof(val),
++					gfp);
++}
++
++static inline int mt76_npu_get_msg(struct airoha_npu *npu, int ifindex,
++				   enum airoha_npu_wlan_get_cmd cmd,
++				   u32 *val, gfp_t gfp)
++{
++	return airoha_npu_wlan_get_msg(npu, ifindex, cmd, val, sizeof(*val),
++				       gfp);
++}
++
+ static inline void mt76_testmode_reset(struct mt76_phy *phy, bool disable)
+ {
+ #ifdef CONFIG_NL80211_TESTMODE
 diff --git a/mt7996/Makefile b/mt7996/Makefile
 index 07c8b555..c3783a23 100644
 --- a/mt7996/Makefile
@@ -292,10 +320,10 @@ index cbe7cef6..10cff369 100644
  #endif
 diff --git a/mt7996/npu.c b/mt7996/npu.c
 new file mode 100644
-index 00000000..fce11e91
+index 00000000..29bb735d
 --- /dev/null
 +++ b/mt7996/npu.c
-@@ -0,0 +1,361 @@
+@@ -0,0 +1,352 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2025 AIROHA Inc
@@ -313,19 +341,18 @@ index 00000000..fce11e91
 +	u32 val, hif1_ofs = 0, dma_addr;
 +	int i, err;
 +
-+	err = airoha_npu_wlan_get_msg(npu, 0, WLAN_FUNC_GET_WAIT_NPU_VERSION,
-+				      &val, GFP_KERNEL);
++	err = mt76_npu_get_msg(npu, 0, WLAN_FUNC_GET_WAIT_NPU_VERSION,
++			       &val, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev, "failed getting NPU fw version\n");
 +		return err;
 +	}
 +
-+	dev_info(dev->mt76.dev, "NPU version:%0d.%d\n",
++	dev_info(dev->mt76.dev, "NPU version: %0d.%d\n",
 +		 (val >> 16) & 0xffff, val & 0xffff);
 +
-+	err = airoha_npu_wlan_send_msg(npu, 0,
-+				       WLAN_FUNC_SET_WAIT_PCIE_PORT_TYPE,
-+				       dev->mt76.mmio.npu_type, GFP_KERNEL);
++	err = mt76_npu_send_msg(npu, 0, WLAN_FUNC_SET_WAIT_PCIE_PORT_TYPE,
++				dev->mt76.mmio.npu_type, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
 +			 "failed setting NPU wlan PCIe port type\n");
@@ -343,17 +370,16 @@ index 00000000..fce11e91
 +		else
 +			dma_addr += MT_RXQ_RING_BASE(MT_RXQ_RRO_BAND0) + 0x80;
 +
-+		err = airoha_npu_wlan_send_msg(npu, i,
-+					       WLAN_FUNC_SET_WAIT_PCIE_ADDR,
-+					       dma_addr, GFP_KERNEL);
++		err = mt76_npu_send_msg(npu, i, WLAN_FUNC_SET_WAIT_PCIE_ADDR,
++					dma_addr, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
 +				 "failed setting NPU wlan PCIe desc addr\n");
 +			return err;
 +		}
 +
-+		err = airoha_npu_wlan_send_msg(npu, i, WLAN_FUNC_SET_WAIT_DESC,
-+					       MT7996_RX_RING_SIZE, GFP_KERNEL);
++		err = mt76_npu_send_msg(npu, i, WLAN_FUNC_SET_WAIT_DESC,
++					MT7996_RX_RING_SIZE, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
 +				 "failed setting NPU wlan PCIe desc size\n");
@@ -366,9 +392,9 @@ index 00000000..fce11e91
 +		else
 +			dma_addr += MT_TXQ_RING_BASE(0) + 0x120;
 +
-+		err = airoha_npu_wlan_send_msg(npu, i,
-+					       WLAN_FUNC_SET_WAIT_TX_RING_PCIE_ADDR,
-+					       dma_addr, GFP_KERNEL);
++		err = mt76_npu_send_msg(npu, i,
++					WLAN_FUNC_SET_WAIT_TX_RING_PCIE_ADDR,
++					dma_addr, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
 +				 "failed setting NPU wlan tx desc addr\n");
@@ -376,36 +402,33 @@ index 00000000..fce11e91
 +		}
 +	}
 +
-+	err = airoha_npu_wlan_send_msg(npu, 9, WLAN_FUNC_SET_WAIT_PCIE_ADDR,
-+				       phy_addr + MT_RXQ_RRO_AP_RING_BASE,
-+				       GFP_KERNEL);
++	err = mt76_npu_send_msg(npu, 9, WLAN_FUNC_SET_WAIT_PCIE_ADDR,
++				phy_addr + MT_RXQ_RRO_AP_RING_BASE,
++				GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
 +			 "failed setting NPU wlan rxdmad_c addr\n");
 +		return err;
 +	}
 +
-+	err = airoha_npu_wlan_send_msg(npu, 9, WLAN_FUNC_SET_WAIT_DESC,
-+				       MT7996_RX_RING_SIZE, GFP_KERNEL);
++	err = mt76_npu_send_msg(npu, 9, WLAN_FUNC_SET_WAIT_DESC,
++				MT7996_RX_RING_SIZE, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
 +			 "failed setting NPU wlan rxdmad_c desc size\n");
 +		return err;
 +	}
 +
-+	err = airoha_npu_wlan_send_msg(npu, 2,
-+				       WLAN_FUNC_SET_WAIT_TX_RING_PCIE_ADDR,
-+				       phy_addr + MT_RRO_ACK_SN_CTRL,
-+				       GFP_KERNEL);
++	err = mt76_npu_send_msg(npu, 2, WLAN_FUNC_SET_WAIT_TX_RING_PCIE_ADDR,
++				phy_addr + MT_RRO_ACK_SN_CTRL, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
 +			 "failed setting NPU wlan rro_ack_sn desc addr\n");
 +		return err;
 +	}
 +
-+	err = airoha_npu_wlan_send_msg(npu, 0,
-+				       WLAN_FUNC_SET_WAIT_TOKEN_ID_SIZE,
-+				       MT7996_HW_TOKEN_SIZE, GFP_KERNEL);
++	err = mt76_npu_send_msg(npu, 0, WLAN_FUNC_SET_WAIT_TOKEN_ID_SIZE,
++				MT7996_HW_TOKEN_SIZE, GFP_KERNEL);
 +	if (err)
 +		return err;
 +
@@ -419,8 +442,8 @@ index 00000000..fce11e91
 +	u32 val;
 +	int err;
 +
-+	err = airoha_npu_wlan_get_msg(npu, 0, WLAN_FUNC_GET_WAIT_RXDESC_BASE,
-+				      &val, GFP_KERNEL);
++	err = mt76_npu_get_msg(npu, 0, WLAN_FUNC_GET_WAIT_RXDESC_BASE,
++			       &val, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
 +			 "failed retriving NPU wlan rx ring0 addr\n");
@@ -428,8 +451,8 @@ index 00000000..fce11e91
 +	}
 +	writel(val, &dev->mt76.q_rx[MT_RXQ_RRO_BAND0].regs->desc_base);
 +
-+	err = airoha_npu_wlan_get_msg(npu, 1, WLAN_FUNC_GET_WAIT_RXDESC_BASE,
-+				      &val, GFP_KERNEL);
++	err = mt76_npu_get_msg(npu, 1, WLAN_FUNC_GET_WAIT_RXDESC_BASE,
++			       &val, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
 +			 "failed retriving NPU wlan rx ring1 addr\n");
@@ -437,8 +460,8 @@ index 00000000..fce11e91
 +	}
 +	writel(val, &dev->mt76.q_rx[MT_RXQ_RRO_BAND1].regs->desc_base);
 +
-+	err = airoha_npu_wlan_get_msg(npu, 9, WLAN_FUNC_GET_WAIT_RXDESC_BASE,
-+				      &val, GFP_KERNEL);
++	err = mt76_npu_get_msg(npu, 9, WLAN_FUNC_GET_WAIT_RXDESC_BASE,
++			       &val, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
 +			 "failed retriving NPU wlan rxdmad_c ring addr\n");
@@ -457,9 +480,9 @@ index 00000000..fce11e91
 +		dma_addr_t dma_addr;
 +		u32 val;
 +
-+		err = airoha_npu_wlan_get_msg(npu, i + 5,
-+					      WLAN_FUNC_GET_WAIT_RXDESC_BASE,
-+					      &val, GFP_KERNEL);
++		err = mt76_npu_get_msg(npu, i + 5,
++				       WLAN_FUNC_GET_WAIT_RXDESC_BASE,
++				       &val, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
 +				 "failed retriving NPU wlan tx ring addr\n");
@@ -472,9 +495,9 @@ index 00000000..fce11e91
 +					 &dma_addr, GFP_KERNEL))
 +			return -ENOMEM;
 +
-+		err = airoha_npu_wlan_send_msg(npu, i,
-+					       WLAN_FUNC_SET_WAIT_TX_BUF_SPACE_HW_BASE,
-+					       dma_addr, GFP_KERNEL);
++		err = mt76_npu_send_msg(npu, i,
++					WLAN_FUNC_SET_WAIT_TX_BUF_SPACE_HW_BASE,
++					dma_addr, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
 +				 "failed setting NPU wlan queue buf addr\n");
@@ -486,9 +509,9 @@ index 00000000..fce11e91
 +					 &dma_addr, GFP_KERNEL))
 +			return -ENOMEM;
 +
-+		err = airoha_npu_wlan_send_msg(npu, i + 5,
-+					       WLAN_FUNC_SET_WAIT_TX_BUF_SPACE_HW_BASE,
-+					       dma_addr, GFP_KERNEL);
++		err = mt76_npu_send_msg(npu, i + 5,
++					WLAN_FUNC_SET_WAIT_TX_BUF_SPACE_HW_BASE,
++					dma_addr, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
 +				 "failed setting NPU wlan tx buf addr\n");
@@ -499,9 +522,9 @@ index 00000000..fce11e91
 +					 &dma_addr, GFP_KERNEL))
 +			return -ENOMEM;
 +
-+		err = airoha_npu_wlan_send_msg(npu, i + 10,
-+					       WLAN_FUNC_SET_WAIT_TX_BUF_SPACE_HW_BASE,
-+					       dma_addr, GFP_KERNEL);
++		err = mt76_npu_send_msg(npu, i + 10,
++					WLAN_FUNC_SET_WAIT_TX_BUF_SPACE_HW_BASE,
++					dma_addr, GFP_KERNEL);
 +		if (err) {
 +			dev_warn(dev->mt76.dev,
 +				 "failed setting NPU wlan tx buf base\n");
@@ -519,17 +542,17 @@ index 00000000..fce11e91
 +	phys_addr_t phy_addr = dev->mt76.mmio.phy_addr;
 +	int err;
 +
-+	err = airoha_npu_wlan_send_msg(npu, 0,
-+				       WLAN_FUNC_SET_WAIT_RX_RING_FOR_TXDONE_HW_BASE,
-+				       q->desc_dma, GFP_KERNEL);
++	err = mt76_npu_send_msg(npu, 0,
++				WLAN_FUNC_SET_WAIT_RX_RING_FOR_TXDONE_HW_BASE,
++				q->desc_dma, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
 +			 "failed setting NPU wlan tx-done ring\n");
 +		return err;
 +	}
 +
-+	err = airoha_npu_wlan_send_msg(npu, 10, WLAN_FUNC_SET_WAIT_DESC,
-+				       MT7996_RX_MCU_RING_SIZE, GFP_KERNEL);
++	err = mt76_npu_send_msg(npu, 10, WLAN_FUNC_SET_WAIT_DESC,
++				MT7996_RX_MCU_RING_SIZE, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev,
 +			 "failed setting NPU wlan descriptors\n");
@@ -537,8 +560,8 @@ index 00000000..fce11e91
 +	}
 +
 +	phy_addr += MT_RXQ_RING_BASE(MT_RXQ_MAIN_WA) + 0x20;
-+	err = airoha_npu_wlan_send_msg(npu, 10, WLAN_FUNC_SET_WAIT_PCIE_ADDR,
-+				       phy_addr, GFP_KERNEL);
++	err = mt76_npu_send_msg(npu, 10, WLAN_FUNC_SET_WAIT_PCIE_ADDR,
++				phy_addr, GFP_KERNEL);
 +	if (err)
 +		dev_warn(dev->mt76.dev,
 +			 "failed setting NPU wlan rx pcie address\n");
@@ -550,17 +573,15 @@ index 00000000..fce11e91
 +{
 +	int err;
 +
-+	err = airoha_npu_wlan_send_msg(npu, 2,
-+				       WLAN_FUNC_SET_WAIT_INODE_TXRX_REG_ADDR, 0,
-+				       GFP_KERNEL);
++	err = mt76_npu_send_msg(npu, 2, WLAN_FUNC_SET_WAIT_INODE_TXRX_REG_ADDR,
++				0, GFP_KERNEL);
 +	if (err) {
 +		dev_warn(dev->mt76.dev, "failed setting NPU wlan txrx addr2\n");
 +		return err;
 +	}
 +
-+	err = airoha_npu_wlan_send_msg(npu, 7,
-+				       WLAN_FUNC_SET_WAIT_INODE_TXRX_REG_ADDR, 0,
-+				       GFP_KERNEL);
++	err = mt76_npu_send_msg(npu, 7, WLAN_FUNC_SET_WAIT_INODE_TXRX_REG_ADDR,
++				0, GFP_KERNEL);
 +	if (err)
 +		dev_warn(dev->mt76.dev, "failed setting NPU wlan txrx addr7\n");
 +
@@ -632,16 +653,14 @@ index 00000000..fce11e91
 +	if (!npu)
 +		return 0;
 +
-+	err = airoha_npu_wlan_send_msg(npu, 4,
-+				       WLAN_FUNC_SET_WAIT_INODE_TXRX_REG_ADDR,
-+				       0, GFP_KERNEL);
++	err = mt76_npu_send_msg(npu, 4, WLAN_FUNC_SET_WAIT_INODE_TXRX_REG_ADDR,
++				0, GFP_KERNEL);
 +	if (err)
 +		return err;
 +
 +	for (i = 0; i < 10; i++) {
-+		err = airoha_npu_wlan_get_msg(npu, 3,
-+					      WLAN_FUNC_GET_WAIT_NPU_INFO,
-+					      &info, GFP_KERNEL);
++		err = mt76_npu_get_msg(npu, 3, WLAN_FUNC_GET_WAIT_NPU_INFO,
++				       &info, GFP_KERNEL);
 +		if (err)
 +			continue;
 +
@@ -652,9 +671,9 @@ index 00000000..fce11e91
 +	}
 +
 +	if (!err)
-+		err = airoha_npu_wlan_send_msg(npu, 6,
-+					       WLAN_FUNC_SET_WAIT_INODE_TXRX_REG_ADDR,
-+					       0, GFP_KERNEL);
++		err = mt76_npu_send_msg(npu, 6,
++					WLAN_FUNC_SET_WAIT_INODE_TXRX_REG_ADDR,
++					0, GFP_KERNEL);
 +	return err;
 +}
 diff --git a/mt7996/pci.c b/mt7996/pci.c
