@@ -8,7 +8,7 @@
 #include <dt-bindings/input/input.h>
 
 / {
-	model = "Netgear WAX206";
+	model = "Netgear WAX206";aa
 	compatible = "netgear,wax206", "mediatek,mt7622";
 
 	aliases {
