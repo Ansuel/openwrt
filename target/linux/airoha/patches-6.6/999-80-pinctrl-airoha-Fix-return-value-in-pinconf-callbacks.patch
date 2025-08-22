@@ -1,0 +1,54 @@
+From 867d4d4d1ae9e49c48e3a55bd226d612c533288c Mon Sep 17 00:00:00 2001
+Message-ID: <867d4d4d1ae9e49c48e3a55bd226d612c533288c.1755860933.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Fri, 22 Aug 2025 13:04:56 +0200
+Subject: [PATCH] pinctrl: airoha: Fix return value in pinconf callbacks
+
+Pinctrl stack requires ENOTSUPP error code if the parameter is not
+supported by pinconf driver. Fix the returned error code in pinconf
+callbacks if the operation is not supported.
+
+Fixes: 1c8ace2d0725 ("pinctrl: airoha: Add support for EN7581 SoC")
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/pinctrl/mediatek/pinctrl-airoha.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/pinctrl/mediatek/pinctrl-airoha.c b/drivers/pinctrl/mediatek/pinctrl-airoha.c
+index 5f1ec9e0de21..1b2f132d76f0 100644
+--- a/drivers/pinctrl/mediatek/pinctrl-airoha.c
++++ b/drivers/pinctrl/mediatek/pinctrl-airoha.c
+@@ -2696,7 +2696,7 @@ static int airoha_pinconf_get(struct pinctrl_dev *pctrl_dev,
+ 		arg = 1;
+ 		break;
+ 	default:
+-		return -EOPNOTSUPP;
++		return -ENOTSUPP;
+ 	}
+ 
+ 	*config = pinconf_to_config_packed(param, arg);
+@@ -2788,7 +2788,7 @@ static int airoha_pinconf_set(struct pinctrl_dev *pctrl_dev,
+ 			break;
+ 		}
+ 		default:
+-			return -EOPNOTSUPP;
++			return -ENOTSUPP;
+ 		}
+ 	}
+ 
+@@ -2805,10 +2805,10 @@ static int airoha_pinconf_group_get(struct pinctrl_dev *pctrl_dev,
+ 		if (airoha_pinconf_get(pctrl_dev,
+ 				       airoha_pinctrl_groups[group].pins[i],
+ 				       config))
+-			return -EOPNOTSUPP;
++			return -ENOTSUPP;
+ 
+ 		if (i && cur_config != *config)
+-			return -EOPNOTSUPP;
++			return -ENOTSUPP;
+ 
+ 		cur_config = *config;
+ 	}
+-- 
+2.50.1
+
