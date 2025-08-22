@@ -255,6 +255,10 @@
 	};
 };
 
+&npu {
+	status = "okay";
+};
+
 &eth {
 	status = "okay";
 	nvmem-cells = <&mac_factory_2c0000>;
