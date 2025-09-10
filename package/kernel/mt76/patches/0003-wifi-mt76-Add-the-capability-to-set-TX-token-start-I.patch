@@ -1,10 +1,10 @@
-From 3545fa5ec2093a7647537254df327ef24fb8317c Mon Sep 17 00:00:00 2001
-Message-ID: <3545fa5ec2093a7647537254df327ef24fb8317c.1753796558.git.lorenzo@kernel.org>
-In-Reply-To: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
-References: <00275548ba8f8ff8da354e44dd25b329e84924f4.1753796558.git.lorenzo@kernel.org>
+From 7aec87df650a9c19bb7ebfd6a00226eb6f3b2b2a Mon Sep 17 00:00:00 2001
+Message-ID: <7aec87df650a9c19bb7ebfd6a00226eb6f3b2b2a.1757494139.git.lorenzo@kernel.org>
+In-Reply-To: <c74b9132cd2c958a00b4a2d42ecd47b3104e3065.1757494139.git.lorenzo@kernel.org>
+References: <c74b9132cd2c958a00b4a2d42ecd47b3104e3065.1757494139.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 25 Jul 2025 12:38:26 +0200
-Subject: [PATCH 20/22] wifi: mt76: Add the capability to set TX token start ID
+Subject: [PATCH 3/5] wifi: mt76: Add the capability to set TX token start ID
 
 This is a preliminary patch to enable traffic forward offloading via the
 Airoha NPU module available on the Airoha EN7581 SoC.
@@ -16,10 +16,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  2 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/mt76.h b/mt76.h
-index e75cc886..1880c0e1 100644
+index 9788fbb1..2534587c 100644
 --- a/mt76.h
 +++ b/mt76.h
-@@ -948,6 +948,7 @@ struct mt76_dev {
+@@ -949,6 +949,7 @@ struct mt76_dev {
  	struct idr token;
  	u16 wed_token_count;
  	u16 token_count;
@@ -28,7 +28,7 @@ index e75cc886..1880c0e1 100644
  
  	spinlock_t rx_token_lock;
 diff --git a/tx.c b/tx.c
-index e6cf1670..823386e8 100644
+index 8ab5840f..27d9122a 100644
 --- a/tx.c
 +++ b/tx.c
 @@ -846,8 +846,10 @@ int mt76_token_consume(struct mt76_dev *dev, struct mt76_txwi_cache **ptxwi)
@@ -45,5 +45,5 @@ index e6cf1670..823386e8 100644
  
  #ifdef CONFIG_NET_MEDIATEK_SOC_WED
 -- 
-2.50.1
+2.51.0
 
