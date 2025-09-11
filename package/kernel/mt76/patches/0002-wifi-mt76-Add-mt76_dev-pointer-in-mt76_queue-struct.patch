@@ -1,7 +1,7 @@
-From f20c286fe21ade165f9dea177788fefb3c30476f Mon Sep 17 00:00:00 2001
-Message-ID: <f20c286fe21ade165f9dea177788fefb3c30476f.1757494139.git.lorenzo@kernel.org>
-In-Reply-To: <c74b9132cd2c958a00b4a2d42ecd47b3104e3065.1757494139.git.lorenzo@kernel.org>
-References: <c74b9132cd2c958a00b4a2d42ecd47b3104e3065.1757494139.git.lorenzo@kernel.org>
+From 7e81db91e0f70abfde3a5f7a21cc6f9e9a5bd72f Mon Sep 17 00:00:00 2001
+Message-ID: <7e81db91e0f70abfde3a5f7a21cc6f9e9a5bd72f.1757512252.git.lorenzo@kernel.org>
+In-Reply-To: <e134420e2a93d0febe112f1459b27b26a87017c4.1757512252.git.lorenzo@kernel.org>
+References: <e134420e2a93d0febe112f1459b27b26a87017c4.1757512252.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 14 Jul 2025 13:57:57 +0200
 Subject: [PATCH 2/5] wifi: mt76: Add mt76_dev pointer in mt76_queue struct.

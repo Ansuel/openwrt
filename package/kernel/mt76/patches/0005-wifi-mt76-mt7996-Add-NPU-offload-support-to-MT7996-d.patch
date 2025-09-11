@@ -1,14 +1,14 @@
-From e2ace36c3548587f23d7782b0bd3ebe4c41f0d0b Mon Sep 17 00:00:00 2001
-Message-ID: <e2ace36c3548587f23d7782b0bd3ebe4c41f0d0b.1757494139.git.lorenzo@kernel.org>
-In-Reply-To: <c74b9132cd2c958a00b4a2d42ecd47b3104e3065.1757494139.git.lorenzo@kernel.org>
-References: <c74b9132cd2c958a00b4a2d42ecd47b3104e3065.1757494139.git.lorenzo@kernel.org>
+From 3c20cbfdbead23848075f882d1b117f2a9b200b5 Mon Sep 17 00:00:00 2001
+Message-ID: <3c20cbfdbead23848075f882d1b117f2a9b200b5.1757512252.git.lorenzo@kernel.org>
+In-Reply-To: <e134420e2a93d0febe112f1459b27b26a87017c4.1757512252.git.lorenzo@kernel.org>
+References: <e134420e2a93d0febe112f1459b27b26a87017c4.1757512252.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Mon, 14 Jul 2025 16:25:38 +0200
 Subject: [PATCH 5/5] wifi: mt76: mt7996: Add NPU offload support to MT7996
  driver
 
 Introduce Airoha NPU support to MT7996 driver. NPU is used to enable
-traffic forward offloading between the MT76 NIC and Airoha ethernet one
+traffic forward offloading between the MT76 NIC and the Airoha ethernet one
 available on the Airoha EN7581 SoC using Netfilter Flowtable APIs.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
@@ -26,14 +26,14 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  create mode 100644 mt7996/npu.c
 
 diff --git a/mt7996/Makefile b/mt7996/Makefile
-index 07c8b555..c3783a23 100644
+index 07c8b555..21a5f33b 100644
 --- a/mt7996/Makefile
 +++ b/mt7996/Makefile
 @@ -5,4 +5,5 @@ obj-$(CONFIG_MT7996E) += mt7996e.o
  mt7996e-y := pci.o init.o dma.o eeprom.o main.o mcu.o mac.o \
  	     debugfs.o mmio.o
  
-+mt7996e-$(CONFIG_NET_AIROHA_NPU) += npu.o
++mt7996e-$(CONFIG_MT7996_NPU) += npu.o
  mt7996e-$(CONFIG_DEV_COREDUMP) += coredump.o
 diff --git a/mt7996/dma.c b/mt7996/dma.c
 index 659015f9..1ec17e03 100644
@@ -179,7 +179,7 @@ index 374ffe1f..0001dfc2 100644
  
  	mt7996_for_each_phy(dev, phy)
 diff --git a/mt7996/main.c b/mt7996/main.c
-index de92b706..062d3ccb 100644
+index de92b706..1aa00688 100644
 --- a/mt7996/main.c
 +++ b/mt7996/main.c
 @@ -2141,7 +2141,6 @@ out:
@@ -249,7 +249,7 @@ index de92b706..062d3ccb 100644
  	.net_fill_forward_path = mt7996_net_fill_forward_path,
 +#ifdef CONFIG_NET_MEDIATEK_SOC_WED
  	.net_setup_tc = mt76_wed_net_setup_tc,
-+#elif (IS_BUILTIN(CONFIG_NET_AIROHA_NPU) || IS_MODULE(CONFIG_NET_AIROHA_NPU))
++#elifdef CONFIG_MT7996_NPU
 +	.net_setup_tc = mt76_npu_net_setup_tc,
  #endif
  	.change_vif_links = mt7996_change_vif_links,
@@ -280,14 +280,14 @@ index d14b626e..bd837f91 100644
  
  /* TODO: support 2/4/6/8 MSI-X vectors */
 diff --git a/mt7996/mt7996.h b/mt7996/mt7996.h
-index be26e04b..41aa8774 100644
+index be26e04b..942e0522 100644
 --- a/mt7996/mt7996.h
 +++ b/mt7996/mt7996.h
 @@ -867,4 +867,25 @@ int mt7996_mtk_init_debugfs(struct mt7996_phy *phy, struct dentry *dir);
  
  int mt7996_dma_rro_init(struct mt7996_dev *dev);
  
-+#if (IS_BUILTIN(CONFIG_NET_AIROHA_NPU) || IS_MODULE(CONFIG_NET_AIROHA_NPU))
++#ifdef CONFIG_MT7996_NPU
 +int mt7996_npu_hw_init(struct mt7996_dev *dev);
 +int mt7996_npu_hw_stop(struct mt7996_dev *dev);
 +int mt7996_npu_rx_queues_init(struct mt7996_dev *dev);
@@ -306,7 +306,7 @@ index be26e04b..41aa8774 100644
 +{
 +	return 0;
 +}
-+#endif /* CONFIG_NET_AIROHA_NPU */
++#endif /* CONFIG_MT7996_NPU */
 +
  #endif
 diff --git a/mt7996/npu.c b/mt7996/npu.c
