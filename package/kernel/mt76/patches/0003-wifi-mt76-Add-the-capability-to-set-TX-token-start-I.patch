@@ -1,7 +1,7 @@
-From 7aec87df650a9c19bb7ebfd6a00226eb6f3b2b2a Mon Sep 17 00:00:00 2001
-Message-ID: <7aec87df650a9c19bb7ebfd6a00226eb6f3b2b2a.1757494139.git.lorenzo@kernel.org>
-In-Reply-To: <c74b9132cd2c958a00b4a2d42ecd47b3104e3065.1757494139.git.lorenzo@kernel.org>
-References: <c74b9132cd2c958a00b4a2d42ecd47b3104e3065.1757494139.git.lorenzo@kernel.org>
+From e3aede8127d0ecc160a2f421af00f762af78b083 Mon Sep 17 00:00:00 2001
+Message-ID: <e3aede8127d0ecc160a2f421af00f762af78b083.1757512252.git.lorenzo@kernel.org>
+In-Reply-To: <e134420e2a93d0febe112f1459b27b26a87017c4.1757512252.git.lorenzo@kernel.org>
+References: <e134420e2a93d0febe112f1459b27b26a87017c4.1757512252.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 25 Jul 2025 12:38:26 +0200
 Subject: [PATCH 3/5] wifi: mt76: Add the capability to set TX token start ID
