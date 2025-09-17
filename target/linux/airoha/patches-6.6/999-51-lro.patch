@@ -1,14 +1,14 @@
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -17,6 +17,7 @@
- #include <net/netdev_rx_queue.h>
+@@ -13,6 +13,7 @@
+ #include <net/dst_metadata.h>
  #include <net/page_pool/helpers.h>
  #include <net/pkt_cls.h>
 +#include <net/tcp.h>
  #include <uapi/linux/ppp_defs.h>
  
  #include "airoha_regs.h"
-@@ -481,6 +482,40 @@ static void airoha_fe_crsn_qsel_init(str
+@@ -454,6 +455,40 @@ static void airoha_fe_crsn_qsel_init(str
  				 CDM_CRSN_QSEL_Q1));
  }
  
@@ -49,7 +49,7 @@
  static int airoha_fe_init(struct airoha_eth *eth)
  {
  	airoha_fe_maccr_init(eth);
-@@ -667,9 +702,87 @@ static int airoha_qdma_get_gdm_port(stru
+@@ -641,9 +676,87 @@ static int airoha_qdma_get_gdm_port(stru
  	return port >= ARRAY_SIZE(eth->ports) ? -EINVAL : port;
  }
  
@@ -137,7 +137,7 @@
  	struct airoha_qdma *qdma = q->qdma;
  	struct airoha_eth *eth = qdma->eth;
  	int qid = q - &qdma->q_rx[0];
-@@ -719,9 +825,14 @@ static int airoha_qdma_rx_process(struct
+@@ -686,9 +799,14 @@ static int airoha_qdma_rx_process(struct
  			__skb_put(q->skb, len);
  			skb_mark_for_recycle(q->skb);
  			q->skb->dev = port->dev;
@@ -153,7 +153,7 @@
  		} else { /* scattered frame */
  			struct skb_shared_info *shinfo = skb_shinfo(q->skb);
  			int nr_frags = shinfo->nr_frags;
-@@ -807,15 +919,17 @@ static int airoha_qdma_rx_napi_poll(stru
+@@ -775,15 +893,17 @@ static int airoha_qdma_rx_napi_poll(stru
  }
  
  static int airoha_qdma_init_rx_queue(struct airoha_queue *q,
@@ -175,7 +175,7 @@
  		.nid = NUMA_NO_NODE,
  		.dev = qdma->eth->dev,
  		.napi = &q->napi,
-@@ -824,7 +938,7 @@ static int airoha_qdma_init_rx_queue(str
+@@ -792,7 +912,7 @@ static int airoha_qdma_init_rx_queue(str
  	int qid = q - &qdma->q_rx[0], thr;
  	dma_addr_t dma_addr;
  
@@ -184,7 +184,7 @@
  	q->ndesc = ndesc;
  	q->qdma = qdma;
  
-@@ -886,15 +1000,18 @@ static int airoha_qdma_init_rx(struct ai
+@@ -854,15 +974,18 @@ static int airoha_qdma_init_rx(struct ai
  	int i;
  
  	for (i = 0; i < ARRAY_SIZE(qdma->q_rx); i++) {
@@ -206,8 +206,8 @@
  		if (err)
  			return err;
  	}
-@@ -1973,6 +2090,47 @@ static u32 airoha_get_dsa_tag(struct sk_
- #endif
+@@ -1938,6 +2061,47 @@ static int airoha_get_fe_port(struct air
+ 	}
  }
  
 +static int airoha_dev_set_features(struct net_device *dev,
@@ -254,7 +254,7 @@
  static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
  				   struct net_device *dev)
  {
-@@ -2878,6 +3036,7 @@ static const struct net_device_ops airoh
+@@ -2821,6 +2985,7 @@ static const struct net_device_ops airoh
  	.ndo_stop		= airoha_dev_stop,
  	.ndo_change_mtu		= airoha_dev_change_mtu,
  	.ndo_select_queue	= airoha_dev_select_queue,
@@ -262,7 +262,7 @@
  	.ndo_start_xmit		= airoha_dev_xmit,
  	.ndo_get_stats64        = airoha_dev_get_stats64,
  	.ndo_set_mac_address	= airoha_dev_set_macaddr,
-@@ -3152,6 +3311,31 @@ static int airoha_xmit_rings_show(struct
+@@ -3021,6 +3186,31 @@ static int airoha_xmit_rings_show(struct
  }
  DEFINE_SHOW_ATTRIBUTE(airoha_xmit_rings);
  
@@ -294,7 +294,7 @@
  static int airoha_tx_meter_show(struct seq_file *s, void *data)
  {
  	struct airoha_gdm_port *port = s->private;
-@@ -3234,6 +3418,8 @@ static int airoha_register_port_debugfs(
+@@ -3103,6 +3293,8 @@ static int airoha_register_port_debugfs(
  			    &airoha_tx_meter_fops);
  	debugfs_create_file("xmit-rings", 0400, root, port,
  			    &airoha_xmit_rings_fops);
@@ -303,7 +303,7 @@
  
  	return 0;
  }
-@@ -3290,12 +3476,9 @@ static int airoha_alloc_gdm_port(struct
+@@ -3146,12 +3338,9 @@ static int airoha_alloc_gdm_port(struct
  	dev->ethtool_ops = &airoha_ethtool_ops;
  	dev->max_mtu = AIROHA_MAX_MTU;
  	dev->watchdog_timeo = 5 * HZ;
@@ -371,7 +371,7 @@
  #define REG_GDM_FWD_CFG(_n)		GDM_BASE(_n)
  #define GDM_PAD_EN			BIT(28)
  #define GDM_DROP_CRC_ERR		BIT(23)
-@@ -900,9 +917,15 @@
+@@ -903,9 +920,15 @@
  #define QDMA_ETH_RXMSG_SPORT_MASK	GENMASK(25, 21)
  #define QDMA_ETH_RXMSG_CRSN_MASK	GENMASK(20, 16)
  #define QDMA_ETH_RXMSG_PPE_ENTRY_MASK	GENMASK(15, 0)

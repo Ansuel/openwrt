@@ -1,0 +1,148 @@
+From 48a9727ecb08c9546accf746923fd8a3c45948fb Mon Sep 17 00:00:00 2001
+Message-ID: <48a9727ecb08c9546accf746923fd8a3c45948fb.1758640781.git.lorenzo@kernel.org>
+In-Reply-To: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+References: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sun, 14 Sep 2025 13:05:06 +0200
+Subject: [PATCH net-next 03/12] net: airoha: Generalize airoha_ppe2_is_enabled
+ routine
+
+Rename airoha_ppe2_is_enabled() in airoha_ppe_is_enabled() and
+generalize it in order to check if each PPE module is enabled.
+Use this routine to properly initialize PPE for AN7583 SoC where
+PPE2 is not available.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 32 ++++++++++++++++--------
+ drivers/net/ethernet/airoha/airoha_eth.h |  1 +
+ drivers/net/ethernet/airoha/airoha_ppe.c | 17 +++++++------
+ 3 files changed, 32 insertions(+), 18 deletions(-)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -304,8 +304,11 @@ static void airoha_fe_pse_ports_init(str
+ 	int q;
+ 
+ 	all_rsv = airoha_fe_get_pse_all_rsv(eth);
+-	/* hw misses PPE2 oq rsv */
+-	all_rsv += PSE_RSV_PAGES * pse_port_num_queues[FE_PSE_PORT_PPE2];
++	if (airoha_ppe_is_enabled(eth, 1)) {
++		/* hw misses PPE2 oq rsv */
++		all_rsv += PSE_RSV_PAGES *
++			   pse_port_num_queues[FE_PSE_PORT_PPE2];
++	}
+ 	airoha_fe_set(eth, REG_FE_PSE_BUF_SET, all_rsv);
+ 
+ 	/* CMD1 */
+@@ -342,13 +345,17 @@ static void airoha_fe_pse_ports_init(str
+ 	for (q = 4; q < pse_port_num_queues[FE_PSE_PORT_CDM4]; q++)
+ 		airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_CDM4, q,
+ 					 PSE_QUEUE_RSV_PAGES);
+-	/* PPE2 */
+-	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_PPE2]; q++) {
+-		if (q < pse_port_num_queues[FE_PSE_PORT_PPE2] / 2)
+-			airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_PPE2, q,
+-						 PSE_QUEUE_RSV_PAGES);
+-		else
+-			airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_PPE2, q, 0);
++	if (airoha_ppe_is_enabled(eth, 1)) {
++		/* PPE2 */
++		for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_PPE2]; q++) {
++			if (q < pse_port_num_queues[FE_PSE_PORT_PPE2] / 2)
++				airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_PPE2,
++							 q,
++							 PSE_QUEUE_RSV_PAGES);
++			else
++				airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_PPE2,
++							 q, 0);
++		}
+ 	}
+ 	/* GMD4 */
+ 	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_GDM4]; q++)
+@@ -1925,8 +1932,11 @@ static int airoha_dev_init(struct net_de
+ 			airhoha_set_gdm2_loopback(port);
+ 		fallthrough;
+ 	case 2:
+-		pse_port = FE_PSE_PORT_PPE2;
+-		break;
++		if (airoha_ppe_is_enabled(eth, 1)) {
++			pse_port = FE_PSE_PORT_PPE2;
++			break;
++		}
++		fallthrough;
+ 	default:
+ 		pse_port = FE_PSE_PORT_PPE1;
+ 		break;
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -648,6 +648,7 @@ static inline bool airoha_is_7581(struct
+ bool airoha_is_valid_gdm_port(struct airoha_eth *eth,
+ 			      struct airoha_gdm_port *port);
+ 
++bool airoha_ppe_is_enabled(struct airoha_eth *eth, int index);
+ void airoha_ppe_check_skb(struct airoha_ppe_dev *dev, struct sk_buff *skb,
+ 			  u16 hash, bool rx_wlan);
+ int airoha_ppe_setup_tc_block_cb(struct airoha_ppe_dev *dev, void *type_data);
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -32,9 +32,12 @@ static const struct rhashtable_params ai
+ 	.automatic_shrinking = true,
+ };
+ 
+-static bool airoha_ppe2_is_enabled(struct airoha_eth *eth)
++bool airoha_ppe_is_enabled(struct airoha_eth *eth, int index)
+ {
+-	return airoha_fe_rr(eth, REG_PPE_GLO_CFG(1)) & PPE_GLO_CFG_EN_MASK;
++	if (index >= eth->soc->num_ppe)
++		return false;
++
++	return airoha_fe_rr(eth, REG_PPE_GLO_CFG(index)) & PPE_GLO_CFG_EN_MASK;
+ }
+ 
+ static u32 airoha_ppe_get_timestamp(struct airoha_ppe *ppe)
+@@ -102,7 +105,7 @@ static void airoha_ppe_hw_init(struct ai
+ 						 AIROHA_MAX_MTU));
+ 	}
+ 
+-	if (airoha_ppe2_is_enabled(eth)) {
++	if (airoha_ppe_is_enabled(eth, 1)) {
+ 		sram_num_entries =
+ 			PPE_RAM_NUM_ENTRIES_SHIFT(PPE1_SRAM_NUM_DATA_ENTRIES);
+ 		airoha_fe_rmw(eth, REG_PPE_TB_CFG(0),
+@@ -496,7 +499,7 @@ static u32 airoha_ppe_foe_get_entry_hash
+ 
+ static u32 airoha_ppe_foe_get_flow_stats_index(struct airoha_ppe *ppe, u32 hash)
+ {
+-	if (!airoha_ppe2_is_enabled(ppe->eth))
++	if (!airoha_ppe_is_enabled(ppe->eth, 1))
+ 		return hash;
+ 
+ 	return hash >= PPE_STATS_NUM_ENTRIES ? hash - PPE1_STATS_NUM_ENTRIES
+@@ -580,7 +583,7 @@ airoha_ppe_foe_get_entry_locked(struct a
+ 		u32 val;
+ 		int i;
+ 
+-		ppe2 = airoha_ppe2_is_enabled(ppe->eth) &&
++		ppe2 = airoha_ppe_is_enabled(ppe->eth, 1) &&
+ 		       hash >= PPE1_SRAM_NUM_ENTRIES;
+ 		airoha_fe_wr(ppe->eth, REG_PPE_RAM_CTRL(ppe2),
+ 			     FIELD_PREP(PPE_SRAM_CTRL_ENTRY_MASK, hash) |
+@@ -658,7 +661,7 @@ static int airoha_ppe_foe_commit_entry(s
+ 
+ 	if (hash < PPE_SRAM_NUM_ENTRIES) {
+ 		dma_addr_t addr = ppe->foe_dma + hash * sizeof(*hwe);
+-		bool ppe2 = airoha_ppe2_is_enabled(eth) &&
++		bool ppe2 = airoha_ppe_is_enabled(eth, 1) &&
+ 			    hash >= PPE1_SRAM_NUM_ENTRIES;
+ 
+ 		err = npu->ops.ppe_foe_commit_entry(npu, addr, sizeof(*hwe),
+@@ -1249,7 +1252,7 @@ static int airoha_ppe_flush_sram_entries
+ 	int i, sram_num_entries = PPE_SRAM_NUM_ENTRIES;
+ 	struct airoha_foe_entry *hwe = ppe->foe;
+ 
+-	if (airoha_ppe2_is_enabled(ppe->eth))
++	if (airoha_ppe_is_enabled(ppe->eth, 1))
+ 		sram_num_entries = sram_num_entries / 2;
+ 
+ 	for (i = 0; i < sram_num_entries; i++)

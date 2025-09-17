@@ -1,0 +1,72 @@
+From 6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4 Mon Sep 17 00:00:00 2001
+Message-ID: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Wed, 17 Sep 2025 09:01:09 +0200
+Subject: [PATCH net-next 01/12] net: airoha: npu: Add 7583 SoC support
+
+Introduce support for Airoha 7583 SoC selecting proper firmware images.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_npu.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/ethernet/airoha/airoha_npu.c
++++ b/drivers/net/ethernet/airoha/airoha_npu.c
+@@ -16,6 +16,8 @@
+ 
+ #define NPU_EN7581_FIRMWARE_DATA		"airoha/en7581_npu_data.bin"
+ #define NPU_EN7581_FIRMWARE_RV32		"airoha/en7581_npu_rv32.bin"
++#define NPU_AN7583_FIRMWARE_DATA		"airoha/an7583_npu_data.bin"
++#define NPU_AN7583_FIRMWARE_RV32		"airoha/an7583_npu_rv32.bin"
+ #define NPU_EN7581_FIRMWARE_RV32_MAX_SIZE	0x200000
+ #define NPU_EN7581_FIRMWARE_DATA_MAX_SIZE	0x10000
+ #define NPU_DUMP_SIZE				512
+@@ -186,10 +188,15 @@ static int airoha_npu_run_firmware(struc
+ 				   struct reserved_mem *rmem)
+ {
+ 	const struct firmware *fw;
++	const char *fw_name;
+ 	void __iomem *addr;
+ 	int ret;
+ 
+-	ret = request_firmware(&fw, NPU_EN7581_FIRMWARE_RV32, dev);
++	if (of_device_is_compatible(dev->of_node, "airoha,an7583-npu"))
++		fw_name = NPU_AN7583_FIRMWARE_RV32;
++	else
++		fw_name = NPU_EN7581_FIRMWARE_RV32;
++	ret = request_firmware(&fw, fw_name, dev);
+ 	if (ret)
+ 		return ret == -ENOENT ? -EPROBE_DEFER : ret;
+ 
+@@ -209,7 +216,11 @@ static int airoha_npu_run_firmware(struc
+ 	memcpy_toio(addr, fw->data, fw->size);
+ 	release_firmware(fw);
+ 
+-	ret = request_firmware(&fw, NPU_EN7581_FIRMWARE_DATA, dev);
++	if (of_device_is_compatible(dev->of_node, "airoha,an7583-npu"))
++		fw_name = NPU_AN7583_FIRMWARE_DATA;
++	else
++		fw_name = NPU_EN7581_FIRMWARE_DATA;
++	ret = request_firmware(&fw, fw_name, dev);
+ 	if (ret)
+ 		return ret == -ENOENT ? -EPROBE_DEFER : ret;
+ 
+@@ -611,6 +622,7 @@ EXPORT_SYMBOL_GPL(airoha_npu_put);
+ 
+ static const struct of_device_id of_airoha_npu_match[] = {
+ 	{ .compatible = "airoha,en7581-npu" },
++	{ .compatible = "airoha,an7583-npu" },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, of_airoha_npu_match);
+@@ -754,5 +766,9 @@ static struct platform_driver airoha_npu
+ module_platform_driver(airoha_npu_driver);
+ 
+ MODULE_LICENSE("GPL");
++MODULE_FIRMWARE(NPU_EN7581_FIRMWARE_DATA);
++MODULE_FIRMWARE(NPU_EN7581_FIRMWARE_RV32);
++MODULE_FIRMWARE(NPU_AN7583_FIRMWARE_DATA);
++MODULE_FIRMWARE(NPU_AN7583_FIRMWARE_RV32);
+ MODULE_AUTHOR("Lorenzo Bianconi <lorenzo@kernel.org>");
+ MODULE_DESCRIPTION("Airoha Network Processor Unit driver");

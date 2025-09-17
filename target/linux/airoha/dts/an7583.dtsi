@@ -636,7 +636,7 @@
 		};
 
 		npu: npu@1e900000 {
-			compatible = "airoha,en7581-npu";
+			compatible = "airoha,an7583-npu";
 			reg = <0x0 0x1e900000 0x0 0x313000>;
 			interrupts = <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>,
@@ -765,6 +765,7 @@
 				compatible = "airoha,eth-mac";
 				reg = <3>;
 				pcs = <&eth_pcs>;
+				airoha,gdm-srcport = <0x16>;
 
 				status = "disabled";
 			};

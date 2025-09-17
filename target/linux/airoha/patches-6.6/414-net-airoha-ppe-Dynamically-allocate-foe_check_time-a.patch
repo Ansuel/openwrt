@@ -1,0 +1,43 @@
+From c94abda86e1aa36e50cbdd3ecebdc4dc472e7c5c Mon Sep 17 00:00:00 2001
+Message-ID: <c94abda86e1aa36e50cbdd3ecebdc4dc472e7c5c.1758640781.git.lorenzo@kernel.org>
+In-Reply-To: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+References: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sat, 13 Sep 2025 18:41:57 +0200
+Subject: [PATCH net-next 04/12] net: airoha: ppe: Dynamically allocate
+ foe_check_time array in airoha_ppe struct
+
+This is a preliminary patch to properly enable PPE support for AN7583
+SoC.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.h | 2 +-
+ drivers/net/ethernet/airoha/airoha_ppe.c | 5 +++++
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -566,7 +566,7 @@ struct airoha_ppe {
+ 	struct rhashtable l2_flows;
+ 
+ 	struct hlist_head *foe_flow;
+-	u16 foe_check_time[PPE_NUM_ENTRIES];
++	u16 *foe_check_time;
+ 
+ 	struct airoha_foe_stats *foe_stats;
+ 	dma_addr_t foe_stats_dma;
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -1454,6 +1454,11 @@ int airoha_ppe_init(struct airoha_eth *e
+ 			return -ENOMEM;
+ 	}
+ 
++	ppe->foe_check_time = devm_kzalloc(eth->dev, PPE_NUM_ENTRIES,
++					   GFP_KERNEL);
++	if (!ppe->foe_check_time)
++		return -ENOMEM;
++
+ 	err = rhashtable_init(&eth->flow_table, &airoha_flow_table_params);
+ 	if (err)
+ 		return err;

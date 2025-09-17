@@ -1,0 +1,58 @@
+From 2a9ba507b4a8a2220dfb903a3272bae4480145fb Mon Sep 17 00:00:00 2001
+Message-ID: <2a9ba507b4a8a2220dfb903a3272bae4480145fb.1758640781.git.lorenzo@kernel.org>
+In-Reply-To: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+References: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sun, 14 Sep 2025 10:09:49 +0200
+Subject: [PATCH net-next 07/12] net: airoha: ppe: Remove
+ airoha_ppe_is_enabled() where not necessary
+
+Now each PPE has always PPE_STATS_NUM_ENTRIES entries so we do not need
+to run airoha_ppe_is_enabled routine to check if the hash refers to
+PPE1 or PPE2.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_ppe.c | 13 ++++---------
+ 1 file changed, 4 insertions(+), 9 deletions(-)
+
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -534,10 +534,8 @@ static int airoha_ppe_foe_get_flow_stats
+ 	if (err)
+ 		return err;
+ 
+-	*index = hash;
+-	if (airoha_ppe_is_enabled(ppe->eth, 1) &&
+-	    hash >= ppe_num_stats_entries)
+-		*index = *index - PPE_STATS_NUM_ENTRIES;
++	*index = hash >= ppe_num_stats_entries ? hash - PPE_STATS_NUM_ENTRIES
++					       : hash;
+ 
+ 	return 0;
+ }
+@@ -627,13 +625,11 @@ airoha_ppe_foe_get_entry_locked(struct a
+ 
+ 	if (hash < sram_num_entries) {
+ 		u32 *hwe = ppe->foe + hash * sizeof(struct airoha_foe_entry);
++		bool ppe2 = hash >= PPE_SRAM_NUM_ENTRIES;
+ 		struct airoha_eth *eth = ppe->eth;
+-		bool ppe2;
+ 		u32 val;
+ 		int i;
+ 
+-		ppe2 = airoha_ppe_is_enabled(ppe->eth, 1) &&
+-		       hash >= PPE_SRAM_NUM_ENTRIES;
+ 		airoha_fe_wr(ppe->eth, REG_PPE_RAM_CTRL(ppe2),
+ 			     FIELD_PREP(PPE_SRAM_CTRL_ENTRY_MASK, hash) |
+ 			     PPE_SRAM_CTRL_REQ_MASK);
+@@ -711,8 +707,7 @@ static int airoha_ppe_foe_commit_entry(s
+ 
+ 	if (hash < sram_num_entries) {
+ 		dma_addr_t addr = ppe->foe_dma + hash * sizeof(*hwe);
+-		bool ppe2 = airoha_ppe_is_enabled(eth, 1) &&
+-			    hash >= PPE_SRAM_NUM_ENTRIES;
++		bool ppe2 = hash >= PPE_SRAM_NUM_ENTRIES;
+ 
+ 		err = npu->ops.ppe_foe_commit_entry(npu, addr, sizeof(*hwe),
+ 						    hash, ppe2);
