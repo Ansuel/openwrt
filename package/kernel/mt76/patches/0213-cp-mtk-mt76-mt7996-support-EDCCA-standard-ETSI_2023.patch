@@ -1,0 +1,47 @@
+diff -uNr old/mt7996/mtk_mcu.c new/mt7996/mtk_mcu.c
+--- old/mt7996/mtk_mcu.c	2025-08-22 01:04:09.989820000 +0800
++++ new/mt7996/mtk_mcu.c	2025-08-22 09:53:07.922648000 +0800
+@@ -62,9 +62,6 @@
+ 
+ int mt7996_mcu_edcca_enable(struct mt7996_phy *phy, bool enable)
+ {
+-	struct mt7996_dev *dev = phy->dev;
+-	struct cfg80211_chan_def *chandef = &phy->mt76->chandef;
+-	enum nl80211_band band = chandef->chan->band;
+ 	struct {
+ 		u8 band_idx;
+ 		u8 _rsv[3];
+@@ -82,17 +79,15 @@
+ 		.std = EDCCA_DEFAULT,
+ 	};
+ 
+-	switch (dev->mt76.region) {
++	switch (phy->dev->mt76.region) {
+ 	case NL80211_DFS_JP:
+ 		req.std = EDCCA_JAPAN;
+ 		break;
+ 	case NL80211_DFS_FCC:
+-		if (band == NL80211_BAND_6GHZ)
+-			req.std = EDCCA_FCC;
++		req.std = EDCCA_FCC;
+ 		break;
+ 	case NL80211_DFS_ETSI:
+-		if (band == NL80211_BAND_6GHZ)
+-			req.std = EDCCA_ETSI;
++		req.std = EDCCA_ETSI_2023;
+ 		break;
+ 	default:
+ 		break;
+diff -uNr old/mt7996/mtk_mcu.h new/mt7996/mtk_mcu.h
+--- old/mt7996/mtk_mcu.h	2025-08-22 01:04:09.754816000 +0800
++++ new/mt7996/mtk_mcu.h	2025-08-22 09:53:49.244671000 +0800
+@@ -118,7 +118,8 @@
+ 	EDCCA_DEFAULT = 0,
+ 	EDCCA_FCC = 1,
+ 	EDCCA_ETSI = 2,
+-	EDCCA_JAPAN = 3
++	EDCCA_JAPAN = 3,
++	EDCCA_ETSI_2023 = 4,
+ };
+ 
+ enum {

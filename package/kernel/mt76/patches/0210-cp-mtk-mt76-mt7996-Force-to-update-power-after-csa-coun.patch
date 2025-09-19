@@ -1,0 +1,24 @@
+diff -uNr old/mt7996/main.c new/mt7996/main.c
+--- old/mt7996/main.c	2025-08-22 00:38:02.005962000 +0800
++++ new/mt7996/main.c	2025-08-22 00:46:24.210884000 +0800
+@@ -3170,6 +3170,8 @@
+ 	u8 omac_idx;
+ 
+ 	for (i = 0; i < n_vifs; i++) {
++		u8 delta;
++		int current_txpower;
+ 		if (vifs[i].old_ctx == vifs[i].new_ctx)
+ 			continue;
+ 
+@@ -3225,6 +3227,11 @@
+ 		ret = mt7996_config_channel(phy, &new_ctx->chandef);
+ 		if (ret)
+ 			goto out;
++		delta = mt76_tx_power_path_delta(hweight16(phy->mt76->chainmask));
++		current_txpower = DIV_ROUND_UP(phy->mt76->txpower_cur + delta, 2);
++		ret = mt7996_mcu_set_txpower_sku(phy, current_txpower);
++		if (ret)
++			goto out;		
+ 	}
+ 
+ out:

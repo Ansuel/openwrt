@@ -1,0 +1,11 @@
+diff -uNr old/mt7996/init.c new/mt7996/init.c
+--- old/mt7996/init.c	2025-08-21 20:02:42.534062000 +0800
++++ new/mt7996/init.c	2025-08-21 20:17:16.034003000 +0800
+@@ -451,6 +451,7 @@
+ 	phy->slottime = 9;
+ 	phy->beacon_rate = -1;
+ 	phy->muru_onoff = OFDMA_UL | OFDMA_DL | MUMIMO_DL | MUMIMO_UL;
++	phy->rxfilter = MT_WF_RFCR_DROP_OTHER_UC;
+ 
+ 	if (phy->mt76->cap.has_2ghz) {
+ 		phy->mt76->sband_2g.sband.ht_cap.cap |=

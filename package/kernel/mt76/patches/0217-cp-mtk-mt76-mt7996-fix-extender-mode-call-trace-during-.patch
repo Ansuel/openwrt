@@ -1,0 +1,45 @@
+diff -uNr old/mt7996/mac.c new/mt7996/mac.c
+--- old/mt7996/mac.c	2025-08-22 11:34:02.788246000 +0800
++++ new/mt7996/mac.c	2025-08-22 11:36:59.878232000 +0800
+@@ -2270,7 +2270,8 @@
+ 					mconf_dereference_protected(mvif, link_id);
+ 			struct ieee80211_bss_conf *conf =
+ 					link_conf_dereference_protected(vif, link_id);
+-
++			if (!conf)
++				continue;
+ 			mt7996_mcu_add_beacon(hw, conf, mconf, conf->enable_beacon);
+ 		}
+ 		break;
+diff -uNr old/util.h new/util.h
+--- old/util.h	2024-10-12 02:01:19.000000000 +0800
++++ new/util.h	2025-08-22 11:38:41.726189000 +0800
+@@ -22,6 +22,7 @@
+ enum {
+ 	MT76_WORKER_SCHEDULED,
+ 	MT76_WORKER_RUNNING,
++	MT76_WORKER_DISABLED,
+ };
+ 
+ #define MT76_INCR(_var, _size) \
+@@ -90,9 +91,11 @@
+ {
+ 	if (!w->task)
+ 		return;
++	if (test_and_set_bit(MT76_WORKER_DISABLED, &w->state))
++		return;
+ 
+ 	kthread_park(w->task);
+-	WRITE_ONCE(w->state, 0);
++	WRITE_ONCE(w->state, BIT(MT76_WORKER_DISABLED));
+ }
+ 
+ static inline void mt76_worker_enable(struct mt76_worker *w)
+@@ -101,6 +104,7 @@
+ 		return;
+ 
+ 	kthread_unpark(w->task);
++	clear_bit(MT76_WORKER_DISABLED, &w->state);
+ 	mt76_worker_schedule(w);
+ }
+ 

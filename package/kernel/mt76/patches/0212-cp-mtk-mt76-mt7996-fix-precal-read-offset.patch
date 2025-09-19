@@ -1,0 +1,24 @@
+diff -uNr old/mt7996/eeprom.c new/mt7996/eeprom.c
+--- old/mt7996/eeprom.c	2025-08-22 00:57:30.730836000 +0800
++++ new/mt7996/eeprom.c	2025-08-22 01:00:51.548825000 +0800
+@@ -551,8 +551,9 @@
+ {
+ 	struct mt76_dev *mdev = &dev->mt76;
+ 	u8 *eeprom = mdev->eeprom.data;
+-	u32 offs = MT_EE_DO_PRE_CAL;
+-	u32 size, val = eeprom[offs];
++	u32 val = eeprom[MT_EE_DO_PRE_CAL];
++	u32 size, offs = MT_EE_PRECAL;
++
+ 	int ret;
+ 
+ 	mt7996_eeprom_init_precal(dev);
+@@ -569,7 +570,7 @@
+ 	}
+ 
+ 	if (dev->bin_file_mode) {
+-		ret = mt7996_eeprom_load_precal_binfile(dev, MT_EE_PRECAL, size);
++		ret = mt7996_eeprom_load_precal_binfile(dev, offs, size);
+ 		if (ret)
+ 			goto fail;
+ 	}

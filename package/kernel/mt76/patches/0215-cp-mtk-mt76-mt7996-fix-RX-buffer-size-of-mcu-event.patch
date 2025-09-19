@@ -1,0 +1,34 @@
+diff -uNr old/mt7996/dma.c new/mt7996/dma.c
+--- old/mt7996/dma.c	2025-08-22 10:19:25.078537000 +0800
++++ new/mt7996/dma.c	2025-08-22 11:17:35.725279000 +0800
+@@ -708,7 +708,7 @@
+ 	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MCU],
+ 			       MT_RXQ_ID(MT_RXQ_MCU),
+ 			       MT7996_RX_MCU_RING_SIZE,
+-			       MT_RX_BUF_SIZE,
++			       MT7996_RX_MCU_BUF_SIZE,
+ 			       MT_RXQ_RING_BASE(MT_RXQ_MCU));
+ 	if (ret)
+ 		return ret;
+@@ -717,7 +717,7 @@
+ 	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MCU_WA],
+ 			       MT_RXQ_ID(MT_RXQ_MCU_WA),
+ 			       MT7996_RX_MCU_RING_SIZE_WA,
+-			       MT_RX_BUF_SIZE,
++			       MT7996_RX_MCU_BUF_SIZE,
+ 			       MT_RXQ_RING_BASE(MT_RXQ_MCU_WA));
+ 	if (ret)
+ 		return ret;
+diff -uNr old/mt7996/mt7996.h new/mt7996/mt7996.h
+--- old/mt7996/mt7996.h	2025-08-22 10:19:25.661574000 +0800
++++ new/mt7996/mt7996.h	2025-08-22 11:18:13.472444000 +0800
+@@ -30,6 +30,9 @@
+ #define MT7996_RX_RING_SIZE		1536
+ #define MT7996_RX_MCU_RING_SIZE		512
+ #define MT7996_RX_MCU_RING_SIZE_WA	1024
++/* scatter-gather of mcu event is not supported in connac3 */
++#define MT7996_RX_MCU_BUF_SIZE		(2048 + \
++					 SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
+ 
+ #define MT7996_DEVICE_ID		0x7990
+ #define MT7996_DEVICE_ID_2		0x7991

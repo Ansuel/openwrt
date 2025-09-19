@@ -1,0 +1,72 @@
+diff -uNr old/mt7996/main.c new/mt7996/main.c
+--- old/mt7996/main.c	2025-08-22 11:41:22.586170000 +0800
++++ new/mt7996/main.c	2025-08-22 11:46:18.977515000 +0800
+@@ -932,37 +932,7 @@
+ static void mt7996_vif_cfg_changed(struct ieee80211_hw *hw,
+ 				   struct ieee80211_vif *vif, u64 changed)
+ {
+-	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+-
+-	mutex_lock(&dev->mt76.mutex);
+-
+-	if (changed & BSS_CHANGED_ASSOC && vif->cfg.assoc) {
+-		struct mt7996_vif *mvif = (struct mt7996_vif *)vif->drv_priv;
+-		unsigned long valid_links = vif->valid_links ?: BIT(0);
+-		unsigned int link_id;
+-
+-		for_each_set_bit(link_id, &valid_links, IEEE80211_MLD_MAX_NUM_LINKS) {
+-			struct ieee80211_bss_conf *conf =
+-				link_conf_dereference_protected(vif, link_id);
+-			struct mt7996_bss_conf *mconf =
+-				mconf_dereference_protected(mvif, link_id);
+-			struct mt7996_link_sta *mlink =
+-				mlink_dereference_protected(&mvif->sta, link_id);
+-
+-			if (!conf || !mconf || !mlink)
+-				continue;
+-
+-			mt7996_mcu_add_bss_info(mconf->phy, vif, conf, mconf, mlink, true);
+-			mt7996_mcu_add_sta(dev, vif, conf, mconf, NULL, mlink,
+-					   CONN_STATE_PORT_SECURE, false);
+-		}
+-	}
+ 
+-	if ((changed & BSS_CHANGED_MLD_VALID_LINKS) &&
+-	    (changed & (BSS_CHANGED_MLD_ADV_TTLM | BSS_CHANGED_MLD_NEG_TTLM)))
+-		mt7996_mcu_peer_mld_ttlm_req(dev, vif, changed);
+-
+-	mutex_unlock(&dev->mt76.mutex);
+ }
+ 
+ static void mt7996_get_tsf_offset(struct ieee80211_vif *vif,
+@@ -1022,6 +992,10 @@
+ 				   !!(changed & BSS_CHANGED_BSSID));
+ 	}
+ 
++	if (changed & BSS_CHANGED_BSSID && is_zero_ether_addr(info->bssid))
++		mt7996_mcu_add_sta(dev, vif, info, mconf, NULL, mlink,
++				   CONN_STATE_DISCONNECT, false);	
++
+ 	if (changed & BSS_CHANGED_ERP_SLOT) {
+ 		int slottime = info->use_short_slot ? 9 : 20;
+ 
+@@ -1363,10 +1337,19 @@
+ 			link_conf_dereference_protected(vif, link_id);
+ 		struct ieee80211_link_sta *link_sta =
+ 			link_sta_dereference_protected(sta, link_id);
++		struct mt7996_link_sta *msta_link =
++			mlink_dereference_protected(&mvif->sta, link_id);		
+ 
+ 		if (!mconf || !conf || !link_sta)
+ 			continue;
+ 
++		/* Update bss capability after associated and before add station */
++		if (vif->type == NL80211_IFTYPE_STATION) {
++			mt7996_mcu_add_bss_info(mconf->phy, vif, conf,
++						mconf, msta_link, true);
++			mt7996_mcu_add_sta(dev, vif, conf, mconf, NULL, msta_link,
++					   CONN_STATE_PORT_SECURE, true);
++		}
+ 		ret = mt7996_add_link_sta(dev, conf, mconf, link_sta, assoc);
+ 		if (ret)
+ 			goto error;

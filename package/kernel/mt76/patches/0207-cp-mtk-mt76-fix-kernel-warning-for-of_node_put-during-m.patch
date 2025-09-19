@@ -1,0 +1,12 @@
+diff -uNr old/eeprom.c new/eeprom.c
+--- old/eeprom.c	2025-08-21 20:20:27.737974000 +0800
++++ new/eeprom.c	2025-08-21 20:35:46.913973000 +0800
+@@ -228,8 +228,6 @@
+ #endif
+ 	}
+ 
+-	of_node_put(np);
+-
+ 	return dev->bin_file_name ? true : false;
+ }
+ EXPORT_SYMBOL_GPL(mt76_check_bin_file_mode);

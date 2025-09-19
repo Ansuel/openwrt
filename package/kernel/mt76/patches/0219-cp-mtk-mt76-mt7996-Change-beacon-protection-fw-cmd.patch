@@ -1,0 +1,240 @@
+diff -uNr old/mt7996/main.c new/mt7996/main.c
+--- old/mt7996/main.c	2025-08-22 11:49:13.864164000 +0800
++++ new/mt7996/main.c	2025-08-22 13:40:21.234679000 +0800
+@@ -683,6 +683,7 @@
+ 	int err = 0;
+ 	unsigned long add;
+ 	unsigned int link_id;
++	u8 pn[6] = {};
+ 
+ 	if (key->link_id >= 0) {
+ 		add = BIT(key->link_id);
+@@ -729,6 +730,9 @@
+ 			if (key->keyidx == 6 || key->keyidx == 7) {
+ 				wcid_keyidx = &mlink->wcid.hw_key_idx2;
+ 				key->flags |= IEEE80211_KEY_FLAG_GENERATE_MMIE;
++				err = mt7996_mcu_get_pn(dev, mconf, mlink, pn);
++				if (err)
++					goto out;
+ 				break;
+ 			}
+ 			fallthrough;
+@@ -738,7 +742,7 @@
+ 			mutex_unlock(&dev->mt76.mutex);
+ 			return -EOPNOTSUPP;
+ 		}
+-
++		/* Todo: remove me after fix set dtim period to fw */
+ 		if (cmd == SET_KEY && !sta && !mconf->mt76.cipher) {
+ 			mconf->mt76.cipher = mt76_connac_mcu_get_cipher(key->cipher);
+ 			mt7996_mcu_add_bss_info(mconf->phy, vif, conf, mconf, mlink, true);
+@@ -754,12 +758,10 @@
+ 
+ 		mt76_wcid_key_setup(&dev->mt76, &mlink->wcid, key);
+ 
+-		if (key->keyidx == 6 || key->keyidx == 7)
+-			err = mt7996_mcu_bcn_prot_enable(dev, conf, mconf, mlink, key);
+-		else
+-			err = mt7996_mcu_add_key(&dev->mt76, mconf, key,
+-						 MCU_WMWA_UNI_CMD(STA_REC_UPDATE),
+-						 &mlink->wcid, cmd);
++		err = mt7996_mcu_add_key(&dev->mt76, mconf, key,
++					 MCU_WMWA_UNI_CMD(STA_REC_UPDATE),
++					 &mlink->wcid, cmd, pn);
++
+ 	}
+ out:
+ 	mutex_unlock(&dev->mt76.mutex);
+diff -uNr old/mt7996/mcu.c new/mt7996/mcu.c
+--- old/mt7996/mcu.c	2025-08-22 11:49:13.985172000 +0800
++++ new/mt7996/mcu.c	2025-08-22 13:46:17.294677000 +0800
+@@ -3591,10 +3591,12 @@
+ }
+ 
+ static int
+-mt7996_mcu_sta_key_tlv(struct mt76_wcid *wcid,
++mt7996_mcu_sta_key_tlv(struct mt76_dev *dev,
++				struct mt76_wcid *wcid,
+ 		       struct sk_buff *skb,
+ 		       struct ieee80211_key_conf *key,
+-		       enum set_key_cmd cmd)
++		        enum set_key_cmd cmd,
++ 				u8 *pn)
+ {
+ 	struct sta_rec_sec_uni *sec;
+ 	struct tlv *tlv;
+@@ -3620,7 +3622,26 @@
+ 		sec_key->key_len = key->keylen;
+ 		sec_key->need_resp = 0;
+ 		memcpy(sec_key->key, key->key, key->keylen);
+-
++		/* Todo: move the BCN protection logic into mt76_connac_mcu_get_cipher() */
++		if (sec_key->key_id == 6 || sec_key->key_id == 7) {
++			switch (key->cipher) {
++			case WLAN_CIPHER_SUITE_AES_CMAC:
++				sec_key->cipher_id = MCU_CIPHER_BCN_PROT_CMAC_128;
++				break;
++			case WLAN_CIPHER_SUITE_BIP_GMAC_128:
++				sec_key->cipher_id = MCU_CIPHER_BCN_PROT_GMAC_128;
++				break;
++			case WLAN_CIPHER_SUITE_BIP_GMAC_256:
++				sec_key->cipher_id = MCU_CIPHER_BCN_PROT_GMAC_256;
++				break;
++			case WLAN_CIPHER_SUITE_BIP_CMAC_256:
++			default:
++				dev_err(dev->dev, "Unsupported BIGTK cipher\n");
++				return -EOPNOTSUPP;
++			}
++			sec_key->bcn_mode = BP_SW_MODE;
++			memcpy(sec_key->pn, pn, 6);
++		}
+ 		if (cipher == MCU_CIPHER_TKIP) {
+ 			/* Rx/Tx MIC keys are swapped */
+ 			memcpy(sec_key->key + 16, key->key + 24, 8);
+@@ -3637,7 +3658,8 @@
+ 
+ int mt7996_mcu_add_key(struct mt76_dev *dev, struct mt7996_bss_conf *mconf,
+ 		       struct ieee80211_key_conf *key, int mcu_cmd,
+-		       struct mt76_wcid *wcid, enum set_key_cmd cmd)
++		        struct mt76_wcid *wcid, enum set_key_cmd cmd,
++ 				u8 *pn)
+ {
+ 	struct sk_buff *skb;
+ 	int ret;
+@@ -3647,17 +3669,18 @@
+ 	if (IS_ERR(skb))
+ 		return PTR_ERR(skb);
+ 
+-	ret = mt7996_mcu_sta_key_tlv(wcid, skb, key, cmd);
+-	if (ret)
++	ret = mt7996_mcu_sta_key_tlv(dev, wcid, skb, key, cmd, pn);
++	if (ret) {
++		dev_kfree_skb(skb);
+ 		return ret;
++	}
+ 
+ 	return mt76_mcu_skb_send_msg(dev, skb, mcu_cmd, true);
+ }
+ 
+-static int mt7996_mcu_get_pn(struct mt7996_dev *dev,
+-			     struct ieee80211_bss_conf *conf,
+-			     struct mt7996_bss_conf *mconf,
+-			     struct mt7996_link_sta *mlink, u8 *pn)
++int mt7996_mcu_get_pn(struct mt7996_dev *dev,
++		      struct mt7996_bss_conf *mconf,
++		      struct mt7996_link_sta *mlink, u8 *pn)
+ {
+ #define TSC_TYPE_BIGTK_PN 2
+ 	struct sta_rec_pn_info *pn_info;
+@@ -3689,60 +3712,6 @@
+ 	return 0;
+ }
+ 
+-int mt7996_mcu_bcn_prot_enable(struct mt7996_dev *dev,
+-			       struct ieee80211_bss_conf *conf,
+-			       struct mt7996_bss_conf *mconf,
+-			       struct mt7996_link_sta *mlink,
+-			       struct ieee80211_key_conf *key)
+-{
+-	struct mt7996_mcu_bcn_prot_tlv *bcn_prot;
+-	struct sk_buff *skb;
+-	struct tlv *tlv;
+-	u8 pn[6] = {};
+-	int len = sizeof(struct bss_req_hdr) +
+-		  sizeof(struct mt7996_mcu_bcn_prot_tlv);
+-	int ret;
+-
+-	skb = __mt7996_mcu_alloc_bss_req(&dev->mt76, &mconf->mt76, len);
+-	if (IS_ERR(skb))
+-		return PTR_ERR(skb);
+-
+-	tlv = mt76_connac_mcu_add_tlv(skb, UNI_BSS_INFO_BCN_PROT, sizeof(*bcn_prot));
+-
+-	bcn_prot = (struct mt7996_mcu_bcn_prot_tlv *)tlv;
+-
+-	ret = mt7996_mcu_get_pn(dev, conf, mconf, mlink, pn);
+-	if (ret) {
+-		dev_kfree_skb(skb);
+-		return ret;
+-	}
+-
+-	switch (key->cipher) {
+-	case WLAN_CIPHER_SUITE_AES_CMAC:
+-		bcn_prot->cipher_id = MCU_CIPHER_BCN_PROT_CMAC_128;
+-		break;
+-	case WLAN_CIPHER_SUITE_BIP_GMAC_128:
+-		bcn_prot->cipher_id = MCU_CIPHER_BCN_PROT_GMAC_128;
+-		break;
+-	case WLAN_CIPHER_SUITE_BIP_GMAC_256:
+-		bcn_prot->cipher_id = MCU_CIPHER_BCN_PROT_GMAC_256;
+-		break;
+-	case WLAN_CIPHER_SUITE_BIP_CMAC_256:
+-	default:
+-		dev_err(dev->mt76.dev, "Not supported Bigtk Cipher\n");
+-		dev_kfree_skb(skb);
+-		return -EOPNOTSUPP;
+-	}
+-
+-	pn[0]++;
+-	memcpy(bcn_prot->pn, pn, 6);
+-	bcn_prot->enable = BP_SW_MODE;
+-	memcpy(bcn_prot->key, key->key, WLAN_MAX_KEY_LEN);
+-	bcn_prot->key_id = key->keyidx;
+-
+-	return mt76_mcu_skb_send_msg(&dev->mt76, skb,
+-				     MCU_WMWA_UNI_CMD(BSS_INFO_UPDATE), true);
+-}
+ int mt7996_mcu_add_dev_info(struct mt7996_phy *phy,
+ 			    struct ieee80211_bss_conf *conf,
+ 			    struct mt7996_bss_conf *mconf, bool enable)
+diff -uNr old/mt7996/mcu.h new/mt7996/mcu.h
+--- old/mt7996/mcu.h	2025-08-22 11:49:13.990190000 +0800
++++ new/mt7996/mcu.h	2025-08-22 13:51:53.331690000 +0800
+@@ -476,18 +476,6 @@
+ 	BP_SW_MODE,
+ 	BP_HW_MODE,
+ };
+-
+-struct mt7996_mcu_bcn_prot_tlv {
+-	__le16 tag;
+-	__le16 len;
+-	u8 pn[6];
+-	u8 enable;
+-	u8 cipher_id;
+-	u8 key[WLAN_MAX_KEY_LEN];
+-	u8 key_id;
+-	u8 __rsv[3];
+-} __packed;
+-
+ struct bss_ra_tlv {
+ 	__le16 tag;
+ 	__le16 len;
+@@ -721,6 +709,9 @@
+ 	u8 key_len;
+ 	u8 need_resp;
+ 	u8 key[32];
++	u8 pn[6];
++	u8 bcn_mode;
++	u8 _rsv;
+ } __packed;
+ 
+ struct sta_rec_sec_uni {
+diff -uNr old/mt7996/mt7996.h new/mt7996/mt7996.h
+--- old/mt7996/mt7996.h	2025-08-22 11:49:13.927161000 +0800
++++ new/mt7996/mt7996.h	2025-08-22 13:52:56.368626000 +0800
+@@ -1490,9 +1490,14 @@
+ int mt7996_init_band_debugfs(struct mt7996_phy *phy);
+ void mt7996_debugfs_rx_fw_monitor(struct mt7996_dev *dev, const void *data, int len);
+ bool mt7996_debugfs_rx_log(struct mt7996_dev *dev, const void *data, int len);
++int mt7996_mcu_get_pn(struct mt7996_dev *dev,
++		      struct mt7996_bss_conf *mconf,
++		      struct mt7996_link_sta *mlink, u8 *pn);
++
+ int mt7996_mcu_add_key(struct mt76_dev *dev, struct mt7996_bss_conf *mconf,
+ 		       struct ieee80211_key_conf *key, int mcu_cmd,
+-		       struct mt76_wcid *wcid, enum set_key_cmd cmd);
++		       struct mt76_wcid *wcid, enum set_key_cmd cmd,
++				u8 *pn);
+ int mt7996_mcu_bcn_prot_enable(struct mt7996_dev *dev,
+ 			       struct ieee80211_bss_conf *conf,
+ 			       struct mt7996_bss_conf *mconf,

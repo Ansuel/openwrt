@@ -1,0 +1,162 @@
+diff -uNr old/mt76.h new/mt76.h
+--- old/mt76.h	2025-08-22 11:21:37.058292000 +0800
++++ new/mt76.h	2025-08-22 11:25:19.322245000 +0800
+@@ -1117,6 +1117,7 @@
+ 	struct mt76_tx_debug tx_dbg_stats;
+ 	struct mt76_rx_debug rx_dbg_stats;
+ 	int tokens;
++	bool rdd_txq_paused;
+ };
+ 
+ struct mt76_dev {
+diff -uNr old/mt7996/mac.c new/mt7996/mac.c
+--- old/mt7996/mac.c	2025-08-22 11:21:37.048275000 +0800
++++ new/mt7996/mac.c	2025-08-22 11:26:02.562243000 +0800
+@@ -3195,7 +3195,7 @@
+ 
+ static int mt7996_dfs_start_rdd(struct mt7996_dev *dev, int chain)
+ {
+-	int err, region;
++	int region;
+ 
+ 	switch (dev->mt76.region) {
+ 	case NL80211_DFS_ETSI:
+@@ -3210,13 +3210,8 @@
+ 		break;
+ 	}
+ 
+-	err = mt7996_mcu_rdd_cmd(dev, RDD_START, chain,
++	return mt7996_mcu_rdd_cmd(dev, RDD_START, chain,
+ 				 MT_RX_SEL0, region);
+-	if (err < 0)
+-		return err;
+-
+-	return mt7996_mcu_rdd_cmd(dev, RDD_DET_MODE, chain,
+-				 MT_RX_SEL0, 1);
+ }
+ 
+ static int mt7996_dfs_start_radar_detector(struct mt7996_phy *phy)
+diff -uNr old/mt7996/main.c new/mt7996/main.c
+--- old/mt7996/main.c	2025-08-22 11:21:36.587278000 +0800
++++ new/mt7996/main.c	2025-08-22 11:26:52.221245000 +0800
+@@ -137,6 +137,7 @@
+ 	if (test_bit(MT76_SCANNING, &phy->mt76->state))
+ 		mt7996_scan_complete(phy, true);
+ 
++	mt7996_mcu_rdd_resume_tx(phy);
+ 	mt7996_mcu_set_radio_en(phy, false);
+ 
+ 	clear_bit(MT76_STATE_RUNNING, &phy->mt76->state);
+@@ -1161,7 +1162,7 @@
+ 	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+ 	struct mt7996_phy *phy = mt7996_band_phy(dev, chandef->chan->band);
+ 	int ret;
+-
++	mt7996_mcu_rdd_resume_tx(phy);
+ 	ret = cfg80211_chandef_dfs_required(hw->wiphy, chandef, NL80211_IFTYPE_AP);
+ 	if (ret <= 0)
+ 		return ret;
+diff -uNr old/mt7996/mcu.c new/mt7996/mcu.c
+--- old/mt7996/mcu.c	2025-08-22 11:21:37.075297000 +0800
++++ new/mt7996/mcu.c	2025-08-22 11:30:01.782243000 +0800
+@@ -425,10 +425,10 @@
+ 	r = (struct mt7996_mcu_rdd_report *)skb->data;
+ 
+ 	if (r->band_idx >= ARRAY_SIZE(dev->mt76.phys))
+-		return;
++		goto err;
+ 
+ 	if (r->band_idx == MT_RX_SEL2 && !dev->rdd2_phy)
+-		return;
++		goto err;
+ 
+ 	if (r->band_idx == MT_RX_SEL2)
+ 		mphy = dev->rdd2_phy->mt76;
+@@ -436,16 +436,26 @@
+ 		mphy = dev->mt76.phys[r->band_idx];
+ 
+ 	if (!mphy)
+-		return;
++		goto err;
+ 
+ 	if (r->band_idx == MT_RX_SEL2) {
+ 		dev->bg_nxt_freq = 0;
+ 		cfg80211_background_radar_event(mphy->hw->wiphy,
+ 						&dev->rdd2_chandef,
+ 						GFP_ATOMIC);
+-	} else
++	} else {
++		mphy->rdd_txq_paused = true;
+ 		ieee80211_radar_detected(mphy->hw, NULL);
++	}
+ 	dev->hw_pattern++;
++	dev_info(dev->mt76.dev, "radar detected on %s\n",
++		 r->band_idx == MT_RX_SEL2 ?
++		 "background radar" : "main radio (pause TXQ until csa is finished)");
++	return;
++
++err:
++	dev_err(dev->mt76.dev, "Unknown RDD idx %d\n", r->band_idx);
++	return;	
+ }
+ 
+ static void
+@@ -6759,6 +6769,34 @@
+ 				 &req, sizeof(req), true);
+ }
+ 
++int mt7996_mcu_rdd_resume_tx(struct mt7996_phy *phy)
++{
++	struct mt76_phy *mphy = phy->mt76;
++	struct {
++		u8 band_idx;
++		u8 _rsv[3];
++
++		__le16 tag;
++		__le16 len;
++		u8 mac_enable;
++		u8 _rsv2[3];
++	} __packed req = {
++		.band_idx = mphy->band_idx,
++		.tag = cpu_to_le16(UNI_BAND_CONFIG_MAC_ENABLE_CTRL),
++		.len = cpu_to_le16(sizeof(req) - 4),
++		.mac_enable = 2,
++	};
++
++	if (!mphy->rdd_txq_paused)
++		return 0;
++
++	mphy->rdd_txq_paused = false;
++
++	return mt76_mcu_send_msg(&phy->dev->mt76, MCU_WM_UNI_CMD(BAND_CONFIG),
++				 &req, sizeof(req), true);
++}
++
++
+ int mt7996_mcu_rdd_cmd(struct mt7996_dev *dev, int cmd, u8 index,
+ 		       u8 rx_sel, u8 val)
+ {
+diff -uNr old/mt7996/mcu.h new/mt7996/mcu.h
+--- old/mt7996/mcu.h	2025-08-22 11:21:37.080293000 +0800
++++ new/mt7996/mcu.h	2025-08-22 11:30:31.845219000 +0800
+@@ -1109,6 +1109,7 @@
+ 	UNI_BAND_CONFIG_RTS_THRESHOLD = 0x08,
+ 	UNI_BAND_CONFIG_RTS_SIGTA_EN = 0x09,
+ 	UNI_BAND_CONFIG_DIS_SECCH_CCA_DET = 0x0a,
++	UNI_BAND_CONFIG_MAC_ENABLE_CTRL = 0x0c,
+ 	UNI_BAND_CONFIG_LPI_CTRL = 0x0d,
+ 	UNI_BAND_CONFIG_BSSID_MAPPING_ADDR = 0x12,
+ };
+diff -uNr old/mt7996/mt7996.h new/mt7996/mt7996.h
+--- old/mt7996/mt7996.h	2025-08-22 11:21:37.006263000 +0800
++++ new/mt7996/mt7996.h	2025-08-22 11:30:56.213283000 +0800
+@@ -1303,6 +1303,9 @@
+ int mt7996_mcu_set_thermal_protect(struct mt7996_phy *phy, bool enable);
+ int mt7996_mcu_set_txpower_sku(struct mt7996_phy *phy,
+ 			       int txpower_setting);
++
++int mt7996_mcu_rdd_resume_tx(struct mt7996_phy *phy);
++
+ int mt7996_alloc_afc_table(struct mt7996_dev *dev);
+ void mt7996_free_afc_table(struct mt7996_dev *dev);
+ int mt7996_mcu_rdd_cmd(struct mt7996_dev *dev, int cmd, u8 index,

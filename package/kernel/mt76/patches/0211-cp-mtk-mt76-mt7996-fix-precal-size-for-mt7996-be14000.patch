@@ -1,0 +1,12 @@
+diff -uNr old/mt7996/eeprom.h new/mt7996/eeprom.h
+--- old/mt7996/eeprom.h	2025-08-22 00:49:33.149891000 +0800
++++ new/mt7996/eeprom.h	2025-08-22 00:53:59.851872000 +0800
+@@ -75,7 +75,7 @@
+ static const u32 mt7996_prek_rev_233[] = {
+ 	[GROUP_SIZE_2G] =			4 * MT_EE_CAL_UNIT,
+ 	[GROUP_SIZE_5G] =			44 * MT_EE_CAL_UNIT,
+-	[GROUP_SIZE_6G] =			100 * MT_EE_CAL_UNIT,
++	[GROUP_SIZE_6G] =			125 * MT_EE_CAL_UNIT,
+ 	[ADCDCOC_SIZE_2G] =			4 * 4,
+ 	[ADCDCOC_SIZE_5G] =			4 * 4,
+ 	[ADCDCOC_SIZE_6G] =			4 * 5,

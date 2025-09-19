@@ -1,0 +1,153 @@
+diff -uNr old/mt7996/mtk_mcu.c new/mt7996/mtk_mcu.c
+--- old/mt7996/mtk_mcu.c	2025-08-22 10:15:41.882533000 +0800
++++ new/mt7996/mtk_mcu.c	2025-08-22 10:04:26.281587000 +0800
+@@ -107,6 +107,7 @@
+ 		__le16 len;
+ 		u8 threshold[4];
+ 		bool init;
++		u8 _rsv2[3];
+ 	} __packed *res, req = {
+ 		.band_idx = phy->mt76->band_idx,
+ 		.tag = cpu_to_le16(UNI_BAND_CONFIG_EDCCA_THRESHOLD),
+diff -uNr old/mt7996/vendor.c new/mt7996/vendor.c
+--- old/mt7996/vendor.c	2025-08-22 10:15:41.715537000 +0800
++++ new/mt7996/vendor.c	2025-08-22 10:11:53.540598000 +0800
+@@ -73,6 +73,7 @@
+ 	[MTK_VENDOR_ATTR_EDCCA_CTRL_SEC80_VAL] = { .type = NLA_U8 },
+ 	[MTK_VENDOR_ATTR_EDCCA_CTRL_COMPENSATE] = { .type = NLA_S8 },
+ 	[MTK_VENDOR_ATTR_EDCCA_CTRL_SEC160_VAL] = { .type = NLA_U8 },
++	[MTK_VENDOR_ATTR_EDCCA_CTRL_RADIO_IDX] = { .type = NLA_U8 },
+ };
+ 
+ static const struct nla_policy
+@@ -679,10 +680,11 @@
+ 				    const void *data, int data_len)
+ {
+ 	struct ieee80211_hw *hw = wiphy_to_ieee80211_hw(wiphy);
++	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+ 	struct mt7996_phy *phy = mt7996_hw_phy(hw);
+ 	struct nlattr *tb[NUM_MTK_VENDOR_ATTRS_EDCCA_CTRL];
+ 	int err;
+-	u8 edcca_mode;
++	u8 edcca_mode, radio_idx;
+ 	u8 edcca_value[EDCCA_MAX_BW_NUM];
+ 
+ 	err = nla_parse(tb, MTK_VENDOR_ATTR_EDCCA_CTRL_MAX, data, data_len,
+@@ -690,27 +692,30 @@
+ 	if (err)
+ 		return err;
+ 
+-	if (!tb[MTK_VENDOR_ATTR_EDCCA_CTRL_MODE])
++	if (!tb[MTK_VENDOR_ATTR_EDCCA_CTRL_MODE] ||
++		!tb[MTK_VENDOR_ATTR_EDCCA_CTRL_RADIO_IDX])
+ 		return -EINVAL;
+ 
+ 	edcca_mode = nla_get_u8(tb[MTK_VENDOR_ATTR_EDCCA_CTRL_MODE]);
+-	if (edcca_mode == EDCCA_CTRL_SET_EN) {
++	radio_idx = nla_get_u8(tb[MTK_VENDOR_ATTR_EDCCA_CTRL_RADIO_IDX]);
++	if (!mt7996_radio_valid(dev, radio_idx))
++		return -EINVAL;
++
++	phy = dev->radio_phy[radio_idx];
++
++	switch (edcca_mode) {
++	case EDCCA_CTRL_SET_EN:
+ 		if (!tb[MTK_VENDOR_ATTR_EDCCA_CTRL_PRI20_VAL])
+ 			return -EINVAL;
+ 
+-		edcca_value[0] =
+-			nla_get_u8(tb[MTK_VENDOR_ATTR_EDCCA_CTRL_PRI20_VAL]);
+-
+-		err = mt7996_mcu_edcca_enable(phy, !!edcca_value[0]);
+-		if (err)
+-			return err;
+-	} else if (edcca_mode == EDCCA_CTRL_SET_THRES) {
++		edcca_value[0] = nla_get_u8(tb[MTK_VENDOR_ATTR_EDCCA_CTRL_PRI20_VAL]);
++		return mt7996_mcu_edcca_enable(phy, !!edcca_value[0]);
++	case EDCCA_CTRL_SET_THRES:
+ 		if (!tb[MTK_VENDOR_ATTR_EDCCA_CTRL_PRI20_VAL] ||
+ 		    !tb[MTK_VENDOR_ATTR_EDCCA_CTRL_SEC40_VAL] ||
+ 		    !tb[MTK_VENDOR_ATTR_EDCCA_CTRL_SEC80_VAL] ||
+-		    !tb[MTK_VENDOR_ATTR_EDCCA_CTRL_SEC160_VAL]) {
++		    !tb[MTK_VENDOR_ATTR_EDCCA_CTRL_SEC160_VAL])
+ 			return -EINVAL;
+-		}
+ 		edcca_value[EDCCA_BW_20] =
+ 			nla_get_u8(tb[MTK_VENDOR_ATTR_EDCCA_CTRL_PRI20_VAL]);
+ 		edcca_value[EDCCA_BW_40] =
+@@ -720,11 +725,8 @@
+ 		edcca_value[EDCCA_BW_160] =
+ 			nla_get_u8(tb[MTK_VENDOR_ATTR_EDCCA_CTRL_SEC160_VAL]);
+ 
+-		err = mt7996_mcu_edcca_threshold_ctrl(phy, edcca_value, true);
+-
+-		if (err)
+-			return err;
+-	} else {
++		return mt7996_mcu_edcca_threshold_ctrl(phy, edcca_value, true);
++	default:
+ 		return -EINVAL;
+ 	}
+ 
+@@ -738,10 +740,11 @@
+ 			     unsigned long *storage)
+ {
+ 	struct ieee80211_hw *hw = wiphy_to_ieee80211_hw(wiphy);
++	struct mt7996_dev *dev = mt7996_hw_dev(hw);
+ 	struct mt7996_phy *phy = mt7996_hw_phy(hw);
+ 	struct nlattr *tb[NUM_MTK_VENDOR_ATTRS_EDCCA_CTRL];
+ 	int err;
+-	u8 edcca_mode;
++	u8 edcca_mode, radio_idx, i;
+ 	u8 value[EDCCA_MAX_BW_NUM];
+ 
+ 	if (*storage == 1)
+@@ -753,7 +756,8 @@
+ 	if (err)
+ 		return err;
+ 
+-	if (!tb[MTK_VENDOR_ATTR_EDCCA_CTRL_MODE])
++	if (!tb[MTK_VENDOR_ATTR_EDCCA_CTRL_MODE] ||
++		!tb[MTK_VENDOR_ATTR_EDCCA_CTRL_RADIO_IDX])
+ 		return -EINVAL;
+ 
+ 	edcca_mode = nla_get_u8(tb[MTK_VENDOR_ATTR_EDCCA_CTRL_MODE]);
+@@ -761,16 +765,21 @@
+ 	if (edcca_mode != EDCCA_CTRL_GET_THRES)
+ 		return -EINVAL;
+ 
++	radio_idx = nla_get_u8(tb[MTK_VENDOR_ATTR_EDCCA_CTRL_RADIO_IDX]);
++	if (!mt7996_radio_valid(dev, radio_idx))
++		return -EINVAL;
++	
++	phy = dev->radio_phy[radio_idx];
+ 	err = mt7996_mcu_edcca_threshold_ctrl(phy, value, false);
+ 
++
+ 	if (err)
+ 		return err;
+ 
+-	if (nla_put_u8(skb, MTK_VENDOR_ATTR_EDCCA_DUMP_PRI20_VAL, value[EDCCA_BW_20]) ||
+-	    nla_put_u8(skb, MTK_VENDOR_ATTR_EDCCA_DUMP_SEC40_VAL, value[EDCCA_BW_40]) ||
+-	    nla_put_u8(skb, MTK_VENDOR_ATTR_EDCCA_DUMP_SEC80_VAL, value[EDCCA_BW_80]) ||
+-	    nla_put_u8(skb, MTK_VENDOR_ATTR_EDCCA_DUMP_SEC160_VAL, value[EDCCA_BW_160]))
+-		return -ENOMEM;
++	for (i = 0; i < EDCCA_MAX_BW_NUM; i++)
++		if (nla_put_u8(skb, MTK_VENDOR_ATTR_EDCCA_DUMP_PRI20_VAL + i,
++				   value[EDCCA_BW_20 + i]))
++			return -ENOMEM;
+ 
+ 	return EDCCA_MAX_BW_NUM;
+ }
+diff -uNr old/mt7996/vendor.h new/mt7996/vendor.h
+--- old/mt7996/vendor.h	2025-08-22 10:15:41.719545000 +0800
++++ new/mt7996/vendor.h	2025-08-22 10:12:30.192638000 +0800
+@@ -37,7 +37,7 @@
+ 	MTK_VENDOR_ATTR_EDCCA_CTRL_SEC80_VAL,
+ 	MTK_VENDOR_ATTR_EDCCA_CTRL_COMPENSATE,
+ 	MTK_VENDOR_ATTR_EDCCA_CTRL_SEC160_VAL,
+-
++	MTK_VENDOR_ATTR_EDCCA_CTRL_RADIO_IDX,
+ 	/* keep last */
+ 	NUM_MTK_VENDOR_ATTRS_EDCCA_CTRL,
+ 	MTK_VENDOR_ATTR_EDCCA_CTRL_MAX =
