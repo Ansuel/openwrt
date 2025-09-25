@@ -1,19 +1,19 @@
-From 692e41d3f9fc92f8f3e258806f6dec82b7dfbbb0 Mon Sep 17 00:00:00 2001
-Message-ID: <692e41d3f9fc92f8f3e258806f6dec82b7dfbbb0.1758640781.git.lorenzo@kernel.org>
-In-Reply-To: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
-References: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+From 0861ebe1e50d924bbd4b9e1de4d4797ae8e42172 Mon Sep 17 00:00:00 2001
+Message-ID: <0861ebe1e50d924bbd4b9e1de4d4797ae8e42172.1758815505.git.lorenzo@kernel.org>
+In-Reply-To: <f8e2fa02a3000d80cf187acb55abc86cc3e9d2f0.1758815505.git.lorenzo@kernel.org>
+References: <f8e2fa02a3000d80cf187acb55abc86cc3e9d2f0.1758815505.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Thu, 11 Sep 2025 10:31:26 +0200
-Subject: [PATCH net-next 12/12] net: airoha: Add AN7583 SoC support
+Subject: [PATCH 4/4] net: airoha: Add AN7583 SoC support
 
 Introduce support for AN7583 ethernet controller to airoha-eth dirver.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/airoha/airoha_eth.c | 41 +++++++++++++++++++++---
+ drivers/net/ethernet/airoha/airoha_eth.c | 39 +++++++++++++++++++++---
  drivers/net/ethernet/airoha/airoha_eth.h |  5 +++
  drivers/net/ethernet/airoha/airoha_ppe.c |  3 ++
- 3 files changed, 44 insertions(+), 5 deletions(-)
+ 3 files changed, 43 insertions(+), 4 deletions(-)
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
@@ -39,20 +39,29 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	u32 pse_port = port->id == 3 ? FE_PSE_PORT_GDM3 : FE_PSE_PORT_GDM4;
 -	u32 src_port, chan = port->id == 3 ? 4 : 0;
  	struct airoha_eth *eth = port->qdma->eth;
-+	u32 src_port, chan = port->id == 3 ? airoha_is_7581(eth) ? 4 : 3 : 0;
++	u32 src_port, chan;
  
  	/* Forward the traffic to the proper GDM port */
  	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(2), pse_port);
-@@ -1876,7 +1878,7 @@ static void airhoha_set_gdm2_loopback(st
- 		src_port = port->id == 3 ? HSGMII_LAN_PCIE0_SRCPORT
- 					 : HSGMII_LAN_ETH_SRCPORT;
+@@ -1860,6 +1862,8 @@ static void airhoha_set_gdm2_loopback(st
+ 	/* Enable GDM2 loopback */
+ 	airoha_fe_wr(eth, REG_GDM_TXCHN_EN(2), 0xffffffff);
+ 	airoha_fe_wr(eth, REG_GDM_RXCHN_EN(2), 0xffff);
++
++	chan = port->id == 3 ? airoha_is_7581(eth) ? 4 : 3 : 0;
+ 	airoha_fe_rmw(eth, REG_GDM_LPBK_CFG(2),
+ 		      LPBK_CHAN_MASK | LPBK_MODE_MASK | LPBK_EN_MASK,
+ 		      FIELD_PREP(LPBK_CHAN_MASK, chan) |
+@@ -1885,7 +1889,7 @@ static void airhoha_set_gdm2_loopback(st
+ 		      SP_CPORT_MASK(src_port & 0x7),
+ 		      FE_PSE_PORT_CDM2 << __ffs(SP_CPORT_MASK(src_port & 0x7)));
  
--	if (port->id == 3) {
-+	if (port->id == 3 && airoha_is_7581(eth)) {
- 		airoha_fe_rmw(eth, REG_FE_WAN_PORT,
- 			      WAN1_EN_MASK | WAN1_MASK | WAN0_MASK,
- 			      FIELD_PREP(WAN0_MASK, src_port));
-@@ -2080,6 +2082,20 @@ static int airoha_dev_set_features(struc
+-	if (port->id != 3)
++	if (port->id != 3 && airoha_is_7581(eth))
+ 		airoha_fe_rmw(eth, REG_SRC_PORT_FC_MAP6,
+ 			      FC_ID_OF_SRC_PORT24_MASK,
+ 			      FIELD_PREP(FC_ID_OF_SRC_PORT24_MASK, 2));
+@@ -2074,6 +2078,20 @@ static int airoha_dev_set_features(struc
  	return 0;
  }
  
@@ -73,7 +82,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
  				   struct net_device *dev)
  {
-@@ -2120,7 +2136,7 @@ static netdev_tx_t airoha_dev_xmit(struc
+@@ -2114,7 +2132,7 @@ static netdev_tx_t airoha_dev_xmit(struc
  		}
  	}
  
@@ -82,7 +91,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	msg1 = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, fport) |
  	       FIELD_PREP(QDMA_ETH_TXMSG_METER_MASK, 0x7f);
  
-@@ -3529,6 +3545,12 @@ static const char * const en7581_xsi_rst
+@@ -3538,6 +3556,12 @@ static const char * const en7581_xsi_rst
  	"xfp-mac",
  };
  
@@ -95,7 +104,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static const struct airoha_eth_soc_data en7581_soc_data = {
  	.version = 0x7581,
  	.xsi_rsts_names = en7581_xsi_rsts_names,
-@@ -3536,8 +3558,16 @@ static const struct airoha_eth_soc_data
+@@ -3545,8 +3569,16 @@ static const struct airoha_eth_soc_data
  	.num_ppe = 2,
  };
  
@@ -114,7 +123,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  MODULE_DEVICE_TABLE(of, of_airoha_match);
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -635,6 +635,11 @@ static inline bool airoha_is_7581(struct
+@@ -648,6 +648,11 @@ static inline bool airoha_is_7581(struct
  	return eth->soc->version == 0x7581;
  }
  

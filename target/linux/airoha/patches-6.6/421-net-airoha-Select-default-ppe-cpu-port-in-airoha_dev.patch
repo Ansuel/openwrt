@@ -1,10 +1,10 @@
-From b45fe9e64309c0b71f81feecf84f1a1c58901a65 Mon Sep 17 00:00:00 2001
-Message-ID: <b45fe9e64309c0b71f81feecf84f1a1c58901a65.1758640781.git.lorenzo@kernel.org>
-In-Reply-To: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
-References: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+From 14549a23214ad4bc7d88f182f44d030405c0f7b9 Mon Sep 17 00:00:00 2001
+Message-ID: <14549a23214ad4bc7d88f182f44d030405c0f7b9.1758815505.git.lorenzo@kernel.org>
+In-Reply-To: <f8e2fa02a3000d80cf187acb55abc86cc3e9d2f0.1758815505.git.lorenzo@kernel.org>
+References: <f8e2fa02a3000d80cf187acb55abc86cc3e9d2f0.1758815505.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 21 Sep 2025 15:38:32 +0200
-Subject: [PATCH net-next 11/12] net: airoha: Select default ppe cpu port in
+Subject: [PATCH 2/4] net: airoha: Select default ppe cpu port in
  airoha_dev_init()
 
 Select PPE defualt cpu port in airoha_dev_init routine.
@@ -44,7 +44,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	/* enable 1:N vlan action, init vlan table */
  	airoha_fe_set(eth, REG_MC_VLAN_EN, MC_VLAN_EN_MASK);
  
-@@ -1919,8 +1900,10 @@ static void airhoha_set_gdm2_loopback(st
+@@ -1911,8 +1892,10 @@ static void airhoha_set_gdm2_loopback(st
  static int airoha_dev_init(struct net_device *dev)
  {
  	struct airoha_gdm_port *port = netdev_priv(dev);
@@ -57,7 +57,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	airoha_set_macaddr(port, dev->dev_addr);
  
-@@ -1933,16 +1916,27 @@ static int airoha_dev_init(struct net_de
+@@ -1925,16 +1908,27 @@ static int airoha_dev_init(struct net_de
  		fallthrough;
  	case 2:
  		if (airoha_ppe_is_enabled(eth, 1)) {

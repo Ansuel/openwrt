@@ -1,20 +1,19 @@
-From f8dfe311b4a921469486d2dadba5b5f1f44510e5 Mon Sep 17 00:00:00 2001
-Message-ID: <f8dfe311b4a921469486d2dadba5b5f1f44510e5.1758640781.git.lorenzo@kernel.org>
-In-Reply-To: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
-References: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+From f8e2fa02a3000d80cf187acb55abc86cc3e9d2f0 Mon Sep 17 00:00:00 2001
+Message-ID: <f8e2fa02a3000d80cf187acb55abc86cc3e9d2f0.1758815505.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Thu, 18 Sep 2025 12:28:35 +0200
-Subject: [PATCH net-next 10/12] net: airoha: Read the GDM{3,4} src_port index
- from the device tree
+Subject: [PATCH 1/4] net: airoha: Read the GDM{3,4} src_port index from the
+ device tree
 
 Read default src port connected to external phy from device tree if the
 user provided it.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/airoha/airoha_eth.c | 19 ++++++++++---------
- drivers/net/ethernet/airoha/airoha_eth.h |  1 +
- 2 files changed, 11 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/airoha/airoha_eth.c  | 35 +++++++++--------------
+ drivers/net/ethernet/airoha/airoha_eth.h  |  1 +
+ drivers/net/ethernet/airoha/airoha_regs.h |  5 +---
+ 3 files changed, 16 insertions(+), 25 deletions(-)
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
@@ -28,42 +27,49 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	/* Forward the traffic to the proper GDM port */
  	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(2), pse_port);
-@@ -1891,26 +1891,26 @@ static void airhoha_set_gdm2_loopback(st
+@@ -1891,29 +1891,21 @@ static void airhoha_set_gdm2_loopback(st
  	airoha_fe_clear(eth, REG_FE_VIP_PORT_EN, BIT(2));
  	airoha_fe_clear(eth, REG_FE_IFC_PORT_EN, BIT(2));
  
+-	if (port->id == 3) {
+-		/* FIXME: handle XSI_PCE1_PORT */
+-		airoha_fe_rmw(eth, REG_FE_WAN_PORT,
+-			      WAN1_EN_MASK | WAN1_MASK | WAN0_MASK,
+-			      FIELD_PREP(WAN0_MASK, HSGMII_LAN_PCIE0_SRCPORT));
+-		airoha_fe_rmw(eth,
+-			      REG_SP_DFT_CPORT(HSGMII_LAN_PCIE0_SRCPORT >> 3),
+-			      SP_CPORT_PCIE0_MASK,
+-			      FIELD_PREP(SP_CPORT_PCIE0_MASK,
+-					 FE_PSE_PORT_CDM2));
+-	} else {
+-		/* FIXME: handle XSI_USB_PORT */
 +	if (of_property_read_u32(port->np, "airoha,gdm-srcport", &src_port))
 +		src_port = port->id == 3 ? HSGMII_LAN_PCIE0_SRCPORT
 +					 : HSGMII_LAN_ETH_SRCPORT;
 +
- 	if (port->id == 3) {
--		/* FIXME: handle XSI_PCE1_PORT */
- 		airoha_fe_rmw(eth, REG_FE_WAN_PORT,
- 			      WAN1_EN_MASK | WAN1_MASK | WAN0_MASK,
--			      FIELD_PREP(WAN0_MASK, HSGMII_LAN_PCIE0_SRCPORT));
--		airoha_fe_rmw(eth,
--			      REG_SP_DFT_CPORT(HSGMII_LAN_PCIE0_SRCPORT >> 3),
-+			      FIELD_PREP(WAN0_MASK, src_port));
-+		airoha_fe_rmw(eth, REG_SP_DFT_CPORT(src_port >> 3),
- 			      SP_CPORT_PCIE0_MASK,
- 			      FIELD_PREP(SP_CPORT_PCIE0_MASK,
- 					 FE_PSE_PORT_CDM2));
- 	} else {
--		/* FIXME: handle XSI_USB_PORT */
++	airoha_fe_rmw(eth, REG_FE_WAN_PORT,
++		      WAN1_EN_MASK | WAN1_MASK | WAN0_MASK,
++		      FIELD_PREP(WAN0_MASK, src_port));
++	airoha_fe_rmw(eth, REG_SP_DFT_CPORT(src_port >> 3),
++		      SP_CPORT_MASK(src_port & 0x7),
++		      FE_PSE_PORT_CDM2 << __ffs(SP_CPORT_MASK(src_port & 0x7)));
++
++	if (port->id != 3)
  		airoha_fe_rmw(eth, REG_SRC_PORT_FC_MAP6,
  			      FC_ID_OF_SRC_PORT24_MASK,
  			      FIELD_PREP(FC_ID_OF_SRC_PORT24_MASK, 2));
- 		airoha_fe_rmw(eth, REG_FE_WAN_PORT,
- 			      WAN1_EN_MASK | WAN1_MASK | WAN0_MASK,
+-		airoha_fe_rmw(eth, REG_FE_WAN_PORT,
+-			      WAN1_EN_MASK | WAN1_MASK | WAN0_MASK,
 -			      FIELD_PREP(WAN0_MASK, HSGMII_LAN_ETH_SRCPORT));
 -		airoha_fe_rmw(eth,
 -			      REG_SP_DFT_CPORT(HSGMII_LAN_ETH_SRCPORT >> 3),
-+			      FIELD_PREP(WAN0_MASK, src_port));
-+		airoha_fe_rmw(eth, REG_SP_DFT_CPORT(src_port >> 3),
- 			      SP_CPORT_ETH_MASK,
- 			      FIELD_PREP(SP_CPORT_ETH_MASK, FE_PSE_PORT_CDM2));
- 	}
-@@ -3352,6 +3352,7 @@ static int airoha_alloc_gdm_port(struct
+-			      SP_CPORT_ETH_MASK,
+-			      FIELD_PREP(SP_CPORT_ETH_MASK, FE_PSE_PORT_CDM2));
+-	}
+ }
+ 
+ static int airoha_dev_init(struct net_device *dev)
+@@ -3352,6 +3344,7 @@ static int airoha_alloc_gdm_port(struct
  	port->qdma = qdma;
  	port->dev = dev;
  	port->id = id;
@@ -81,3 +87,17 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	int id;
  
  	struct phylink *phylink;
+--- a/drivers/net/ethernet/airoha/airoha_regs.h
++++ b/drivers/net/ethernet/airoha/airoha_regs.h
+@@ -403,10 +403,7 @@
+ #define REG_MC_VLAN_DATA		0x2108
+ 
+ #define REG_SP_DFT_CPORT(_n)		(0x20e0 + ((_n) << 2))
+-#define SP_CPORT_PCIE1_MASK		GENMASK(31, 28)
+-#define SP_CPORT_PCIE0_MASK		GENMASK(27, 24)
+-#define SP_CPORT_USB_MASK		GENMASK(7, 4)
+-#define SP_CPORT_ETH_MASK		GENMASK(7, 4)
++#define SP_CPORT_MASK(_n)		GENMASK(3 + ((_n) << 2), ((_n) << 2))
+ 
+ #define REG_SRC_PORT_FC_MAP6		0x2298
+ #define FC_ID_OF_SRC_PORT27_MASK	GENMASK(28, 24)

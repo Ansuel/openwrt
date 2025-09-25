@@ -54,7 +54,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	val = (addr[0] << 16) | (addr[1] << 8) | addr[2];
  	airoha_fe_wr(eth, reg, val);
  
-@@ -3294,11 +3294,10 @@ static int airoha_register_port_debugfs(
+@@ -3286,11 +3286,10 @@ static int airoha_register_port_debugfs(
  }
  
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
@@ -67,7 +67,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct net_device *dev;
  	int err, p;
  	u32 id;
-@@ -3329,7 +3328,6 @@ static int airoha_alloc_gdm_port(struct
+@@ -3321,7 +3320,6 @@ static int airoha_alloc_gdm_port(struct
  		return -ENOMEM;
  	}
  
@@ -75,7 +75,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	dev->netdev_ops = &airoha_netdev_ops;
  	dev->ethtool_ops = &airoha_ethtool_ops;
  	dev->max_mtu = AIROHA_MAX_MTU;
-@@ -3338,7 +3336,6 @@ static int airoha_alloc_gdm_port(struct
+@@ -3330,7 +3328,6 @@ static int airoha_alloc_gdm_port(struct
  	dev->features |= AIROHA_HW_FEATURES;
  	dev->vlan_features = AIROHA_HW_FEATURES;
  	dev->dev.of_node = np;
@@ -83,7 +83,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	SET_NETDEV_DEV(dev, eth->dev);
  
  	/* reserve hw queues for HTB offloading */
-@@ -3359,35 +3356,47 @@ static int airoha_alloc_gdm_port(struct
+@@ -3351,35 +3348,47 @@ static int airoha_alloc_gdm_port(struct
  	port = netdev_priv(dev);
  	u64_stats_init(&port->stats.syncp);
  	spin_lock_init(&port->stats.lock);
@@ -149,7 +149,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  }
  
  static int airoha_probe(struct platform_device *pdev)
-@@ -3464,7 +3473,6 @@ static int airoha_probe(struct platform_
+@@ -3456,7 +3465,6 @@ static int airoha_probe(struct platform_
  	for (i = 0; i < ARRAY_SIZE(eth->qdma); i++)
  		airoha_qdma_start_napi(&eth->qdma[i]);
  
@@ -157,7 +157,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	for_each_child_of_node(pdev->dev.of_node, np) {
  		if (!of_device_is_compatible(np, "airoha,eth-mac"))
  			continue;
-@@ -3472,13 +3480,17 @@ static int airoha_probe(struct platform_
+@@ -3464,13 +3472,17 @@ static int airoha_probe(struct platform_
  		if (!of_device_is_available(np))
  			continue;
  
@@ -176,7 +176,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return 0;
  
  error_napi_stop:
-@@ -3492,14 +3504,17 @@ error_hw_cleanup:
+@@ -3484,14 +3496,17 @@ error_hw_cleanup:
  	for (i = 0; i < ARRAY_SIZE(eth->ports); i++) {
  		struct airoha_gdm_port *port = eth->ports[i];
  

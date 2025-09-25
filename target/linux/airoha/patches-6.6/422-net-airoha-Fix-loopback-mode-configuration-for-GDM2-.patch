@@ -1,0 +1,27 @@
+From f7c73a1ed287675ca75029cdb45a824f264533db Mon Sep 17 00:00:00 2001
+Message-ID: <f7c73a1ed287675ca75029cdb45a824f264533db.1758815505.git.lorenzo@kernel.org>
+In-Reply-To: <f8e2fa02a3000d80cf187acb55abc86cc3e9d2f0.1758815505.git.lorenzo@kernel.org>
+References: <f8e2fa02a3000d80cf187acb55abc86cc3e9d2f0.1758815505.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Thu, 25 Sep 2025 17:42:03 +0200
+Subject: [PATCH 3/4] net: airoha: Fix loopback mode configuration for GDM2
+ port
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -1862,7 +1862,9 @@ static void airhoha_set_gdm2_loopback(st
+ 	airoha_fe_wr(eth, REG_GDM_RXCHN_EN(2), 0xffff);
+ 	airoha_fe_rmw(eth, REG_GDM_LPBK_CFG(2),
+ 		      LPBK_CHAN_MASK | LPBK_MODE_MASK | LPBK_EN_MASK,
+-		      FIELD_PREP(LPBK_CHAN_MASK, chan) | LPBK_EN_MASK);
++		      FIELD_PREP(LPBK_CHAN_MASK, chan) |
++		      FIELD_PREP(LPBK_MODE_MASK, 7) |
++		      LPBK_EN_MASK);
+ 	airoha_fe_rmw(eth, REG_GDM_LEN_CFG(2),
+ 		      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
+ 		      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
