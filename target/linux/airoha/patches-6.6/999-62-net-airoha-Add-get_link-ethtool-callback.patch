@@ -1,0 +1,30 @@
+From 56f2472524f37f61ea2df3946dee8cfb6aa796bc Mon Sep 17 00:00:00 2001
+Message-ID: <56f2472524f37f61ea2df3946dee8cfb6aa796bc.1759412213.git.lorenzo@kernel.org>
+In-Reply-To: <1c70133211abf1e81c123a4fc73eb5b63005a50a.1759412213.git.lorenzo@kernel.org>
+References: <1c70133211abf1e81c123a4fc73eb5b63005a50a.1759412213.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Thu, 2 Oct 2025 15:35:32 +0200
+Subject: [PATCH net-next 2/2] net: airoha: Add get_link ethtool callback
+
+Set get_link ethtool callback to ethtool_op_get_link routine.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
+index fb8cc35ebcd6..b7868003c2e6 100644
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -2768,6 +2768,7 @@ static const struct ethtool_ops airoha_ethtool_ops = {
+ 	.get_drvinfo		= airoha_ethtool_get_drvinfo,
+ 	.get_eth_mac_stats      = airoha_ethtool_get_mac_stats,
+ 	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
++	.get_link		= ethtool_op_get_link,
+ };
+ 
+ static int airoha_metadata_dst_alloc(struct airoha_gdm_port *port)
+-- 
+2.51.0
+

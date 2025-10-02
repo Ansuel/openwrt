@@ -1,0 +1,42 @@
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -2292,6 +2292,30 @@ airoha_ethtool_get_rmon_stats(struct net
+ 	} while (u64_stats_fetch_retry(&port->stats.syncp, start));
+ }
+ 
++static int
++airoha_ethtool_get_link_ksettings(struct net_device *dev,
++				  struct ethtool_link_ksettings *cmd)
++{
++	struct airoha_gdm_port *port = netdev_priv(dev);
++
++	if (!port->phylink)
++		return -EOPNOTSUPP;
++
++	return phylink_ethtool_ksettings_get(port->phylink, cmd);
++}
++
++static int
++airoha_ethtool_set_link_ksettings(struct net_device *dev,
++				  const struct ethtool_link_ksettings *cmd)
++{
++	struct airoha_gdm_port *port = netdev_priv(dev);
++
++	if (!port->phylink)
++		return -EOPNOTSUPP;
++
++	return phylink_ethtool_ksettings_set(port->phylink, cmd);
++}
++
+ static int airoha_qdma_set_chan_tx_sched(struct airoha_gdm_port *port,
+ 					 int channel, enum tx_sched_mode mode,
+ 					 const u16 *weights, u8 n_weights)
+@@ -2991,6 +3015,8 @@ static const struct ethtool_ops airoha_e
+ 	.get_eth_mac_stats      = airoha_ethtool_get_mac_stats,
+ 	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
+ 	.get_link		= ethtool_op_get_link,
++	.get_link_ksettings	= airoha_ethtool_get_link_ksettings,
++	.set_link_ksettings	= airoha_ethtool_set_link_ksettings,
+ };
+ 
+ static struct phylink_pcs *airoha_phylink_mac_select_pcs(struct phylink_config *config,

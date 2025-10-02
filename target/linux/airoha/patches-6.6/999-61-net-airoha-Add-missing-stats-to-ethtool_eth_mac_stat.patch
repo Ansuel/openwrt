@@ -1,0 +1,38 @@
+From 1c70133211abf1e81c123a4fc73eb5b63005a50a Mon Sep 17 00:00:00 2001
+Message-ID: <1c70133211abf1e81c123a4fc73eb5b63005a50a.1759412213.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Thu, 2 Oct 2025 15:33:07 +0200
+Subject: [PATCH net-next 1/2] net: airoha: Add missing stats to
+ ethtool_eth_mac_stats
+
+Add the following stats to ethtool ethtool_eth_mac_stats stats:
+- FramesTransmittedOK
+- OctetsTransmittedOK
+- FramesReceivedOK
+- OctetsReceivedOK
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
+index 81ea01a652b9..fb8cc35ebcd6 100644
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -2020,8 +2020,12 @@ static void airoha_ethtool_get_mac_stats(struct net_device *dev,
+ 	airoha_update_hw_stats(port);
+ 	do {
+ 		start = u64_stats_fetch_begin(&port->stats.syncp);
++		stats->FramesTransmittedOK = port->stats.tx_ok_pkts;
++		stats->OctetsTransmittedOK = port->stats.tx_ok_bytes;
+ 		stats->MulticastFramesXmittedOK = port->stats.tx_multicast;
+ 		stats->BroadcastFramesXmittedOK = port->stats.tx_broadcast;
++		stats->FramesReceivedOK = port->stats.rx_ok_pkts;
++		stats->OctetsReceivedOK = port->stats.rx_ok_bytes;
+ 		stats->BroadcastFramesReceivedOK = port->stats.rx_broadcast;
+ 	} while (u64_stats_fetch_retry(&port->stats.syncp, start));
+ }
+-- 
+2.51.0
+
