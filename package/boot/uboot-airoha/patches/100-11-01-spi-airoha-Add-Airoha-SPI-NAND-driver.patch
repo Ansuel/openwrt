@@ -12,8 +12,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
  drivers/spi/Kconfig           |   9 +
  drivers/spi/Makefile          |   1 +
- drivers/spi/airoha_snfi_spi.c | 719 ++++++++++++++++++++++++++++++++++
- 3 files changed, 729 insertions(+)
+ drivers/spi/airoha_snfi_spi.c | 718 ++++++++++++++++++++++++++++++++++
+ 3 files changed, 728 insertions(+)
  create mode 100644 drivers/spi/airoha_snfi_spi.c
 
 diff --git a/drivers/spi/Kconfig b/drivers/spi/Kconfig
@@ -50,10 +50,10 @@ index 7051e2a00c6..24cc92a7f98 100644
  obj-$(CONFIG_ATH79_SPI) += ath79_spi.o
 diff --git a/drivers/spi/airoha_snfi_spi.c b/drivers/spi/airoha_snfi_spi.c
 new file mode 100644
-index 00000000000..61d4e194677
+index 00000000000..3ea25b293d1
 --- /dev/null
 +++ b/drivers/spi/airoha_snfi_spi.c
-@@ -0,0 +1,719 @@
+@@ -0,0 +1,718 @@
 +// SPDX-License-Identifier: GPL-2.0-only
 +/*
 + * Copyright (c) 2024 AIROHA Inc
@@ -71,6 +71,7 @@ index 00000000000..61d4e194677
 +#include <dm/devres.h>
 +#include <linux/bitfield.h>
 +#include <linux/dma-mapping.h>
++#include <linux/mtd/spinand.h>
 +#include <linux/time.h>
 +#include <regmap.h>
 +#include <spi.h>
@@ -583,7 +584,6 @@ index 00000000000..61d4e194677
 +static int airoha_snand_adjust_op_size(struct spi_slave *slave,
 +				       struct spi_mem_op *op)
 +{
-+
 +	size_t max_len;
 +
 +	max_len = 1 + op->addr.nbytes + op->dummy.nbytes;
@@ -728,15 +728,14 @@ index 00000000000..61d4e194677
 +	pagesize = spinand_info->memorg.pagesize;
 +	oobsize = spinand_info->memorg.oobsize;
 +
-+	if (pagesize == 2 * 1024 ) {
++	if (pagesize == 2 * 1024)
 +		sec_num = 4;
-+	} else if (pagesize == 4 * 1024 ) {
++	else if (pagesize == 4 * 1024)
 +		sec_num = 8;
-+	} else {
++	else
 +		sec_num = 1;
-+	}
 +
-+	sec_size = (pagesize + oobsize) / sec_num ;
++	sec_size = (pagesize + oobsize) / sec_num;
 +
 +	/* init default value */
 +	priv->nfi_cfg.sec_size = sec_size;
