@@ -1,4 +1,4 @@
-From 85a0e0bca872965a1f29cb4e2b2aacaee9b5056a Mon Sep 17 00:00:00 2001
+From 0454ad4c23afd9a25cdf0e122c4eb99fc7c0554f Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Wed, 16 Jul 2025 09:28:19 +0200
 Subject: [PATCH] airoha: rework RAM size handling to support multiple RAM size
@@ -15,22 +15,23 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  2 files changed, 36 insertions(+), 8 deletions(-)
 
 diff --git a/arch/arm/mach-airoha/an7581/init.c b/arch/arm/mach-airoha/an7581/init.c
-index cefe9c6db9e..caf1006b22b 100644
+index 09201e42506..3ed0dbc3276 100644
 --- a/arch/arm/mach-airoha/an7581/init.c
 +++ b/arch/arm/mach-airoha/an7581/init.c
-@@ -3,8 +3,11 @@
+@@ -3,9 +3,12 @@
  #include <fdtdec.h>
  #include <init.h>
  #include <asm/armv8/mmu.h>
 +#include <asm/global_data.h>
  #include <asm/system.h>
+ #include <asm/io.h>
  
 +DECLARE_GLOBAL_DATA_PTR;
 +
  int print_cpuinfo(void)
  {
  	printf("CPU:   Airoha AN7581\n");
-@@ -13,12 +16,23 @@ int print_cpuinfo(void)
+@@ -14,12 +17,23 @@ int print_cpuinfo(void)
  
  int dram_init(void)
  {
@@ -55,8 +56,8 @@ index cefe9c6db9e..caf1006b22b 100644
 +	return 0;
  }
  
- void reset_cpu(ulong addr)
-@@ -31,12 +45,12 @@ static struct mm_region an7581_mem_map[] = {
+ void reset_cpu(void)
+@@ -33,12 +47,12 @@ static struct mm_region an7581_mem_map[] = {
  		/* DDR */
  		.virt = 0x80000000UL,
  		.phys = 0x80000000UL,
@@ -72,20 +73,23 @@ index cefe9c6db9e..caf1006b22b 100644
  			 PTE_BLOCK_NON_SHARE |
  			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
 diff --git a/arch/arm/mach-airoha/an7583/init.c b/arch/arm/mach-airoha/an7583/init.c
-index 77c29290331..c00837b4234 100644
+index fa5e7a75824..45366205b02 100644
 --- a/arch/arm/mach-airoha/an7583/init.c
 +++ b/arch/arm/mach-airoha/an7583/init.c
-@@ -4,6 +4,9 @@
+@@ -3,9 +3,12 @@
+ #include <fdtdec.h>
  #include <init.h>
  #include <asm/armv8/mmu.h>
- #include <asm/system.h>
 +#include <asm/global_data.h>
-+
-+DECLARE_GLOBAL_DATA_PTR;
+ #include <asm/system.h>
+ #include <asm/io.h>
  
++DECLARE_GLOBAL_DATA_PTR;
++
  int print_cpuinfo(void)
  {
-@@ -13,12 +16,23 @@ int print_cpuinfo(void)
+ 	printf("CPU:   Airoha AN7583\n");
+@@ -14,12 +17,23 @@ int print_cpuinfo(void)
  
  int dram_init(void)
  {
@@ -110,8 +114,8 @@ index 77c29290331..c00837b4234 100644
 +	return 0;
  }
  
- void reset_cpu(ulong addr)
-@@ -31,12 +45,12 @@ static struct mm_region an7583_mem_map[] = {
+ void reset_cpu(void)
+@@ -33,12 +47,12 @@ static struct mm_region an7583_mem_map[] = {
  		/* DDR */
  		.virt = 0x80000000UL,
  		.phys = 0x80000000UL,
@@ -127,5 +131,5 @@ index 77c29290331..c00837b4234 100644
  			 PTE_BLOCK_NON_SHARE |
  			 PTE_BLOCK_PXN | PTE_BLOCK_UXN
 -- 
-2.48.1
+2.51.0
 

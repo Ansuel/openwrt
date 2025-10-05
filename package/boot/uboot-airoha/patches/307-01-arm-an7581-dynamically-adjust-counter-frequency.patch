@@ -1,0 +1,78 @@
+From 5f8ae25e08f75258a91343addcabc2f196cb2e16 Mon Sep 17 00:00:00 2001
+From: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+Date: Mon, 31 Mar 2025 04:13:06 +0300
+Subject: [PATCH 01/04] arm/an7581: dynamically adjust counter frequency
+
+The hanging happens in spi-nand driver, function spinand_wait().
+For eMMC boards on BL31 stage the function get_timer() always
+returns zero. As result a finite loop becomes infinite.
+
+The issue was caused by uninitialized ARMv8-A/ARMv7-A system counter.
+The counter is
+ * properly initialized for spi-nand boards
+ * properly initialized for eMMC boards during BL33 stage
+ * not initialized for eMMC boards during BL31 stage
+
+According to airoha ATF code the timer should be initialized by
+the following code
+
+    write_cntfrq_el0(plat_get_syscnt_freq2());
+    generic_delay_timer_init();
+
+where
+
+    unsigned int plat_get_syscnt_freq2(void)
+    {
+      #if defined(TCSUPPORT_CPU_EN7581) || defined(TCSUPPORT_CPU_AN7552)
+	/* 7581 CPU timer clk fixed in 25M*/
+	return SYS_COUNTER_FREQ_IN_TICKS_25M;
+      #else
+	....
+      #endif
+    }
+
+and
+
+    #define SYS_COUNTER_FREQ_IN_TICKS_25M	25000000
+
+Signed-off-by: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+---
+ board/airoha/an7581/an7581_rfb.c | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/board/airoha/an7581/an7581_rfb.c b/board/airoha/an7581/an7581_rfb.c
+index aa73679d929..6c56f80df6d 100644
+--- a/board/airoha/an7581/an7581_rfb.c
++++ b/board/airoha/an7581/an7581_rfb.c
+@@ -4,6 +4,7 @@
+  */
+ 
+ #include <asm/global_data.h>
++#include <asm/system.h>
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+@@ -12,5 +13,20 @@ int board_init(void)
+ 	/* address of boot parameters */
+ 	gd->bd->bi_boot_params = CFG_SYS_SDRAM_BASE + 0x100;
+ 
++	if (current_el() == 3) {
++		/* Running in ATF BL31 stage, the counter frequency may not be set. */
++		unsigned long cntrfreq;
++
++		asm volatile("mrs %0, cntfrq_el0" : "=r" (cntrfreq));
++		if (cntrfreq == 0) {
++			cntrfreq = 25000000;
++
++			asm volatile("msr cntfrq_el0, %0" : : "r" (cntrfreq) : "memory");
++			asm volatile("mrs %0, cntfrq_el0" : "=r" (cntrfreq));
++
++			printf("Set system timer frequency to %lu Hz.\n", cntrfreq);
++		}
++	}
++
+ 	return 0;
+ }
+-- 
+2.51.0
+
