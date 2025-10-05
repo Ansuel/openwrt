@@ -1,4 +1,4 @@
-From 9136b52bfac08d7c0e3e4efe3bf1dc2e9d7b4e70 Mon Sep 17 00:00:00 2001
+From de799ed1be72b8b559e502e997325ef5c49190f6 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 22 Aug 2025 14:59:02 +0200
 Subject: [PATCH] net: mediatek: move MT7531 mdio to dedicated driver
@@ -25,10 +25,10 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  create mode 100644 drivers/net/mdio-mt7531.h
 
 diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index b2d7b499766..d2e21698e08 100644
+index fc2ab462503..188c8a2a160 100644
 --- a/drivers/net/Kconfig
 +++ b/drivers/net/Kconfig
-@@ -886,11 +886,15 @@ config TSEC_ENET
+@@ -974,11 +974,15 @@ config TSEC_ENET
  	  This driver implements support for the (Enhanced) Three-Speed
  	  Ethernet Controller found on Freescale SoCs.
  
@@ -45,13 +45,13 @@ index b2d7b499766..d2e21698e08 100644
  	  This Driver support MediaTek Ethernet GMAC
  	  Say Y to enable support for the MediaTek Ethernet GMAC.
 diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index dc3404519d6..673c19969d3 100644
+index 54764a1b75b..35be32991ec 100644
 --- a/drivers/net/Makefile
 +++ b/drivers/net/Makefile
-@@ -56,6 +56,7 @@ obj-$(CONFIG_LITEETH) += liteeth.o
- obj-$(CONFIG_MACB) += macb.o
+@@ -63,6 +63,7 @@ obj-$(CONFIG_MACB) += macb.o
  obj-$(CONFIG_MCFFEC) += mcffec.o mcfmii.o
  obj-$(CONFIG_MDIO_IPQ4019) += mdio-ipq4019.o
+ obj-$(CONFIG_MDIO_GPIO_BITBANG) += mdio_gpio.o
 +obj-$(CONFIG_MDIO_MT7531) += mdio-mt7531.o
  obj-$(CONFIG_MDIO_MUX_I2CREG) += mdio_mux_i2creg.o
  obj-$(CONFIG_MDIO_MUX_MESON_G12A) += mdio_mux_meson_g12a.o
@@ -223,10 +223,10 @@ index 00000000000..ee096112f92
 +int mt7531_mdio_write(struct udevice *dev, int addr, int devad,
 +		      int reg, u16 value);
 diff --git a/drivers/net/mtk_eth.c b/drivers/net/mtk_eth.c
-index 87e2e1d9cda..5bd160dae0a 100644
+index 5098afef8a8..c663151e4af 100644
 --- a/drivers/net/mtk_eth.c
 +++ b/drivers/net/mtk_eth.c
-@@ -29,6 +29,7 @@
+@@ -28,6 +28,7 @@
  #include <linux/printk.h>
  
  #include "mtk_eth.h"
@@ -234,7 +234,7 @@ index 87e2e1d9cda..5bd160dae0a 100644
  
  #define NUM_TX_DESC		24
  #define NUM_RX_DESC		24
-@@ -125,6 +126,8 @@ struct mtk_eth_priv {
+@@ -124,6 +125,8 @@ struct mtk_eth_priv {
  	struct regmap *xfi_pll_regmap;
  	struct regmap *toprgu_regmap;
  
@@ -243,7 +243,7 @@ index 87e2e1d9cda..5bd160dae0a 100644
  	struct mii_dev *mdio_bus;
  	int (*mii_read)(struct mtk_eth_priv *priv, u8 phy, u8 reg);
  	int (*mii_write)(struct mtk_eth_priv *priv, u8 phy, u8 reg, u16 val);
-@@ -432,44 +435,6 @@ static void mt753x_reg_rmw(struct mtk_eth_priv *priv, u32 reg, u32 clr,
+@@ -431,44 +434,6 @@ static void mt753x_reg_rmw(struct mtk_eth_priv *priv, u32 reg, u32 clr,
  	mt753x_reg_write(priv, reg, val);
  }
  
@@ -288,7 +288,7 @@ index 87e2e1d9cda..5bd160dae0a 100644
  static int mt7531_mii_ind_read(struct mtk_eth_priv *priv, u8 phy, u8 reg)
  {
  	u8 phy_addr;
-@@ -479,8 +444,8 @@ static int mt7531_mii_ind_read(struct mtk_eth_priv *priv, u8 phy, u8 reg)
+@@ -478,8 +443,8 @@ static int mt7531_mii_ind_read(struct mtk_eth_priv *priv, u8 phy, u8 reg)
  
  	phy_addr = MT753X_PHY_ADDR(priv->mt753x_phy_base, phy);
  
@@ -299,7 +299,7 @@ index 87e2e1d9cda..5bd160dae0a 100644
  }
  
  static int mt7531_mii_ind_write(struct mtk_eth_priv *priv, u8 phy, u8 reg,
-@@ -493,48 +458,36 @@ static int mt7531_mii_ind_write(struct mtk_eth_priv *priv, u8 phy, u8 reg,
+@@ -492,48 +457,36 @@ static int mt7531_mii_ind_write(struct mtk_eth_priv *priv, u8 phy, u8 reg,
  
  	phy_addr = MT753X_PHY_ADDR(priv->mt753x_phy_base, phy);
  
@@ -354,7 +354,7 @@ index 87e2e1d9cda..5bd160dae0a 100644
  }
  
  static int mtk_mdio_read(struct mii_dev *bus, int addr, int devad, int reg)
-@@ -577,6 +530,7 @@ static int mtk_mdio_register(struct udevice *dev)
+@@ -576,6 +529,7 @@ static int mtk_mdio_register(struct udevice *dev)
  		break;
  	case SW_MT7531:
  	case SW_MT7988:
@@ -363,5 +363,5 @@ index 87e2e1d9cda..5bd160dae0a 100644
  		priv->mii_write = mt7531_mii_ind_write;
  		priv->mmd_read = mt7531_mmd_ind_read;
 -- 
-2.50.0
+2.51.0
 
