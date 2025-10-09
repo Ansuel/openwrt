@@ -184,29 +184,28 @@
  	q->ndesc = ndesc;
  	q->qdma = qdma;
  
-@@ -835,15 +955,18 @@ static int airoha_qdma_init_rx(struct ai
+@@ -835,6 +955,8 @@ static int airoha_qdma_init_rx(struct ai
  	int i;
  
  	for (i = 0; i < ARRAY_SIZE(qdma->q_rx); i++) {
--		int err;
 +		struct airoha_queue *q = &qdma->q_rx[i];
 +		bool lro_queue;
-+		int err, ndesc;
+ 		int err;
  
  		if (!(RX_DONE_INT_MASK & BIT(i))) {
- 			/* rx-queue not binded to irq */
+@@ -842,8 +964,9 @@ static int airoha_qdma_init_rx(struct ai
  			continue;
  		}
  
 -		err = airoha_qdma_init_rx_queue(&qdma->q_rx[i], qdma,
 -						RX_DSCP_NUM(i));
 +		lro_queue = airoha_qdma_is_lro_rx_queue(q, qdma);
-+		ndesc = lro_queue ? RX_DSCP_NUM(1) : RX_DSCP_NUM(i);
-+		err = airoha_qdma_init_rx_queue(q, qdma, ndesc, lro_queue);
++		err = airoha_qdma_init_rx_queue(q, qdma, RX_DSCP_NUM(i),
++						lro_queue);
  		if (err)
  			return err;
  	}
-@@ -1928,6 +2051,47 @@ static int airoha_get_fe_port(struct air
+@@ -1927,6 +2050,47 @@ static int airoha_get_fe_port(struct air
  	}
  }
  
@@ -254,7 +253,7 @@
  static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
  				   struct net_device *dev)
  {
-@@ -2811,6 +2975,7 @@ static const struct net_device_ops airoh
+@@ -2838,6 +3002,7 @@ static const struct net_device_ops airoh
  	.ndo_stop		= airoha_dev_stop,
  	.ndo_change_mtu		= airoha_dev_change_mtu,
  	.ndo_select_queue	= airoha_dev_select_queue,
@@ -262,7 +261,7 @@
  	.ndo_start_xmit		= airoha_dev_xmit,
  	.ndo_get_stats64        = airoha_dev_get_stats64,
  	.ndo_set_mac_address	= airoha_dev_set_macaddr,
-@@ -3011,6 +3176,31 @@ static int airoha_xmit_rings_show(struct
+@@ -3056,6 +3221,31 @@ static int airoha_xmit_rings_show(struct
  }
  DEFINE_SHOW_ATTRIBUTE(airoha_xmit_rings);
  
@@ -294,7 +293,7 @@
  static int airoha_tx_meter_show(struct seq_file *s, void *data)
  {
  	struct airoha_gdm_port *port = s->private;
-@@ -3093,6 +3283,8 @@ static int airoha_register_port_debugfs(
+@@ -3138,6 +3328,8 @@ static int airoha_register_port_debugfs(
  			    &airoha_tx_meter_fops);
  	debugfs_create_file("xmit-rings", 0400, root, port,
  			    &airoha_xmit_rings_fops);
@@ -303,7 +302,7 @@
  
  	return 0;
  }
-@@ -3136,12 +3328,9 @@ static int airoha_alloc_gdm_port(struct
+@@ -3181,12 +3373,9 @@ static int airoha_alloc_gdm_port(struct
  	dev->ethtool_ops = &airoha_ethtool_ops;
  	dev->max_mtu = AIROHA_MAX_MTU;
  	dev->watchdog_timeo = 5 * HZ;
