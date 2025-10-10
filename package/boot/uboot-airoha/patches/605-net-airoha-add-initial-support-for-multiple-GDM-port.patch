@@ -1,4 +1,4 @@
-From 47c5f7860d17ed0caab99047e535315afe98c12d Mon Sep 17 00:00:00 2001
+From f0f6651945872bc63d8402bab61b937f8001f40f Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Wed, 1 Oct 2025 03:58:32 +0200
 Subject: [PATCH] net: airoha: add initial support for multiple GDM port
@@ -12,11 +12,11 @@ to use the same exact DT nodes.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/net/airoha_eth.c | 124 +++++++++++++++++++++++++++++++++------
- 1 file changed, 106 insertions(+), 18 deletions(-)
+ drivers/net/airoha_eth.c | 132 +++++++++++++++++++++++++++++++++------
+ 1 file changed, 114 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/airoha_eth.c b/drivers/net/airoha_eth.c
-index 85412882f7f..83357cf5bf1 100644
+index 85412882f7f..95a063ca5e3 100644
 --- a/drivers/net/airoha_eth.c
 +++ b/drivers/net/airoha_eth.c
 @@ -9,6 +9,7 @@
@@ -123,7 +123,7 @@ index 85412882f7f..83357cf5bf1 100644
  	eth->fe_regs = dev_remap_addr_name(dev, "fe");
  	if (!eth->fe_regs)
  		return -ENOMEM;
-@@ -936,13 +986,35 @@ static int airoha_eth_probe(struct udevice *dev)
+@@ -936,13 +986,42 @@ static int airoha_eth_probe(struct udevice *dev)
  	if (ret)
  		return ret;
  
@@ -142,6 +142,13 @@ index 85412882f7f..83357cf5bf1 100644
  	return airoha_switch_init(dev, eth);
  }
  
++static int airoha_eth_port_of_to_plat(struct udevice *dev)
++{
++	struct airoha_gdm_port *port = dev_get_priv(dev);
++
++	return dev_read_u32(dev, "reg", &port->id);
++}
++
 +static int airoha_eth_port_probe(struct udevice *dev)
 +{
 +	struct airoha_eth *eth = (void *)dev_get_driver_data(dev);
@@ -161,7 +168,7 @@ index 85412882f7f..83357cf5bf1 100644
  	struct airoha_queue *q;
  	int qid;
  
-@@ -960,8 +1032,8 @@ static int airoha_eth_init(struct udevice *dev)
+@@ -960,8 +1039,8 @@ static int airoha_eth_init(struct udevice *dev)
  
  static void airoha_eth_stop(struct udevice *dev)
  {
@@ -172,7 +179,7 @@ index 85412882f7f..83357cf5bf1 100644
  
  	airoha_qdma_clear(qdma, REG_QDMA_GLOBAL_CFG,
  			  GLOBAL_CFG_TX_DMA_EN_MASK |
-@@ -970,8 +1042,8 @@ static void airoha_eth_stop(struct udevice *dev)
+@@ -970,8 +1049,8 @@ static void airoha_eth_stop(struct udevice *dev)
  
  static int airoha_eth_send(struct udevice *dev, void *packet, int length)
  {
@@ -183,7 +190,7 @@ index 85412882f7f..83357cf5bf1 100644
  	struct airoha_qdma_desc *desc;
  	struct airoha_queue *q;
  	dma_addr_t dma_addr;
-@@ -990,7 +1062,7 @@ static int airoha_eth_send(struct udevice *dev, void *packet, int length)
+@@ -990,7 +1069,7 @@ static int airoha_eth_send(struct udevice *dev, void *packet, int length)
  	desc = &q->desc[index];
  	index = (index + 1) % q->ndesc;
  
@@ -192,7 +199,7 @@ index 85412882f7f..83357cf5bf1 100644
  
  	msg0 = 0;
  	msg1 = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, fport) |
-@@ -1031,8 +1103,8 @@ static int airoha_eth_send(struct udevice *dev, void *packet, int length)
+@@ -1031,8 +1110,8 @@ static int airoha_eth_send(struct udevice *dev, void *packet, int length)
  
  static int airoha_eth_recv(struct udevice *dev, int flags, uchar **packetp)
  {
@@ -203,7 +210,7 @@ index 85412882f7f..83357cf5bf1 100644
  	struct airoha_qdma_desc *desc;
  	struct airoha_queue *q;
  	int qid, index;
-@@ -1062,8 +1134,8 @@ static int airoha_eth_recv(struct udevice *dev, int flags, uchar **packetp)
+@@ -1062,8 +1141,8 @@ static int airoha_eth_recv(struct udevice *dev, int flags, uchar **packetp)
  
  static int arht_eth_free_pkt(struct udevice *dev, uchar *packet, int length)
  {
@@ -214,7 +221,7 @@ index 85412882f7f..83357cf5bf1 100644
  	struct airoha_queue *q;
  	int qid, index;
  
-@@ -1087,8 +1159,9 @@ static int arht_eth_free_pkt(struct udevice *dev, uchar *packet, int length)
+@@ -1087,8 +1166,9 @@ static int arht_eth_free_pkt(struct udevice *dev, uchar *packet, int length)
  
  static int arht_eth_write_hwaddr(struct udevice *dev)
  {
@@ -225,7 +232,7 @@ index 85412882f7f..83357cf5bf1 100644
  	unsigned char *mac = pdata->enetaddr;
  	u32 macaddr_lsb, macaddr_msb;
  
-@@ -1100,8 +1173,8 @@ static int arht_eth_write_hwaddr(struct udevice *dev)
+@@ -1100,8 +1180,8 @@ static int arht_eth_write_hwaddr(struct udevice *dev)
  		      FIELD_PREP(SMACCR1_MAC0, mac[0]);
  
  	/* Set MAC for Switch */
@@ -236,7 +243,7 @@ index 85412882f7f..83357cf5bf1 100644
  
  	return 0;
  }
-@@ -1130,6 +1203,12 @@ static int airoha_eth_bind(struct udevice *dev)
+@@ -1130,6 +1210,12 @@ static int airoha_eth_bind(struct udevice *dev)
  	ofnode switch_node;
  	int ret = 0;
  
@@ -249,7 +256,7 @@ index 85412882f7f..83357cf5bf1 100644
  	if (!CONFIG_IS_ENABLED(MDIO_MT7531))
  		return 0;
  
-@@ -1149,6 +1228,7 @@ static int airoha_eth_bind(struct udevice *dev)
+@@ -1149,6 +1235,7 @@ static int airoha_eth_bind(struct udevice *dev)
  }
  
  static const struct airoha_eth_soc_data en7581_data = {
@@ -257,7 +264,7 @@ index 85412882f7f..83357cf5bf1 100644
  	.xsi_rsts_names = en7581_xsi_rsts_names,
  	.num_xsi_rsts = ARRAY_SIZE(en7581_xsi_rsts_names),
  	.get_scu_node = en7581_get_scu_node,
-@@ -1156,6 +1236,7 @@ static const struct airoha_eth_soc_data en7581_data = {
+@@ -1156,6 +1243,7 @@ static const struct airoha_eth_soc_data en7581_data = {
  };
  
  static const struct airoha_eth_soc_data an7583_data = {
@@ -265,13 +272,14 @@ index 85412882f7f..83357cf5bf1 100644
  	.xsi_rsts_names = an7583_xsi_rsts_names,
  	.num_xsi_rsts = ARRAY_SIZE(an7583_xsi_rsts_names),
  	.get_scu_node = an7583_get_scu_node,
-@@ -1180,13 +1261,20 @@ static const struct eth_ops airoha_eth_ops = {
+@@ -1180,13 +1268,21 @@ static const struct eth_ops airoha_eth_ops = {
  	.write_hwaddr = arht_eth_write_hwaddr,
  };
  
 +static struct driver airoha_eth_port = {
 +	.name = "airoha-eth-port",
 +	.id = UCLASS_ETH,
++	.of_to_plat = airoha_eth_port_of_to_plat,
 +	.probe = airoha_eth_port_probe,
 +	.ops = &airoha_eth_ops,
 +	.priv_auto = sizeof(struct airoha_gdm_port),
