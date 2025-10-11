@@ -33,17 +33,17 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		break;
  	default:
  		return 0;
-@@ -1850,8 +1852,8 @@ static int airoha_dev_set_macaddr(struct
+@@ -1849,8 +1851,8 @@ static int airoha_dev_set_macaddr(struct
  static void airhoha_set_gdm2_loopback(struct airoha_gdm_port *port)
  {
  	u32 pse_port = port->id == 3 ? FE_PSE_PORT_GDM3 : FE_PSE_PORT_GDM4;
--	u32 src_port, chan = port->id == 3 ? 4 : 0;
+-	u32 wan_port, chan = port->id == 3 ? 4 : 0;
  	struct airoha_eth *eth = port->qdma->eth;
-+	u32 src_port, chan;
++	u32 wan_port, chan;
  
  	/* Forward the traffic to the proper GDM port */
  	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(2), pse_port);
-@@ -1860,6 +1862,8 @@ static void airhoha_set_gdm2_loopback(st
+@@ -1859,6 +1861,8 @@ static void airhoha_set_gdm2_loopback(st
  	/* Enable GDM2 loopback */
  	airoha_fe_wr(eth, REG_GDM_TXCHN_EN(2), 0xffffffff);
  	airoha_fe_wr(eth, REG_GDM_RXCHN_EN(2), 0xffff);
@@ -52,17 +52,17 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	airoha_fe_rmw(eth, REG_GDM_LPBK_CFG(2),
  		      LPBK_CHAN_MASK | LPBK_MODE_MASK | LPBK_EN_MASK,
  		      FIELD_PREP(LPBK_CHAN_MASK, chan) |
-@@ -1885,7 +1889,7 @@ static void airhoha_set_gdm2_loopback(st
- 		      SP_CPORT_MASK(src_port & 0x7),
- 		      FE_PSE_PORT_CDM2 << __ffs(SP_CPORT_MASK(src_port & 0x7)));
+@@ -1882,7 +1886,7 @@ static void airhoha_set_gdm2_loopback(st
+ 		      SP_CPORT_MASK(wan_port & 0x7),
+ 		      FE_PSE_PORT_CDM2 << __ffs(SP_CPORT_MASK(wan_port & 0x7)));
  
 -	if (port->id != 3)
 +	if (port->id != 3 && airoha_is_7581(eth))
  		airoha_fe_rmw(eth, REG_SRC_PORT_FC_MAP6,
  			      FC_ID_OF_SRC_PORT24_MASK,
  			      FIELD_PREP(FC_ID_OF_SRC_PORT24_MASK, 2));
-@@ -2074,6 +2078,20 @@ static int airoha_dev_set_features(struc
- 	return 0;
+@@ -2084,6 +2088,20 @@ static bool airoha_dev_is_tx_busy(struct
+ 	return index >= q->tail && (q->head < q->tail || q->head > index);
  }
  
 +static int airoha_get_fe_port(struct airoha_gdm_port *port)
@@ -82,7 +82,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
  				   struct net_device *dev)
  {
-@@ -2114,7 +2132,7 @@ static netdev_tx_t airoha_dev_xmit(struc
+@@ -2124,7 +2142,7 @@ static netdev_tx_t airoha_dev_xmit(struc
  		}
  	}
  
@@ -91,7 +91,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	msg1 = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, fport) |
  	       FIELD_PREP(QDMA_ETH_TXMSG_METER_MASK, 0x7f);
  
-@@ -3538,6 +3556,12 @@ static const char * const en7581_xsi_rst
+@@ -3589,6 +3607,12 @@ static const char * const en7581_xsi_rst
  	"xfp-mac",
  };
  
@@ -104,7 +104,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static const struct airoha_eth_soc_data en7581_soc_data = {
  	.version = 0x7581,
  	.xsi_rsts_names = en7581_xsi_rsts_names,
-@@ -3545,8 +3569,16 @@ static const struct airoha_eth_soc_data
+@@ -3596,8 +3620,16 @@ static const struct airoha_eth_soc_data
  	.num_ppe = 2,
  };
  

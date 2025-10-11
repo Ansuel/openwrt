@@ -794,7 +794,6 @@
 				compatible = "airoha,eth-mac";
 				reg = <3>;
 				pcs = <&eth_pcs>;
-				airoha,gdm-srcport = <0x16>;
 
 				status = "disabled";
 			};
