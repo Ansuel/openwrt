@@ -1,0 +1,29 @@
+From c7e366d18c6a2ab81d356af65d0e7e5e75af3a33 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Tue, 14 Oct 2025 19:39:19 +0200
+Subject: [PATCH] configs: fix ENV offset for AN7581
+
+Set ENV offset for eMMC to 0x100000 for AN7581 to account for additional
+entry in the FIP space (like PHY firmware)
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ configs/an7581_evb_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
+index fc33ac6981b..8ccba664488 100644
+--- a/configs/an7581_evb_defconfig
++++ b/configs/an7581_evb_defconfig
+@@ -6,7 +6,7 @@ CONFIG_TEXT_BASE=0x81E00000
+ CONFIG_SYS_MALLOC_F_LEN=0x4000
+ CONFIG_NR_DRAM_BANKS=1
+ CONFIG_ENV_SIZE=0x4000
+-CONFIG_ENV_OFFSET=0x7c000
++CONFIG_ENV_OFFSET=0x100000
+ CONFIG_DM_GPIO=y
+ CONFIG_DEFAULT_DEVICE_TREE="airoha/en7581-evb"
+ CONFIG_DM_RESET=y
+-- 
+2.51.0
+
