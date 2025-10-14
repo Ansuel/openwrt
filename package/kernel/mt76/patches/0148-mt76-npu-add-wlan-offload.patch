@@ -2224,7 +2224,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
 +	mutex_lock(&dev->mutex);
 +
-+	npu = airoha_npu_get(dev->dev;
++	npu = airoha_npu_get(dev->dev);
 +	if (IS_ERR(npu)) {
 +		request_module("airoha-npu");
 +		npu = airoha_npu_get(dev->dev);
