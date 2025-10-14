@@ -1,0 +1,37 @@
+From a0fba9f54ed8b62702643cb0c1d13732f319a317 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Tue, 14 Oct 2025 20:05:47 +0200
+Subject: [PATCH 19/20] configs: enable PCS and EN8811 PHY for Airoha defconfig
+
+Enable PCS and EN8811 PHY  for Airoha defconfig as they are present in
+most of the RFB board.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ configs/an7581_evb_defconfig | 2 ++
+ configs/an7583_evb_defconfig | 2 ++
+ 2 files changed, 4 insertions(+)
+
+diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
+index 8ccba664488..255509c5c37 100644
+--- a/configs/an7581_evb_defconfig
++++ b/configs/an7581_evb_defconfig
+@@ -106,3 +106,5 @@ CONFIG_UBI_BLOCK=y
+ CONFIG_USE_DEFAULT_ENV_FILE=y
+ CONFIG_DEFAULT_ENV_FILE="defenvs/an7581_rfb_env"
+ CONFIG_FIP_LOADER=y
++CONFIG_PCS_AIROHA_AN7581=y
++CONFIG_PHY_AIROHA_EN8811=y
+diff --git a/configs/an7583_evb_defconfig b/configs/an7583_evb_defconfig
+index 69a7df2e7b9..a3c882c807f 100644
+--- a/configs/an7583_evb_defconfig
++++ b/configs/an7583_evb_defconfig
+@@ -101,3 +101,5 @@ CONFIG_UBI_BLOCK=y
+ CONFIG_USE_DEFAULT_ENV_FILE=y
+ CONFIG_DEFAULT_ENV_FILE="defenvs/an7583_rfb_env"
+ CONFIG_FIP_LOADER=y
++CONFIG_PCS_AIROHA_AN7583=y
++CONFIG_PHY_AIROHA_EN8811=y
+-- 
+2.51.0
+

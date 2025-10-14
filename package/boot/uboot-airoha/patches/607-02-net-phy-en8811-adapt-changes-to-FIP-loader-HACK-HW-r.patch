@@ -1,0 +1,107 @@
+From f769bc38254c74f22f503aa617bf17db2a862780 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Tue, 14 Oct 2025 19:15:37 +0200
+Subject: [PATCH 17/20] net: phy: en8811: adapt changes to FIP loader + HACK HW
+ reset
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/phy/airoha/air_en8811.c | 55 ++++++++++++++---------------
+ 1 file changed, 27 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/net/phy/airoha/air_en8811.c b/drivers/net/phy/airoha/air_en8811.c
+index 8262d4554b1..370fb2c2927 100644
+--- a/drivers/net/phy/airoha/air_en8811.c
++++ b/drivers/net/phy/airoha/air_en8811.c
+@@ -16,7 +16,7 @@
+ #include <log.h>
+ #include <env.h>
+ #include <malloc.h>
+-#include <fs_loader.h>
++#include <fw_loader.h>
+ #include <asm/unaligned.h>
+ #include <linux/iopoll.h>
+ #include <linux/bitops.h>
+@@ -462,45 +462,36 @@ static int en8811h_wait_mcu_ready(struct phy_device *phydev)
+ 	return 0;
+ }
+ 
+-__weak int en8811h_read_fw(void **addr)
++static int en8811h_load_firmware(struct phy_device *phydev)
+ {
+-	void *buffer;
++	struct en8811h_priv *priv = phydev->priv;
++	struct udevice *fw_loader;
++	const char *fw_string;
++	int fw_size;
++	u8 *buffer;
+ 	int ret;
+ 
+-	if (!IS_ENABLED(CONFIG_FS_LOADER))
++	fw_size = EN8811H_MD32_DM_SIZE + EN8811H_MD32_DSP_SIZE;
++
++	if (!IS_ENABLED(CONFIG_FW_LOADER))
+ 		return -EOPNOTSUPP;
+ 
++	fw_string = ofnode_read_string(phydev->node, "firmware-name");
++	if (!fw_string)
++		return -EINVAL;
++
+ 	buffer = malloc(EN8811H_MD32_DM_SIZE + EN8811H_MD32_DSP_SIZE);
+ 	if (!buffer) {
+ 		printf("Failed to allocate memory for firmware\n");
+ 		return -ENOMEM;
+ 	}
+ 
+-	ret = request_firmware_into_buf_via_script(&buffer,
+-						   EN8811H_MD32_DM_SIZE + EN8811H_MD32_DSP_SIZE,
+-						   "en8811h_load_firmware");
+-	if (ret < 0) {
+-		printf("Failed to load EthMD32.dm.bin: %d\n", ret);
+-		return ret;
+-	}
+-
+-	*addr = buffer;
+-
+-	debug("Found Airoha Firmware.\n");
+-
+-	return 0;
+-}
+-
+-static int en8811h_load_firmware(struct phy_device *phydev)
+-{
+-	struct en8811h_priv *priv = phydev->priv;
+-	void *buffer;
+-	int ret;
+-
+-	if (!IS_ENABLED(CONFIG_FS_LOADER))
+-		return -EOPNOTSUPP;
++	ret = get_fw_loader_from_node(phydev->node, &fw_loader);
++	if (ret)
++		goto en8811h_load_firmware_out;
+ 
+-	ret = en8811h_read_fw(&buffer);
++	ret = request_firmware_into_buf(fw_loader, fw_string, buffer,
++					fw_size, 0);
+ 	if (ret < 0)
+ 		goto en8811h_load_firmware_out;
+ 
+@@ -713,6 +704,15 @@ static int en8811h_config(struct phy_device *phydev)
+ 		if (ret < 0)
+ 			return ret;
+ 	} else {
++		/* HACK to trigger HW reset on GPIO 28 */
++		writel(0x1000000, 0x1fbf0220);
++		writel(0x10000000, 0x1fbf0214);
++		writel(0x0, 0x1fbf0204);
++		udelay(10000);
++		writel(0x10000000, 0x1fbf0204);
++		udelay(20000);
++
++		printf("Loading firmware... ");
+ 		ret = en8811h_load_firmware(phydev);
+ 		if (ret) {
+ 			printf("Load firmware fail.\n");
+-- 
+2.51.0
+

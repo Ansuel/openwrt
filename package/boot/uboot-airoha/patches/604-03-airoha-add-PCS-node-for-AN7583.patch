@@ -1,16 +1,16 @@
-From 916b8037fccaa0d4e223a8478bcc2a44e8706e45 Mon Sep 17 00:00:00 2001
+From 8f47730367cc65b47ae3ebec02975d3b87792c0e Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Tue, 30 Sep 2025 23:00:29 +0200
-Subject: [PATCH] airoha: add PCS node for AN7583
+Subject: [PATCH 15/21] airoha: add PCS node for AN7583
 
 Add PCS node for Airoha AN7583 SoC to enable support for Serdes Ethernet
 and PON port.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- arch/arm/dts/an7583-evb.dts | 18 ++++++++++
- arch/arm/dts/an7583.dtsi    | 72 +++++++++++++++++++++++++++++++++++++
- 2 files changed, 90 insertions(+)
+ arch/arm/dts/an7583-evb.dts | 18 +++++++++
+ arch/arm/dts/an7583.dtsi    | 74 ++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 91 insertions(+), 1 deletion(-)
 
 diff --git a/arch/arm/dts/an7583-evb.dts b/arch/arm/dts/an7583-evb.dts
 index 096dd395c90..e4690c191dd 100644
@@ -39,7 +39,7 @@ index 096dd395c90..e4690c191dd 100644
 +	phy-mode = "2500base-x";
 +};
 diff --git a/arch/arm/dts/an7583.dtsi b/arch/arm/dts/an7583.dtsi
-index 6901804cc02..886e24006e0 100644
+index 6901804cc02..10672fbb3a7 100644
 --- a/arch/arm/dts/an7583.dtsi
 +++ b/arch/arm/dts/an7583.dtsi
 @@ -145,6 +145,49 @@
@@ -65,7 +65,7 @@ index 6901804cc02..886e24006e0 100644
 +				 <&scuclk AN7583_XPON_XFI_RST>;
 +			reset-names = "mac", "phy", "xfi";
 +
-+			airoha,scu = <&scuclk>;
++			airoha,scu = <&scu>;
 +		};
 +
 +		eth_pcs: pcs@1fa09000 {
@@ -86,7 +86,7 @@ index 6901804cc02..886e24006e0 100644
 +				 <&scuclk AN7583_XSI_PHY_RST>;
 +			reset-names = "mac", "phy";
 +
-+			airoha,scu = <&scuclk>;
++			airoha,scu = <&scu>;
 +		};
 +
  		eth: ethernet@1fb50000 {
@@ -128,6 +128,15 @@ index 6901804cc02..886e24006e0 100644
  		};
  
  		switch: switch@1fb58000 {
+@@ -173,7 +245,7 @@
+ 			reg = <0x0 0x1fbe3400 0x0 0xff>;
+ 		};
+ 
+-		system-controller@1fa20000 {
++		scu: system-controller@1fa20000 {
+ 			compatible = "syscon", "simple-mfd";
+ 			reg = <0x0 0x1fb00000 0x0 0x970>;
+ 
 -- 
 2.51.0
 

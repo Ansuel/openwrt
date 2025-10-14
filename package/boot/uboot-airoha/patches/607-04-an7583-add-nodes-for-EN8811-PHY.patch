@@ -1,0 +1,80 @@
+From 5d4fe9d7e01372ba2bbd1e8e361477268844aaf3 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Tue, 14 Oct 2025 20:08:46 +0200
+Subject: [PATCH 20/20] an7583: add nodes for EN8811 PHY
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ arch/arm/dts/an7583-evb.dts | 43 ++++++++++++++++++++++++++++++++++++-
+ 1 file changed, 42 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm/dts/an7583-evb.dts b/arch/arm/dts/an7583-evb.dts
+index e4690c191dd..3e05c43a362 100644
+--- a/arch/arm/dts/an7583-evb.dts
++++ b/arch/arm/dts/an7583-evb.dts
+@@ -28,6 +28,13 @@
+ 		device_type = "memory";
+ 		reg = <0x0 0x80000000 0x0 0x20000000>;
+ 	};
++
++	fs_loader0: fip-loader {
++		bootph-all;
++		compatible = "u-boot,fip-loader";
++		phandlepart = <&mmc0 0>;
++		partoffset = <0x100>;
++	};
+ };
+ 
+ &an7583_pinctrl {
+@@ -88,6 +95,40 @@
+ 	status = "okay";
+ };
+ 
++&mdio_0 {
++	en8811: ethernet-phy@f {
++		reg = <0xf>;
++
++		reset-gpios = <&an7583_pinctrl 28 GPIO_ACTIVE_LOW>;
++		reset-assert-us = <10000>;
++		reset-deassert-us = <20000>;
++
++		firmware-name = "d39d2cf2-9bd0-3ca7-93e9-e71b4f9250b2";
++		firmware-loader = <&fs_loader0>;
++
++		leds {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			led@0 {
++				reg = <0>;
++				function = LED_FUNCTION_LAN;
++				color = <LED_COLOR_ID_GREEN>;
++				function-enumerator = <0>;
++				default-state = "keep";
++			};
++
++			led@1 {
++				reg = <1>;
++				function = LED_FUNCTION_LAN;
++				color = <LED_COLOR_ID_GREEN>;
++				function-enumerator = <1>;
++				default-state = "keep";
++			};
++		};
++	};
++};
++
+ &gdm1 {
+ 	status = "okay";
+ };
+@@ -102,6 +143,6 @@
+ &gdm3 {
+ 	status = "okay";
+ 
+-	managed = "in-band-status";
++	phy-handle = <&en8811>;
+ 	phy-mode = "2500base-x";
+ };
+-- 
+2.51.0
+
