@@ -56,8 +56,9 @@ define Build/fip-image
 	$(if $(FIP_COMPRESS), $(STAGING_DIR_HOST)/bin/lzma e \
 		$(PKG_BUILD_DIR)/u-boot.bin \
 		$(PKG_BUILD_DIR)/u-boot.bin.lzma)
+	$(CP) files/$(BL31_IMAGE) $(PKG_BUILD_DIR)/bl31.bin
 	$(if $(FIP_COMPRESS), $(STAGING_DIR_HOST)/bin/lzma e \
-		files/$(BL31_IMAGE) \
+		$(PKG_BUILD_DIR)/bl31.bin \
 		$(PKG_BUILD_DIR)/bl31.bin.lzma)
 	$(STAGING_DIR_HOST)/bin/fiptool create \
 		--soc-fw $(PKG_BUILD_DIR)/bl31.bin$(if $(FIP_COMPRESS),.lzma) \
