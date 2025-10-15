@@ -1,7 +1,7 @@
-From 865e93a1f89fa5382b0e4c1d4076f6bb9d43ebba Mon Sep 17 00:00:00 2001
+From 5491ab2075ad8831bac451340284ab8a5a4faab0 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Thu, 6 Mar 2025 10:26:17 +0100
-Subject: [PATCH 2/6] clk: airoha: Add support for Airoha AN7581 SoC clock
+Subject: [PATCH] clk: airoha: Add support for Airoha AN7581 SoC clock
 
 Add support for Airoha AN7581 SoC clock driver. This mainly needed for
 eMMC support to correctly get the current clock applied.
@@ -22,11 +22,11 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  create mode 100644 drivers/clk/airoha/clk-airoha.c
 
 diff --git a/drivers/clk/Makefile b/drivers/clk/Makefile
-index fe0e49f6112..8411205ee04 100644
+index 7f84f22d4b1..9a0fc536e25 100644
 --- a/drivers/clk/Makefile
 +++ b/drivers/clk/Makefile
-@@ -14,6 +14,7 @@ obj-$(CONFIG_$(PHASE_)CLK_GPIO) += clk-gpio.o
- obj-$(CONFIG_$(PHASE_)CLK_STUB) += clk-stub.o
+@@ -13,6 +13,7 @@ obj-$(CONFIG_$(PHASE_)CLK_COMPOSITE_CCF) += clk-composite.o
+ obj-$(CONFIG_$(PHASE_)CLK_GPIO) += clk-gpio.o
  
  obj-y += adi/
 +obj-y += airoha/
@@ -487,5 +487,5 @@ index 00000000000..96d120feba7
 +	.ops = &airoha_clk_ops,
 +};
 -- 
-2.48.1
+2.51.0
 
