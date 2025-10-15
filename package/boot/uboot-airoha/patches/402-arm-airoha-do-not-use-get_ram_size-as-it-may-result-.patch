@@ -1,0 +1,72 @@
+From b189047dda3cf9fd4799f0a60deb45380d87735c Mon Sep 17 00:00:00 2001
+From: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+Date: Wed, 15 Oct 2025 21:51:29 +0300
+Subject: [PATCH] arm: airoha: do not use get_ram_size() as it may result in
+ boot loop
+
+The general idea is good, but the call of
+
+  get_ram_size((void *)gd->ram_base, SZ_8G);
+
+produces the following result on my an7581 board with only 1Gb of
+memory:
+
+  "Synchronous Abort" handler, esr 0x96000004
+  elr: 0000000081e201c8 lr : 0000000081e20160 (reloc)
+  elr: 00000000bff501c8 lr : 00000000bff50160
+  x0 : 0000000180000000 x1 : 0000000100000000
+  x2 : 000000000000002e x3 : 0000000000000002
+  x4 : 000000001fbf0000 x5 : 0060000000000401
+  x6 : 0000000000000000 x7 : 00000000bffdb268
+  x8 : 0000000000000060 x9 : 00000000bffdb2c8
+  x10: 0000000000000000 x11: 0000000000000060
+  x12: 00000000bffdb268 x13: 00000000841c56d0
+  x14: 00000000841c56d0 x15: 0000000000000000
+  x16: 00000000841506e4 x17: dd7fe29aec3b07e8
+  x18: 00000000bf710e00 x19: 0000000080000000
+  x20: 0000000000000000 x21: 0000000020000000
+  x22: 0000000200000000 x23: 0000000000000001
+  x24: 0000000040000000 x25: 00000000bf708e78
+  x26: 00000000bf7bdca0 x27: 0000000000000000
+  x28: 0000000000000000 x29: 00000000bf708e20
+
+  Code: 910943ff d65f03c0 d37df2a1 8b150e60 (f8616a62)
+  Resetting CPU ...
+
+So just not call get_ram_size() and use the value from dtb.
+
+Signed-off-by: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+---
+ arch/arm/mach-airoha/an7581/init.c | 2 +-
+ arch/arm/mach-airoha/an7583/init.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/mach-airoha/an7581/init.c b/arch/arm/mach-airoha/an7581/init.c
+index 3ed0dbc3276..62b4f3d72e3 100644
+--- a/arch/arm/mach-airoha/an7581/init.c
++++ b/arch/arm/mach-airoha/an7581/init.c
+@@ -23,7 +23,7 @@ int dram_init(void)
+ 	if (ret)
+ 		return ret;
+ 
+-	gd->ram_size = get_ram_size((void *)gd->ram_base, SZ_8G);
++//	gd->ram_size = get_ram_size((void *)gd->ram_base, SZ_8G);
+ 
+ 	return 0;
+ }
+diff --git a/arch/arm/mach-airoha/an7583/init.c b/arch/arm/mach-airoha/an7583/init.c
+index 45366205b02..d017e808291 100644
+--- a/arch/arm/mach-airoha/an7583/init.c
++++ b/arch/arm/mach-airoha/an7583/init.c
+@@ -23,7 +23,7 @@ int dram_init(void)
+ 	if (ret)
+ 		return ret;
+ 
+-	gd->ram_size = get_ram_size((void *)gd->ram_base, SZ_8G);
++//	gd->ram_size = get_ram_size((void *)gd->ram_base, SZ_8G);
+ 
+ 	return 0;
+ }
+-- 
+2.51.0
+
