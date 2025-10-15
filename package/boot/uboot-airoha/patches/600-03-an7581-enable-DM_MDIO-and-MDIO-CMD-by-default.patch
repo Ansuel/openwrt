@@ -1,4 +1,4 @@
-From 384ba5040f54fe87fe6e8b5b2c453a7033ef60a1 Mon Sep 17 00:00:00 2001
+From 2b6e3a5dc51ce6ed5a0c5279c6ca33aec45d9803 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 22 Aug 2025 15:43:56 +0200
 Subject: [PATCH] an7581: enable DM_MDIO and MDIO CMD by default
@@ -8,13 +8,14 @@ Enable DM_MDIO and MDIO CMD in the default config.
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
  configs/an7581_evb_defconfig | 3 +++
- 1 file changed, 3 insertions(+)
+ configs/an7583_evb_defconfig | 4 ++++
+ 2 files changed, 7 insertions(+)
 
 diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
-index 5765dcbaaec..a9b4387179a 100644
+index 740c5291737..2792aa8ec88 100644
 --- a/configs/an7581_evb_defconfig
 +++ b/configs/an7581_evb_defconfig
-@@ -81,6 +81,9 @@ CONFIG_SPI=y
+@@ -78,5 +78,8 @@ CONFIG_SPI=y
  CONFIG_DM_SPI=y
  CONFIG_SHA512=y
  CONFIG_AIROHA_ETH=y
@@ -23,10 +24,11 @@ index 5765dcbaaec..a9b4387179a 100644
 +CONFIG_CMD_MDIO=y
  CONFIG_MMC_MTK=y
  CONFIG_AIROHA_SNFI_SPI=y
- CONFIG_CMD_UBI=y
+diff --git a/configs/an7583_evb_defconfig b/configs/an7583_evb_defconfig
+index 4a11e16e497..8f74ee800d0 100644
 --- a/configs/an7583_evb_defconfig
 +++ b/configs/an7583_evb_defconfig
-@@ -81,6 +81,10 @@ CONFIG_SPI=y
+@@ -78,5 +78,9 @@ CONFIG_SPI=y
  CONFIG_DM_SPI=y
  CONFIG_SHA512=y
  CONFIG_AIROHA_ETH=y
@@ -36,7 +38,6 @@ index 5765dcbaaec..a9b4387179a 100644
 +CONFIG_CMD_MDIO=y
  CONFIG_MMC_MTK=y
  CONFIG_AIROHA_SNFI_SPI=y
- CONFIG_CMD_UBI=y
 -- 
-2.50.0
+2.51.0
 
