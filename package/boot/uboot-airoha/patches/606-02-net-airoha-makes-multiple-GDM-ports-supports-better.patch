@@ -1,0 +1,172 @@
+From 85cbea85e30668e1d5ffa0ae0cbbef4ba4f85ee3 Mon Sep 17 00:00:00 2001
+From: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+Date: Wed, 15 Oct 2025 10:36:16 +0300
+Subject: [PATCH] net: airoha: makes multiple GDM ports supports better
+
+Changes:
+ * Allocate string for GDM port. This have following benefits:
+    - avoid out of boundaries access to gdm_port_str[] array in
+      airoha_alloc_gdm_port()
+    - no entries for non-used GDM ports
+ * Declare airoha_eth_port as U_BOOT_DRIVER(), fix airoha_alloc_gdm_port()
+   to lookup a driver instead of direct airoha_eth_port usage.
+ * We should not call airoha_fe_init() from GDM port independent code,
+   because it do a GDM specific things.
+    - makes airoha_fe_maccr_init() and airoha_fe_init() port dependent
+      and call them from airoha_eth_port_probe()
+ * Call airoha_switch_init() before creating GDM instances, so if
+   allocation of GDM port fails, early created GDM instances will work
+   normally.
+
+Signed-off-by: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+---
+ drivers/net/airoha_eth.c | 59 ++++++++++++++++++++++++----------------
+ 1 file changed, 35 insertions(+), 24 deletions(-)
+
+diff --git a/drivers/net/airoha_eth.c b/drivers/net/airoha_eth.c
+index 23e209a21d1..29b3a1f0800 100644
+--- a/drivers/net/airoha_eth.c
++++ b/drivers/net/airoha_eth.c
+@@ -359,7 +359,6 @@ struct airoha_eth {
+ 	struct airoha_eth_soc_data *soc;
+ 
+ 	struct airoha_qdma qdma[AIROHA_MAX_NUM_QDMA];
+-	char gdm_port_str[AIROHA_MAX_NUM_GDM_PORTS][AIROHA_GDM_PORT_STRING_LEN];
+ };
+ 
+ struct airoha_eth_soc_data {
+@@ -430,8 +429,6 @@ static u32 airoha_rmw(void __iomem *base, u32 offset, u32 mask, u32 val)
+ #define airoha_switch_rmw(eth, offset, mask, val)		\
+ 	airoha_rmw((eth)->switch_regs, (offset), (mask), (val))
+ 
+-static struct driver airoha_eth_port;
+-
+ static inline dma_addr_t dma_map_unaligned(void *vaddr, size_t len,
+ 					   enum dma_data_direction dir)
+ {
+@@ -467,22 +464,18 @@ static int airoha_get_fe_port(struct airoha_gdm_port *port)
+ 	}
+ }
+ 
+-static void airoha_fe_maccr_init(struct airoha_eth *eth)
++static void airoha_fe_maccr_init(struct airoha_gdm_port *port)
+ {
+-	int p;
+-
+-	for (p = 1; p <= AIROHA_MAX_NUM_GDM_PORTS; p++) {
+-		/*
+-		 * Disable any kind of CRC drop or offload.
+-		 * Enable padding of short TX packets to 60 bytes.
+-		 */
+-		airoha_fe_wr(eth, REG_GDM_FWD_CFG(p), GDM_PAD_EN);
+-	}
++	/*
++	 * Disable any kind of CRC drop or offload.
++	 * Enable padding of short TX packets to 60 bytes.
++	 */
++	airoha_fe_wr(port->qdma->eth, REG_GDM_FWD_CFG(port->id), GDM_PAD_EN);
+ }
+ 
+-static int airoha_fe_init(struct airoha_eth *eth)
++static int airoha_fe_init(struct airoha_gdm_port *port)
+ {
+-	airoha_fe_maccr_init(eth);
++	airoha_fe_maccr_init(port);
+ 
+ 	return 0;
+ }
+@@ -786,10 +779,6 @@ static int airoha_hw_init(struct udevice *dev,
+ 
+ 	mdelay(20);
+ 
+-	ret = airoha_fe_init(eth);
+-	if (ret)
+-		return ret;
+-
+ 	for (i = 0; i < ARRAY_SIZE(eth->qdma); i++) {
+ 		ret = airoha_qdma_init(dev, eth, &eth->qdma[i]);
+ 		if (ret)
+@@ -898,10 +887,15 @@ static int airoha_alloc_gdm_port(struct udevice *dev, ofnode node)
+ {
+ 	struct airoha_eth *eth = dev_get_priv(dev);
+ 	struct udevice *gdm_dev;
++	struct driver *gdm_drv;
+ 	char *str;
+ 	int ret;
+ 	u32 id;
+ 
++	gdm_drv = lists_driver_lookup_name("airoha-eth-port");
++	if (!gdm_drv)
++		return -ENOENT;
++
+ 	ret = ofnode_read_u32(node, "reg", &id);
+ 	if (ret)
+ 		return ret;
+@@ -909,12 +903,21 @@ static int airoha_alloc_gdm_port(struct udevice *dev, ofnode node)
+ 	if (id > AIROHA_MAX_NUM_GDM_PORTS)
+ 		return -EINVAL;
+ 
+-	str = eth->gdm_port_str[id];
++	str = malloc(AIROHA_GDM_PORT_STRING_LEN);
++	if (!str)
++		return -ENOMEM;
++
+ 	snprintf(str, AIROHA_GDM_PORT_STRING_LEN,
+ 		 "airoha-gdm%d", id);
+ 
+-	return device_bind_with_driver_data(dev, &airoha_eth_port, str,
+-					    (ulong)eth, node, &gdm_dev);
++	ret = device_bind_with_driver_data(dev, gdm_drv, str,
++					   (ulong)eth, node, &gdm_dev);
++	if (ret) {
++		free(str);
++		return ret;
++	}
++
++	return 0;
+ }
+ 
+ static int airoha_eth_probe(struct udevice *dev)
+@@ -980,6 +983,10 @@ static int airoha_eth_probe(struct udevice *dev)
+ 	if (ret)
+ 		return ret;
+ 
++	ret = airoha_switch_init(dev, eth);
++	if (ret)
++		return ret;
++
+ 	ofnode_for_each_subnode(node, dev_ofnode(dev)) {
+ 		if (!ofnode_device_is_compatible(node, "airoha,eth-mac"))
+ 			continue;
+@@ -992,7 +999,7 @@ static int airoha_eth_probe(struct udevice *dev)
+ 			return ret;
+ 	}
+ 
+-	return airoha_switch_init(dev, eth);
++	return 0;
+ }
+ 
+ static int airoha_eth_port_of_to_plat(struct udevice *dev)
+@@ -1010,6 +1017,10 @@ static int airoha_eth_port_probe(struct udevice *dev)
+ 
+ 	port->qdma = &eth->qdma[0];
+ 
++	ret = airoha_fe_init(port);
++	if (ret)
++		return ret;
++
+ 	if (port->id > 1) {
+ 		ret = airoha_pcs_init(dev);
+ 		if (ret)
+@@ -1344,7 +1355,7 @@ static const struct eth_ops airoha_eth_ops = {
+ 	.write_hwaddr = arht_eth_write_hwaddr,
+ };
+ 
+-static struct driver airoha_eth_port = {
++U_BOOT_DRIVER(airoha_eth_port) = {
+ 	.name = "airoha-eth-port",
+ 	.id = UCLASS_ETH,
+ 	.of_to_plat = airoha_eth_port_of_to_plat,
+-- 
+2.51.0
+
