@@ -1,7 +1,7 @@
-From ee6e33a1613c31de794ae8d22ae20c98da0e6843 Mon Sep 17 00:00:00 2001
+From c3ff76ffbe7543bffcd549617d835d3075c9ee74 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Tue, 23 Sep 2025 17:47:09 +0200
-Subject: [PATCH 3/3] misc: Introduce FIP loader driver
+Subject: [PATCH] misc: Introduce FIP loader driver
 
 Introduce a variant of the FS loader driver to extract images from FIP
 image. These image can contain additional binary used to init Network
@@ -45,17 +45,17 @@ FIP loader user:
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/misc/Kconfig      |  10 +
+ drivers/misc/Kconfig      |  11 +
  drivers/misc/Makefile     |   1 +
- drivers/misc/fip_loader.c | 559 ++++++++++++++++++++++++++++++++++++++
+ drivers/misc/fip_loader.c | 547 ++++++++++++++++++++++++++++++++++++++
  drivers/misc/fw_loader.c  |   3 +
  include/dm/uclass-id.h    |   3 +-
  include/fw_loader.h       |   2 +
- 6 files changed, 577 insertions(+), 1 deletion(-)
+ 6 files changed, 566 insertions(+), 1 deletion(-)
  create mode 100644 drivers/misc/fip_loader.c
 
 diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
-index 2d482381da2..46645893722 100644
+index 2d482381da2..612b4856f56 100644
 --- a/drivers/misc/Kconfig
 +++ b/drivers/misc/Kconfig
 @@ -603,6 +603,17 @@ config MPC83XX_SERDES
@@ -90,10 +90,10 @@ index 1076b6149ce..ddd8868fb31 100644
  obj-$(CONFIG_GDSYS_IOEP) += gdsys_ioep.o
 diff --git a/drivers/misc/fip_loader.c b/drivers/misc/fip_loader.c
 new file mode 100644
-index 00000000000..ce109cf5899
+index 00000000000..9b3d23d3c01
 --- /dev/null
 +++ b/drivers/misc/fip_loader.c
-@@ -0,0 +1,559 @@
+@@ -0,0 +1,547 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (C) 2025 Christian Marangi <ansuelsmth@gmail.com>
@@ -157,19 +157,13 @@ index 00000000000..ce109cf5899
 +#ifdef CONFIG_CMD_UBIFS
 +static int mount_ubifs(char *mtdpart, char *ubivol)
 +{
-+	int ret = ubi_part(mtdpart, NULL);
++	int ret;
 +
-+	if (ret) {
++	ret = ubi_part(mtdpart, NULL);
++	if (ret)
 +		log_err("Cannot find mtd partition %s\n", mtdpart);
-+		return ret;
-+	}
 +
-+	return cmd_ubifs_mount(ubivol);
-+}
-+
-+static int umount_ubifs(void)
-+{
-+	return cmd_ubifs_umount();
++	return ret;
 +}
 +#else
 +static int mount_ubifs(char *mtdpart, char *ubivol)
@@ -586,8 +580,7 @@ index 00000000000..ce109cf5899
 +
 +	if (ent.size + firmwarep->offset > firmwarep->size) {
 +		log_err("Not enough space to read firmware\n");
-+		ret = -EINVAL;
-+		goto out;
++		return -EINVAL;
 +	}
 +
 +	ret = read_fip_firmware(firmwarep, &info, &ent);
@@ -595,11 +588,6 @@ index 00000000000..ce109cf5899
 +		log_err("Failed to read %s from FIP: %d.\n",
 +			firmwarep->name, ret);
 +
-+out:
-+#ifdef CONFIG_CMD_UBIFS
-+	if (info.storage_interface == FIP_STORAGE_INTERFACE_UBI)
-+		umount_ubifs();
-+#endif
 +	return ret;
 +}
 +
