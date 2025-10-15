@@ -1,7 +1,7 @@
-From 28a72d957b897e7f7212c11f99052a32b0f6abc4 Mon Sep 17 00:00:00 2001
+From 0f3a734a55a908b43cd1497f9be39f85783b0840 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Wed, 28 May 2025 03:10:53 +0200
-Subject: [PATCH 1/2] airoha: enable UBI support and define default partition
+Subject: [PATCH] airoha: enable UBI support and define default partition
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
@@ -12,10 +12,10 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  4 files changed, 70 insertions(+)
 
 diff --git a/arch/arm/dts/an7581-u-boot.dtsi b/arch/arm/dts/an7581-u-boot.dtsi
-index a9297ca6503..1960b8ca300 100644
+index 4548076b96a..0af2c843250 100644
 --- a/arch/arm/dts/an7581-u-boot.dtsi
 +++ b/arch/arm/dts/an7581-u-boot.dtsi
-@@ -76,6 +76,22 @@
+@@ -152,6 +152,22 @@
  				spi-max-frequency = <50000000>;
  				spi-tx-bus-width = <1>;
  				spi-rx-bus-width = <2>;
@@ -39,10 +39,10 @@ index a9297ca6503..1960b8ca300 100644
  		};
  
 diff --git a/arch/arm/dts/an7583-evb.dts b/arch/arm/dts/an7583-evb.dts
-index d02cd194e8a..096dd395c90 100644
+index 51cad19b2ac..9b60a94d78c 100644
 --- a/arch/arm/dts/an7583-evb.dts
 +++ b/arch/arm/dts/an7583-evb.dts
-@@ -46,6 +46,28 @@
+@@ -60,6 +60,28 @@
  	};
  };
  
@@ -72,11 +72,11 @@ index d02cd194e8a..096dd395c90 100644
  	pinctrl-names = "default";
  	pinctrl-0 = <&pcie0_rst_pins>;
 diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
-index c74247e13db..6006bebd04d 100644
+index e6e7f544ee8..c2989504c1a 100644
 --- a/configs/an7581_evb_defconfig
 +++ b/configs/an7581_evb_defconfig
-@@ -79,3 +79,19 @@ CONFIG_SHA512=y
- CONFIG_AIROHA_ETH=y
+@@ -84,3 +84,19 @@ CONFIG_CMD_MII=y
+ CONFIG_CMD_MDIO=y
  CONFIG_MMC_MTK=y
  CONFIG_AIROHA_SNFI_SPI=y
 +CONFIG_CMD_UBI=y
@@ -96,11 +96,11 @@ index c74247e13db..6006bebd04d 100644
 +# CONFIG_UBIFS_SILENCE_MSG is not set
 +# CONFIG_UBIFS_SILENCE_DEBUG_DUMP is not set
 diff --git a/configs/an7583_evb_defconfig b/configs/an7583_evb_defconfig
-index 89b4e180015..8577f53a9c7 100644
+index d8baa346150..1cac49df3cc 100644
 --- a/configs/an7583_evb_defconfig
 +++ b/configs/an7583_evb_defconfig
-@@ -81,3 +81,19 @@ CONFIG_SHA512=y
- CONFIG_AIROHA_ETH=y
+@@ -85,3 +85,19 @@ CONFIG_CMD_MII=y
+ CONFIG_CMD_MDIO=y
  CONFIG_MMC_MTK=y
  CONFIG_AIROHA_SNFI_SPI=y
 +CONFIG_CMD_UBI=y
@@ -120,5 +120,5 @@ index 89b4e180015..8577f53a9c7 100644
 +# CONFIG_UBIFS_SILENCE_MSG is not set
 +# CONFIG_UBIFS_SILENCE_DEBUG_DUMP is not set
 -- 
-2.48.1
+2.51.0
 

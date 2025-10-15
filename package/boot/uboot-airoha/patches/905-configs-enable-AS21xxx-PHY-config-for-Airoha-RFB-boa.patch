@@ -1,7 +1,7 @@
-From 369d74a62c15f17eafdbdc671349d08cdc30388e Mon Sep 17 00:00:00 2001
+From 8ebfa81c9509a20fdf276dd2fa38bbfb6648b62e Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Wed, 15 Oct 2025 02:40:17 +0200
-Subject: [PATCH 10/10] configs: enable AS21xxx PHY config for Airoha RFB board
+Subject: [PATCH] configs: enable AS21xxx PHY config for Airoha RFB board
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
@@ -10,22 +10,22 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  2 files changed, 4 insertions(+)
 
 diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
-index 255509c5c37..6d5b9a4dba7 100644
+index 7ae888876cb..7ae13cf577a 100644
 --- a/configs/an7581_evb_defconfig
 +++ b/configs/an7581_evb_defconfig
-@@ -108,3 +108,5 @@ CONFIG_DEFAULT_ENV_FILE="defenvs/an7581_rfb_env"
+@@ -109,3 +109,5 @@ CONFIG_DEFAULT_ENV_FILE="defenvs/an7581_rfb_env"
  CONFIG_FIP_LOADER=y
  CONFIG_PCS_AIROHA_AN7581=y
  CONFIG_PHY_AIROHA_EN8811=y
 +CONFIG_PHY_ETHERNET_ID=y
 +CONFIG_PHY_AS21XXX=y
 diff --git a/configs/an7583_evb_defconfig b/configs/an7583_evb_defconfig
-index a3c882c807f..63ce0065957 100644
+index be61a380dd1..7427b9eb8d5 100644
 --- a/configs/an7583_evb_defconfig
 +++ b/configs/an7583_evb_defconfig
-@@ -103,3 +103,5 @@ CONFIG_DEFAULT_ENV_FILE="defenvs/an7583_rfb_env"
+@@ -110,3 +110,5 @@ CONFIG_DEFAULT_ENV_FILE="defenvs/an7583_rfb_env"
  CONFIG_FIP_LOADER=y
- CONFIG_PCS_AIROHA_AN7581=y
+ CONFIG_PCS_AIROHA_AN7583=y
  CONFIG_PHY_AIROHA_EN8811=y
 +CONFIG_PHY_ETHERNET_ID=y
 +CONFIG_PHY_AS21XXX=y
