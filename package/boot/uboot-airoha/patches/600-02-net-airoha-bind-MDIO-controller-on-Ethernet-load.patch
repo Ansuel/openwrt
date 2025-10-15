@@ -39,15 +39,15 @@ index 03ba552ba7c..4b3653b76ec 100644
  #include <mapmem.h>
  #include <net.h>
  #include <regmap.h>
-@@ -1033,6 +1034,31 @@ static ofnode an7583_get_scu_node(struct udevice *dev)
+@@ -1033,6 +1034,37 @@ static ofnode an7583_get_scu_node(struct udevice *dev)
  	return ofnode_get_parent(scu_node);
  }
  
 +static int airoha_eth_bind(struct udevice *dev)
 +{
 +	struct airoha_eth_soc_data *data = (void *)dev_get_driver_data(dev);
++	ofnode switch_node, mdio_node;
 +	struct udevice *mdio_dev;
-+	ofnode switch_node;
 +	int ret = 0;
 +
 +	if (!CONFIG_IS_ENABLED(MDIO_MT7531))
@@ -60,8 +60,14 @@ index 03ba552ba7c..4b3653b76ec 100644
 +		return 0;
 +	}
 +
++	mdio_node = ofnode_find_subnode(switch_node, "mdio");
++	if (!ofnode_valid(mdio_node)) {
++		debug("Warning: missing mdio node\n");
++		return 0;
++	}
++
 +	ret = device_bind_driver_to_node(dev, "mt7531-mdio", "mdio",
-+					 switch_node, &mdio_dev);
++					 mdio_node, &mdio_dev);
 +	if (ret)
 +		debug("Warning: failed to bind mdio controller\n");
 +
