@@ -1,6 +1,6 @@
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2292,6 +2292,30 @@ airoha_ethtool_get_rmon_stats(struct net
+@@ -2289,6 +2289,30 @@ airoha_ethtool_get_rmon_stats(struct net
  	} while (u64_stats_fetch_retry(&port->stats.syncp, start));
  }
  
@@ -31,7 +31,7 @@
  static int airoha_qdma_set_chan_tx_sched(struct airoha_gdm_port *port,
  					 int channel, enum tx_sched_mode mode,
  					 const u16 *weights, u8 n_weights)
-@@ -2991,6 +3015,8 @@ static const struct ethtool_ops airoha_e
+@@ -2988,6 +3012,8 @@ static const struct ethtool_ops airoha_e
  	.get_eth_mac_stats      = airoha_ethtool_get_mac_stats,
  	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
  	.get_link		= ethtool_op_get_link,

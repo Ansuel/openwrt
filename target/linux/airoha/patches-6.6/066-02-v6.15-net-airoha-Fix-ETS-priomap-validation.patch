@@ -20,11 +20,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_eth.c | 16 ++++++++--------
  1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 20a96cafc748..69e523dd4186 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2028,7 +2028,7 @@ static int airoha_qdma_set_tx_ets_sched(struct airoha_gdm_port *port,
+@@ -2029,7 +2029,7 @@ static int airoha_qdma_set_tx_ets_sched(
  	struct tc_ets_qopt_offload_replace_params *p = &opt->replace_params;
  	enum tx_sched_mode mode = TC_SCH_SP;
  	u16 w[AIROHA_NUM_QOS_QUEUES] = {};
@@ -33,7 +31,7 @@ index 20a96cafc748..69e523dd4186 100644
  
  	if (p->bands > AIROHA_NUM_QOS_QUEUES)
  		return -EINVAL;
-@@ -2046,17 +2046,17 @@ static int airoha_qdma_set_tx_ets_sched(struct airoha_gdm_port *port,
+@@ -2047,17 +2047,17 @@ static int airoha_qdma_set_tx_ets_sched(
  	 * lowest priorities with respect to SP ones.
  	 * e.g: WRR0, WRR1, .., WRRm, SP0, SP1, .., SPn
  	 */
@@ -58,6 +56,3 @@ index 20a96cafc748..69e523dd4186 100644
  
  	if (!nstrict)
  		mode = TC_SCH_WRR8;
--- 
-2.51.0
-

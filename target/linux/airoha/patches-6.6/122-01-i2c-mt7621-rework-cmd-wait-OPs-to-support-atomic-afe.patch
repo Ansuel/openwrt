@@ -14,8 +14,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/i2c/busses/i2c-mt7621.c | 59 ++++++++++++++++++++++-----------
  1 file changed, 40 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/i2c/busses/i2c-mt7621.c b/drivers/i2c/busses/i2c-mt7621.c
-index 2103f21f9ddd..8de3c4c9f352 100644
 --- a/drivers/i2c/busses/i2c-mt7621.c
 +++ b/drivers/i2c/busses/i2c-mt7621.c
 @@ -67,14 +67,19 @@ struct mtk_i2c {
@@ -42,7 +40,7 @@ index 2103f21f9ddd..8de3c4c9f352 100644
  	if (ret)
  		dev_dbg(i2c->dev, "idle err(%d)\n", ret);
  
-@@ -117,27 +122,28 @@ static int mtk_i2c_check_ack(struct mtk_i2c *i2c, u32 expected)
+@@ -117,27 +122,28 @@ static int mtk_i2c_check_ack(struct mtk_
  	return ((ack & ack_expected) == ack_expected) ? 0 : -ENXIO;
  }
  
@@ -79,7 +77,7 @@ index 2103f21f9ddd..8de3c4c9f352 100644
  {
  	struct mtk_i2c *i2c;
  	struct i2c_msg *pmsg;
-@@ -152,12 +158,12 @@ static int mtk_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+@@ -152,12 +158,12 @@ static int mtk_i2c_xfer(struct i2c_adapt
  		pmsg = &msgs[i];
  
  		/* wait hardware idle */
@@ -94,7 +92,7 @@ index 2103f21f9ddd..8de3c4c9f352 100644
  		if (ret)
  			goto err_timeout;
  
-@@ -169,14 +175,16 @@ static int mtk_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+@@ -169,14 +175,16 @@ static int mtk_i2c_xfer(struct i2c_adapt
  			if (pmsg->flags & I2C_M_RD)
  				addr |= 1;
  			iowrite32(addr, i2c->base + REG_SM0D0_REG);
@@ -113,7 +111,7 @@ index 2103f21f9ddd..8de3c4c9f352 100644
  			if (ret)
  				goto err_timeout;
  		}
-@@ -202,7 +210,7 @@ static int mtk_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+@@ -202,7 +210,7 @@ static int mtk_i2c_xfer(struct i2c_adapt
  				cmd = SM0CTL1_WRITE;
  			}
  
@@ -122,7 +120,7 @@ index 2103f21f9ddd..8de3c4c9f352 100644
  			if (ret)
  				goto err_timeout;
  
-@@ -222,7 +230,7 @@ static int mtk_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+@@ -222,7 +230,7 @@ static int mtk_i2c_xfer(struct i2c_adapt
  		}
  	}
  
@@ -131,7 +129,7 @@ index 2103f21f9ddd..8de3c4c9f352 100644
  	if (ret)
  		goto err_timeout;
  
-@@ -230,7 +238,7 @@ static int mtk_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+@@ -230,7 +238,7 @@ static int mtk_i2c_xfer(struct i2c_adapt
  	return i;
  
  err_ack:
@@ -140,7 +138,7 @@ index 2103f21f9ddd..8de3c4c9f352 100644
  	if (ret)
  		goto err_timeout;
  	return -ENXIO;
-@@ -241,6 +249,18 @@ static int mtk_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+@@ -241,6 +249,18 @@ err_timeout:
  	return ret;
  }
  
@@ -159,7 +157,7 @@ index 2103f21f9ddd..8de3c4c9f352 100644
  static u32 mtk_i2c_func(struct i2c_adapter *a)
  {
  	return I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL | I2C_FUNC_PROTOCOL_MANGLING;
-@@ -248,6 +268,7 @@ static u32 mtk_i2c_func(struct i2c_adapter *a)
+@@ -248,6 +268,7 @@ static u32 mtk_i2c_func(struct i2c_adapt
  
  static const struct i2c_algorithm mtk_i2c_algo = {
  	.master_xfer = mtk_i2c_xfer,
@@ -167,6 +165,3 @@ index 2103f21f9ddd..8de3c4c9f352 100644
  	.functionality = mtk_i2c_func,
  };
  
--- 
-2.48.1
-

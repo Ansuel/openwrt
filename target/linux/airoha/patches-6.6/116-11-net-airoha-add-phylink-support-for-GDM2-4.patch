@@ -13,8 +13,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/ethernet/airoha/airoha_regs.h | 12 +++
  3 files changed, 99 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index de1d167f123a..528caf7f37e9 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -8,6 +8,7 @@
@@ -25,7 +23,7 @@ index de1d167f123a..528caf7f37e9 100644
  #include <linux/u64_stats_sync.h>
  #include <net/dst_metadata.h>
  #include <net/page_pool/helpers.h>
-@@ -71,6 +72,11 @@ static void airoha_qdma_irq_disable(struct airoha_irq_bank *irq_bank,
+@@ -71,6 +72,11 @@ static void airoha_qdma_irq_disable(stru
  	airoha_qdma_set_irqmask(irq_bank, index, mask, 0);
  }
  
@@ -37,7 +35,7 @@ index de1d167f123a..528caf7f37e9 100644
  static void airoha_set_macaddr(struct airoha_gdm_port *port, const u8 *addr)
  {
  	struct airoha_eth *eth = port->qdma->eth;
-@@ -1626,6 +1632,15 @@ static int airoha_dev_open(struct net_device *dev)
+@@ -1641,6 +1647,15 @@ static int airoha_dev_open(struct net_de
  	struct airoha_gdm_port *port = netdev_priv(dev);
  	struct airoha_qdma *qdma = port->qdma;
  
@@ -53,7 +51,7 @@ index de1d167f123a..528caf7f37e9 100644
  	phylink_start(port->phylink);
  
  	netif_tx_start_all_queues(dev);
-@@ -1681,6 +1696,8 @@ static int airoha_dev_stop(struct net_device *dev)
+@@ -1697,6 +1712,8 @@ static int airoha_dev_stop(struct net_de
  	}
  
  	phylink_stop(port->phylink);
@@ -62,7 +60,7 @@ index de1d167f123a..528caf7f37e9 100644
  
  	return 0;
  }
-@@ -2773,7 +2790,13 @@ static const struct ethtool_ops airoha_ethtool_ops = {
+@@ -2789,7 +2806,13 @@ static const struct ethtool_ops airoha_e
  static struct phylink_pcs *airoha_phylink_mac_select_pcs(struct phylink_config *config,
  							 phy_interface_t interface)
  {
@@ -77,7 +75,7 @@ index de1d167f123a..528caf7f37e9 100644
  }
  
  static void airoha_mac_config(struct phylink_config *config, unsigned int mode,
-@@ -2829,6 +2852,38 @@ static void airoha_mac_link_up(struct phylink_config *config, struct phy_device
+@@ -2845,6 +2868,38 @@ static void airoha_mac_link_up(struct ph
  			       unsigned int mode, phy_interface_t interface,
  			       int speed, int duplex, bool tx_pause, bool rx_pause)
  {
@@ -116,14 +114,16 @@ index de1d167f123a..528caf7f37e9 100644
  }
  
  static void airoha_mac_link_down(struct phylink_config *config, unsigned int mode,
-@@ -2859,11 +2914,33 @@ static int airoha_setup_phylink(struct net_device *dev)
+@@ -2875,11 +2930,33 @@ static int airoha_setup_phylink(struct n
  
  	port->phylink_config.dev = &dev->dev;
  	port->phylink_config.type = PHYLINK_NETDEV;
 -	port->phylink_config.mac_capabilities = MAC_ASYM_PAUSE | MAC_SYM_PAUSE |
 -						MAC_10000FD;
 +	port->phylink_config.mac_capabilities = MAC_ASYM_PAUSE | MAC_SYM_PAUSE;
-+
+ 
+-	__set_bit(PHY_INTERFACE_MODE_INTERNAL,
+-		  port->phylink_config.supported_interfaces);
 +	if (airhoa_is_phy_external(port)) {
 +		port->phylink_config.mac_capabilities |= MAC_10 | MAC_100 |
 +							MAC_1000 | MAC_2500FD |
@@ -145,16 +145,14 @@ index de1d167f123a..528caf7f37e9 100644
 +			return PTR_ERR(port->pcs);
 +	} else {
 +		port->phylink_config.mac_capabilities |= MAC_10000FD;
- 
--	__set_bit(PHY_INTERFACE_MODE_INTERNAL,
--		  port->phylink_config.supported_interfaces);
++
 +		__set_bit(PHY_INTERFACE_MODE_INTERNAL,
 +			  port->phylink_config.supported_interfaces);
 +	}
  
  	phylink = phylink_create(&port->phylink_config,
  				 of_fwnode_handle(np),
-@@ -3077,6 +3154,8 @@ static int airoha_probe(struct platform_device *pdev)
+@@ -3091,6 +3168,8 @@ error_hw_cleanup:
  		if (port->dev->reg_state == NETREG_REGISTERED) {
  			unregister_netdev(port->dev);
  			phylink_destroy(port->phylink);
@@ -163,7 +161,7 @@ index de1d167f123a..528caf7f37e9 100644
  		}
  		airoha_metadata_dst_free(port);
  	}
-@@ -3105,6 +3184,8 @@ static void airoha_remove(struct platform_device *pdev)
+@@ -3119,6 +3198,8 @@ static void airoha_remove(struct platfor
  		airoha_dev_stop(port->dev);
  		unregister_netdev(port->dev);
  		phylink_destroy(port->phylink);
@@ -172,8 +170,6 @@ index de1d167f123a..528caf7f37e9 100644
  		airoha_metadata_dst_free(port);
  	}
  	free_netdev(eth->napi_dev);
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index 3141168d8ae3..919d22bea72f 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -530,6 +530,7 @@ struct airoha_gdm_port {
@@ -184,11 +180,9 @@ index 3141168d8ae3..919d22bea72f 100644
  
  	struct airoha_hw_stats stats;
  
-diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
-index 150c85995cc1..27feb83ee8e9 100644
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
-@@ -367,6 +367,18 @@
+@@ -361,6 +361,18 @@
  #define IP_FRAGMENT_PORT_MASK		GENMASK(8, 5)
  #define IP_FRAGMENT_NBQ_MASK		GENMASK(4, 0)
  
@@ -207,6 +201,3 @@ index 150c85995cc1..27feb83ee8e9 100644
  #define REG_MC_VLAN_EN			0x2100
  #define MC_VLAN_EN_MASK			BIT(0)
  
--- 
-2.51.0
-

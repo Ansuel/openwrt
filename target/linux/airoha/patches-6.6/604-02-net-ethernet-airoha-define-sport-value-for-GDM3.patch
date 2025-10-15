@@ -12,11 +12,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/ethernet/airoha/airoha_eth.c | 3 +++
  1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 0c198ab6b30f..3cb4d35cd475 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -598,6 +598,9 @@ static int airoha_qdma_get_gdm_port(struct airoha_eth *eth,
+@@ -606,6 +606,9 @@ static int airoha_qdma_get_gdm_port(stru
  	case 0x18:
  		port = 3; /* GDM4 */
  		break;
@@ -26,6 +24,3 @@ index 0c198ab6b30f..3cb4d35cd475 100644
  	case 0x10 ... 0x14:
  		port = 0; /* GDM1 */
  		break;
--- 
-2.50.0
-

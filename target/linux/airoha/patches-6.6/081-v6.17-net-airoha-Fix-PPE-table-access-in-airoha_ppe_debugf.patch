@@ -19,11 +19,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_ppe.c | 26 ++++++++++++++++++------
  1 file changed, 20 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index c354d536bc66..47411d2cbd28 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -508,9 +508,11 @@ static void airoha_ppe_foe_flow_stats_update(struct airoha_ppe *ppe,
+@@ -508,9 +508,11 @@ static void airoha_ppe_foe_flow_stats_up
  		FIELD_PREP(AIROHA_FOE_IB2_NBQ, nbq);
  }
  
@@ -37,7 +35,7 @@ index c354d536bc66..47411d2cbd28 100644
  	if (hash < PPE_SRAM_NUM_ENTRIES) {
  		u32 *hwe = ppe->foe + hash * sizeof(struct airoha_foe_entry);
  		struct airoha_eth *eth = ppe->eth;
-@@ -537,6 +539,18 @@ struct airoha_foe_entry *airoha_ppe_foe_get_entry(struct airoha_ppe *ppe,
+@@ -537,6 +539,18 @@ struct airoha_foe_entry *airoha_ppe_foe_
  	return ppe->foe + hash * sizeof(struct airoha_foe_entry);
  }
  
@@ -56,7 +54,7 @@ index c354d536bc66..47411d2cbd28 100644
  static bool airoha_ppe_foe_compare_entry(struct airoha_flow_table_entry *e,
  					 struct airoha_foe_entry *hwe)
  {
-@@ -651,7 +665,7 @@ airoha_ppe_foe_commit_subflow_entry(struct airoha_ppe *ppe,
+@@ -651,7 +665,7 @@ airoha_ppe_foe_commit_subflow_entry(stru
  	struct airoha_flow_table_entry *f;
  	int type;
  
@@ -65,7 +63,7 @@ index c354d536bc66..47411d2cbd28 100644
  	if (!hwe_p)
  		return -EINVAL;
  
-@@ -703,7 +717,7 @@ static void airoha_ppe_foe_insert_entry(struct airoha_ppe *ppe,
+@@ -703,7 +717,7 @@ static void airoha_ppe_foe_insert_entry(
  
  	spin_lock_bh(&ppe_lock);
  
@@ -74,7 +72,7 @@ index c354d536bc66..47411d2cbd28 100644
  	if (!hwe)
  		goto unlock;
  
-@@ -818,7 +832,7 @@ airoha_ppe_foe_flow_l2_entry_update(struct airoha_ppe *ppe,
+@@ -818,7 +832,7 @@ airoha_ppe_foe_flow_l2_entry_update(stru
  		u32 ib1, state;
  		int idle;
  
@@ -83,7 +81,7 @@ index c354d536bc66..47411d2cbd28 100644
  		if (!hwe)
  			continue;
  
-@@ -855,7 +869,7 @@ static void airoha_ppe_foe_flow_entry_update(struct airoha_ppe *ppe,
+@@ -855,7 +869,7 @@ static void airoha_ppe_foe_flow_entry_up
  	if (e->hash == 0xffff)
  		goto unlock;
  
@@ -92,6 +90,3 @@ index c354d536bc66..47411d2cbd28 100644
  	if (!hwe_p)
  		goto unlock;
  
--- 
-2.51.0
-

@@ -18,7 +18,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -534,10 +534,8 @@ static int airoha_ppe_foe_get_flow_stats
+@@ -520,10 +520,8 @@ static int airoha_ppe_foe_get_flow_stats
  	if (err)
  		return err;
  
@@ -31,7 +31,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	return 0;
  }
-@@ -627,13 +625,11 @@ airoha_ppe_foe_get_entry_locked(struct a
+@@ -613,13 +611,11 @@ airoha_ppe_foe_get_entry_locked(struct a
  
  	if (hash < sram_num_entries) {
  		u32 *hwe = ppe->foe + hash * sizeof(struct airoha_foe_entry);
@@ -46,7 +46,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		airoha_fe_wr(ppe->eth, REG_PPE_RAM_CTRL(ppe2),
  			     FIELD_PREP(PPE_SRAM_CTRL_ENTRY_MASK, hash) |
  			     PPE_SRAM_CTRL_REQ_MASK);
-@@ -711,8 +707,7 @@ static int airoha_ppe_foe_commit_entry(s
+@@ -697,8 +693,7 @@ static int airoha_ppe_foe_commit_entry(s
  
  	if (hash < sram_num_entries) {
  		dma_addr_t addr = ppe->foe_dma + hash * sizeof(*hwe);

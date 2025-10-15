@@ -17,11 +17,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/phylink.c | 94 +++++++++++++++++++--------------------
  1 file changed, 45 insertions(+), 49 deletions(-)
 
-diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
-index 3af6368a9fbf..aaeb8b11e758 100644
 --- a/drivers/net/phy/phylink.c
 +++ b/drivers/net/phy/phylink.c
-@@ -1470,60 +1470,56 @@ static void phylink_resolve(struct work_struct *w)
+@@ -1478,60 +1478,56 @@ static void phylink_resolve(struct work_
  		link_state = pl->phy_state;
  		mac_config = link_state.link;
  	} else {
@@ -127,6 +125,3 @@ index 3af6368a9fbf..aaeb8b11e758 100644
  		}
  	}
  
--- 
-2.51.0
-

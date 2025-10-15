@@ -16,11 +16,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_ppe.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index 70598ba9f5ad..2d273937f19c 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -84,6 +84,7 @@ static void airoha_ppe_hw_init(struct airoha_ppe *ppe)
+@@ -84,6 +84,7 @@ static void airoha_ppe_hw_init(struct ai
  
  		airoha_fe_rmw(eth, REG_PPE_TB_CFG(i),
  			      PPE_TB_CFG_SEARCH_MISS_MASK |
@@ -28,6 +26,3 @@ index 70598ba9f5ad..2d273937f19c 100644
  			      PPE_TB_ENTRY_SIZE_MASK,
  			      FIELD_PREP(PPE_TB_CFG_SEARCH_MISS_MASK, 3) |
  			      FIELD_PREP(PPE_TB_ENTRY_SIZE_MASK, 0));
--- 
-2.51.0
-

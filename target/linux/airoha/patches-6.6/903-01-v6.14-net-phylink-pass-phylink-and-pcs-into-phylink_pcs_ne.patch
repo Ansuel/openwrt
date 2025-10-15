@@ -22,11 +22,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/phylink.c | 26 +++++++++++++-------------
  1 file changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
-index 30a654e98352..daee679f33b3 100644
 --- a/drivers/net/phy/phylink.c
 +++ b/drivers/net/phy/phylink.c
-@@ -1085,7 +1085,8 @@ static void phylink_pcs_an_restart(struct phylink *pl)
+@@ -1158,7 +1158,8 @@ static void phylink_pcs_an_restart(struc
  
  /**
   * phylink_pcs_neg_mode() - helper to determine PCS inband mode
@@ -36,7 +34,7 @@ index 30a654e98352..daee679f33b3 100644
   * @interface: interface mode to be used
   * @advertising: adertisement ethtool link mode mask
   *
-@@ -1102,11 +1103,13 @@ static void phylink_pcs_an_restart(struct phylink *pl)
+@@ -1175,11 +1176,13 @@ static void phylink_pcs_an_restart(struc
   * Note: this is for cases where the PCS itself is involved in negotiation
   * (e.g. Clause 37, SGMII and similar) not Clause 73.
   */
@@ -54,7 +52,7 @@ index 30a654e98352..daee679f33b3 100644
  
  	switch (interface) {
  	case PHY_INTERFACE_MODE_SGMII:
-@@ -1147,7 +1150,7 @@ static unsigned int phylink_pcs_neg_mode(unsigned int mode,
+@@ -1219,7 +1222,7 @@ static unsigned int phylink_pcs_neg_mode
  		break;
  	}
  
@@ -63,7 +61,7 @@ index 30a654e98352..daee679f33b3 100644
  }
  
  static void phylink_major_config(struct phylink *pl, bool restart,
-@@ -1161,10 +1164,6 @@ static void phylink_major_config(struct phylink *pl, bool restart,
+@@ -1233,10 +1236,6 @@ static void phylink_major_config(struct
  
  	phylink_dbg(pl, "major config %s\n", phy_modes(state->interface));
  
@@ -74,8 +72,8 @@ index 30a654e98352..daee679f33b3 100644
  	if (pl->using_mac_select_pcs) {
  		pcs = pl->mac_ops->mac_select_pcs(pl->config, state->interface);
  		if (IS_ERR(pcs)) {
-@@ -1177,6 +1176,8 @@ static void phylink_major_config(struct phylink *pl, bool restart,
- 		pcs_changed = pl->pcs != pcs;
+@@ -1249,6 +1248,8 @@ static void phylink_major_config(struct
+ 		pcs_changed = pcs && pl->pcs != pcs;
  	}
  
 +	phylink_pcs_neg_mode(pl, pcs, state->interface, state->advertising);
@@ -83,7 +81,7 @@ index 30a654e98352..daee679f33b3 100644
  	phylink_pcs_poll_stop(pl);
  
  	if (pl->mac_ops->mac_prepare) {
-@@ -1267,9 +1268,8 @@ static int phylink_change_inband_advert(struct phylink *pl)
+@@ -1339,9 +1340,8 @@ static int phylink_change_inband_advert(
  		    pl->link_config.pause);
  
  	/* Recompute the PCS neg mode */
@@ -95,6 +93,3 @@ index 30a654e98352..daee679f33b3 100644
  
  	neg_mode = pl->cur_link_an_mode;
  	if (pl->pcs->neg_mode)
--- 
-2.51.0
-

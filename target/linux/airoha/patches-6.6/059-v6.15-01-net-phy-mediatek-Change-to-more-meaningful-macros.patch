@@ -16,8 +16,6 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/mediatek/mtk.h        |  2 +
  3 files changed, 57 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/phy/mediatek/mtk-ge-soc.c b/drivers/net/phy/mediatek/mtk-ge-soc.c
-index bdf99b327029..69cd6a1cbad4 100644
 --- a/drivers/net/phy/mediatek/mtk-ge-soc.c
 +++ b/drivers/net/phy/mediatek/mtk-ge-soc.c
 @@ -24,7 +24,6 @@
@@ -28,11 +26,9 @@ index bdf99b327029..69cd6a1cbad4 100644
  
  #define ANALOG_INTERNAL_OPERATION_MAX_US	20
  #define TXRESERVE_MIN				0
-diff --git a/drivers/net/phy/mediatek/mtk-ge.c b/drivers/net/phy/mediatek/mtk-ge.c
-index b517ca8573e7..75e1b0387710 100644
 --- a/drivers/net/phy/mediatek/mtk-ge.c
 +++ b/drivers/net/phy/mediatek/mtk-ge.c
-@@ -8,21 +8,41 @@
+@@ -9,13 +9,31 @@
  #define MTK_GPHY_ID_MT7530		0x03a29412
  #define MTK_GPHY_ID_MT7531		0x03a29441
  
@@ -71,7 +67,7 @@ index b517ca8573e7..75e1b0387710 100644
  
  static void mtk_gephy_config_init(struct phy_device *phydev)
  {
- 	/* Disable EEE */
+@@ -23,7 +41,9 @@ static void mtk_gephy_config_init(struct
  	phy_write_mmd(phydev, MDIO_MMD_AN, MDIO_AN_EEE_ADV, 0);
  
  	/* Enable HW auto downshift */
@@ -82,7 +78,7 @@ index b517ca8573e7..75e1b0387710 100644
  
  	/* Increase SlvDPSready time */
  	phy_select_page(phydev, MTK_PHY_PAGE_EXTENDED_52B5);
-@@ -29,10 +49,20 @@ static void mtk_gephy_config_init(struct phy_device *phydev)
+@@ -33,10 +53,20 @@ static void mtk_gephy_config_init(struct
  	phy_restore_page(phydev, MTK_PHY_PAGE_STANDARD, 0);
  
  	/* Adjust 100_mse_threshold */
@@ -107,7 +103,7 @@ index b517ca8573e7..75e1b0387710 100644
  }
  
  static int mt7530_phy_config_init(struct phy_device *phydev)
-@@ -40,7 +70,8 @@ static int mt7530_phy_config_init(struct phy_device *phydev)
+@@ -44,7 +74,8 @@ static int mt7530_phy_config_init(struct
  	mtk_gephy_config_init(phydev);
  
  	/* Increase post_update_timer */
@@ -117,7 +113,7 @@ index b517ca8573e7..75e1b0387710 100644
  
  	return 0;
  }
-@@ -51,11 +82,19 @@ static int mt7531_phy_config_init(struct phy_device *phydev)
+@@ -85,11 +116,19 @@ static int mt7531_phy_config_init(struct
  
  	/* PHY link down power saving enable */
  	phy_set_bits(phydev, 0x17, BIT(4));
@@ -138,10 +134,8 @@ index b517ca8573e7..75e1b0387710 100644
 +		       FIELD_PREP(MTK_TX_DELAY_PAIR_B_MASK, 0x4) |
 +		       FIELD_PREP(MTK_TX_DELAY_PAIR_D_MASK, 0x4));
  
- 	return 0;
- }
-diff --git a/drivers/net/phy/mediatek/mtk.h b/drivers/net/phy/mediatek/mtk.h
-index 63d9fe179b8f..a888e2e1dd6b 100644
+ 	/* LED Config*/
+ 	mt7530_led_config_of(phydev);
 --- a/drivers/net/phy/mediatek/mtk.h
 +++ b/drivers/net/phy/mediatek/mtk.h
 @@ -9,6 +9,8 @@
@@ -153,6 +147,3 @@ index 63d9fe179b8f..a888e2e1dd6b 100644
  
  /* Registers on MDIO_MMD_VEND2 */
  #define MTK_PHY_LED0_ON_CTRL			0x24
--- 
-2.48.1
-

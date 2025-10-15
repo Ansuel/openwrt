@@ -16,8 +16,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/clk/clk-en7523.c | 148 +++++++++++++++++----------------------
  1 file changed, 66 insertions(+), 82 deletions(-)
 
-diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
-index 314e7450313f..b040f0f0d727 100644
 --- a/drivers/clk/clk-en7523.c
 +++ b/drivers/clk/clk-en7523.c
 @@ -78,8 +78,10 @@ struct en_rst_data {
@@ -31,7 +29,7 @@ index 314e7450313f..b040f0f0d727 100644
  		       struct clk_hw_onecell_data *clk_data);
  };
  
-@@ -450,10 +452,11 @@ static struct clk_hw *en7523_register_pcie_clk(struct device *dev,
+@@ -450,10 +452,11 @@ static struct clk_hw *en7523_register_pc
  		.ops = &soc_data->pcie_ops,
  	};
  	struct en_clk_gate *cg;
@@ -44,7 +42,7 @@ index 314e7450313f..b040f0f0d727 100644
  
  	cg->map = clk_map;
  	cg->hw.init = &init;
-@@ -461,12 +464,62 @@ static struct clk_hw *en7523_register_pcie_clk(struct device *dev,
+@@ -461,12 +464,62 @@ static struct clk_hw *en7523_register_pc
  	if (init.ops->unprepare)
  		init.ops->unprepare(&cg->hw);
  
@@ -109,7 +107,7 @@ index 314e7450313f..b040f0f0d727 100644
  static int en7581_pci_is_enabled(struct clk_hw *hw)
  {
  	struct en_clk_gate *cg = container_of(hw, struct en_clk_gate, hw);
-@@ -504,38 +557,6 @@ static void en7581_pci_disable(struct clk_hw *hw)
+@@ -504,38 +557,6 @@ static void en7581_pci_disable(struct cl
  	usleep_range(1000, 2000);
  }
  
@@ -148,7 +146,7 @@ index 314e7450313f..b040f0f0d727 100644
  static const struct regmap_config en7523_clk_regmap_config = {
  	.reg_bits = 32,
  	.val_bits = 32,
-@@ -543,6 +564,7 @@ static const struct regmap_config en7523_clk_regmap_config = {
+@@ -543,6 +564,7 @@ static const struct regmap_config en7523
  };
  
  static int en7523_clk_hw_init(struct platform_device *pdev,
@@ -156,7 +154,7 @@ index 314e7450313f..b040f0f0d727 100644
  			      struct clk_hw_onecell_data *clk_data)
  {
  	void __iomem *base, *np_base;
-@@ -566,51 +588,7 @@ static int en7523_clk_hw_init(struct platform_device *pdev,
+@@ -566,51 +588,7 @@ static int en7523_clk_hw_init(struct pla
  	if (IS_ERR(clk_map))
  		return PTR_ERR(clk_map);
  
@@ -209,7 +207,7 @@ index 314e7450313f..b040f0f0d727 100644
  }
  
  static int en7523_reset_update(struct reset_controller_dev *rcdev,
-@@ -689,10 +667,12 @@ static int en7581_reset_register(struct device *dev, struct regmap *map)
+@@ -689,10 +667,12 @@ static int en7581_reset_register(struct
  }
  
  static int en7581_clk_hw_init(struct platform_device *pdev,
@@ -222,7 +220,7 @@ index 314e7450313f..b040f0f0d727 100644
  
  	map = syscon_regmap_lookup_by_compatible("airoha,en7581-chip-scu");
  	if (IS_ERR(map))
-@@ -706,7 +686,9 @@ static int en7581_clk_hw_init(struct platform_device *pdev,
+@@ -706,7 +686,9 @@ static int en7581_clk_hw_init(struct pla
  	if (IS_ERR(clk_map))
  		return PTR_ERR(clk_map);
  
@@ -233,7 +231,7 @@ index 314e7450313f..b040f0f0d727 100644
  
  	regmap_clear_bits(clk_map, REG_NP_SCU_SSTR,
  			  REG_PCIE_XSI0_SEL_MASK | REG_PCIE_XSI1_SEL_MASK);
-@@ -732,7 +714,7 @@ static int en7523_clk_probe(struct platform_device *pdev)
+@@ -732,7 +714,7 @@ static int en7523_clk_probe(struct platf
  		return -ENOMEM;
  
  	clk_data->num = soc_data->num_clocks;
@@ -242,7 +240,7 @@ index 314e7450313f..b040f0f0d727 100644
  	if (r)
  		return r;
  
-@@ -740,6 +722,7 @@ static int en7523_clk_probe(struct platform_device *pdev)
+@@ -740,6 +722,7 @@ static int en7523_clk_probe(struct platf
  }
  
  static const struct en_clk_soc_data en7523_data = {
@@ -250,7 +248,7 @@ index 314e7450313f..b040f0f0d727 100644
  	.num_clocks = ARRAY_SIZE(en7523_base_clks) + 1,
  	.pcie_ops = {
  		.is_enabled = en7523_pci_is_enabled,
-@@ -750,6 +733,7 @@ static const struct en_clk_soc_data en7523_data = {
+@@ -750,6 +733,7 @@ static const struct en_clk_soc_data en75
  };
  
  static const struct en_clk_soc_data en7581_data = {
@@ -258,6 +256,3 @@ index 314e7450313f..b040f0f0d727 100644
  	/* We increment num_clocks by 1 to account for additional PCIe clock */
  	.num_clocks = ARRAY_SIZE(en7581_base_clks) + 1,
  	.pcie_ops = {
--- 
-2.48.1
-

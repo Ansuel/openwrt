@@ -1,6 +1,6 @@
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -267,7 +267,8 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -292,7 +292,8 @@ static int airoha_ppe_foe_entry_prepare(
  	      AIROHA_FOE_IB1_BIND_TTL;
  	hwe->ib1 = val;
  
@@ -10,7 +10,7 @@
  	if (dev) {
  		struct airoha_wdma_info info = {};
  
-@@ -365,9 +366,11 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -390,9 +391,11 @@ static int airoha_ppe_foe_entry_prepare(
  	}
  
  	if (data->vlan.num) {

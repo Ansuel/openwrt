@@ -31,8 +31,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  create mode 100644 drivers/net/phy/mediatek/airoha-phy-lib.c
  create mode 100644 drivers/net/phy/mediatek/an7581.c
 
-diff --git a/drivers/net/phy/mediatek/Makefile b/drivers/net/phy/mediatek/Makefile
-index ac57ecc799fc..7c5c8f8158e5 100644
 --- a/drivers/net/phy/mediatek/Makefile
 +++ b/drivers/net/phy/mediatek/Makefile
 @@ -2,3 +2,5 @@
@@ -41,9 +39,6 @@ index ac57ecc799fc..7c5c8f8158e5 100644
  obj-$(CONFIG_MEDIATEK_GE_SOC_PHY)	+= mtk-ge-soc.o
 +mtk-ge-soc-objs				+= mtk-ge-soc.o
 +mtk-ge-soc-objs				+= airoha-phy-lib.o an7581.o
-diff --git a/drivers/net/phy/mediatek/airoha-phy-lib.c b/drivers/net/phy/mediatek/airoha-phy-lib.c
-new file mode 100644
-index 000000000000..78783aac2d03
 --- /dev/null
 +++ b/drivers/net/phy/mediatek/airoha-phy-lib.c
 @@ -0,0 +1,1115 @@
@@ -1162,9 +1157,6 @@ index 000000000000..78783aac2d03
 +
 +	return 0;
 +}
-diff --git a/drivers/net/phy/mediatek/an7581.c b/drivers/net/phy/mediatek/an7581.c
-new file mode 100644
-index 000000000000..5c40b1d175e2
 --- /dev/null
 +++ b/drivers/net/phy/mediatek/an7581.c
 @@ -0,0 +1,341 @@
@@ -1509,11 +1501,9 @@ index 000000000000..5c40b1d175e2
 +
 +	return 0;
 +}
-diff --git a/drivers/net/phy/mediatek/mtk-ge-soc.c b/drivers/net/phy/mediatek/mtk-ge-soc.c
-index 3b7c6f17985d..da08ee90948d 100644
 --- a/drivers/net/phy/mediatek/mtk-ge-soc.c
 +++ b/drivers/net/phy/mediatek/mtk-ge-soc.c
-@@ -752,7 +752,6 @@ static int cal_sw(struct phy_device *phydev, enum CAL_ITEM cal_item,
+@@ -750,7 +750,6 @@ static int cal_sw(struct phy_device *phy
  	int ret;
  
  	for (pair_n = start_pair; pair_n <= end_pair; pair_n++) {
@@ -1521,7 +1511,7 @@ index 3b7c6f17985d..da08ee90948d 100644
  		switch (cal_item) {
  		case TX_VCM:
  			ret = tx_vcm_cal_sw(phydev, pair_n);
-@@ -1091,8 +1090,10 @@ static int mt7981_phy_probe(struct phy_device *phydev)
+@@ -1082,8 +1081,10 @@ static int mt7981_phy_probe(struct phy_d
  
  static int an7581_phy_probe(struct phy_device *phydev)
  {
@@ -1532,7 +1522,7 @@ index 3b7c6f17985d..da08ee90948d 100644
  
  	/* Toggle pinctrl to enable PHY LED */
  	pinctrl = devm_pinctrl_get_select(&phydev->mdio.dev, "gbe-led");
-@@ -1100,10 +1101,21 @@ static int an7581_phy_probe(struct phy_device *phydev)
+@@ -1091,10 +1092,21 @@ static int an7581_phy_probe(struct phy_d
  		dev_err(&phydev->mdio.bus->dev,
  			"Failed to setup PHY LED pinctrl\n");
  
@@ -1554,7 +1544,7 @@ index 3b7c6f17985d..da08ee90948d 100644
  	phydev->priv = priv;
  
  	return 0;
-@@ -1179,6 +1191,7 @@ static struct phy_driver mtk_socphy_driver[] = {
+@@ -1171,6 +1183,7 @@ static struct phy_driver mtk_socphy_driv
  	{
  		PHY_ID_MATCH_EXACT(MTK_GPHY_ID_AN7581),
  		.name		= "Airoha AN7581 PHY",
@@ -1562,7 +1552,7 @@ index 3b7c6f17985d..da08ee90948d 100644
  		.probe		= an7581_phy_probe,
  		.led_blink_set	= mt798x_phy_led_blink_set,
  		.led_brightness_set = mt798x_phy_led_brightness_set,
-@@ -1186,6 +1199,8 @@ static struct phy_driver mtk_socphy_driver[] = {
+@@ -1178,6 +1191,8 @@ static struct phy_driver mtk_socphy_driv
  		.led_hw_control_set = mt798x_phy_led_hw_control_set,
  		.led_hw_control_get = mt798x_phy_led_hw_control_get,
  		.led_polarity_set = an7581_phy_led_polarity_set,
@@ -1571,8 +1561,6 @@ index 3b7c6f17985d..da08ee90948d 100644
  	},
  	{
  		PHY_ID_MATCH_EXACT(MTK_GPHY_ID_AN7583),
-diff --git a/drivers/net/phy/mediatek/mtk-ge-soc.h b/drivers/net/phy/mediatek/mtk-ge-soc.h
-index 9aaa7e3caa41..db8e96c83a99 100644
 --- a/drivers/net/phy/mediatek/mtk-ge-soc.h
 +++ b/drivers/net/phy/mediatek/mtk-ge-soc.h
 @@ -12,6 +12,7 @@
@@ -1676,6 +1664,3 @@ index 9aaa7e3caa41..db8e96c83a99 100644
 +int an7581_phy_config_init(struct phy_device *phydev);
 +
  #endif /* _MTK_GE_SOC_H_ */
--- 
-2.51.0
-

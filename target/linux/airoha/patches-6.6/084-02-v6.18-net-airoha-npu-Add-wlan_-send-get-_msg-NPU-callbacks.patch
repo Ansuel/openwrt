@@ -17,8 +17,6 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_npu.h | 22 ++++++++++
  2 files changed, 74 insertions(+)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_npu.c b/drivers/net/ethernet/airoha/airoha_npu.c
-index 731e0119d988..2a337f00386f 100644
 --- a/drivers/net/ethernet/airoha/airoha_npu.c
 +++ b/drivers/net/ethernet/airoha/airoha_npu.c
 @@ -42,6 +42,22 @@
@@ -44,7 +42,7 @@ index 731e0119d988..2a337f00386f 100644
  #define NPU_TIMER_BASE_ADDR		0x310100
  #define REG_WDT_TIMER_CTRL(_n)		(NPU_TIMER_BASE_ADDR + ((_n) * 0x100))
  #define WDT_EN_MASK			BIT(25)
-@@ -420,6 +436,30 @@ static int airoha_npu_wlan_msg_send(struct airoha_npu *npu, int ifindex,
+@@ -420,6 +436,30 @@ static int airoha_npu_wlan_msg_send(stru
  	return err;
  }
  
@@ -75,7 +73,7 @@ index 731e0119d988..2a337f00386f 100644
  static int
  airoha_npu_wlan_set_reserved_memory(struct airoha_npu *npu,
  				    int ifindex, const char *name,
-@@ -471,6 +511,15 @@ static int airoha_npu_wlan_init_memory(struct airoha_npu *npu)
+@@ -471,6 +511,15 @@ static int airoha_npu_wlan_init_memory(s
  					GFP_KERNEL);
  }
  
@@ -91,7 +89,7 @@ index 731e0119d988..2a337f00386f 100644
  struct airoha_npu *airoha_npu_get(struct device *dev, dma_addr_t *stats_addr)
  {
  	struct platform_device *pdev;
-@@ -575,6 +624,9 @@ static int airoha_npu_probe(struct platform_device *pdev)
+@@ -575,6 +624,9 @@ static int airoha_npu_probe(struct platf
  	npu->ops.ppe_flush_sram_entries = airoha_npu_ppe_flush_sram_entries;
  	npu->ops.ppe_foe_commit_entry = airoha_npu_foe_commit_entry;
  	npu->ops.wlan_init_reserved_memory = airoha_npu_wlan_init_memory;
@@ -101,8 +99,6 @@ index 731e0119d988..2a337f00386f 100644
  
  	npu->regmap = devm_regmap_init_mmio(dev, base, &regmap_config);
  	if (IS_ERR(npu->regmap))
-diff --git a/drivers/net/ethernet/airoha/airoha_npu.h b/drivers/net/ethernet/airoha/airoha_npu.h
-index 0cb5356b00e9..7b9ff370c879 100644
 --- a/drivers/net/ethernet/airoha/airoha_npu.h
 +++ b/drivers/net/ethernet/airoha/airoha_npu.h
 @@ -43,6 +43,20 @@ enum airoha_npu_wlan_set_cmd {
@@ -141,6 +137,3 @@ index 0cb5356b00e9..7b9ff370c879 100644
  	} ops;
  };
  
--- 
-2.51.0
-

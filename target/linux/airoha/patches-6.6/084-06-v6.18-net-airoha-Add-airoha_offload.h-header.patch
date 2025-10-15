@@ -18,8 +18,6 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  delete mode 100644 drivers/net/ethernet/airoha/airoha_npu.h
  create mode 100644 include/linux/soc/airoha/airoha_offload.h
 
-diff --git a/drivers/net/ethernet/airoha/airoha_npu.c b/drivers/net/ethernet/airoha/airoha_npu.c
-index 66a8a992dbf2..1a6b191ae0b0 100644
 --- a/drivers/net/ethernet/airoha/airoha_npu.c
 +++ b/drivers/net/ethernet/airoha/airoha_npu.c
 @@ -11,9 +11,9 @@
@@ -33,9 +31,6 @@ index 66a8a992dbf2..1a6b191ae0b0 100644
  
  #define NPU_EN7581_FIRMWARE_DATA		"airoha/en7581_npu_data.bin"
  #define NPU_EN7581_FIRMWARE_RV32		"airoha/en7581_npu_rv32.bin"
-diff --git a/drivers/net/ethernet/airoha/airoha_npu.h b/drivers/net/ethernet/airoha/airoha_npu.h
-deleted file mode 100644
-index a448c74208a9..000000000000
 --- a/drivers/net/ethernet/airoha/airoha_npu.h
 +++ /dev/null
 @@ -1,103 +0,0 @@
@@ -142,8 +137,6 @@ index a448c74208a9..000000000000
 -
 -struct airoha_npu *airoha_npu_get(struct device *dev, dma_addr_t *stats_addr);
 -void airoha_npu_put(struct airoha_npu *npu);
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index 47411d2cbd28..82163392332c 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
 @@ -7,10 +7,10 @@
@@ -158,9 +151,6 @@ index 47411d2cbd28..82163392332c 100644
  #include "airoha_regs.h"
  #include "airoha_eth.h"
  
-diff --git a/include/linux/soc/airoha/airoha_offload.h b/include/linux/soc/airoha/airoha_offload.h
-new file mode 100644
-index 000000000000..117c63c2448d
 --- /dev/null
 +++ b/include/linux/soc/airoha/airoha_offload.h
 @@ -0,0 +1,260 @@
@@ -424,6 +414,3 @@ index 000000000000..117c63c2448d
 +#endif
 +
 +#endif /* AIROHA_OFFLOAD_H */
--- 
-2.51.0
-

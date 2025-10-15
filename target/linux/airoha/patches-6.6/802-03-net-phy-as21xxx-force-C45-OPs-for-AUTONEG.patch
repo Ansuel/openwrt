@@ -16,11 +16,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/phy/as21xxx.c | 7 +++++++
  1 file changed, 7 insertions(+)
 
-diff --git a/drivers/net/phy/as21xxx.c b/drivers/net/phy/as21xxx.c
-index 3550937c6c7a..cbcc70937fea 100644
 --- a/drivers/net/phy/as21xxx.c
 +++ b/drivers/net/phy/as21xxx.c
-@@ -616,6 +616,13 @@ static int as21xxx_probe(struct phy_device *phydev)
+@@ -616,6 +616,13 @@ static int as21xxx_probe(struct phy_devi
  	if (ret)
  		return ret;
  
@@ -34,6 +32,3 @@ index 3550937c6c7a..cbcc70937fea 100644
  	ret = aeon_ipc_sync_parity(phydev, priv);
  	if (ret)
  		return ret;
--- 
-2.48.1
-

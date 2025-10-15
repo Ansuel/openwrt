@@ -13,11 +13,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/cpufreq/cpufreq-dt-platdev.c | 1 +
  2 files changed, 2 insertions(+)
 
-diff --git a/drivers/cpufreq/airoha-cpufreq.c b/drivers/cpufreq/airoha-cpufreq.c
-index 4fe39eadd163..b6b1cdc4d11d 100644
 --- a/drivers/cpufreq/airoha-cpufreq.c
 +++ b/drivers/cpufreq/airoha-cpufreq.c
-@@ -107,6 +107,7 @@ static struct platform_driver airoha_cpufreq_driver = {
+@@ -122,6 +122,7 @@ static struct platform_driver airoha_cpu
  };
  
  static const struct of_device_id airoha_cpufreq_match_list[] __initconst = {
@@ -25,18 +23,13 @@ index 4fe39eadd163..b6b1cdc4d11d 100644
  	{ .compatible = "airoha,en7581" },
  	{},
  };
-diff --git a/drivers/cpufreq/cpufreq-dt-platdev.c b/drivers/cpufreq/cpufreq-dt-platdev.c
-index a010da0f6337..7a01c0ae904a 100644
 --- a/drivers/cpufreq/cpufreq-dt-platdev.c
 +++ b/drivers/cpufreq/cpufreq-dt-platdev.c
-@@ -103,6 +103,7 @@ static const struct of_device_id allowlist[] __initconst = {
+@@ -103,6 +103,7 @@ static const struct of_device_id allowli
   * platforms using "operating-points-v2" property.
   */
  static const struct of_device_id blocklist[] __initconst = {
 +	{ .compatible = "airoha,an7583", },
  	{ .compatible = "airoha,en7581", },
  
- 	{ .compatible = "allwinner,sun50i-a100" },
--- 
-2.50.0
-
+ 	{ .compatible = "allwinner,sun50i-h6", },

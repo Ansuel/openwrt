@@ -13,11 +13,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/phy/as21xxx.c | 7 +++++++
  1 file changed, 7 insertions(+)
 
-diff --git a/drivers/net/phy/as21xxx.c b/drivers/net/phy/as21xxx.c
-index 92697f43087d..ce190d5b0497 100644
 --- a/drivers/net/phy/as21xxx.c
 +++ b/drivers/net/phy/as21xxx.c
-@@ -658,6 +658,13 @@ static int as21xxx_read_link(struct phy_device *phydev, int *bmcr)
+@@ -658,6 +658,13 @@ static int as21xxx_read_link(struct phy_
  		return status;
  
  	phydev->link = !!(status & MDIO_STAT1_LSTATUS);
@@ -31,6 +29,3 @@ index 92697f43087d..ce190d5b0497 100644
  
  	return 0;
  }
--- 
-2.48.1
-

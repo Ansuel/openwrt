@@ -15,11 +15,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/pci/controller/pcie-mediatek-gen3.c | 10 ++++++++++
  1 file changed, 10 insertions(+)
 
-diff --git a/drivers/pci/controller/pcie-mediatek-gen3.c b/drivers/pci/controller/pcie-mediatek-gen3.c
-index b55f5973414c..84a95aedb39f 100644
 --- a/drivers/pci/controller/pcie-mediatek-gen3.c
 +++ b/drivers/pci/controller/pcie-mediatek-gen3.c
-@@ -1356,8 +1356,18 @@ static const struct mtk_gen3_pcie_pdata mtk_pcie_soc_en7581 = {
+@@ -1282,8 +1282,18 @@ static const struct mtk_gen3_pcie_pdata
  	.flags = SKIP_PCIE_RSTB,
  };
  
@@ -38,6 +36,3 @@ index b55f5973414c..84a95aedb39f 100644
  	{ .compatible = "mediatek,mt8192-pcie", .data = &mtk_pcie_soc_mt8192 },
  	{},
  };
--- 
-2.51.0
-

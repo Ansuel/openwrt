@@ -15,11 +15,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/bcm84881.c | 10 ++++++++++
  1 file changed, 10 insertions(+)
 
-diff --git a/drivers/net/phy/bcm84881.c b/drivers/net/phy/bcm84881.c
-index 97da3aee4942..47405bded677 100644
 --- a/drivers/net/phy/bcm84881.c
 +++ b/drivers/net/phy/bcm84881.c
-@@ -235,11 +235,21 @@ static int bcm84881_read_status(struct phy_device *phydev)
+@@ -223,11 +223,21 @@ static int bcm84881_read_status(struct p
  	return genphy_c45_read_mdix(phydev);
  }
  
@@ -41,6 +39,3 @@ index 97da3aee4942..47405bded677 100644
  		.config_init	= bcm84881_config_init,
  		.probe		= bcm84881_probe,
  		.get_features	= bcm84881_get_features,
--- 
-2.51.0
-

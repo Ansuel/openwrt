@@ -16,11 +16,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_ppe.c | 20 ++++++++------------
  1 file changed, 8 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index 0d5cd3a13a3e..36b45e98279a 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -935,11 +935,10 @@ static int airoha_ppe_entry_idle_time(struct airoha_ppe *ppe,
+@@ -935,11 +935,10 @@ static int airoha_ppe_entry_idle_time(st
  	return airoha_ppe_get_entry_idle_time(ppe, e->data.ib1);
  }
  
@@ -33,7 +31,7 @@ index 0d5cd3a13a3e..36b45e98279a 100644
  	struct airoha_flow_table_entry *e;
  	struct airoha_flow_data data = {};
  	struct net_device *odev = NULL;
-@@ -1136,10 +1135,9 @@ static int airoha_ppe_flow_offload_replace(struct airoha_gdm_port *port,
+@@ -1136,10 +1135,9 @@ free_entry:
  	return err;
  }
  
@@ -45,7 +43,7 @@ index 0d5cd3a13a3e..36b45e98279a 100644
  	struct airoha_flow_table_entry *e;
  
  	e = rhashtable_lookup(&eth->flow_table, &f->cookie,
-@@ -1182,10 +1180,9 @@ void airoha_ppe_foe_entry_get_stats(struct airoha_ppe *ppe, u32 hash,
+@@ -1182,10 +1180,9 @@ void airoha_ppe_foe_entry_get_stats(stru
  	rcu_read_unlock();
  }
  
@@ -57,7 +55,7 @@ index 0d5cd3a13a3e..36b45e98279a 100644
  	struct airoha_flow_table_entry *e;
  	u32 idle;
  
-@@ -1209,16 +1206,16 @@ static int airoha_ppe_flow_offload_stats(struct airoha_gdm_port *port,
+@@ -1209,16 +1206,16 @@ static int airoha_ppe_flow_offload_stats
  	return 0;
  }
  
@@ -78,7 +76,7 @@ index 0d5cd3a13a3e..36b45e98279a 100644
  	default:
  		break;
  	}
-@@ -1288,7 +1285,6 @@ static int airoha_ppe_offload_setup(struct airoha_eth *eth)
+@@ -1288,7 +1285,6 @@ error_npu_put:
  int airoha_ppe_setup_tc_block_cb(struct net_device *dev, void *type_data)
  {
  	struct airoha_gdm_port *port = netdev_priv(dev);
@@ -86,7 +84,7 @@ index 0d5cd3a13a3e..36b45e98279a 100644
  	struct airoha_eth *eth = port->qdma->eth;
  	int err = 0;
  
-@@ -1297,7 +1293,7 @@ int airoha_ppe_setup_tc_block_cb(struct net_device *dev, void *type_data)
+@@ -1297,7 +1293,7 @@ int airoha_ppe_setup_tc_block_cb(struct
  	if (!eth->npu)
  		err = airoha_ppe_offload_setup(eth);
  	if (!err)
@@ -95,6 +93,3 @@ index 0d5cd3a13a3e..36b45e98279a 100644
  
  	mutex_unlock(&flow_offload_mutex);
  
--- 
-2.51.0
-

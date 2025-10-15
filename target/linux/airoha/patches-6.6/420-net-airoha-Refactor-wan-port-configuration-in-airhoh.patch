@@ -16,11 +16,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  drivers/net/ethernet/airoha/airoha_regs.h |  5 +---
  2 files changed, 12 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 2c6504aaae7a..dfb72609ef89 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1685,8 +1685,8 @@ static int airoha_dev_set_macaddr(struct net_device *dev, void *p)
+@@ -1742,8 +1742,8 @@ static int airoha_dev_set_macaddr(struct
  static void airhoha_set_gdm2_loopback(struct airoha_gdm_port *port)
  {
  	u32 pse_port = port->id == 3 ? FE_PSE_PORT_GDM3 : FE_PSE_PORT_GDM4;
@@ -30,7 +28,7 @@ index 2c6504aaae7a..dfb72609ef89 100644
  
  	/* Forward the traffic to the proper GDM port */
  	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(2), pse_port);
-@@ -1709,29 +1709,19 @@ static void airhoha_set_gdm2_loopback(struct airoha_gdm_port *port)
+@@ -1764,29 +1764,19 @@ static void airhoha_set_gdm2_loopback(st
  	airoha_fe_clear(eth, REG_FE_VIP_PORT_EN, BIT(2));
  	airoha_fe_clear(eth, REG_FE_IFC_PORT_EN, BIT(2));
  
@@ -70,11 +68,9 @@ index 2c6504aaae7a..dfb72609ef89 100644
  }
  
  static int airoha_dev_init(struct net_device *dev)
-diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
-index 69c5a143db8c..cc230f61c004 100644
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
-@@ -383,10 +383,7 @@
+@@ -386,10 +386,7 @@
  #define REG_MC_VLAN_DATA		0x2108
  
  #define REG_SP_DFT_CPORT(_n)		(0x20e0 + ((_n) << 2))
@@ -86,6 +82,3 @@ index 69c5a143db8c..cc230f61c004 100644
  
  #define REG_SRC_PORT_FC_MAP6		0x2298
  #define FC_ID_OF_SRC_PORT27_MASK	GENMASK(28, 24)
--- 
-2.51.0
-

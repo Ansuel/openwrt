@@ -16,11 +16,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_eth.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index f3a61879e284..347c11b1fff5 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -589,7 +589,7 @@ static int airoha_qdma_get_gdm_port(struct airoha_eth *eth,
+@@ -589,7 +589,7 @@ static int airoha_qdma_get_gdm_port(stru
  
  	sport = FIELD_GET(QDMA_ETH_RXMSG_SPORT_MASK, msg1);
  	switch (sport) {
@@ -29,6 +27,3 @@ index f3a61879e284..347c11b1fff5 100644
  		port = 0;
  		break;
  	case 0x2 ... 0x4:
--- 
-2.51.0
-

@@ -17,8 +17,6 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  drivers/net/ethernet/airoha/airoha_eth.c | 33 +++++++++++++++++++++---
  1 file changed, 30 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 1ed43a5c629f..8a8a6424c1dd 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
 @@ -5,6 +5,7 @@
@@ -29,7 +27,7 @@ index 1ed43a5c629f..8a8a6424c1dd 100644
  #include <linux/platform_device.h>
  #include <linux/tcp.h>
  #include <linux/u64_stats_sync.h>
-@@ -1072,9 +1073,11 @@ static void airoha_qdma_cleanup_tx_queue(struct airoha_queue *q)
+@@ -1073,9 +1074,11 @@ static void airoha_qdma_cleanup_tx_queue
  static int airoha_qdma_init_hfwd_queues(struct airoha_qdma *qdma)
  {
  	struct airoha_eth *eth = qdma->eth;
@@ -42,7 +40,7 @@ index 1ed43a5c629f..8a8a6424c1dd 100644
  
  	size = HW_DSCP_NUM * sizeof(struct airoha_qdma_fwd_desc);
  	if (!dmam_alloc_coherent(eth->dev, size, &dma_addr, GFP_KERNEL))
-@@ -1082,10 +1085,34 @@ static int airoha_qdma_init_hfwd_queues(struct airoha_qdma *qdma)
+@@ -1083,10 +1086,34 @@ static int airoha_qdma_init_hfwd_queues(
  
  	airoha_qdma_wr(qdma, REG_FWD_DSCP_BASE, dma_addr);
  
@@ -79,6 +77,3 @@ index 1ed43a5c629f..8a8a6424c1dd 100644
  	airoha_qdma_wr(qdma, REG_FWD_BUF_BASE, dma_addr);
  
  	airoha_qdma_rmw(qdma, REG_HW_FWD_DSCP_CFG,
--- 
-2.51.0
-

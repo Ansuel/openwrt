@@ -19,13 +19,11 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  3 files changed, 618 insertions(+)
  create mode 100644 drivers/pwm/pwm-airoha.c
 
-diff --git a/drivers/pwm/Kconfig b/drivers/pwm/Kconfig
-index c866ed388da9..4aa7d94cd680 100644
 --- a/drivers/pwm/Kconfig
 +++ b/drivers/pwm/Kconfig
-@@ -54,6 +54,16 @@ config PWM_ADP5585
- 	  This option enables support for the PWM function found in the Analog
- 	  Devices ADP5585.
+@@ -51,6 +51,16 @@ config PWM_AB8500
+ 	  To compile this driver as a module, choose M here: the module
+ 	  will be called pwm-ab8500.
  
 +config PWM_AIROHA
 +	tristate "Airoha PWM support"
@@ -40,8 +38,6 @@ index c866ed388da9..4aa7d94cd680 100644
  config PWM_APPLE
  	tristate "Apple SoC PWM support"
  	depends on ARCH_APPLE || COMPILE_TEST
-diff --git a/drivers/pwm/Makefile b/drivers/pwm/Makefile
-index 5c782af8f49b..cd3e6de2e44a 100644
 --- a/drivers/pwm/Makefile
 +++ b/drivers/pwm/Makefile
 @@ -2,6 +2,7 @@
@@ -52,9 +48,6 @@ index 5c782af8f49b..cd3e6de2e44a 100644
  obj-$(CONFIG_PWM_APPLE)		+= pwm-apple.o
  obj-$(CONFIG_PWM_ATMEL)		+= pwm-atmel.o
  obj-$(CONFIG_PWM_ATMEL_HLCDC_PWM)	+= pwm-atmel-hlcdc.o
-diff --git a/drivers/pwm/pwm-airoha.c b/drivers/pwm/pwm-airoha.c
-new file mode 100644
-index 000000000000..e16d3962b9df
 --- /dev/null
 +++ b/drivers/pwm/pwm-airoha.c
 @@ -0,0 +1,619 @@
@@ -677,6 +670,3 @@ index 000000000000..e16d3962b9df
 +MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 +MODULE_DESCRIPTION("Airoha EN7581 PWM driver");
 +MODULE_LICENSE("GPL");
--- 
-2.48.1
-

@@ -23,11 +23,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  include/linux/phy.h          |  3 +++
  2 files changed, 40 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 6006cff1a73e..0f6f86252622 100644
 --- a/drivers/net/phy/phy_device.c
 +++ b/drivers/net/phy/phy_device.c
-@@ -543,20 +543,26 @@ static int phy_scan_fixups(struct phy_device *phydev)
+@@ -522,20 +522,26 @@ static int phy_scan_fixups(struct phy_de
  	return 0;
  }
  
@@ -66,7 +64,7 @@ index 6006cff1a73e..0f6f86252622 100644
  		for (i = 1; i < num_ids; i++) {
  			if (phydev->c45_ids.device_ids[i] == 0xffffffff)
  				continue;
-@@ -565,11 +571,27 @@ static int phy_bus_match(struct device *dev, const struct device_driver *drv)
+@@ -544,11 +550,27 @@ static int phy_bus_match(struct device *
  					   phydrv->phy_id, phydrv->phy_id_mask))
  				return 1;
  		}
@@ -97,11 +95,9 @@ index 6006cff1a73e..0f6f86252622 100644
  }
  
  static ssize_t
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 10e66d45a8e8..32b9da274115 100644
 --- a/include/linux/phy.h
 +++ b/include/linux/phy.h
-@@ -1868,6 +1868,9 @@ char *phy_attached_info_irq(struct phy_device *phydev)
+@@ -1847,6 +1847,9 @@ char *phy_attached_info_irq(struct phy_d
  	__malloc;
  void phy_attached_info(struct phy_device *phydev);
  
@@ -111,6 +107,3 @@ index 10e66d45a8e8..32b9da274115 100644
  /* Clause 22 PHY */
  int genphy_read_abilities(struct phy_device *phydev);
  int genphy_setup_forced(struct phy_device *phydev);
--- 
-2.48.1
-

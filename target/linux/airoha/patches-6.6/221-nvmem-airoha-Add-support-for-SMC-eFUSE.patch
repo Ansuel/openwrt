@@ -20,11 +20,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  3 files changed, 133 insertions(+)
  create mode 100644 drivers/nvmem/airoha-smc-efuses.c
 
-diff --git a/drivers/nvmem/Kconfig b/drivers/nvmem/Kconfig
-index 8671b7c974b9..5c44576d7457 100644
 --- a/drivers/nvmem/Kconfig
 +++ b/drivers/nvmem/Kconfig
-@@ -28,6 +28,19 @@ source "drivers/nvmem/layouts/Kconfig"
+@@ -29,6 +29,19 @@ source "drivers/nvmem/layouts/Kconfig"
  
  # Devices
  
@@ -44,8 +42,6 @@ index 8671b7c974b9..5c44576d7457 100644
  config NVMEM_APPLE_EFUSES
  	tristate "Apple eFuse support"
  	depends on ARCH_APPLE || COMPILE_TEST
-diff --git a/drivers/nvmem/Makefile b/drivers/nvmem/Makefile
-index 5b77bbb6488b..77c0264f7d39 100644
 --- a/drivers/nvmem/Makefile
 +++ b/drivers/nvmem/Makefile
 @@ -10,6 +10,8 @@ nvmem_layouts-y			:= layouts.o
@@ -57,9 +53,6 @@ index 5b77bbb6488b..77c0264f7d39 100644
  obj-$(CONFIG_NVMEM_APPLE_EFUSES)	+= nvmem-apple-efuses.o
  nvmem-apple-efuses-y 			:= apple-efuses.o
  obj-$(CONFIG_NVMEM_BCM_OCOTP)		+= nvmem-bcm-ocotp.o
-diff --git a/drivers/nvmem/airoha-smc-efuses.c b/drivers/nvmem/airoha-smc-efuses.c
-new file mode 100644
-index 000000000000..bb279d149519
 --- /dev/null
 +++ b/drivers/nvmem/airoha-smc-efuses.c
 @@ -0,0 +1,118 @@
@@ -181,6 +174,3 @@ index 000000000000..bb279d149519
 +MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 +MODULE_DESCRIPTION("Driver for Airoha SMC eFUSEs");
 +MODULE_LICENSE("GPL");
--- 
-2.48.1
-

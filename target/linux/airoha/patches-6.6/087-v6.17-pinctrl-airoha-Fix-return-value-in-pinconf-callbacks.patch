@@ -15,11 +15,9 @@ Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
  drivers/pinctrl/mediatek/pinctrl-airoha.c | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/pinctrl/mediatek/pinctrl-airoha.c b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-index 5f1ec9e0de21..1b2f132d76f0 100644
 --- a/drivers/pinctrl/mediatek/pinctrl-airoha.c
 +++ b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-@@ -2696,7 +2696,7 @@ static int airoha_pinconf_get(struct pinctrl_dev *pctrl_dev,
+@@ -2696,7 +2696,7 @@ static int airoha_pinconf_get(struct pin
  		arg = 1;
  		break;
  	default:
@@ -28,7 +26,7 @@ index 5f1ec9e0de21..1b2f132d76f0 100644
  	}
  
  	*config = pinconf_to_config_packed(param, arg);
-@@ -2788,7 +2788,7 @@ static int airoha_pinconf_set(struct pinctrl_dev *pctrl_dev,
+@@ -2790,7 +2790,7 @@ static int airoha_pinconf_set(struct pin
  			break;
  		}
  		default:
@@ -37,7 +35,7 @@ index 5f1ec9e0de21..1b2f132d76f0 100644
  		}
  	}
  
-@@ -2805,10 +2805,10 @@ static int airoha_pinconf_group_get(struct pinctrl_dev *pctrl_dev,
+@@ -2807,10 +2807,10 @@ static int airoha_pinconf_group_get(stru
  		if (airoha_pinconf_get(pctrl_dev,
  				       airoha_pinctrl_groups[group].pins[i],
  				       config))
@@ -50,6 +48,3 @@ index 5f1ec9e0de21..1b2f132d76f0 100644
  
  		cur_config = *config;
  	}
--- 
-2.51.0
-
