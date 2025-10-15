@@ -28,11 +28,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  create mode 100644 sound/soc/airoha/an7581/an7581-i2s.c
  create mode 100644 sound/soc/airoha/an7581/an7581-reg.h
 
-diff --git a/sound/soc/Kconfig b/sound/soc/Kconfig
-index 1b983c7006f1..5ea1af792f2e 100644
 --- a/sound/soc/Kconfig
 +++ b/sound/soc/Kconfig
-@@ -103,6 +103,7 @@ config SND_SOC_USB
+@@ -78,6 +78,7 @@ config SND_SOC_ACPI
  
  # All the supported SoCs
  source "sound/soc/adi/Kconfig"
@@ -40,11 +38,9 @@ index 1b983c7006f1..5ea1af792f2e 100644
  source "sound/soc/amd/Kconfig"
  source "sound/soc/apple/Kconfig"
  source "sound/soc/atmel/Kconfig"
-diff --git a/sound/soc/Makefile b/sound/soc/Makefile
-index 462322c38aa4..a6a9f5e84bad 100644
 --- a/sound/soc/Makefile
 +++ b/sound/soc/Makefile
-@@ -46,6 +46,7 @@ obj-$(CONFIG_SND_SOC)	+= codecs/
+@@ -36,6 +36,7 @@ obj-$(CONFIG_SND_SOC)	+= codecs/
  obj-$(CONFIG_SND_SOC)	+= generic/
  obj-$(CONFIG_SND_SOC)	+= apple/
  obj-$(CONFIG_SND_SOC)	+= adi/
@@ -52,9 +48,6 @@ index 462322c38aa4..a6a9f5e84bad 100644
  obj-$(CONFIG_SND_SOC)	+= amd/
  obj-$(CONFIG_SND_SOC)	+= atmel/
  obj-$(CONFIG_SND_SOC)	+= au1x/
-diff --git a/sound/soc/airoha/Kconfig b/sound/soc/airoha/Kconfig
-new file mode 100644
-index 000000000000..7c271c164f1f
 --- /dev/null
 +++ b/sound/soc/airoha/Kconfig
 @@ -0,0 +1,19 @@
@@ -77,17 +70,11 @@ index 000000000000..7c271c164f1f
 +	  that can be used with other codecs.
 +	  Select Y if you have such device.
 +	  If unsure select "N".
-diff --git a/sound/soc/airoha/Makefile b/sound/soc/airoha/Makefile
-new file mode 100644
-index 000000000000..fef7fed384a9
 --- /dev/null
 +++ b/sound/soc/airoha/Makefile
 @@ -0,0 +1,2 @@
 +# SPDX-License-Identifier: GPL-2.0
 +obj-$(CONFIG_SND_SOC_AN7581) += an7581/
-diff --git a/sound/soc/airoha/an7581/Makefile b/sound/soc/airoha/an7581/Makefile
-new file mode 100644
-index 000000000000..8cec1a48dc89
 --- /dev/null
 +++ b/sound/soc/airoha/an7581/Makefile
 @@ -0,0 +1,8 @@
@@ -99,9 +86,6 @@ index 000000000000..8cec1a48dc89
 +
 +obj-$(CONFIG_SND_SOC_AN7581) += snd-soc-an7581-afe.o
 +obj-$(CONFIG_SND_SOC_AN7581_I2S) += an7581-i2s.o
-diff --git a/sound/soc/airoha/an7581/an7581-afe-common.h b/sound/soc/airoha/an7581/an7581-afe-common.h
-new file mode 100644
-index 000000000000..233f12e77d32
 --- /dev/null
 +++ b/sound/soc/airoha/an7581/an7581-afe-common.h
 @@ -0,0 +1,35 @@
@@ -140,9 +124,6 @@ index 000000000000..233f12e77d32
 +				       unsigned int rate);
 +
 +#endif
-diff --git a/sound/soc/airoha/an7581/an7581-afe-pcm.c b/sound/soc/airoha/an7581/an7581-afe-pcm.c
-new file mode 100644
-index 000000000000..9df236881b9b
 --- /dev/null
 +++ b/sound/soc/airoha/an7581/an7581-afe-pcm.c
 @@ -0,0 +1,455 @@
@@ -601,9 +582,6 @@ index 000000000000..9df236881b9b
 +
 +MODULE_DESCRIPTION("Airoha SoC AFE platform driver for ALSA AN7581");
 +MODULE_LICENSE("GPL");
-diff --git a/sound/soc/airoha/an7581/an7581-i2s.c b/sound/soc/airoha/an7581/an7581-i2s.c
-new file mode 100644
-index 000000000000..542caa107921
 --- /dev/null
 +++ b/sound/soc/airoha/an7581/an7581-i2s.c
 @@ -0,0 +1,110 @@
@@ -717,9 +695,6 @@ index 000000000000..542caa107921
 +
 +MODULE_DESCRIPTION("Airoha SoC I2S platform driver for ALSA AN7581");
 +MODULE_LICENSE("GPL");
-diff --git a/sound/soc/airoha/an7581/an7581-reg.h b/sound/soc/airoha/an7581/an7581-reg.h
-new file mode 100644
-index 000000000000..2b14a66afa68
 --- /dev/null
 +++ b/sound/soc/airoha/an7581/an7581-reg.h
 @@ -0,0 +1,29 @@
@@ -752,6 +727,3 @@ index 000000000000..2b14a66afa68
 +#define AFE_MAX_REGISTER		AFE_IRQ1_CON0
 +
 +#endif
--- 
-2.50.1
-

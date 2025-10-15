@@ -15,8 +15,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/clk/clk-en7523.c | 17 +++++++++++++++--
  1 file changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
-index 5236119bca83..00c80221a274 100644
 --- a/drivers/clk/clk-en7523.c
 +++ b/drivers/clk/clk-en7523.c
 @@ -5,6 +5,7 @@
@@ -35,7 +33,7 @@ index 5236119bca83..00c80221a274 100644
  	u32 num_clocks;
  	const struct en_clk_desc *base_clks;
  	const struct clk_ops pcie_ops;
-@@ -900,8 +902,19 @@ static int en7523_clk_probe(struct platform_device *pdev)
+@@ -900,8 +902,19 @@ static int en7523_clk_probe(struct platf
  	if (err)
  		return err;
  
@@ -57,6 +55,3 @@ index 5236119bca83..00c80221a274 100644
  }
  
  static const struct en_clk_soc_data en7523_data = {
--- 
-2.48.1
-

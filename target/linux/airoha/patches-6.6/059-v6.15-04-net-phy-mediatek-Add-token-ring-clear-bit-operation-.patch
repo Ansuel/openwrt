@@ -19,8 +19,6 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/mediatek/mtk.h         |  2 ++
  3 files changed, 27 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/phy/mediatek/mtk-ge-soc.c b/drivers/net/phy/mediatek/mtk-ge-soc.c
-index 37777ad104d8..9de6fbb45564 100644
 --- a/drivers/net/phy/mediatek/mtk-ge-soc.c
 +++ b/drivers/net/phy/mediatek/mtk-ge-soc.c
 @@ -76,6 +76,10 @@
@@ -57,7 +55,7 @@ index 37777ad104d8..9de6fbb45564 100644
  #define ANALOG_INTERNAL_OPERATION_MAX_US	20
  #define TXRESERVE_MIN				0
  #define TXRESERVE_MAX				7
-@@ -805,10 +818,7 @@ static void mt798x_phy_common_finetune(struct phy_device *phydev)
+@@ -805,10 +818,7 @@ static void mt798x_phy_common_finetune(s
  			FIELD_PREP(FFE_UPDATE_GAIN_FORCE_VAL_MASK, 0x4) |
  				   FFE_UPDATE_GAIN_FORCE);
  
@@ -69,7 +67,7 @@ index 37777ad104d8..9de6fbb45564 100644
  
  	__mtk_tr_modify(phydev, 0x2, 0xd, 0x6,
  			SS_TR_KP100_MASK | SS_TR_KF100_MASK |
-@@ -1009,10 +1019,8 @@ static void mt798x_phy_eee(struct phy_device *phydev)
+@@ -1009,10 +1019,8 @@ static void mt798x_phy_eee(struct phy_de
  			 MTK_PHY_TR_READY_SKIP_AFE_WAKEUP);
  
  	phy_select_page(phydev, MTK_PHY_PAGE_EXTENDED_52B5);
@@ -82,7 +80,7 @@ index 37777ad104d8..9de6fbb45564 100644
  
  	__mtk_tr_modify(phydev, 0x2, 0xd, 0xd,
  			EEE1000_STAGE2_TR_KF_MASK,
-@@ -1036,10 +1044,8 @@ static void mt798x_phy_eee(struct phy_device *phydev)
+@@ -1036,10 +1044,8 @@ static void mt798x_phy_eee(struct phy_de
  			FIELD_PREP(EEE100_LPSYNC_STAGE1_UPDATE_TIMER_MASK,
  				   0x10));
  
@@ -95,11 +93,9 @@ index 37777ad104d8..9de6fbb45564 100644
  
  	__mtk_tr_modify(phydev, 0x1, 0xf, 0x0,
  			DFE_TAIL_EANBLE_VGA_TRHESH_1000,
-diff --git a/drivers/net/phy/mediatek/mtk-phy-lib.c b/drivers/net/phy/mediatek/mtk-phy-lib.c
-index df8fdadcc0f4..dfd0f4e439a2 100644
 --- a/drivers/net/phy/mediatek/mtk-phy-lib.c
 +++ b/drivers/net/phy/mediatek/mtk-phy-lib.c
-@@ -76,6 +76,13 @@ void __mtk_tr_set_bits(struct phy_device *phydev, u8 ch_addr, u8 node_addr,
+@@ -76,6 +76,13 @@ void __mtk_tr_set_bits(struct phy_device
  }
  EXPORT_SYMBOL_GPL(__mtk_tr_set_bits);
  
@@ -113,11 +109,9 @@ index df8fdadcc0f4..dfd0f4e439a2 100644
  int mtk_phy_read_page(struct phy_device *phydev)
  {
  	return __phy_read(phydev, MTK_EXT_PAGE_ACCESS);
-diff --git a/drivers/net/phy/mediatek/mtk.h b/drivers/net/phy/mediatek/mtk.h
-index 2d8e5b934a02..4e4468dc0234 100644
 --- a/drivers/net/phy/mediatek/mtk.h
 +++ b/drivers/net/phy/mediatek/mtk.h
-@@ -74,6 +74,8 @@ void mtk_tr_modify(struct phy_device *phydev, u8 ch_addr, u8 node_addr,
+@@ -74,6 +74,8 @@ void mtk_tr_modify(struct phy_device *ph
  		   u8 data_addr, u32 mask, u32 set);
  void __mtk_tr_set_bits(struct phy_device *phydev, u8 ch_addr, u8 node_addr,
  		       u8 data_addr, u32 set);
@@ -126,6 +120,3 @@ index 2d8e5b934a02..4e4468dc0234 100644
  
  int mtk_phy_read_page(struct phy_device *phydev);
  int mtk_phy_write_page(struct phy_device *phydev, int page);
--- 
-2.48.1
-

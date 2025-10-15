@@ -15,11 +15,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/clk/clk-en7523.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
-index b3c57aac8480..c2addcf9ad8b 100644
 --- a/drivers/clk/clk-en7523.c
 +++ b/drivers/clk/clk-en7523.c
-@@ -1179,6 +1179,7 @@ static const struct en_clk_soc_data en7523_data = {
+@@ -1180,6 +1180,7 @@ static const struct en_clk_soc_data en75
  };
  
  static const struct en_clk_soc_data en7581_data = {
@@ -27,6 +25,3 @@ index b3c57aac8480..c2addcf9ad8b 100644
  	.base_clks = en7581_base_clks,
  	/* We increment num_clocks by 1 to account for additional PCIe clock */
  	.num_clocks = ARRAY_SIZE(en7581_base_clks) + 1,
--- 
-2.48.1
-

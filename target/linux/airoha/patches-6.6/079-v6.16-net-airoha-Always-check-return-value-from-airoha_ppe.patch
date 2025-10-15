@@ -16,11 +16,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_ppe.c | 4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index 9067d2fc7706..0e217acfc5ef 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -809,8 +809,10 @@ airoha_ppe_foe_flow_l2_entry_update(struct airoha_ppe *ppe,
+@@ -819,8 +819,10 @@ airoha_ppe_foe_flow_l2_entry_update(stru
  		int idle;
  
  		hwe = airoha_ppe_foe_get_entry(ppe, iter->hash);
@@ -32,6 +30,3 @@ index 9067d2fc7706..0e217acfc5ef 100644
  		state = FIELD_GET(AIROHA_FOE_IB1_BIND_STATE, ib1);
  		if (state != AIROHA_FOE_STATE_BIND) {
  			iter->hash = 0xffff;
--- 
-2.51.0
-

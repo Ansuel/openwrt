@@ -24,7 +24,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_npu.c
 +++ b/drivers/net/ethernet/airoha/airoha_npu.c
-@@ -390,15 +390,13 @@ out:
+@@ -395,15 +395,13 @@ out:
  	return err;
  }
  
@@ -44,7 +44,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	ppe_data = kzalloc(sizeof(*ppe_data), GFP_ATOMIC);
  	if (!ppe_data)
  		return -ENOMEM;
-@@ -553,7 +551,7 @@ static void airoha_npu_wlan_irq_disable(
+@@ -558,7 +556,7 @@ static void airoha_npu_wlan_irq_disable(
  	regmap_clear_bits(npu->regmap, REG_IRQ_RXDONE(q), NPU_IRQ_RX_MASK(q));
  }
  
@@ -53,7 +53,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  {
  	struct platform_device *pdev;
  	struct device_node *np;
-@@ -591,17 +589,6 @@ struct airoha_npu *airoha_npu_get(struct
+@@ -597,17 +595,6 @@ struct airoha_npu *airoha_npu_get(struct
  		goto error_module_put;
  	}
  
@@ -71,7 +71,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return npu;
  
  error_module_put:
-@@ -655,6 +642,7 @@ static int airoha_npu_probe(struct platf
+@@ -683,6 +670,7 @@ static int airoha_npu_probe(struct platf
  	npu->dev = dev;
  	npu->ops.ppe_init = airoha_npu_ppe_init;
  	npu->ops.ppe_deinit = airoha_npu_ppe_deinit;
@@ -81,7 +81,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	npu->ops.wlan_init_reserved_memory = airoha_npu_wlan_init_memory;
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -1264,12 +1264,11 @@ static int airoha_ppe_flush_sram_entries
+@@ -1246,12 +1246,11 @@ static int airoha_ppe_flush_sram_entries
  
  static struct airoha_npu *airoha_ppe_npu_get(struct airoha_eth *eth)
  {
@@ -96,7 +96,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	}
  
  	return npu;
-@@ -1278,6 +1277,7 @@ static struct airoha_npu *airoha_ppe_npu
+@@ -1260,6 +1259,7 @@ static struct airoha_npu *airoha_ppe_npu
  static int airoha_ppe_offload_setup(struct airoha_eth *eth)
  {
  	struct airoha_npu *npu = airoha_ppe_npu_get(eth);
@@ -104,7 +104,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	int err;
  
  	if (IS_ERR(npu))
-@@ -1287,12 +1287,19 @@ static int airoha_ppe_offload_setup(stru
+@@ -1269,12 +1269,19 @@ static int airoha_ppe_offload_setup(stru
  	if (err)
  		goto error_npu_put;
  

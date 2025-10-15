@@ -20,11 +20,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/pinctrl/mediatek/pinctrl-airoha.c | 16 ++++++++--------
  1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/pinctrl/mediatek/pinctrl-airoha.c b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-index 5d84a778683d..f7f8fd2f35fc 100644
 --- a/drivers/pinctrl/mediatek/pinctrl-airoha.c
 +++ b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-@@ -1752,8 +1752,8 @@ static const struct airoha_pinctrl_func_group phy1_led1_func_group[] = {
+@@ -1746,8 +1746,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[0] = {
  			AIROHA_FUNC_MUX,
  			REG_GPIO_2ND_I2C_MODE,
@@ -35,7 +33,7 @@ index 5d84a778683d..f7f8fd2f35fc 100644
  		},
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
-@@ -1816,8 +1816,8 @@ static const struct airoha_pinctrl_func_group phy2_led1_func_group[] = {
+@@ -1810,8 +1810,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[0] = {
  			AIROHA_FUNC_MUX,
  			REG_GPIO_2ND_I2C_MODE,
@@ -46,7 +44,7 @@ index 5d84a778683d..f7f8fd2f35fc 100644
  		},
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
-@@ -1880,8 +1880,8 @@ static const struct airoha_pinctrl_func_group phy3_led1_func_group[] = {
+@@ -1874,8 +1874,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[0] = {
  			AIROHA_FUNC_MUX,
  			REG_GPIO_2ND_I2C_MODE,
@@ -57,7 +55,7 @@ index 5d84a778683d..f7f8fd2f35fc 100644
  		},
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
-@@ -1944,8 +1944,8 @@ static const struct airoha_pinctrl_func_group phy4_led1_func_group[] = {
+@@ -1938,8 +1938,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[0] = {
  			AIROHA_FUNC_MUX,
  			REG_GPIO_2ND_I2C_MODE,
@@ -68,6 +66,3 @@ index 5d84a778683d..f7f8fd2f35fc 100644
  		},
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
--- 
-2.51.0
-

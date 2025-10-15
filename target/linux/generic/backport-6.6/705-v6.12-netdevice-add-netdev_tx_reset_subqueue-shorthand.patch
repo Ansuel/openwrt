@@ -16,7 +16,7 @@ Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
 
 --- a/include/linux/netdevice.h
 +++ b/include/linux/netdevice.h
-@@ -3616,6 +3616,17 @@ static inline void netdev_tx_reset_queue
+@@ -3614,6 +3614,17 @@ static inline void netdev_tx_reset_queue
  }
  
  /**
@@ -34,7 +34,7 @@ Signed-off-by: Tony Nguyen <anthony.l.nguyen@intel.com>
   * 	netdev_reset_queue - reset the packets and bytes count of a network device
   * 	@dev_queue: network device
   *
-@@ -3624,7 +3635,7 @@ static inline void netdev_tx_reset_queue
+@@ -3622,7 +3633,7 @@ static inline void netdev_tx_reset_queue
   */
  static inline void netdev_reset_queue(struct net_device *dev_queue)
  {

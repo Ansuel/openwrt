@@ -16,15 +16,12 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  drivers/net/dsa/mt7530.c | 26 ++++++++++++++++++--------
  1 file changed, 18 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index d70399bce5b9..85a040853194 100644
 --- a/drivers/net/dsa/mt7530.c
 +++ b/drivers/net/dsa/mt7530.c
-@@ -789,24 +789,34 @@ mt7530_get_strings(struct dsa_switch *ds, int port, u32 stringset,
- 		ethtool_puts(&data, mt7530_mib[i].name);
+@@ -789,23 +789,33 @@ mt7530_get_strings(struct dsa_switch *ds
  }
  
-+static void
+ static void
 +mt7530_read_port_stats(struct mt7530_priv *priv, int port,
 +		       u32 offset, u8 size, uint64_t *data)
 +{
@@ -39,7 +36,7 @@ index d70399bce5b9..85a040853194 100644
 +	}
 +}
 +
- static void
++static void
  mt7530_get_ethtool_stats(struct dsa_switch *ds, int port,
  			 uint64_t *data)
  {
@@ -63,6 +60,3 @@ index d70399bce5b9..85a040853194 100644
  	}
  }
  
--- 
-2.51.0
-

@@ -16,11 +16,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/phylink.c | 8 +++-----
  1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
-index 65e81ef2225d..bb20ae5674e5 100644
 --- a/drivers/net/phy/phylink.c
 +++ b/drivers/net/phy/phylink.c
-@@ -1463,6 +1463,9 @@ static void phylink_resolve(struct work_struct *w)
+@@ -1471,6 +1471,9 @@ static void phylink_resolve(struct work_
  	} else if (pl->mac_link_dropped) {
  		link_state.link = false;
  		retrigger = true;
@@ -30,7 +28,7 @@ index 65e81ef2225d..bb20ae5674e5 100644
  	} else {
  		switch (pl->cur_link_an_mode) {
  		case MLO_AN_PHY:
-@@ -1470,11 +1473,6 @@ static void phylink_resolve(struct work_struct *w)
+@@ -1478,11 +1481,6 @@ static void phylink_resolve(struct work_
  			mac_config = link_state.link;
  			break;
  
@@ -42,6 +40,3 @@ index 65e81ef2225d..bb20ae5674e5 100644
  		case MLO_AN_INBAND:
  			phylink_mac_pcs_get_state(pl, &link_state);
  
--- 
-2.51.0
-

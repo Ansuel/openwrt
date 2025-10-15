@@ -17,8 +17,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  drivers/net/phy/mediatek/mtk.h         |  3 +++
  5 files changed, 26 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/phy/mediatek/Kconfig b/drivers/net/phy/mediatek/Kconfig
-index 19b5d23e7cd0..2a8ac5aed0f8 100644
 --- a/drivers/net/phy/mediatek/Kconfig
 +++ b/drivers/net/phy/mediatek/Kconfig
 @@ -4,6 +4,7 @@ config MTK_NET_PHYLIB
@@ -29,8 +27,6 @@ index 19b5d23e7cd0..2a8ac5aed0f8 100644
  	help
  	  Supports the MediaTek non-built-in Gigabit Ethernet PHYs.
  
-diff --git a/drivers/net/phy/mediatek/mtk-ge-soc.c b/drivers/net/phy/mediatek/mtk-ge-soc.c
-index d3a8b3946056..38dc898eaf7b 100644
 --- a/drivers/net/phy/mediatek/mtk-ge-soc.c
 +++ b/drivers/net/phy/mediatek/mtk-ge-soc.c
 @@ -271,16 +271,6 @@ struct mtk_socphy_shared {
@@ -50,7 +46,7 @@ index d3a8b3946056..38dc898eaf7b 100644
  /* One calibration cycle consists of:
   * 1.Set DA_CALIN_FLAG high to start calibration. Keep it high
   *   until AD_CAL_COMP is ready to output calibration result.
-@@ -1337,8 +1327,8 @@ static struct phy_driver mtk_socphy_driver[] = {
+@@ -1337,8 +1327,8 @@ static struct phy_driver mtk_socphy_driv
  		.probe		= mt7981_phy_probe,
  		.suspend	= genphy_suspend,
  		.resume		= genphy_resume,
@@ -61,7 +57,7 @@ index d3a8b3946056..38dc898eaf7b 100644
  		.led_blink_set	= mt798x_phy_led_blink_set,
  		.led_brightness_set = mt798x_phy_led_brightness_set,
  		.led_hw_is_supported = mt798x_phy_led_hw_is_supported,
-@@ -1354,8 +1344,8 @@ static struct phy_driver mtk_socphy_driver[] = {
+@@ -1354,8 +1344,8 @@ static struct phy_driver mtk_socphy_driv
  		.probe		= mt7988_phy_probe,
  		.suspend	= genphy_suspend,
  		.resume		= genphy_resume,
@@ -72,11 +68,9 @@ index d3a8b3946056..38dc898eaf7b 100644
  		.led_blink_set	= mt798x_phy_led_blink_set,
  		.led_brightness_set = mt798x_phy_led_brightness_set,
  		.led_hw_is_supported = mt798x_phy_led_hw_is_supported,
-diff --git a/drivers/net/phy/mediatek/mtk-ge.c b/drivers/net/phy/mediatek/mtk-ge.c
-index 54ea64a37ab3..912289928fb3 100644
 --- a/drivers/net/phy/mediatek/mtk-ge.c
 +++ b/drivers/net/phy/mediatek/mtk-ge.c
-@@ -3,6 +3,8 @@
+@@ -4,6 +4,8 @@
  #include <linux/module.h>
  #include <linux/phy.h>
  
@@ -85,7 +79,7 @@ index 54ea64a37ab3..912289928fb3 100644
  #define MTK_EXT_PAGE_ACCESS		0x1f
  #define MTK_PHY_PAGE_STANDARD		0x0000
  #define MTK_PHY_PAGE_EXTENDED		0x0001
-@@ -11,16 +13,6 @@
+@@ -12,16 +14,6 @@
  #define MTK_PHY_PAGE_EXTENDED_2A30	0x2a30
  #define MTK_PHY_PAGE_EXTENDED_52B5	0x52b5
  
@@ -101,8 +95,8 @@ index 54ea64a37ab3..912289928fb3 100644
 -
  static void mtk_gephy_config_init(struct phy_device *phydev)
  {
- 	/* Enable HW auto downshift */
-@@ -77,8 +69,8 @@ static struct phy_driver mtk_gephy_driver[] = {
+ 	/* Disable EEE */
+@@ -114,8 +106,8 @@ static struct phy_driver mtk_gephy_drive
  		.handle_interrupt = genphy_handle_interrupt_no_ack,
  		.suspend	= genphy_suspend,
  		.resume		= genphy_resume,
@@ -113,7 +107,7 @@ index 54ea64a37ab3..912289928fb3 100644
  	},
  	{
  		PHY_ID_MATCH_EXACT(0x03a29441),
-@@ -91,8 +83,8 @@ static struct phy_driver mtk_gephy_driver[] = {
+@@ -128,8 +120,8 @@ static struct phy_driver mtk_gephy_drive
  		.handle_interrupt = genphy_handle_interrupt_no_ack,
  		.suspend	= genphy_suspend,
  		.resume		= genphy_resume,
@@ -124,8 +118,6 @@ index 54ea64a37ab3..912289928fb3 100644
  	},
  };
  
-diff --git a/drivers/net/phy/mediatek/mtk-phy-lib.c b/drivers/net/phy/mediatek/mtk-phy-lib.c
-index 8d795bcc8b2d..98a09d670e9c 100644
 --- a/drivers/net/phy/mediatek/mtk-phy-lib.c
 +++ b/drivers/net/phy/mediatek/mtk-phy-lib.c
 @@ -6,6 +6,18 @@
@@ -147,8 +139,6 @@ index 8d795bcc8b2d..98a09d670e9c 100644
  int mtk_phy_led_hw_is_supported(struct phy_device *phydev, u8 index,
  				unsigned long rules,
  				unsigned long supported_triggers)
-diff --git a/drivers/net/phy/mediatek/mtk.h b/drivers/net/phy/mediatek/mtk.h
-index 9aaff2c2270d..63d9fe179b8f 100644
 --- a/drivers/net/phy/mediatek/mtk.h
 +++ b/drivers/net/phy/mediatek/mtk.h
 @@ -66,6 +66,9 @@ struct mtk_socphy_priv {
@@ -161,6 +151,3 @@ index 9aaff2c2270d..63d9fe179b8f 100644
  int mtk_phy_led_hw_is_supported(struct phy_device *phydev, u8 index,
  				unsigned long rules,
  				unsigned long supported_triggers);
--- 
-2.48.1
-

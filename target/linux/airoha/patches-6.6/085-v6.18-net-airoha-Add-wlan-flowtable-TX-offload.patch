@@ -15,8 +15,6 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  drivers/net/ethernet/airoha/airoha_ppe.c | 103 ++++++++++++++++-------
  2 files changed, 85 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index a970b789cf23..9f721e2b972f 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -252,6 +252,10 @@ enum {
@@ -44,11 +42,9 @@ index a970b789cf23..9f721e2b972f 100644
  /* RX queue to IRQ mapping: BIT(q) in IRQ(n) */
  #define RX_IRQ0_BANK_PIN_MASK			0x839f
  #define RX_IRQ1_BANK_PIN_MASK			0x7fe00000
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index 82163392332c..2bf1c584ba7b 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -190,6 +190,31 @@ static int airoha_ppe_flow_mangle_ipv4(const struct flow_action_entry *act,
+@@ -190,6 +190,31 @@ static int airoha_ppe_flow_mangle_ipv4(c
  	return 0;
  }
  
@@ -80,7 +76,7 @@ index 82163392332c..2bf1c584ba7b 100644
  static int airoha_get_dsa_port(struct net_device **dev)
  {
  #if IS_ENABLED(CONFIG_NET_DSA)
-@@ -220,9 +245,9 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
+@@ -220,9 +245,9 @@ static int airoha_ppe_foe_entry_prepare(
  					struct airoha_flow_data *data,
  					int l4proto)
  {
@@ -92,7 +88,7 @@ index 82163392332c..2bf1c584ba7b 100644
  	u8 smac_id = 0xf;
  
  	memset(hwe, 0, sizeof(*hwe));
-@@ -236,31 +261,47 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
+@@ -236,31 +261,47 @@ static int airoha_ppe_foe_entry_prepare(
  	      AIROHA_FOE_IB1_BIND_TTL;
  	hwe->ib1 = val;
  
@@ -108,7 +104,8 @@ index 82163392332c..2bf1c584ba7b 100644
 -
 -		if (!airoha_is_valid_gdm_port(eth, port))
 -			return -EINVAL;
--
++		struct airoha_wdma_info info = {};
+ 
 -		if (dsa_port >= 0)
 -			pse_port = port->id == 4 ? FE_PSE_PORT_GDM4 : port->id;
 -		else
@@ -120,10 +117,6 @@ index 82163392332c..2bf1c584ba7b 100644
 -		 */
 -		if (airhoa_is_lan_gdm_port(port))
 -			val |= AIROHA_FOE_IB2_FAST_PATH;
--
--		smac_id = port->id;
-+		struct airoha_wdma_info info = {};
-+
 +		if (!airoha_ppe_get_wdma_info(dev, data->eth.h_dest, &info)) {
 +			val |= FIELD_PREP(AIROHA_FOE_IB2_NBQ, info.idx) |
 +			       FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT,
@@ -158,13 +151,14 @@ index 82163392332c..2bf1c584ba7b 100644
 +			if (dsa_port >= 0)
 +				val |= FIELD_PREP(AIROHA_FOE_IB2_NBQ,
 +						  dsa_port);
-+
+ 
+-		smac_id = port->id;
 +			smac_id = port->id;
 +		}
  	}
  
  	if (is_multicast_ether_addr(data->eth.h_dest))
-@@ -272,7 +313,6 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
+@@ -272,7 +313,6 @@ static int airoha_ppe_foe_entry_prepare(
  	if (type == PPE_PKT_TYPE_IPV6_ROUTE_3T)
  		hwe->ipv6.ports = ports_pad;
  
@@ -172,7 +166,7 @@ index 82163392332c..2bf1c584ba7b 100644
  	if (type == PPE_PKT_TYPE_BRIDGE) {
  		airoha_ppe_foe_set_bridge_addrs(&hwe->bridge, &data->eth);
  		hwe->bridge.data = qdata;
-@@ -313,7 +353,9 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
+@@ -313,7 +353,9 @@ static int airoha_ppe_foe_entry_prepare(
  			l2->vlan2 = data->vlan.hdr[1].id;
  	}
  
@@ -183,7 +177,7 @@ index 82163392332c..2bf1c584ba7b 100644
  		l2->etype = BIT(dsa_port);
  		l2->etype |= !data->vlan.num ? BIT(15) : 0;
  	} else if (data->pppoe.num) {
-@@ -490,6 +532,10 @@ static void airoha_ppe_foe_flow_stats_update(struct airoha_ppe *ppe,
+@@ -490,6 +532,10 @@ static void airoha_ppe_foe_flow_stats_up
  		meter = &hwe->ipv4.l2.meter;
  	}
  
@@ -194,7 +188,7 @@ index 82163392332c..2bf1c584ba7b 100644
  	airoha_ppe_foe_flow_stat_entry_reset(ppe, npu, index);
  
  	val = FIELD_GET(AIROHA_FOE_CHANNEL | AIROHA_FOE_QID, *data);
-@@ -500,7 +546,6 @@ static void airoha_ppe_foe_flow_stats_update(struct airoha_ppe *ppe,
+@@ -500,7 +546,6 @@ static void airoha_ppe_foe_flow_stats_up
  		      AIROHA_FOE_IB2_PSE_QOS | AIROHA_FOE_IB2_FAST_PATH);
  	*meter |= FIELD_PREP(AIROHA_FOE_TUNNEL_MTU, val);
  
@@ -202,6 +196,3 @@ index 82163392332c..2bf1c584ba7b 100644
  	nbq = pse_port == 1 ? 6 : 5;
  	*ib2 &= ~(AIROHA_FOE_IB2_NBQ | AIROHA_FOE_IB2_PSE_PORT |
  		  AIROHA_FOE_IB2_PSE_QOS);
--- 
-2.51.0
-

@@ -14,8 +14,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -200,7 +200,7 @@ static int airoha_get_dsa_port(struct ne
- static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
+@@ -274,7 +274,7 @@ static int airoha_ppe_foe_entry_prepare(
+ 					struct airoha_foe_entry *hwe,
  					struct net_device *dev, int type,
  					struct airoha_flow_data *data,
 -					int l4proto)
@@ -23,7 +23,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  {
  	u32 qdata = FIELD_PREP(AIROHA_FOE_SHAPER_ID, 0x7f), ports_pad, val;
  	int wlan_etype = -EINVAL, dsa_port = airoha_get_dsa_port(&dev);
-@@ -228,12 +228,15 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -301,12 +301,15 @@ static int airoha_ppe_foe_entry_prepare(
  			       FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT,
  					  FE_PSE_PORT_CDM4);
  			qdata |= FIELD_PREP(AIROHA_FOE_ACTDP, info.bss);
@@ -31,8 +31,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +			wlan_etype = FIELD_PREP(AIROHA_FOE_MAC_WDMA_QOS,
 +						priority) |
 +				     FIELD_PREP(AIROHA_FOE_MAC_WDMA_BAND,
-						info.idx) |
-				     FIELD_PREP(AIROHA_FOE_MAC_WDMA_WCID,
+ 						info.idx) |
+ 				     FIELD_PREP(AIROHA_FOE_MAC_WDMA_WCID,
  						info.wcid);
  		} else {
  			struct airoha_gdm_port *port = netdev_priv(dev);
@@ -40,7 +40,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  			u8 pse_port;
  
  			if (!airoha_is_valid_gdm_port(eth, port))
-@@ -240,6 +240,14 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -322,6 +325,14 @@ static int airoha_ppe_foe_entry_prepare(
  
  			val |= FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT, pse_port) |
  			       AIROHA_FOE_IB2_PSE_QOS;
@@ -55,7 +55,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  			/* For downlink traffic consume SRAM memory for hw
  			 * forwarding descriptors queue.
  			 */
-@@ -544,6 +550,7 @@ static int airoha_ppe_flow_offload_repla
+@@ -1015,6 +1026,7 @@ static int airoha_ppe_flow_offload_repla
  	struct airoha_foe_entry hwe;
  	int err, i, offload_type;
  	u16 addr_type = 0;
@@ -63,9 +63,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	u8 l4proto = 0;
  
  	if (rhashtable_lookup(&eth->flow_table, &f->cookie,
-@@ -621,6 +628,9 @@ static int airoha_ppe_flow_offload_repla
- 			break;
- 		case FLOW_ACTION_PPPOE_PUSH:
+@@ -1100,6 +1112,9 @@ static int airoha_ppe_flow_offload_repla
+ 			data.pppoe.sid = act->pppoe.sid;
+ 			data.pppoe.num++;
  			break;
 +		case FLOW_ACTION_PRIORITY:
 +			priority = act->priority;
@@ -73,7 +73,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		default:
  			return -EOPNOTSUPP;
  		}
-@@ -631,7 +641,7 @@ static int airoha_ppe_flow_offload_repla
+@@ -1110,7 +1125,7 @@ static int airoha_ppe_flow_offload_repla
  		return -EINVAL;
  
  	err = airoha_ppe_foe_entry_prepare(eth, &hwe, odev, offload_type,

@@ -12,11 +12,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/clk/clk-en7523.c | 13 +++++++++++++
  1 file changed, 13 insertions(+)
 
-diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
-index b3c57aac8480..61285e92bea4 100644
 --- a/drivers/clk/clk-en7523.c
 +++ b/drivers/clk/clk-en7523.c
-@@ -312,6 +312,19 @@ static const struct en_clk_desc en7581_base_clks[] = {
+@@ -312,6 +312,19 @@ static const struct en_clk_desc en7581_b
  		.base_shift = 12,
  		.base_values = emmc7581_base,
  		.n_base_values = ARRAY_SIZE(emmc7581_base),
@@ -36,6 +34,3 @@ index b3c57aac8480..61285e92bea4 100644
  	}
  };
  
--- 
-2.48.1
-

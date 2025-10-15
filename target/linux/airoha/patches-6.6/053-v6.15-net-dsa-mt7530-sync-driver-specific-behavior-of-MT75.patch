@@ -24,11 +24,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/dsa/mt7530.c | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index d70399bce5b9..c5d6628d7980 100644
 --- a/drivers/net/dsa/mt7530.c
 +++ b/drivers/net/dsa/mt7530.c
-@@ -2419,6 +2419,9 @@ mt7531_setup_common(struct dsa_switch *ds)
+@@ -2540,6 +2540,9 @@ mt7531_setup_common(struct dsa_switch *d
  	struct mt7530_priv *priv = ds->priv;
  	int ret, i;
  
@@ -38,7 +36,7 @@ index d70399bce5b9..c5d6628d7980 100644
  	mt753x_trap_frames(priv);
  
  	/* Enable and reset MIB counters */
-@@ -2571,9 +2574,6 @@ mt7531_setup(struct dsa_switch *ds)
+@@ -2692,9 +2695,6 @@ mt7531_setup(struct dsa_switch *ds)
  	if (ret)
  		return ret;
  
@@ -48,6 +46,3 @@ index d70399bce5b9..c5d6628d7980 100644
  	return 0;
  }
  
--- 
-2.48.1
-

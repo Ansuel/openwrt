@@ -14,8 +14,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/clk/clk-en7523.c | 83 ++++++++++++++++++++++++++++------------
  1 file changed, 59 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
-index b040f0f0d727..10fb0dcdc88b 100644
 --- a/drivers/clk/clk-en7523.c
 +++ b/drivers/clk/clk-en7523.c
 @@ -69,6 +69,12 @@ struct en_clk_gate {
@@ -31,7 +29,7 @@ index b040f0f0d727..10fb0dcdc88b 100644
  struct en_rst_data {
  	const u16 *bank_ofs;
  	const u16 *idx_map;
-@@ -471,44 +477,73 @@ static struct clk_hw *en7523_register_pcie_clk(struct device *dev,
+@@ -471,44 +477,73 @@ static struct clk_hw *en7523_register_pc
  	return &cg->hw;
  }
  
@@ -125,7 +123,7 @@ index b040f0f0d727..10fb0dcdc88b 100644
  	}
  
  	hw = en7523_register_pcie_clk(dev, clk_map);
-@@ -672,7 +707,7 @@ static int en7581_clk_hw_init(struct platform_device *pdev,
+@@ -672,7 +707,7 @@ static int en7581_clk_hw_init(struct pla
  {
  	struct regmap *map, *clk_map;
  	void __iomem *base;
@@ -134,7 +132,7 @@ index b040f0f0d727..10fb0dcdc88b 100644
  
  	map = syscon_regmap_lookup_by_compatible("airoha,en7581-chip-scu");
  	if (IS_ERR(map))
-@@ -686,9 +721,9 @@ static int en7581_clk_hw_init(struct platform_device *pdev,
+@@ -686,9 +721,9 @@ static int en7581_clk_hw_init(struct pla
  	if (IS_ERR(clk_map))
  		return PTR_ERR(clk_map);
  
@@ -147,6 +145,3 @@ index b040f0f0d727..10fb0dcdc88b 100644
  
  	regmap_clear_bits(clk_map, REG_NP_SCU_SSTR,
  			  REG_PCIE_XSI0_SEL_MASK | REG_PCIE_XSI1_SEL_MASK);
--- 
-2.48.1
-

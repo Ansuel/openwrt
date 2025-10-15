@@ -21,7 +21,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -304,8 +304,11 @@ static void airoha_fe_pse_ports_init(str
+@@ -303,8 +303,11 @@ static void airoha_fe_pse_ports_init(str
  	int q;
  
  	all_rsv = airoha_fe_get_pse_all_rsv(eth);
@@ -35,7 +35,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	airoha_fe_set(eth, REG_FE_PSE_BUF_SET, all_rsv);
  
  	/* CMD1 */
-@@ -342,13 +345,17 @@ static void airoha_fe_pse_ports_init(str
+@@ -341,13 +344,17 @@ static void airoha_fe_pse_ports_init(str
  	for (q = 4; q < pse_port_num_queues[FE_PSE_PORT_CDM4]; q++)
  		airoha_fe_set_pse_oq_rsv(eth, FE_PSE_PORT_CDM4, q,
  					 PSE_QUEUE_RSV_PAGES);
@@ -60,7 +60,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	}
  	/* GMD4 */
  	for (q = 0; q < pse_port_num_queues[FE_PSE_PORT_GDM4]; q++)
-@@ -1925,8 +1932,11 @@ static int airoha_dev_init(struct net_de
+@@ -1798,8 +1805,11 @@ static int airoha_dev_init(struct net_de
  			airhoha_set_gdm2_loopback(port);
  		fallthrough;
  	case 2:
@@ -76,7 +76,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		break;
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -648,6 +648,7 @@ static inline bool airoha_is_7581(struct
+@@ -635,6 +635,7 @@ static inline bool airoha_is_7581(struct
  bool airoha_is_valid_gdm_port(struct airoha_eth *eth,
  			      struct airoha_gdm_port *port);
  
@@ -110,7 +110,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		sram_num_entries =
  			PPE_RAM_NUM_ENTRIES_SHIFT(PPE1_SRAM_NUM_DATA_ENTRIES);
  		airoha_fe_rmw(eth, REG_PPE_TB_CFG(0),
-@@ -496,7 +499,7 @@ static u32 airoha_ppe_foe_get_entry_hash
+@@ -482,7 +485,7 @@ static u32 airoha_ppe_foe_get_entry_hash
  
  static u32 airoha_ppe_foe_get_flow_stats_index(struct airoha_ppe *ppe, u32 hash)
  {
@@ -119,7 +119,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		return hash;
  
  	return hash >= PPE_STATS_NUM_ENTRIES ? hash - PPE1_STATS_NUM_ENTRIES
-@@ -580,7 +583,7 @@ airoha_ppe_foe_get_entry_locked(struct a
+@@ -566,7 +569,7 @@ airoha_ppe_foe_get_entry_locked(struct a
  		u32 val;
  		int i;
  
@@ -128,7 +128,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		       hash >= PPE1_SRAM_NUM_ENTRIES;
  		airoha_fe_wr(ppe->eth, REG_PPE_RAM_CTRL(ppe2),
  			     FIELD_PREP(PPE_SRAM_CTRL_ENTRY_MASK, hash) |
-@@ -658,7 +661,7 @@ static int airoha_ppe_foe_commit_entry(s
+@@ -644,7 +647,7 @@ static int airoha_ppe_foe_commit_entry(s
  
  	if (hash < PPE_SRAM_NUM_ENTRIES) {
  		dma_addr_t addr = ppe->foe_dma + hash * sizeof(*hwe);
@@ -137,7 +137,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  			    hash >= PPE1_SRAM_NUM_ENTRIES;
  
  		err = npu->ops.ppe_foe_commit_entry(npu, addr, sizeof(*hwe),
-@@ -1249,7 +1252,7 @@ static int airoha_ppe_flush_sram_entries
+@@ -1231,7 +1234,7 @@ static int airoha_ppe_flush_sram_entries
  	int i, sram_num_entries = PPE_SRAM_NUM_ENTRIES;
  	struct airoha_foe_entry *hwe = ppe->foe;
  

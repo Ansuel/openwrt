@@ -17,8 +17,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  5 files changed, 2686 insertions(+), 3 deletions(-)
  create mode 100644 drivers/net/pcs/airoha/pcs-an7583.c
 
-diff --git a/drivers/net/pcs/airoha/Kconfig b/drivers/net/pcs/airoha/Kconfig
-index ba88cca278b1..c16efa1510e4 100644
 --- a/drivers/net/pcs/airoha/Kconfig
 +++ b/drivers/net/pcs/airoha/Kconfig
 @@ -9,3 +9,10 @@ config PCS_AIROHA_AN7581
@@ -32,8 +30,6 @@ index ba88cca278b1..c16efa1510e4 100644
 +	help
 +	  This module provides helper to phylink for managing the Airoha
 +	  AN7583 PCS for SoC Ethernet and PON SERDES.
-diff --git a/drivers/net/pcs/airoha/Makefile b/drivers/net/pcs/airoha/Makefile
-index 25cb8f090c21..69b8b0a0266b 100644
 --- a/drivers/net/pcs/airoha/Makefile
 +++ b/drivers/net/pcs/airoha/Makefile
 @@ -5,3 +5,6 @@ pcs-airoha-objs			:= pcs-airoha-common.o
@@ -43,8 +39,6 @@ index 25cb8f090c21..69b8b0a0266b 100644
 +ifdef CONFIG_PCS_AIROHA_AN7583
 +pcs-airoha-objs			+= pcs-an7583.o
 +endif
-diff --git a/drivers/net/pcs/airoha/pcs-airoha-common.c b/drivers/net/pcs/airoha/pcs-airoha-common.c
-index 916f03c259bd..f9ba4a47da1d 100644
 --- a/drivers/net/pcs/airoha/pcs-airoha-common.c
 +++ b/drivers/net/pcs/airoha/pcs-airoha-common.c
 @@ -19,6 +19,7 @@
@@ -55,7 +49,7 @@ index 916f03c259bd..f9ba4a47da1d 100644
  	u32 xsi_sel;
  
  	switch (interface) {
-@@ -36,6 +37,12 @@ static void airoha_pcs_setup_scu_eth(struct airoha_pcs_priv *priv,
+@@ -36,6 +37,12 @@ static void airoha_pcs_setup_scu_eth(str
  	regmap_update_bits(priv->scu, AIROHA_SCU_SSR3,
  			   AIROHA_SCU_ETH_XSI_SEL,
  			   xsi_sel);
@@ -68,7 +62,7 @@ index 916f03c259bd..f9ba4a47da1d 100644
  }
  
  static void airoha_pcs_setup_scu_pon(struct airoha_pcs_priv *priv,
-@@ -100,16 +107,24 @@ static int airoha_pcs_setup_scu(struct airoha_pcs_priv *priv,
+@@ -100,16 +107,24 @@ static int airoha_pcs_setup_scu(struct a
  
  static void airoha_pcs_init_usxgmii(struct airoha_pcs_priv *priv)
  {
@@ -96,7 +90,7 @@ index 916f03c259bd..f9ba4a47da1d 100644
  }
  
  static void airoha_pcs_init_hsgmii(struct airoha_pcs_priv *priv)
-@@ -434,6 +449,13 @@ static int airoha_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
+@@ -445,6 +460,13 @@ static int airoha_pcs_config(struct phyl
  					AIROHA_PCS_USXGMII_PCS_AN_CONTROL_7,
  					AIROHA_PCS_USXGMII_RATE_UPDATE_MODE);
  		}
@@ -110,7 +104,7 @@ index 916f03c259bd..f9ba4a47da1d 100644
  	}
  
  	/* Clear any force bit that my be set by bootloader */
-@@ -985,7 +1007,8 @@ static int airoha_pcs_probe(struct platform_device *pdev)
+@@ -1002,7 +1024,8 @@ static int airoha_pcs_probe(struct platf
  	 * manual rx calibration is needed. This is only limited to
  	 * any SoC revision before E2.
  	 */
@@ -120,7 +114,7 @@ index 916f03c259bd..f9ba4a47da1d 100644
  		u32 val;
  
  		ret = regmap_read(priv->scu, AIROHA_SCU_PDIDR, &val);
-@@ -1003,6 +1026,8 @@ static int airoha_pcs_probe(struct platform_device *pdev)
+@@ -1020,6 +1043,8 @@ static int airoha_pcs_probe(struct platf
  
  static const struct airoha_pcs_match_data an7581_pcs_eth = {
  	.port_type = AIROHA_PCS_ETH,
@@ -129,7 +123,7 @@ index 916f03c259bd..f9ba4a47da1d 100644
  	.bringup = an7581_pcs_bringup,
  	.link_up = an7581_pcs_phya_link_up,
  	.rxlock_workaround = an7581_pcs_rxlock_workaround,
-@@ -1008,13 +1032,33 @@ static const struct airoha_pcs_match_data an7581_pcs_eth = {
+@@ -1027,13 +1052,33 @@ static const struct airoha_pcs_match_dat
  
  static const struct airoha_pcs_match_data an7581_pcs_pon = {
  	.port_type = AIROHA_PCS_PON,
@@ -163,8 +157,6 @@ index 916f03c259bd..f9ba4a47da1d 100644
  	{ /* sentinel */ },
  };
  MODULE_DEVICE_TABLE(of, airoha_pcs_of_table);
-diff --git a/drivers/net/pcs/airoha/pcs-airoha.h b/drivers/net/pcs/airoha/pcs-airoha.h
-index 93ddec60d6dd..790adbe5179c 100644
 --- a/drivers/net/pcs/airoha/pcs-airoha.h
 +++ b/drivers/net/pcs/airoha/pcs-airoha.h
 @@ -14,6 +14,9 @@
@@ -785,7 +777,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  	int (*bringup)(struct airoha_pcs_priv *priv,
  			phy_interface_t interface);
  	void (*link_up)(struct airoha_pcs_priv *priv);
-@@ -820,3 +1233,20 @@ static inline int an7581_pcs_rxlock_workaround(struct airoha_pcs_priv *priv)
+@@ -820,3 +1233,20 @@ static inline int an7581_pcs_rxlock_work
  	return 0;
  }
  #endif
@@ -806,9 +798,6 @@ index 93ddec60d6dd..790adbe5179c 100644
 +{
 +}
 +#endif
-diff --git a/drivers/net/pcs/airoha/pcs-an7583.c b/drivers/net/pcs/airoha/pcs-an7583.c
-new file mode 100644
-index 000000000000..8d8f79746d5b
 --- /dev/null
 +++ b/drivers/net/pcs/airoha/pcs-an7583.c
 @@ -0,0 +1,2199 @@
@@ -3011,6 +3000,3 @@ index 000000000000..8d8f79746d5b
 +	regmap_clear_bits(priv->xfi_pma, AIROHA_PCS_PMA_RX_CTRL_SEQUENCE_FORCE_CTRL_1,
 +			AIROHA_PCS_PMA_DISB_RX_RDY);
 +}
--- 
-2.51.0
-

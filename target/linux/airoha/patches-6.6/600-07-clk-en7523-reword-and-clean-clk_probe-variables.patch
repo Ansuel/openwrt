@@ -12,11 +12,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/clk/clk-en7523.c | 20 +++++++++++---------
  1 file changed, 11 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
-index a768ba71feec..5236119bca83 100644
 --- a/drivers/clk/clk-en7523.c
 +++ b/drivers/clk/clk-en7523.c
-@@ -881,25 +881,27 @@ static int en7581_clk_hw_init(struct platform_device *pdev,
+@@ -881,25 +881,27 @@ static int en7581_clk_hw_init(struct pla
  
  static int en7523_clk_probe(struct platform_device *pdev)
  {
@@ -53,6 +51,3 @@ index a768ba71feec..5236119bca83 100644
  }
  
  static const struct en_clk_soc_data en7523_data = {
--- 
-2.48.1
-

@@ -112,7 +112,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  }
  
  static irqreturn_t airoha_npu_mbox_handler(int irq, void *npu_instance)
-@@ -551,12 +565,13 @@ struct airoha_npu *airoha_npu_get(struct
+@@ -553,12 +567,13 @@ struct airoha_npu *airoha_npu_get(struct
  		return ERR_PTR(-ENODEV);
  
  	pdev = of_find_device_by_node(np);
@@ -127,7 +127,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	if (!try_module_get(THIS_MODULE)) {
  		dev_err(dev, "failed to get the device driver module\n");
-@@ -596,8 +611,19 @@ void airoha_npu_put(struct airoha_npu *n
+@@ -609,8 +624,19 @@ void airoha_npu_put(struct airoha_npu *n
  }
  EXPORT_SYMBOL_GPL(airoha_npu_put);
  

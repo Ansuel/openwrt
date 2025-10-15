@@ -147,6 +147,3 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define AIROHA_USB2_MONCLK_SEL3                 3
 +
 +#endif
--- 
-2.51.0
-

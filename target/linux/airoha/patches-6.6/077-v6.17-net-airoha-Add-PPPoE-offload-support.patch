@@ -12,11 +12,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_ppe.c | 31 ++++++++++++++++++------
  1 file changed, 23 insertions(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index 9067d2fc7706..50d816344b1f 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -232,6 +232,7 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
+@@ -232,6 +232,7 @@ static int airoha_ppe_foe_entry_prepare(
  	      FIELD_PREP(AIROHA_FOE_IB1_BIND_UDP, l4proto == IPPROTO_UDP) |
  	      FIELD_PREP(AIROHA_FOE_IB1_BIND_VLAN_LAYER, data->vlan.num) |
  	      FIELD_PREP(AIROHA_FOE_IB1_BIND_VPM, data->vlan.num) |
@@ -24,7 +22,7 @@ index 9067d2fc7706..50d816344b1f 100644
  	      AIROHA_FOE_IB1_BIND_TTL;
  	hwe->ib1 = val;
  
-@@ -281,33 +282,42 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
+@@ -281,33 +282,42 @@ static int airoha_ppe_foe_entry_prepare(
  		hwe->ipv6.data = qdata;
  		hwe->ipv6.ib2 = val;
  		l2 = &hwe->ipv6.l2;
@@ -75,7 +73,7 @@ index 9067d2fc7706..50d816344b1f 100644
  	}
  
  	return 0;
-@@ -957,6 +967,11 @@ static int airoha_ppe_flow_offload_replace(struct airoha_gdm_port *port,
+@@ -957,6 +967,11 @@ static int airoha_ppe_flow_offload_repla
  		case FLOW_ACTION_VLAN_POP:
  			break;
  		case FLOW_ACTION_PPPOE_PUSH:
@@ -87,6 +85,3 @@ index 9067d2fc7706..50d816344b1f 100644
  			break;
  		default:
  			return -EOPNOTSUPP;
--- 
-2.51.0
-

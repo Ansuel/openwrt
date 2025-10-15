@@ -35,13 +35,11 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  3 files changed, 284 insertions(+)
  create mode 100644 drivers/net/mdio/mdio-airoha.c
 
-diff --git a/drivers/net/mdio/Kconfig b/drivers/net/mdio/Kconfig
-index 7db40aaa079d..e1e32b687068 100644
 --- a/drivers/net/mdio/Kconfig
 +++ b/drivers/net/mdio/Kconfig
-@@ -27,6 +27,13 @@ config ACPI_MDIO
- 	help
- 	  ACPI MDIO bus (Ethernet PHY) accessors
+@@ -46,6 +46,13 @@ if MDIO_BUS
+ config MDIO_DEVRES
+ 	tristate
  
 +config MDIO_AIROHA
 +	tristate "Airoha AN7583 MDIO bus controller"
@@ -53,8 +51,6 @@ index 7db40aaa079d..e1e32b687068 100644
  config MDIO_SUN4I
  	tristate "Allwinner sun4i MDIO interface support"
  	depends on ARCH_SUNXI || COMPILE_TEST
-diff --git a/drivers/net/mdio/Makefile b/drivers/net/mdio/Makefile
-index c23778e73890..fbec636700e7 100644
 --- a/drivers/net/mdio/Makefile
 +++ b/drivers/net/mdio/Makefile
 @@ -5,6 +5,7 @@ obj-$(CONFIG_ACPI_MDIO)		+= acpi_mdio.o
@@ -65,9 +61,6 @@ index c23778e73890..fbec636700e7 100644
  obj-$(CONFIG_MDIO_ASPEED)		+= mdio-aspeed.o
  obj-$(CONFIG_MDIO_BCM_IPROC)		+= mdio-bcm-iproc.o
  obj-$(CONFIG_MDIO_BCM_UNIMAC)		+= mdio-bcm-unimac.o
-diff --git a/drivers/net/mdio/mdio-airoha.c b/drivers/net/mdio/mdio-airoha.c
-new file mode 100644
-index 000000000000..1dc9939c8d7d
 --- /dev/null
 +++ b/drivers/net/mdio/mdio-airoha.c
 @@ -0,0 +1,276 @@
@@ -347,6 +340,3 @@ index 000000000000..1dc9939c8d7d
 +MODULE_DESCRIPTION("Airoha AN7583 MDIO interface driver");
 +MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 +MODULE_LICENSE("GPL");
--- 
-2.51.0
-

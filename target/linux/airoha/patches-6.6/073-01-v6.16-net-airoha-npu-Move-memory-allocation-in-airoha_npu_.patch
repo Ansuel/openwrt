@@ -16,11 +16,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_npu.c | 126 +++++++++++++----------
  1 file changed, 72 insertions(+), 54 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_npu.c b/drivers/net/ethernet/airoha/airoha_npu.c
-index ead0625e781f..51c6fbd7b7b7 100644
 --- a/drivers/net/ethernet/airoha/airoha_npu.c
 +++ b/drivers/net/ethernet/airoha/airoha_npu.c
-@@ -124,17 +124,12 @@ static int airoha_npu_send_msg(struct airoha_npu *npu, int func_id,
+@@ -124,17 +124,12 @@ static int airoha_npu_send_msg(struct ai
  	u16 core = 0; /* FIXME */
  	u32 val, offset = core << 4;
  	dma_addr_t dma_addr;
@@ -40,7 +38,7 @@ index ead0625e781f..51c6fbd7b7b7 100644
  
  	spin_lock_bh(&npu->cores[core].lock);
  
-@@ -155,8 +150,6 @@ static int airoha_npu_send_msg(struct airoha_npu *npu, int func_id,
+@@ -155,8 +150,6 @@ static int airoha_npu_send_msg(struct ai
  	spin_unlock_bh(&npu->cores[core].lock);
  
  	dma_unmap_single(npu->dev, dma_addr, size, DMA_TO_DEVICE);
@@ -49,7 +47,7 @@ index ead0625e781f..51c6fbd7b7b7 100644
  
  	return ret;
  }
-@@ -261,76 +254,101 @@ static irqreturn_t airoha_npu_wdt_handler(int irq, void *core_instance)
+@@ -261,76 +254,101 @@ static irqreturn_t airoha_npu_wdt_handle
  
  static int airoha_npu_ppe_init(struct airoha_npu *npu)
  {
@@ -63,13 +61,13 @@ index ead0625e781f..51c6fbd7b7b7 100644
 -	};
 +	struct ppe_mbox_data *ppe_data;
 +	int err;
-+
-+	ppe_data = kzalloc(sizeof(*ppe_data), GFP_KERNEL);
-+	if (!ppe_data)
-+		return -ENOMEM;
  
 -	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
 -				   sizeof(struct ppe_mbox_data));
++	ppe_data = kzalloc(sizeof(*ppe_data), GFP_KERNEL);
++	if (!ppe_data)
++		return -ENOMEM;
++
 +	ppe_data->func_type = NPU_OP_SET;
 +	ppe_data->func_id = PPE_FUNC_SET_WAIT_HWNAT_INIT;
 +	ppe_data->init_info.ppe_type = PPE_TYPE_L2B_IPV4_IPV6;
@@ -94,12 +92,12 @@ index ead0625e781f..51c6fbd7b7b7 100644
 +	ppe_data = kzalloc(sizeof(*ppe_data), GFP_KERNEL);
 +	if (!ppe_data)
 +		return -ENOMEM;
-+
-+	ppe_data->func_type = NPU_OP_SET;
-+	ppe_data->func_id = PPE_FUNC_SET_WAIT_HWNAT_DEINIT;
  
 -	return airoha_npu_send_msg(npu, NPU_FUNC_PPE, &ppe_data,
 -				   sizeof(struct ppe_mbox_data));
++	ppe_data->func_type = NPU_OP_SET;
++	ppe_data->func_id = PPE_FUNC_SET_WAIT_HWNAT_DEINIT;
++
 +	err = airoha_npu_send_msg(npu, NPU_FUNC_PPE, ppe_data,
 +				  sizeof(*ppe_data));
 +	kfree(ppe_data);
@@ -177,14 +175,14 @@ index ead0625e781f..51c6fbd7b7b7 100644
  	if (err)
 -		return err;
 +		goto out;
-+
-+	ppe_data->set_info.func_id = PPE_SRAM_SET_VAL;
-+	ppe_data->set_info.data = hash;
-+	ppe_data->set_info.size = sizeof(u32);
  
 -	ppe_data.set_info.func_id = PPE_SRAM_SET_VAL;
 -	ppe_data.set_info.data = hash;
 -	ppe_data.set_info.size = sizeof(u32);
++	ppe_data->set_info.func_id = PPE_SRAM_SET_VAL;
++	ppe_data->set_info.data = hash;
++	ppe_data->set_info.size = sizeof(u32);
++
 +	err = airoha_npu_send_msg(npu, NPU_FUNC_PPE, ppe_data,
 +				  sizeof(*ppe_data));
 +out:
@@ -196,6 +194,3 @@ index ead0625e781f..51c6fbd7b7b7 100644
  }
  
  struct airoha_npu *airoha_npu_get(struct device *dev)
--- 
-2.51.0
-

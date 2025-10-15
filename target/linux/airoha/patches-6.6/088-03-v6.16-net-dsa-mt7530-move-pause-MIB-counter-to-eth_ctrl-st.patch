@@ -18,11 +18,9 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  drivers/net/dsa/mt7530.h |  2 ++
  2 files changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 54a6ddc380e9..f183a604355e 100644
 --- a/drivers/net/dsa/mt7530.c
 +++ b/drivers/net/dsa/mt7530.c
-@@ -43,7 +43,6 @@ static const struct mt7530_mib_desc mt7530_mib[] = {
+@@ -42,7 +42,6 @@ static const struct mt7530_mib_desc mt75
  	MIB_DESC(1, 0x20, "TxDeferred"),
  	MIB_DESC(1, 0x24, "TxLateCollision"),
  	MIB_DESC(1, 0x28, "TxExcessiveCollistion"),
@@ -30,7 +28,7 @@ index 54a6ddc380e9..f183a604355e 100644
  	MIB_DESC(2, 0x48, "TxBytes"),
  	MIB_DESC(1, 0x60, "RxDrop"),
  	MIB_DESC(1, 0x64, "RxFiltering"),
-@@ -52,7 +51,6 @@ static const struct mt7530_mib_desc mt7530_mib[] = {
+@@ -51,7 +50,6 @@ static const struct mt7530_mib_desc mt75
  	MIB_DESC(1, 0x70, "RxBroadcast"),
  	MIB_DESC(1, 0x74, "RxAlignErr"),
  	MIB_DESC(1, 0x78, "RxCrcErr"),
@@ -38,7 +36,7 @@ index 54a6ddc380e9..f183a604355e 100644
  	MIB_DESC(2, 0xa8, "RxBytes"),
  	MIB_DESC(1, 0xb0, "RxCtrlDrop"),
  	MIB_DESC(1, 0xb4, "RxIngressDrop"),
-@@ -867,6 +865,18 @@ static void mt7530_get_rmon_stats(struct dsa_switch *ds, int port,
+@@ -866,6 +864,18 @@ static void mt7530_get_rmon_stats(struct
  	*ranges = mt7530_rmon_ranges;
  }
  
@@ -57,7 +55,7 @@ index 54a6ddc380e9..f183a604355e 100644
  static int
  mt7530_set_ageing_time(struct dsa_switch *ds, unsigned int msecs)
  {
-@@ -3154,6 +3164,7 @@ const struct dsa_switch_ops mt7530_switch_ops = {
+@@ -3219,6 +3229,7 @@ const struct dsa_switch_ops mt7530_switc
  	.get_ethtool_stats	= mt7530_get_ethtool_stats,
  	.get_sset_count		= mt7530_get_sset_count,
  	.get_rmon_stats		= mt7530_get_rmon_stats,
@@ -65,11 +63,9 @@ index 54a6ddc380e9..f183a604355e 100644
  	.set_ageing_time	= mt7530_set_ageing_time,
  	.port_enable		= mt7530_port_enable,
  	.port_disable		= mt7530_port_disable,
-diff --git a/drivers/net/dsa/mt7530.h b/drivers/net/dsa/mt7530.h
-index 9bc90d1678f7..a651ad29b750 100644
 --- a/drivers/net/dsa/mt7530.h
 +++ b/drivers/net/dsa/mt7530.h
-@@ -424,6 +424,7 @@ enum mt7530_vlan_port_acc_frm {
+@@ -412,6 +412,7 @@ enum mt7530_vlan_port_acc_frm {
  /* Register for MIB */
  #define MT7530_PORT_MIB_COUNTER(x)	(0x4000 + (x) * 0x100)
  /* Each define is an offset of MT7530_PORT_MIB_COUNTER */
@@ -77,7 +73,7 @@ index 9bc90d1678f7..a651ad29b750 100644
  #define   MT7530_PORT_MIB_TX_PKT_SZ_64	0x30
  #define   MT7530_PORT_MIB_TX_PKT_SZ_65_TO_127 0x34
  #define   MT7530_PORT_MIB_TX_PKT_SZ_128_TO_255 0x38
-@@ -434,6 +435,7 @@ enum mt7530_vlan_port_acc_frm {
+@@ -422,6 +423,7 @@ enum mt7530_vlan_port_acc_frm {
  #define   MT7530_PORT_MIB_RX_FRAG_ERR	0x80
  #define   MT7530_PORT_MIB_RX_OVER_SZ_ERR 0x84
  #define   MT7530_PORT_MIB_RX_JABBER_ERR	0x88
@@ -85,6 +81,3 @@ index 9bc90d1678f7..a651ad29b750 100644
  #define   MT7530_PORT_MIB_RX_PKT_SZ_64	0x90
  #define   MT7530_PORT_MIB_RX_PKT_SZ_65_TO_127 0x94
  #define   MT7530_PORT_MIB_RX_PKT_SZ_128_TO_255 0x98
--- 
-2.51.0
-
