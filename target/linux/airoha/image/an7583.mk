@@ -15,17 +15,16 @@ define Build/an7583-preloader
 endef
 
 define Build/an7583-bl31-uboot
-  [ -f $(STAGING_DIR_ROOT)/lib/firmware/as21x1x_fw.bin ] && \
+  [ ! -f $(STAGING_DIR_ROOT)/lib/firmware/as21x1x_fw.bin ] || \
     $(STAGING_DIR_HOST)/bin/fiptool update  \
       --blob uuid=58704aef-389f-3e52-b475-e0bf2234a6a2,file=$(STAGING_DIR_ROOT)/lib/firmware/as21x1x_fw.bin \
       $(STAGING_DIR_IMAGE)/an7583_$1-bl31-u-boot.fip
-  [ -f $(STAGING_DIR_ROOT)/lib/firmware/airoha/EthMD32.dm.bin ] && \
+  [ ! -f $(STAGING_DIR_ROOT)/lib/firmware/airoha/EthMD32.dm.bin ] || ( \
     cat $(STAGING_DIR_ROOT)/lib/firmware/airoha/EthMD32.dm.bin > $(STAGING_DIR_IMAGE)/en8811h.bin && \
-    cat $(STAGING_DIR_ROOT)/lib/firmware/airoha/EthMD32.DSP.bin >> $(STAGING_DIR_IMAGE)/en8811h.bin
-  [ -f $(STAGING_DIR_IMAGE)/en8811h.bin ] && \
+    cat $(STAGING_DIR_ROOT)/lib/firmware/airoha/EthMD32.DSP.bin >> $(STAGING_DIR_IMAGE)/en8811h.bin && \
     $(STAGING_DIR_HOST)/bin/fiptool update  \
       --blob uuid=d39d2cf2-9bd0-3ca7-93e9-e71b4f9250b2,file=$(STAGING_DIR_IMAGE)/en8811h.bin \
-      $(STAGING_DIR_IMAGE)/an7583_$1-bl31-u-boot.fip
+      $(STAGING_DIR_IMAGE)/an7583_$1-bl31-u-boot.fip )
   cat $(STAGING_DIR_IMAGE)/an7583_$1-bl31-u-boot.fip >> $@
 endef
 
