@@ -1,0 +1,77 @@
+From 344567e3190fd53e9727a1c2a960f45de091c3de Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Wed, 15 Oct 2025 02:24:28 +0200
+Subject: [PATCH 3/6] airoha: add as21xxx PHY nodes for AN7583
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ arch/arm/dts/an7583-evb.dts | 35 ++++++++++++++++++++++++++++++++---
+ 1 file changed, 32 insertions(+), 3 deletions(-)
+
+diff --git a/arch/arm/dts/an7583-evb.dts b/arch/arm/dts/an7583-evb.dts
+index 3e05c43a362..41ce7b1a732 100644
+--- a/arch/arm/dts/an7583-evb.dts
++++ b/arch/arm/dts/an7583-evb.dts
+@@ -35,6 +35,13 @@
+ 		phandlepart = <&mmc0 0>;
+ 		partoffset = <0x100>;
+ 	};
++
++	fs_loader1: fip-loader-ubi {
++		bootph-all;
++		compatible = "u-boot,fip-loader";
++		mtdpart = "ubi";
++		ubivol = "fip";
++	};
+ };
+ 
+ &an7583_pinctrl {
+@@ -127,6 +134,24 @@
+ 			};
+ 		};
+ 	};
++
++	as21xxx_0: ethernet-phy@f {
++		reg = <0x1d>;
++
++		compatible = "ethernet-phy-id7500.9410";
++
++		firmware-name = "58704aef-389f-3e52-b475-e0bf2234a6a2";
++		firmware-loader = <&fs_loader1>;
++	};
++
++	as21xxx_1: ethernet-phy@f {
++		reg = <0x1f>;
++
++		compatible = "ethernet-phy-id7500.9410";
++
++		firmware-name = "58704aef-389f-3e52-b475-e0bf2234a6a2";
++		firmware-loader = <&fs_loader1>;
++	};
+ };
+ 
+ &gdm1 {
+@@ -136,13 +161,17 @@
+ &gdm2 {
+ 	status = "okay";
+ 
+-	managed = "in-band-status";
++	phy-handle = <&as21xxx_0>;
+ 	phy-mode = "usxgmii";
+ };
+ 
+ &gdm3 {
+ 	status = "okay";
+ 
+-	phy-handle = <&en8811>;
+-	phy-mode = "2500base-x";
++	/* For en8811 */
++	// phy-handle = <&en8811>;
++	// phy-mode = "2500base-x";
++
++	phy-handle = <&as21xxx_1>;
++	phy-mode = "usxgmii";
+ };
+-- 
+2.51.0
+

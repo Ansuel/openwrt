@@ -1,0 +1,72 @@
+From a68a09bb7939022c830a872eefd60ce597ee401d Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Wed, 15 Oct 2025 02:37:14 +0200
+Subject: [PATCH 1/2] airoha: add as21xx node to mdio node for AN7581
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ arch/arm/dts/en7581-evb-u-boot.dtsi | 35 +++++++++++++++++++++++++----
+ 1 file changed, 31 insertions(+), 4 deletions(-)
+
+diff --git a/arch/arm/dts/en7581-evb-u-boot.dtsi b/arch/arm/dts/en7581-evb-u-boot.dtsi
+index 6b084e3defe..5740308f0dd 100644
+--- a/arch/arm/dts/en7581-evb-u-boot.dtsi
++++ b/arch/arm/dts/en7581-evb-u-boot.dtsi
+@@ -6,24 +6,51 @@
+ 		device_type = "memory";
+ 		reg = <0x0 0x80000000 0x0 0x20000000>;
+ 	};
++
++	fs_loader0: fip-loader {
++		bootph-all;
++		compatible = "u-boot,fip-loader";
++		phandlepart = <&mmc0 0>;
++		partoffset = <0x100>;
++	};
+ };
+ 
+ #include "an7581-u-boot.dtsi"
+ 
++&mdio {
++	as21xxx_0: ethernet-phy@f {
++		reg = <0x1c>;
++
++		compatible = "ethernet-phy-id7500.9410";
++
++		firmware-name = "58704aef-389f-3e52-b475-e0bf2234a6a2";
++		firmware-loader = <&fs_loader0>;
++	};
++
++	as21xxx_1: ethernet-phy@f {
++		reg = <0x1d>;
++
++		compatible = "ethernet-phy-id7500.9410";
++
++		firmware-name = "58704aef-389f-3e52-b475-e0bf2234a6a2";
++		firmware-loader = <&fs_loader0>;
++	};
++};
++
+ &gdm1 {
+ 	status = "okay";
+ };
+ 
+ &gdm2 {
+ 	status = "okay";
+ 
+-	managed = "in-band-status";
+-	phy-mode = "10gbase-r";
++	phy-handle = <&as21xxx_0>;
++	phy-mode = "usxgmii";
+ };
+ 
+ &gdm4 {
+ 	status = "okay";
+ 
+-	managed = "in-band-status";
++	phy-handle = <&as21xxx_1>;
+ 	phy-mode = "usxgmii";
+ };
+-- 
+2.51.0
+

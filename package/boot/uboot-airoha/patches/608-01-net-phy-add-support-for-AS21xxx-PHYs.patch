@@ -1,0 +1,773 @@
+From ed49cadc6a1fdf6056e94e43e0380fba20950770 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Wed, 15 Oct 2025 02:14:03 +0200
+Subject: [PATCH 05/10] net: phy: add support for AS21xxx PHYs
+
+Add support for Aeonsemi AS21xxx PHYs, a family of PHYs from Aeonsemi
+that supports from 1G to 10G speed. To correctly work a firmware needs
+to be loaded and on PHY reset the firmware gets reset.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/phy/Kconfig   |   3 +
+ drivers/net/phy/Makefile  |   1 +
+ drivers/net/phy/as21xxx.c | 721 ++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 725 insertions(+)
+ create mode 100644 drivers/net/phy/as21xxx.c
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index debe9f09031..0c829a696b2 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -111,6 +111,9 @@ config PHY_ATHEROS
+ config SPL_PHY_ATHEROS
+ 	bool "Atheros Ethernet PHYs support (SPL)"
+ 
++config PHY_AS21XXX
++	bool "Aeonsemi AS21xxx PHYs support"
++
+ config PHY_BROADCOM
+ 	bool "Broadcom Ethernet PHYs support"
+ 
+diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+index 6e1ef9b003f..9e7caae8f89 100644
+--- a/drivers/net/phy/Makefile
++++ b/drivers/net/phy/Makefile
+@@ -13,6 +13,7 @@ obj-$(CONFIG_PHYLIB_10G) += generic_10g.o
+ obj-$(CONFIG_PHY_ADIN) += adin.o
+ obj-$(CONFIG_PHY_AQUANTIA) += aquantia.o
+ obj-$(CONFIG_PHY_ATHEROS) += atheros.o
++obj-$(CONFIG_PHY_AS21XXX) += as21xxx.o
+ obj-$(CONFIG_PHY_BROADCOM) += broadcom.o
+ obj-$(CONFIG_PHY_CORTINA) += cortina.o
+ obj-$(CONFIG_PHY_CORTINA_ACCESS) += ca_phy.o
+diff --git a/drivers/net/phy/as21xxx.c b/drivers/net/phy/as21xxx.c
+new file mode 100644
+index 00000000000..97fc80bf147
+--- /dev/null
++++ b/drivers/net/phy/as21xxx.c
+@@ -0,0 +1,721 @@
++// SPDX-License-Identifier: GPL-2.0+
++
++#include <phy.h>
++#include <log.h>
++#include <env.h>
++#include <errno.h>
++#include <malloc.h>
++#include <fw_loader.h>
++#include <linux/bitfield.h>
++#include <linux/compat.h>
++#include <linux/iopoll.h>
++#include <dm/device_compat.h>
++
++#define VEND1_GLB_REG_CPU_RESET_ADDR_LO_BASEADDR 0x3
++#define VEND1_GLB_REG_CPU_RESET_ADDR_HI_BASEADDR 0x4
++
++#define VEND1_GLB_REG_CPU_CTRL		0xe
++#define   VEND1_GLB_CPU_CTRL_MASK	GENMASK(4, 0)
++#define   VEND1_GLB_CPU_CTRL_LED_POLARITY_MASK GENMASK(12, 8)
++#define   VEND1_GLB_CPU_CTRL_LED_POLARITY(_n) FIELD_PREP(VEND1_GLB_CPU_CTRL_LED_POLARITY_MASK, \
++							 BIT(_n))
++
++#define VEND1_FW_START_ADDR		0x100
++
++#define VEND1_GLB_REG_MDIO_INDIRECT_ADDRCMD 0x101
++#define VEND1_GLB_REG_MDIO_INDIRECT_LOAD 0x102
++
++#define VEND1_GLB_REG_MDIO_INDIRECT_STATUS 0x103
++
++#define VEND1_PTP_CLK			0x142
++#define   VEND1_PTP_CLK_EN		BIT(6)
++
++/* 5 LED at step of 0x20
++ * FE: Fast-Ethernet (10/100)
++ * GE: Gigabit-Ethernet (1000)
++ * NG: New-Generation (2500/5000/10000)
++ */
++#define VEND1_LED_REG(_n)		(0x1800 + ((_n) * 0x10))
++#define   VEND1_LED_REG_A_EVENT		GENMASK(15, 11)
++#define VEND1_LED_CONF			0x1881
++#define   VEND1_LED_CONFG_BLINK		GENMASK(7, 0)
++
++#define VEND1_SPEED_STATUS		0x4002
++#define   VEND1_SPEED_MASK		GENMASK(7, 0)
++#define   VEND1_SPEED_10000		FIELD_PREP_CONST(VEND1_SPEED_MASK, 0x3)
++#define   VEND1_SPEED_5000		FIELD_PREP_CONST(VEND1_SPEED_MASK, 0x5)
++#define   VEND1_SPEED_2500		FIELD_PREP_CONST(VEND1_SPEED_MASK, 0x9)
++#define   VEND1_SPEED_1000		FIELD_PREP_CONST(VEND1_SPEED_MASK, 0x10)
++#define   VEND1_SPEED_100		FIELD_PREP_CONST(VEND1_SPEED_MASK, 0x20)
++#define   VEND1_SPEED_10		FIELD_PREP_CONST(VEND1_SPEED_MASK, 0x0)
++
++#define VEND1_IPC_CMD			0x5801
++#define   AEON_IPC_CMD_PARITY		BIT(15)
++#define   AEON_IPC_CMD_SIZE		GENMASK(10, 6)
++#define   AEON_IPC_CMD_OPCODE		GENMASK(5, 0)
++
++#define IPC_CMD_NOOP			0x0  /* Do nothing */
++#define IPC_CMD_INFO			0x1  /* Get Firmware Version */
++#define IPC_CMD_SYS_CPU			0x2  /* SYS_CPU */
++#define IPC_CMD_BULK_DATA		0xa  /* Pass bulk data in ipc registers. */
++#define IPC_CMD_BULK_WRITE		0xc  /* Write bulk data to memory */
++#define IPC_CMD_CFG_PARAM		0x1a /* Write config parameters to memory */
++#define IPC_CMD_NG_TESTMODE		0x1b /* Set NG test mode and tone */
++#define IPC_CMD_TEMP_MON		0x15 /* Temperature monitoring function */
++#define IPC_CMD_SET_LED			0x23 /* Set led */
++
++#define VEND1_IPC_STS			0x5802
++#define   AEON_IPC_STS_PARITY		BIT(15)
++#define   AEON_IPC_STS_SIZE		GENMASK(14, 10)
++#define   AEON_IPC_STS_OPCODE		GENMASK(9, 4)
++#define   AEON_IPC_STS_STATUS		GENMASK(3, 0)
++#define   AEON_IPC_STS_STATUS_RCVD	FIELD_PREP_CONST(AEON_IPC_STS_STATUS, 0x1)
++#define   AEON_IPC_STS_STATUS_PROCESS	FIELD_PREP_CONST(AEON_IPC_STS_STATUS, 0x2)
++#define   AEON_IPC_STS_STATUS_SUCCESS	FIELD_PREP_CONST(AEON_IPC_STS_STATUS, 0x4)
++#define   AEON_IPC_STS_STATUS_ERROR	FIELD_PREP_CONST(AEON_IPC_STS_STATUS, 0x8)
++#define   AEON_IPC_STS_STATUS_BUSY	FIELD_PREP_CONST(AEON_IPC_STS_STATUS, 0xe)
++#define   AEON_IPC_STS_STATUS_READY	FIELD_PREP_CONST(AEON_IPC_STS_STATUS, 0xf)
++
++#define VEND1_IPC_DATA0			0x5808
++#define VEND1_IPC_DATA1			0x5809
++#define VEND1_IPC_DATA2			0x580a
++#define VEND1_IPC_DATA3			0x580b
++#define VEND1_IPC_DATA4			0x580c
++#define VEND1_IPC_DATA5			0x580d
++#define VEND1_IPC_DATA6			0x580e
++#define VEND1_IPC_DATA7			0x580f
++#define VEND1_IPC_DATA(_n)		(VEND1_IPC_DATA0 + (_n))
++
++/* Sub command of CMD_INFO */
++#define IPC_INFO_VERSION		0x1
++
++/* Sub command of CMD_SYS_CPU */
++#define IPC_SYS_CPU_REBOOT		0x3
++#define IPC_SYS_CPU_IMAGE_OFST		0x4
++#define IPC_SYS_CPU_IMAGE_CHECK		0x5
++#define IPC_SYS_CPU_PHY_ENABLE		0x6
++
++/* Sub command of CMD_CFG_PARAM */
++#define IPC_CFG_PARAM_DIRECT		0x4
++
++/* CFG DIRECT sub command */
++#define IPC_CFG_PARAM_DIRECT_NG_PHYCTRL	0x1
++#define IPC_CFG_PARAM_DIRECT_CU_AN	0x2
++#define IPC_CFG_PARAM_DIRECT_SDS_PCS	0x3
++#define IPC_CFG_PARAM_DIRECT_AUTO_EEE	0x4
++#define IPC_CFG_PARAM_DIRECT_SDS_PMA	0x5
++#define IPC_CFG_PARAM_DIRECT_DPC_RA	0x6
++#define IPC_CFG_PARAM_DIRECT_DPC_PKT_CHK 0x7
++#define IPC_CFG_PARAM_DIRECT_DPC_SDS_WAIT_ETH 0x8
++#define IPC_CFG_PARAM_DIRECT_WDT	0x9
++#define IPC_CFG_PARAM_DIRECT_SDS_RESTART_AN 0x10
++#define IPC_CFG_PARAM_DIRECT_TEMP_MON	0x11
++#define IPC_CFG_PARAM_DIRECT_WOL	0x12
++
++/* Sub command of CMD_TEMP_MON */
++#define IPC_CMD_TEMP_MON_GET		0x4
++
++#define AS21XXX_MDIO_AN_C22		0xffe0
++
++#define PHY_ID_AS21XXX			0x75009410
++/* AS21xxx ID Legend
++ * AS21x1xxB1
++ *     ^ ^^
++ *     | |J: Supports SyncE/PTP
++ *     | |P: No SyncE/PTP support
++ *     | 1: Supports 2nd Serdes
++ *     | 2: Not 2nd Serdes support
++ *     0: 10G, 5G, 2.5G
++ *     5: 5G, 2.5G
++ *     2: 2.5G
++ */
++#define PHY_ID_AS21011JB1		0x75009402
++#define PHY_ID_AS21011PB1		0x75009412
++#define PHY_ID_AS21010JB1		0x75009422
++#define PHY_ID_AS21010PB1		0x75009432
++#define PHY_ID_AS21511JB1		0x75009442
++#define PHY_ID_AS21511PB1		0x75009452
++#define PHY_ID_AS21510JB1		0x75009462
++#define PHY_ID_AS21510PB1		0x75009472
++#define PHY_ID_AS21210JB1		0x75009482
++#define PHY_ID_AS21210PB1		0x75009492
++#define PHY_VENDOR_AEONSEMI		0x75009400
++
++#define AEON_MAX_LEDS			5
++#define AEON_IPC_DELAY			10000
++#define AEON_IPC_TIMEOUT		(AEON_IPC_DELAY * 100)
++#define AEON_IPC_DATA_NUM_REGISTERS	8
++#define AEON_IPC_DATA_MAX		(AEON_IPC_DATA_NUM_REGISTERS * sizeof(u16))
++
++#define AEON_BOOT_ADDR			0x1000
++#define AEON_CPU_BOOT_ADDR		0x2000
++#define AEON_CPU_CTRL_FW_LOAD		(BIT(4) | BIT(2) | BIT(1) | BIT(0))
++#define AEON_CPU_CTRL_FW_START		BIT(0)
++
++#define AEON_FW_SIZE			261400
++
++enum as21xxx_led_event {
++	VEND1_LED_REG_A_EVENT_ON_10 = 0x0,
++	VEND1_LED_REG_A_EVENT_ON_100,
++	VEND1_LED_REG_A_EVENT_ON_1000,
++	VEND1_LED_REG_A_EVENT_ON_2500,
++	VEND1_LED_REG_A_EVENT_ON_5000,
++	VEND1_LED_REG_A_EVENT_ON_10000,
++	VEND1_LED_REG_A_EVENT_ON_FE_GE,
++	VEND1_LED_REG_A_EVENT_ON_NG,
++	VEND1_LED_REG_A_EVENT_ON_FULL_DUPLEX,
++	VEND1_LED_REG_A_EVENT_ON_COLLISION,
++	VEND1_LED_REG_A_EVENT_BLINK_TX,
++	VEND1_LED_REG_A_EVENT_BLINK_RX,
++	VEND1_LED_REG_A_EVENT_BLINK_ACT,
++	VEND1_LED_REG_A_EVENT_ON_LINK,
++	VEND1_LED_REG_A_EVENT_ON_LINK_BLINK_ACT,
++	VEND1_LED_REG_A_EVENT_ON_LINK_BLINK_RX,
++	VEND1_LED_REG_A_EVENT_ON_FE_GE_BLINK_ACT,
++	VEND1_LED_REG_A_EVENT_ON_NG_BLINK_ACT,
++	VEND1_LED_REG_A_EVENT_ON_NG_BLINK_FE_GE,
++	VEND1_LED_REG_A_EVENT_ON_FD_BLINK_COLLISION,
++	VEND1_LED_REG_A_EVENT_ON,
++	VEND1_LED_REG_A_EVENT_OFF,
++};
++
++struct as21xxx_priv {
++	bool parity_status;
++	/* Protect concurrent IPC access */
++	struct mutex ipc_lock;
++};
++
++static int aeon_firmware_boot(struct phy_device *phydev, const u8 *data,
++			      size_t size)
++{
++	int i, ret;
++	u16 val;
++
++	ret = phy_modify_mmd(phydev, MDIO_MMD_VEND1, VEND1_GLB_REG_CPU_CTRL,
++			     VEND1_GLB_CPU_CTRL_MASK, AEON_CPU_CTRL_FW_LOAD);
++	if (ret)
++		return ret;
++
++	ret = phy_write_mmd(phydev, MDIO_MMD_VEND1, VEND1_FW_START_ADDR,
++			    AEON_BOOT_ADDR);
++	if (ret)
++		return ret;
++
++	ret = phy_modify_mmd(phydev, MDIO_MMD_VEND1,
++			     VEND1_GLB_REG_MDIO_INDIRECT_ADDRCMD,
++			     0x3ffc, 0xc000);
++	if (ret)
++		return ret;
++
++	val = phy_read_mmd(phydev, MDIO_MMD_VEND1,
++			   VEND1_GLB_REG_MDIO_INDIRECT_STATUS);
++	if (val > 1) {
++		printf("wrong origin mdio_indirect_status: %x\n", val);
++		return -EINVAL;
++	}
++
++	/* Firmware is always aligned to u16 */
++	for (i = 0; i < size; i += 2) {
++		val = data[i + 1] << 8 | data[i];
++
++		ret = phy_write_mmd(phydev, MDIO_MMD_VEND1,
++				    VEND1_GLB_REG_MDIO_INDIRECT_LOAD, val);
++		if (ret)
++			return ret;
++	}
++
++	ret = phy_write_mmd(phydev, MDIO_MMD_VEND1,
++			    VEND1_GLB_REG_CPU_RESET_ADDR_LO_BASEADDR,
++			    AEON_CPU_BOOT_ADDR & 0xffff);
++	if (ret)
++		return ret;
++
++	ret = phy_write_mmd(phydev, MDIO_MMD_VEND1,
++			    VEND1_GLB_REG_CPU_RESET_ADDR_HI_BASEADDR,
++			    AEON_CPU_BOOT_ADDR >> 16);
++	if (ret)
++		return ret;
++
++	return phy_modify_mmd(phydev, MDIO_MMD_VEND1, VEND1_GLB_REG_CPU_CTRL,
++			      VEND1_GLB_CPU_CTRL_MASK, AEON_CPU_CTRL_FW_START);
++}
++
++static int aeon_firmware_load(struct phy_device *phydev)
++{
++	struct udevice *fw_loader;
++	const char *fw_name;
++	int fw_size;
++	u8 *buffer;
++	int ret;
++
++	fw_size = AEON_FW_SIZE;
++
++	fw_name = ofnode_read_string(phydev->node, "firmware-name");
++	if (!fw_name)
++		return -EINVAL;
++
++	buffer = malloc(fw_size);
++	if (!buffer) {
++		printf("Failed to allocate memory for firmware\n");
++		return -ENOMEM;
++	}
++
++	ret = get_fw_loader_from_node(phydev->node, &fw_loader);
++	if (ret)
++		goto exit;
++
++	ret = request_firmware_into_buf(fw_loader, fw_name, buffer,
++					fw_size, 0);
++	if (ret < 0)
++		goto exit;
++
++	ret = aeon_firmware_boot(phydev, buffer, fw_size);
++
++exit:
++	free(buffer);
++	if (ret < 0)
++		printf("Firmware loading failed: %d\n", ret);
++
++	return ret;
++}
++
++static bool aeon_ipc_ready(u16 val, bool parity_status)
++{
++	u16 status;
++
++	if (FIELD_GET(AEON_IPC_STS_PARITY, val) != parity_status)
++		return false;
++
++	status = val & AEON_IPC_STS_STATUS;
++
++	return status != AEON_IPC_STS_STATUS_RCVD &&
++	       status != AEON_IPC_STS_STATUS_PROCESS &&
++	       status != AEON_IPC_STS_STATUS_BUSY;
++}
++
++static int aeon_ipc_wait_cmd(struct phy_device *phydev, bool parity_status)
++{
++	u16 val;
++
++	/* Exit condition logic:
++	 * - Wait for parity bit equal
++	 * - Wait for status success, error OR ready
++	 */
++	return phy_read_mmd_poll_timeout(phydev, MDIO_MMD_VEND1, VEND1_IPC_STS, val,
++					 aeon_ipc_ready(val, parity_status),
++					 AEON_IPC_DELAY, AEON_IPC_TIMEOUT, false);
++}
++
++static int aeon_ipc_send_cmd(struct phy_device *phydev,
++			     struct as21xxx_priv *priv,
++			     u16 cmd, u16 *ret_sts)
++{
++	bool curr_parity;
++	int ret;
++
++	/* The IPC sync by using a single parity bit.
++	 * Each CMD have alternately this bit set or clear
++	 * to understand correct flow and packet order.
++	 */
++	curr_parity = priv->parity_status;
++	if (priv->parity_status)
++		cmd |= AEON_IPC_CMD_PARITY;
++
++	/* Always update parity for next packet */
++	priv->parity_status = !priv->parity_status;
++
++	ret = phy_write_mmd(phydev, MDIO_MMD_VEND1, VEND1_IPC_CMD, cmd);
++	if (ret)
++		return ret;
++
++	/* Wait for packet to be processed */
++	udelay(AEON_IPC_DELAY);
++
++	/* With no ret_sts, ignore waiting for packet completion
++	 * (ipc parity bit sync)
++	 */
++	if (!ret_sts)
++		return 0;
++
++	ret = aeon_ipc_wait_cmd(phydev, curr_parity);
++	if (ret)
++		return ret;
++
++	ret = phy_read_mmd(phydev, MDIO_MMD_VEND1, VEND1_IPC_STS);
++	if (ret < 0)
++		return ret;
++
++	*ret_sts = ret;
++	if ((*ret_sts & AEON_IPC_STS_STATUS) != AEON_IPC_STS_STATUS_SUCCESS)
++		return -EINVAL;
++
++	return 0;
++}
++
++/* If data is NULL, return 0 or negative error.
++ * If data not NULL, return number of Bytes received from IPC or
++ * a negative error.
++ */
++static int aeon_ipc_send_msg(struct phy_device *phydev,
++			     u16 opcode, u16 *data, unsigned int data_len,
++			     u16 *ret_data)
++{
++	struct as21xxx_priv *priv = phydev->priv;
++	unsigned int ret_size;
++	u16 cmd, ret_sts;
++	int ret;
++	int i;
++
++	/* IPC have a max of 8 register to transfer data,
++	 * make sure we never exceed this.
++	 */
++	if (data_len > AEON_IPC_DATA_MAX)
++		return -EINVAL;
++
++	for (i = 0; i < data_len / sizeof(u16); i++)
++		phy_write_mmd(phydev, MDIO_MMD_VEND1, VEND1_IPC_DATA(i),
++			      data[i]);
++
++	cmd = FIELD_PREP(AEON_IPC_CMD_SIZE, data_len) |
++	      FIELD_PREP(AEON_IPC_CMD_OPCODE, opcode);
++
++	mutex_lock(&priv->ipc_lock);
++
++	ret = aeon_ipc_send_cmd(phydev, priv, cmd, &ret_sts);
++	if (ret) {
++		printf("failed to send ipc msg for %x: %d\n",
++		       opcode, ret);
++		goto out;
++	}
++
++	if (!data)
++		goto out;
++
++	if ((ret_sts & AEON_IPC_STS_STATUS) == AEON_IPC_STS_STATUS_ERROR) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	/* Prevent IPC from stack smashing the kernel.
++	 * We can't trust IPC to return a good value and we always
++	 * preallocate space for 16 Bytes.
++	 */
++	ret_size = FIELD_GET(AEON_IPC_STS_SIZE, ret_sts);
++	if (ret_size > AEON_IPC_DATA_MAX) {
++		ret = -EINVAL;
++		goto out;
++	}
++
++	/* Read data from IPC data register for ret_size value from IPC */
++	for (i = 0; i < DIV_ROUND_UP(ret_size, sizeof(u16)); i++) {
++		ret = phy_read_mmd(phydev, MDIO_MMD_VEND1, VEND1_IPC_DATA(i));
++		if (ret < 0)
++			goto out;
++
++		ret_data[i] = ret;
++	}
++
++	ret = ret_size;
++
++out:
++	mutex_unlock(&priv->ipc_lock);
++
++	return ret;
++}
++
++static int aeon_ipc_noop(struct phy_device *phydev,
++			 struct as21xxx_priv *priv, u16 *ret_sts)
++{
++	u16 cmd;
++
++	cmd = FIELD_PREP(AEON_IPC_CMD_SIZE, 0) |
++	      FIELD_PREP(AEON_IPC_CMD_OPCODE, IPC_CMD_NOOP);
++
++	return aeon_ipc_send_cmd(phydev, priv, cmd, ret_sts);
++}
++
++/* Logic to sync parity bit with IPC.
++ * We send 2 NOP cmd with same partity and we wait for IPC
++ * to handle the packet only for the second one. This way
++ * we make sure we are sync for every next cmd.
++ */
++static int aeon_ipc_sync_parity(struct phy_device *phydev,
++				struct as21xxx_priv *priv)
++{
++	u16 ret_sts;
++	int ret;
++
++	mutex_lock(&priv->ipc_lock);
++
++	/* Send NOP with no parity */
++	aeon_ipc_noop(phydev, priv, NULL);
++
++	/* Reset packet parity */
++	priv->parity_status = false;
++
++	/* Send second NOP with no parity */
++	ret = aeon_ipc_noop(phydev, priv, &ret_sts);
++
++	mutex_unlock(&priv->ipc_lock);
++
++	/* We expect to return -EINVAL */
++	if (ret != -EINVAL)
++		return ret;
++
++	if ((ret_sts & AEON_IPC_STS_STATUS) != AEON_IPC_STS_STATUS_READY) {
++		printf("Invalid IPC status on sync parity: %x\n",
++		       ret_sts);
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int aeon_ipc_get_fw_version(struct phy_device *phydev)
++{
++	u16 ret_data[AEON_IPC_DATA_NUM_REGISTERS], data[1];
++	char fw_version[AEON_IPC_DATA_MAX + 1];
++	int ret;
++
++	data[0] = IPC_INFO_VERSION;
++
++	ret = aeon_ipc_send_msg(phydev, IPC_CMD_INFO, data,
++				sizeof(data), ret_data);
++	if (ret < 0)
++		return ret;
++
++	/* Make sure FW version is NULL terminated */
++	memcpy(fw_version, ret_data, ret);
++	fw_version[ret] = '\0';
++
++	printf("Firmware Version: %s\n", fw_version);
++
++	return 0;
++}
++
++static int aeon_dpc_ra_enable(struct phy_device *phydev)
++{
++	u16 data[2];
++
++	data[0] = IPC_CFG_PARAM_DIRECT;
++	data[1] = IPC_CFG_PARAM_DIRECT_DPC_RA;
++
++	return aeon_ipc_send_msg(phydev, IPC_CMD_CFG_PARAM, data,
++				 sizeof(data), NULL);
++}
++
++/*  Set LED 0 rule to solid link blink on traffic (blink fast) */
++static int as21xxx_set_led_default(struct phy_device *phydev)
++{
++	int ret;
++
++	ret = phy_modify_mmd(phydev, MDIO_MMD_VEND1,
++			     VEND1_LED_CONF,
++			     VEND1_LED_CONFG_BLINK,
++			     FIELD_PREP(VEND1_LED_CONFG_BLINK, 7));
++	if (ret)
++		return ret;
++
++	return phy_modify_mmd(phydev, MDIO_MMD_VEND1,
++			      VEND1_LED_REG(0),
++			      VEND1_LED_REG_A_EVENT,
++			      FIELD_PREP(VEND1_LED_REG_A_EVENT,
++			     		 VEND1_LED_REG_A_EVENT_ON_LINK_BLINK_ACT));
++}
++
++static int as21xxx_config(struct phy_device *phydev)
++{
++	struct as21xxx_priv *priv = phydev->priv;
++	unsigned int phyid;
++	u16 ret_sts;
++	int ret;
++
++	get_phy_id(phydev->bus, phydev->addr, MDIO_MMD_PCS, &phyid);
++
++	/* Firmware needs to be loaded */
++	if (phyid == PHY_ID_AS21XXX) {
++		printf("Loading firmware ... ");
++		ret = aeon_firmware_load(phydev);
++		if (ret)
++			return ret;
++
++		/* Sync parity... */
++		ret = aeon_ipc_sync_parity(phydev, priv);
++		if (ret)
++			return ret;
++
++		/* ...and send a third NOOP cmd to wait for firmware finish loading */
++		ret = aeon_ipc_noop(phydev, priv, &ret_sts);
++		if (ret)
++			return ret;
++	}
++
++	ret = aeon_ipc_sync_parity(phydev, priv);
++	if (ret)
++		return ret;
++
++	ret = aeon_ipc_get_fw_version(phydev);
++	if (ret)
++		return ret;
++
++	/* Enable PTP clk if not already Enabled */
++	ret = phy_set_bits_mmd(phydev, MDIO_MMD_VEND1, VEND1_PTP_CLK,
++			       VEND1_PTP_CLK_EN);
++	if (ret)
++		return ret;
++
++	ret = aeon_dpc_ra_enable(phydev);
++	if (ret)
++		return ret;
++
++	return as21xxx_set_led_default(phydev);
++}
++
++static int as21xxx_update_link(struct phy_device *phydev)
++{
++	unsigned int mii_reg;
++
++	/*
++	 * Wait if the link is up, and autonegotiation is in progress
++	 * (ie - we're capable and it's not done)
++	 */
++	mii_reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++
++	/*
++	 * If we already saw the link up, and it hasn't gone down, then
++	 * we don't need to wait for autoneg again
++	 */
++	if (phydev->link && mii_reg & MDIO_STAT1_LSTATUS)
++		return 0;
++
++	if ((phydev->autoneg == AUTONEG_ENABLE) &&
++	    !(mii_reg & MDIO_AN_STAT1_COMPLETE)) {
++		u32 i = 0;
++		u32 aneg_timeout = env_get_ulong("phy_aneg_timeout", 10,
++						 CONFIG_PHY_ANEG_TIMEOUT);
++
++		printf("%s Waiting for PHY auto negotiation to complete",
++		       phydev->dev->name);
++
++		while (!(mii_reg & MDIO_AN_STAT1_COMPLETE)) {
++			/*
++			 * Timeout reached ?
++			 */
++			if (i > (aneg_timeout / 50)) {
++				printf(" TIMEOUT !\n");
++				phydev->link = 0;
++				return -ETIMEDOUT;
++			}
++
++			if (ctrlc()) {
++				puts("user interrupt!\n");
++				phydev->link = 0;
++				return -EINTR;
++			}
++
++			if ((i++ % 10) == 0)
++				printf(".");
++
++			mii_reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++			mdelay(50);	/* 50 ms */
++		}
++		printf(" done\n");
++		phydev->link = 1;
++	} else {
++		/* Read the link a second time to clear the latched state */
++		mii_reg = phy_read_mmd(phydev, MDIO_MMD_AN, MDIO_STAT1);
++
++		if (mii_reg & MDIO_STAT1_LSTATUS)
++			phydev->link = 1;
++		else
++			phydev->link = 0;
++	}
++
++	return 0;
++}
++
++static int as21xxx_parse_status(struct phy_device *phydev)
++{
++	int speed, bmcr;
++
++	bmcr = phy_read_mmd(phydev, MDIO_MMD_AN,
++			    AS21XXX_MDIO_AN_C22 + MII_BMCR);
++	if (bmcr < 0)
++		return bmcr;
++
++	speed = phy_read_mmd(phydev, MDIO_MMD_VEND1,
++			     VEND1_SPEED_STATUS);
++	if (speed < 0)
++		return speed;
++
++	switch (speed & VEND1_SPEED_MASK) {
++	case VEND1_SPEED_10000:
++		phydev->speed = SPEED_10000;
++		phydev->duplex = DUPLEX_FULL;
++		break;
++	/* FIXME: U-Boot doesn't support 5G
++	 * case VEND1_SPEED_5000:
++	 *	phydev->speed = SPEED_5000;
++	 *	phydev->duplex = DUPLEX_FULL;
++	 */	break;
++	case VEND1_SPEED_2500:
++		phydev->speed = SPEED_2500;
++		phydev->duplex = DUPLEX_FULL;
++		break;
++	case VEND1_SPEED_1000:
++		phydev->speed = SPEED_1000;
++		if (bmcr & BMCR_FULLDPLX)
++			phydev->duplex = DUPLEX_FULL;
++		else
++			phydev->duplex = DUPLEX_HALF;
++		break;
++	case VEND1_SPEED_100:
++		phydev->speed = SPEED_100;
++		phydev->duplex = DUPLEX_FULL;
++		break;
++	case VEND1_SPEED_10:
++		phydev->speed = SPEED_10;
++		phydev->duplex = DUPLEX_FULL;
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
++static int as21xxx_startup(struct phy_device *phydev)
++{
++	int ret = 0;
++
++	ret = as21xxx_update_link(phydev);
++	if (ret)
++		return ret;
++
++	return as21xxx_parse_status(phydev);
++}
++
++static int as21xxx_probe(struct phy_device *phydev)
++{
++	struct as21xxx_priv *priv;
++
++	priv = calloc(1, sizeof(*priv));
++	if (!priv)
++		return -ENOMEM;
++
++	mutex_init(&priv->ipc_lock);
++
++	phydev->priv = priv;
++
++	return 0;
++}
++
++U_BOOT_PHY_DRIVER(as21xxx) = {
++	.name = "Airoha as21xxx",
++	.uid = PHY_VENDOR_AEONSEMI,
++	.mask = 0xfffffc00,
++	.config = &as21xxx_config,
++	.probe = &as21xxx_probe,
++	.startup = &as21xxx_startup,
++	.shutdown = &genphy_shutdown,
++};
+-- 
+2.51.0
+

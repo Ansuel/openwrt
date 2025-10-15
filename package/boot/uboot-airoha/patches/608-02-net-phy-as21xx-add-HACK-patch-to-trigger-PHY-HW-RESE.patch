@@ -1,0 +1,45 @@
+From cdd8cdcce23a339ad0ab2bb015f47d9f5b24c83e Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Wed, 15 Oct 2025 02:17:08 +0200
+Subject: [PATCH 06/10] net: phy: as21xx: add HACK patch to trigger PHY HW
+ RESET
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/phy/as21xxx.c | 20 ++++++++++++++++++++
+ 1 file changed, 20 insertions(+)
+
+diff --git a/drivers/net/phy/as21xxx.c b/drivers/net/phy/as21xxx.c
+index 97fc80bf147..5786de53bc4 100644
+--- a/drivers/net/phy/as21xxx.c
++++ b/drivers/net/phy/as21xxx.c
+@@ -530,6 +530,26 @@ static int as21xxx_config(struct phy_device *phydev)
+ 	u16 ret_sts;
+ 	int ret;
+ 
++	/* HACK to trigger HW reset on GPIO 34 */
++	if (phydev->addr == 0x1f) {
++		writel(BIT(6), 0x1fbf0260);
++		writel(BIT(3), 0x1fbf0278);
++		writel(0x0, 0x1fbf0270);
++		udelay(200000);
++		writel(BIT(3), 0x1fbf0270);
++		udelay(350000);
++	}
++
++	/* HACK to trigger HW reset on GPIO 35 */
++	if (phydev->addr == 0x1d) {
++		writel(BIT(4), 0x1fbf0260);
++		writel(BIT(2), 0x1fbf0278);
++		writel(0x0, 0x1fbf0270);
++		udelay(200000);
++		writel(BIT(2), 0x1fbf0270);
++		udelay(350000);
++	}
++
+ 	get_phy_id(phydev->bus, phydev->addr, MDIO_MMD_PCS, &phyid);
+ 
+ 	/* Firmware needs to be loaded */
+-- 
+2.51.0
+
