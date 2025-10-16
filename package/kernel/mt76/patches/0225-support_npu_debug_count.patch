@@ -1,0 +1,549 @@
+diff -uNr old/mt7996/mtk_debugfs.c new/mt7996/mtk_debugfs.c
+--- old/mt7996/mtk_debugfs.c	2025-10-15 21:12:23.142364000 +0800
++++ new/mt7996/mtk_debugfs.c	2025-10-16 15:38:48.626918000 +0800
+@@ -3477,6 +3477,345 @@
+ 	.llseek = default_llseek,
+ };
+ 
++
++unsigned long int counter_base[BAND_NUM]={0};
++void npu_wifi_offload_get_dbg_counter_address(struct mt7996_dev *dev)
++{
++    int i=0;
++	struct airoha_npu *npu;
++    //unsigned long int counter_base[band_num]={0};
++	u32 val;
++	npu = rcu_dereference(dev->mt76.mmio.npu);
++	if(!npu)
++	{
++		printk("%s:%d npu load fail !!!!!\n",__func__,__LINE__);
++		return;
++	}
++    for(i = 0; i< (BAND_NUM-1); i++)
++    {
++		if( mt76_npu_get_msg(npu, i, WLAN_FUNC_GET_WAIT_DBG_COUNTER, &val, GFP_ATOMIC)){
++			printk("%s:%d band:%d get dbg counter addr error \n",__func__,__LINE__,i);
++			return;
++		} 
++        if(i == 2)
++        {
++            
++            counter_base[i] = (unsigned long int)ioremap((phys_addr_t)val, (UCOUNTER_BOTTOM * sizeof(unsigned int)));
++        }
++        else
++        {
++            counter_base[i] = (unsigned long int)ioremap((phys_addr_t)val, (COUNTER_BOTTOM * sizeof(unsigned int)));
++        }
++		
++        printk("counter_base[%d]=%lx(%x) \n", i,counter_base[i],val);
++    }
++    return;
++}
++
++int npu_debug_band;
++static ssize_t
++npu_wifioffload_dbg_set(struct file *file, const char __user *user_buf,
++			size_t count, loff_t *ppos)
++{
++	struct mt7996_phy *phy = file->private_data;
++	struct mt7996_dev *dev = phy->dev;
++	char buf[16];
++	int ret = 0;
++	u16 val;
++	if (count >= sizeof(buf))
++		return -EINVAL;
++
++	if (copy_from_user(buf, user_buf, count))
++		return -EFAULT;
++
++	if (count && buf[count - 1] == '\n')
++		buf[count - 1] = '\0';
++	else
++		buf[count] = '\0';
++
++	if (kstrtou16(buf, 0, &val))
++		return -EINVAL;
++
++	switch (val) {
++	case 0:
++	case 1:
++		printk("[%s debug counter]\n",(val==0)?"2.4G/5G":"6G");
++		//print_npu_wifi_offload_dbg_counter(dev, val);
++		npu_debug_band = val;
++		if(counter_base[2] == 0)
++		{
++		    npu_wifi_offload_get_dbg_counter_address(dev);
++		}				
++		break;
++	default:
++		printk("plz echo 0(2.4G) or 1(5G).\n");
++		break;
++	}
++
++	return ret ? ret : count;
++}
++
++
++
++static ssize_t
++npu_wifioffload_dbg_get(struct file *file, char __user *user_buf,
++			size_t count, loff_t *ppos)
++{
++	char *buff;
++	int desc = 0;
++	ssize_t ret;
++	unsigned long int *Counter_Base;
++	static const size_t bufsz = 3072;
++
++	buff = kmalloc(bufsz, GFP_KERNEL);
++	if (!buff)
++		return -ENOMEM;
++
++	if(counter_base[npu_debug_band]==0)
++		return 0;
++	else 
++		Counter_Base = (unsigned long int *)counter_base[npu_debug_band];	
++	desc += scnprintf(buff + desc, bufsz - desc,
++			  "[%s debug counter ]\n", (npu_debug_band==0)?"2.4G/5G":"6G");
++	desc += scnprintf(buff + desc, bufsz - desc,
++			  "get packet while count:\t\t%u\n", NPU_COUNTER(Counter_Base,WHILE_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,
++			  "RX_DESC_DDONE\t\t\t%u\n", NPU_COUNTER(Counter_Base,RX_DESC_DDONE));
++	desc += scnprintf(buff + desc, bufsz - desc,
++			  "ALL_GET_PKT_COUNT\t\t%u\n", NPU_COUNTER(Counter_Base,ALL_GET_PKT_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,
++			  "DROP_PACKETS\t\t\t%u\n", NPU_COUNTER(Counter_Base,DROP_PACKETS));
++	desc += scnprintf(buff + desc, bufsz - desc,
++			  "TO_TDMA_COUNT\t\t\t%u\n", NPU_COUNTER(Counter_Base,TO_QDMA_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"GET_BUFID_FAIL\t\t\t%u\n", NPU_COUNTER(Counter_Base,GET_BUFID_FAIL));
++				//printk("NO_BUFID\t\t\t%lu\n", NPU_COUNTER(Counter_Base,NO_BUFID));
++	desc += scnprintf(buff + desc, bufsz - desc,"SCATTER_CNT_MORE1\t\t%u\n", NPU_COUNTER(Counter_Base, SCATTER_CNT_MORE1));
++	desc += scnprintf(buff + desc, bufsz - desc,"BIGGER_PACKET\t\t\t%u\n", NPU_COUNTER(Counter_Base,BIGGER_PACKET));
++	desc += scnprintf(buff + desc, bufsz - desc,"SCATTER_PKT_ONE_BUFID\t\t%u\n", NPU_COUNTER(Counter_Base, SCATTER_PKT_ONE_BUFID));
++	desc += scnprintf(buff + desc, bufsz - desc,"ENQ_BIGPKT_TOSRAM_FAIL_COUNT\t%u\n", NPU_COUNTER(Counter_Base, 
++	ENQ_BIGPKT_TOSRAM_FAIL_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"------Enq & Deq Counter----------\n");
++	desc += scnprintf(buff + desc, bufsz - desc,"ENQ_DEQ_WHILE_COUNT\t\t%u\n", NPU_COUNTER(Counter_Base,ENQ_DEQ_WHILE_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"ENQ_SRAM_COUNT:\t\t\t%u\n",NPU_COUNTER(Counter_Base,ENQ_SRAM_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"ENQ_SRAM_FULL_COUNT:\t\t%u\n",NPU_COUNTER(Counter_Base,ENQ_SRAM_FULL_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"ENQ_SRAM_FAIL_COUNT:\t\t%u\n",NPU_COUNTER(Counter_Base,ENQ_SRAM_FAIL_COUNT));	
++	desc += scnprintf(buff + desc, bufsz - desc,"DEQ_SRAM_COUNT:\t\t\t%u\nDEQ_SRAM_FAIL_BUFID_COUNT:\t%u\nDEQ_SRAM_FAIL_LEN_COUNT:\t\t%u\n",NPU_COUNTER(Counter_Base,DEQ_SRAM_COUNT),NPU_COUNTER(Counter_Base, DEQ_SRAM_FAIL_BUFID_COUNT), NPU_COUNTER(Counter_Base,DEQ_SRAM_FAIL_LEN_COUNT));
++				//printk("DEQ_SRAM_NO_INFO_COUNT\t\t%lu\n", NPU_COUNTER(Counter_Base, DEQ_SRAM_NO_INFO_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"TO_HOSTAPD_COUNT\t%u\n", NPU_COUNTER(Counter_Base, TO_HOSTAPD_COUNT));
++				//printk("ENQ_DRAM_FAIL_COUNT:\t\t%lu\n",NPU_COUNTER(Counter_Base, ENQ_DRAM_FAIL_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"HOST_APD_ERROR_COUNT:\t\t%u\n", NPU_COUNTER(Counter_Base, HOST_APD_ERROR_COUNT));
++	
++	desc += scnprintf(buff + desc, bufsz - desc,"HOSTADPT_API_Q_FULL:\t\t%u\n", NPU_COUNTER(Counter_Base, HOSTADPT_API_Q_FULL));
++	desc += scnprintf(buff + desc, bufsz - desc,"API_HOSTADPT_SEND:\t\t%u\n", NPU_COUNTER(Counter_Base, API_HOSTADPT_SEND));
++	desc += scnprintf(buff + desc, bufsz - desc,"RX_G4_PKT_NO_SN:\t\t\t%u\n", NPU_COUNTER(Counter_Base, RX_G4_PKT_NO_SN));
++	desc += scnprintf(buff + desc, bufsz - desc,"------pipe queue----------\n");
++	desc += scnprintf(buff + desc, bufsz - desc,"RX_PIPE_Q_FULL:\t\t\t%u\n", NPU_COUNTER(Counter_Base, RX_PIPE_Q_FULL));
++	desc += scnprintf(buff + desc, bufsz - desc,"RX_PIPE_Q3_Q4_FULL:\t\t\t%u\n", NPU_COUNTER(Counter_Base, RX_PIPE_Q3_Q4_FULL));
++	desc += scnprintf(buff + desc, bufsz - desc,"PIPE_Q3_ENQ:\t\t\t%u\n", NPU_COUNTER(Counter_Base, PIPE_Q3_ENQ));
++	desc += scnprintf(buff + desc, bufsz - desc,"PIPE_Q3_DEQ:\t\t\t%u\n", NPU_COUNTER(Counter_Base, PIPE_Q3_DEQ));
++	desc += scnprintf(buff + desc, bufsz - desc,"PIPE_Q4_ENQ:\t\t\t%u\n", NPU_COUNTER(Counter_Base, PIPE_Q4_ENQ));
++	desc += scnprintf(buff + desc, bufsz - desc,"PIPE_Q4_DEQ:\t\t\t%u\n", NPU_COUNTER(Counter_Base, PIPE_Q4_DEQ));
++	desc += scnprintf(buff + desc, bufsz - desc,"------Enq & Deq scatter packet Counter----------\n");
++	desc += scnprintf(buff + desc, bufsz - desc,"NO_BIGPKT_COUNT:\t%u\n", NPU_COUNTER(Counter_Base, NO_BIGPKT_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"GET_BUFID_FOR_BIGPKT_FAIL:\t%u\n", NPU_COUNTER(Counter_Base, GET_BUFID_FOR_BIGPKT_FAIL));
++	desc += scnprintf(buff + desc, bufsz - desc,"BIGPKT_TO_HOSTADPT_ERROR_COUNT:\t%u\n", NPU_COUNTER(Counter_Base, BIGPKT_TO_HOSTADPT_ERROR_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"ENQ_BIGPKT_SRAM_FULL_COUNT:\t%u\n", NPU_COUNTER(Counter_Base, ENQ_BIGPKT_SRAM_FULL_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"ENQ_BIGPKT_SRAM_COUNT:\t\t%u\n", NPU_COUNTER(Counter_Base, ENQ_BIGPKT_SRAM_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"CHECK_BIGPKT:\t\t\t%u\n", NPU_COUNTER(Counter_Base, CHECK_BIGPKT));
++	desc += scnprintf(buff + desc, bufsz - desc,"CHECK_BIGPKT2:\t\t\t%u\n", NPU_COUNTER(Counter_Base, CHECK_BIGPKT2));
++	desc += scnprintf(buff + desc, bufsz - desc,"CHECK_BIGPKT_ISLAST:\t\t%u\n", NPU_COUNTER(Counter_Base, CHECK_BIGPKT_ISLAST));
++	desc += scnprintf(buff + desc, bufsz - desc,"CHECK_BIGPKT_IDX_FAIL:\t\t%u\n", NPU_COUNTER(Counter_Base, CHECK_BIGPKT_IDX_FAIL));
++	desc += scnprintf(buff + desc, bufsz - desc,"CHECK_BIGPKT_CNT_FAIL:\t\t%u\n", NPU_COUNTER(Counter_Base, CHECK_BIGPKT_CNT_FAIL));
++	desc += scnprintf(buff + desc, bufsz - desc,"CHECK_BIGPKT_FAIL:\t\t%u\n", NPU_COUNTER(Counter_Base, CHECK_BIGPKT_FAIL));
++	desc += scnprintf(buff + desc, bufsz - desc,"CHECK_BIGPKT_OVER_RETRY:\t\t%u\n", NPU_COUNTER(Counter_Base, CHECK_BIGPKT_OVER_RETRY));
++	desc += scnprintf(buff + desc, bufsz - desc,"BIGPKT_TO_HOSTAPD_COUNT:\t\t%u\n", NPU_COUNTER(Counter_Base,BIGPKT_TO_HOSTAPD_COUNT ));
++	desc += scnprintf(buff + desc, bufsz - desc,"BIGPKT_DESC_FREE_COUNT:\t\t%u\n", NPU_COUNTER(Counter_Base,BIGPKT_DESC_FREE_COUNT ));
++	desc += scnprintf(buff + desc, bufsz - desc,"------TDMA----------\n");
++	desc += scnprintf(buff + desc, bufsz - desc,"TDMA_TXDESC_FULL_COUNT: \t\t%u\n", NPU_COUNTER(Counter_Base,TDMA_TXDESC_FULL_COUNT ));
++	desc += scnprintf(buff + desc, bufsz - desc,"TDMA_TXDESC_FULL_COUNT2: \t\t%u\n", NPU_COUNTER(Counter_Base,TDMA_TXDESC_FULL_COUNT2 ));
++
++
++	desc += scnprintf(buff + desc, bufsz - desc,"------BA Counter----------\n");	
++	desc += scnprintf(buff + desc, bufsz - desc,"BA1(in order):\t\t\t%u\nBA2(Dupl Packet):\t\t%u\nBA3(old packet):\t\t\t%u\nBA4(with in window):\t\t%u\nBA5(surpasses Win):\t\t%u\nBA_AMSDU:\t\t\t%u\n!AMPDU_COUNT:\t\t\t%u\n",
++	NPU_COUNTER(Counter_Base, BA_IN_ORDER_PKT_COUNT),NPU_COUNTER(Counter_Base, BA_DUPL_PKT_COUNT), NPU_COUNTER(Counter_Base,BA_OLD_PKT_COUNT), NPU_COUNTER(Counter_Base,BA_WITHIN_WS_PKT_COUNT), 	
++	NPU_COUNTER(Counter_Base, BA_POP_PKT_COUNT), NPU_COUNTER(Counter_Base, BA_AMSDU_COUNT),  NPU_COUNTER(Counter_Base, AMPDU_COUNT));
++				//printk("BA_NO_PKT_IN_LIST_COUNT:\t%lu\n", NPU_COUNTER(Counter_Base, BA_NO_PKT_IN_LIST_COUNT));
++				//printk("BA_NOT_DATA_PKT_COUNT:\t\t%lu\n", NPU_COUNTER(Counter_Base, BA_NOT_DATA_PKT_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_NO_MEM_COUNT:\t\t\t%u\n", NPU_COUNTER(Counter_Base, BA_NO_MEM_COUNT));
++				//printk("BA_NODE_ALLOC_COUNT:\t\t%lu\n", NPU_COUNTER(Counter_Base, BA_NODE_ALLOC_COUNT));
++				//printk("BA_NODE_ALLOC_FAIL:\t\t%lu\n", NPU_COUNTER(Counter_Base, BA_NODE_ALLOC_FAIL));
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_AMSDU_MISS:\t\t\t%u\n", NPU_COUNTER(Counter_Base, BA_AMSDU_MISS));
++				//printk("BA_TIMEOUT_FLUSH:\t\t%lu\n", NPU_COUNTER(Counter_Base, BA_TIMEOUT_FLUSH));
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_TIMEOUT_FLUSH100:\t\t%u\n", NPU_COUNTER(Counter_Base, BA_TIMEOUT_FLUSH100));
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_TIMEOUT_FLUSH250:\t\t%u\n", NPU_COUNTER(Counter_Base, BA_TIMEOUT_FLUSH250));
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_ENQ_DUP_SEQ:\t\t\t%u\n", NPU_COUNTER(Counter_Base, BA_ENQ_DUP_SEQ));	
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_REORDERING_NODE_ALLOC_COUNT\t%u\n", NPU_COUNTER(Counter_Base,BA_REORDERING_NODE_ALLOC_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_REORDERING_NODE_ALLOC_DRAM_COUNT\t%u\n", NPU_COUNTER(Counter_Base,BA_REORDERING_NODE_ALLOC_DRAM_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_REORDERING_NODE_FREE_COUNT\t%u\n", NPU_COUNTER(Counter_Base,BA_REORDERING_NODE_FREE_COUNT));	
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_REORDERINT_NODE_ALLOC_FAIL\t%u\n", NPU_COUNTER(Counter_Base,BA_REORDERINT_NODE_ALLOC_FAIL));
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_ENQ_QLEN_ERROR_COUNT:\t\t%u\n", NPU_COUNTER(Counter_Base,BA_ENQ_QLEN_ERROR_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_WCID_ERROR:\t\t\t%u\n", NPU_COUNTER(Counter_Base,BA_WCID_ERROR));
++	desc += scnprintf(buff + desc, bufsz - desc,"BA_BAR_WCID_ERROR:\t\t\t%u\n", NPU_COUNTER(Counter_Base,BAR_WCID_ERROR));
++				
++	//printk("------TDMA return Counter----------\n");
++				//printk("TDMA_RETURN_UNBIND_COUNT:\t%lu\n", NPU_COUNTER(Counter_Base, QDMA_RETURN_UNBIND_COUNT));
++				//printk("TDMA_RETURN_FAIL_COUNT:\t\t%lu\n", NPU_COUNTER(Counter_Base, QDMA_RETURN_FAIL_COUNT));
++				//printk("TDMA_RETURN_OK_COUNT:\t\t%lu\n", NPU_COUNTER(Counter_Base, QDMA_RETURN_OK_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"============ TEMP_DBG ==========\n");
++	desc += scnprintf(buff + desc, bufsz - desc,"ENQ_PKT_TO_SLOWPATH_CASE1\t\t%u\n", NPU_COUNTER(Counter_Base,ENQ_PKT_TO_SLOWPATH_CASE1));
++	desc += scnprintf(buff + desc, bufsz - desc,"ENQ_PKT_TO_SLOWPATH_CASE2\t\t%u\n", NPU_COUNTER(Counter_Base,ENQ_PKT_TO_SLOWPATH_CASE2));
++	desc += scnprintf(buff + desc, bufsz - desc,"ENQ_PKT_TO_SLOWPATH_CASE3\t\t%u\n", NPU_COUNTER(Counter_Base,ENQ_PKT_TO_SLOWPATH_CASE3));
++	desc += scnprintf(buff + desc, bufsz - desc,"ENQ_PIPELINE_PKT_CNT\t\t%u\n", NPU_COUNTER(Counter_Base,ENQ_PIPELINE_PKT_CNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"DEQ_PIPELINE_PKT_CNT\t\t%u\n", NPU_COUNTER(Counter_Base,DEQ_PIPELINE_PKT_CNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"TDMA_TXRING_SEND\t\t%u\n", NPU_COUNTER(Counter_Base,TDMA_TXRING_SEND));
++	//printk("BUFID_FREE_CASE1\t\t%lu\n", NPU_COUNTER(Counter_Base,BUFID_FREE_CASE1));
++
++	desc += scnprintf(buff + desc, bufsz - desc,"========= RRO related ======== \n");
++	desc += scnprintf(buff + desc, bufsz - desc,"0:MSDU_PG_2G_PKT 1:IND_CMD_WHILE\t\t%u\n", NPU_COUNTER(Counter_Base,MSDU_PG_2G_PKT));
++	desc += scnprintf(buff + desc, bufsz - desc,"0:MSDU_PG_5G_PKT 1:IND_CMD_DESC\t\t%u\n", NPU_COUNTER(Counter_Base,MSDU_PG_5G_PKT));
++	desc += scnprintf(buff + desc, bufsz - desc,"0:MSDU_PG_6G_PKT 1:IND_CMD_SIG_FAIL\t\t%u\n", NPU_COUNTER(Counter_Base,MSDU_PG_6G_PKT));
++	desc += scnprintf(buff + desc, bufsz - desc,"0:MSDU_PG_READ_FAIL 1:OLD_DUP_PKT\t\t%u\n", NPU_COUNTER(Counter_Base,MSDU_PG_READ_FAIL));
++	desc += scnprintf(buff + desc, bufsz - desc,"0:RRO EXCEPT PKT 1:ALLOW_OLD_PN_CHK_PKT\t\t%u\n", 
++	NPU_COUNTER(Counter_Base,BUFID_FREE_CASE1));
++	desc += scnprintf(buff + desc, bufsz - desc,"0:PN_CHECK_FAIL 1:SP_TOKEN\t\t%u\n", NPU_COUNTER(Counter_Base,PN_CHECK_FAIL));
++	desc += scnprintf(buff + desc, bufsz - desc,"SKB_BUFID_STATE_ABNORMAL1\t\t%u\n", NPU_COUNTER(Counter_Base,SKB_BUFID_STATE_ABNORMAL1));
++	desc += scnprintf(buff + desc, bufsz - desc,"SKB_BUFID_STATE_ABNORMAL2\t\t%u\n", NPU_COUNTER(Counter_Base,SKB_BUFID_STATE_ABNORMAL2));
++	desc += scnprintf(buff + desc, bufsz - desc,"SKB_BUFID_STATE_ABNORMAL3\t\t%u\n", NPU_COUNTER(Counter_Base,SKB_BUFID_STATE_ABNORMAL3));
++
++	Counter_Base = (unsigned long int *)counter_base[2];
++
++	desc += scnprintf(buff + desc, bufsz - desc,"============ TDMA Counter =============\n");
++	//printk("TDMA_TXDESC_NULL_COUNT:\t\t%lu\n", NPU_COUNTER(Counter_Base,QDMA_TXDESC_NULL_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"TDMA_UNBIND_COUNT:\t\t%u\n", NPU_COUNTER(Counter_Base,QDMA_UNBIND_COUNT));
++				//printk("TDMA_TO_PPE_COUNT:\t\t%lu\n", NPU_COUNTER(Counter_Base,QDMA_TO_PPE_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"TDMA_DONE_COUNT:\t\t\t%u\n", NPU_COUNTER(Counter_Base,QDMA_DONE_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"TDMA_FREE_BUFID_COUNT:\t\t%u\n", NPU_COUNTER(Counter_Base,QDMA_FREE_BUFID_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"TDMA_TO_ENQ_FAIL_COUNT:\t\t%u\n", NPU_COUNTER(Counter_Base,QDMA_TO_ENQ_FAIL_COUNT));
++				//printk("TDMA_TO_ENQ_FAIL_COUNT2:\t%lu\n", NPU_COUNTER(Counter_Base,QDMA_TO_ENQ_FAIL_COUNT2));
++	desc += scnprintf(buff + desc, bufsz - desc,"TDMA_TX_DSCP_IDX_INVALID:\t%u\n", NPU_COUNTER(Counter_Base,QDMA_TX_DSCP_IDX_INVALID));
++	desc += scnprintf(buff + desc, bufsz - desc,"TDMA_TX_DSCP_INFO_ERROR:\t\t%u\n", NPU_COUNTER(Counter_Base,QDMA_TX_DSCP_INFO_ERROR));
++	desc += scnprintf(buff + desc, bufsz - desc,"TDMA_DONE_DROP_BIT_ERROR:\t%u\n", NPU_COUNTER(Counter_Base,QDMA_DONE_DROP_BIT_ERROR));
++				//printk("TDMA_TXDESC_PUSH_COUNT:\t\t%lu\n", NPU_COUNTER(Counter_Base,QDMA_TXDESC_PUSH_COUNT));
++				//printk("TDMA_TXDESC_PUSH2_COUNT:\t\t%lu\n", NPU_COUNTER(Counter_Base,QDMA_TXDESC_PUSH2_COUNT));
++				//printk("TDMA_TXDESC_POP_COUNT:\t\t%lu\n", NPU_COUNTER(Counter_Base,QDMA_TXDESC_POP_COUNT));
++
++	desc += scnprintf(buff + desc, bufsz - desc,"============ Bufid Counter ==========\n");
++	desc += scnprintf(buff + desc, bufsz - desc,"SKB_ALLOC_BUFID_COUNT\t\t%u\n", NPU_COUNTER(Counter_Base,SKB_ALLOC_BUFID_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"SKB_FREE_BUFID_COUNT\t\t%u\n", NPU_COUNTER(Counter_Base,SKB_FREE_BUFID_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"SKB_BUFID_ALLOC_FAIL\t\t%u\n", NPU_COUNTER(Counter_Base,SKB_BUFID_ALLOC_FAIL));
++	desc += scnprintf(buff + desc, bufsz - desc,"BMGR0_BUFID_OVERFLOW\t\t%u\n", NPU_COUNTER(Counter_Base,BMGR0_BUFID_OVERFLOW));
++
++	desc += scnprintf(buff + desc, bufsz - desc,"============ Hostadpt API Counter ==========\n");
++	desc += scnprintf(buff + desc, bufsz - desc,"API_BUFF_SEND_BIGPKT\t\t%u\n", NPU_COUNTER(Counter_Base,API_BUFF_SEND_BIGPKT));
++	desc += scnprintf(buff + desc, bufsz - desc,"API_BUFF_SEND_NOMALPKT\t\t%u\n", NPU_COUNTER(Counter_Base,API_BUFF_SEND_NOMALPKT));
++	desc += scnprintf(buff + desc, bufsz - desc,"HOSTADPT_API_DONE_COUNT\t\t%u\n", NPU_COUNTER(Counter_Base,HOSTADPT_API_DONE_COUNT));
++
++	desc += scnprintf(buff + desc, bufsz - desc,"======= RRO MSDU PG SKB counter =======\n");
++	desc += scnprintf(buff + desc, bufsz - desc,"MSDU_SKB_ALLOC_COUNT\t\t%u\n", NPU_COUNTER(Counter_Base,MSDU_SKB_ALLOC_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"MSDU_SKB_FREE_BUFID_COUNT\t\t%u\n", NPU_COUNTER(Counter_Base,MSDU_SKB_FREE_BUFID_COUNT));	
++	desc += scnprintf(buff + desc, bufsz - desc,"MSDU_SKB_BUFID_ALLOC_FAIL\t\t%u\n", NPU_COUNTER(Counter_Base,MSDU_SKB_BUFID_ALLOC_FAIL));
++	ret = simple_read_from_buffer(user_buf, count, ppos, buff, desc);
++	kfree(buff);
++	return ret;
++}		
++
++static ssize_t
++npu_tx_wifioffload_dbg_set(struct file *file, const char __user *user_buf,
++			size_t count, loff_t *ppos)
++{
++	struct mt7996_phy *phy = file->private_data;
++	struct mt7996_dev *dev = phy->dev;
++	char buf[16];
++	int ret = 0;
++	u16 val;
++	if (count >= sizeof(buf))
++		return -EINVAL;
++
++	if (copy_from_user(buf, user_buf, count))
++		return -EFAULT;
++
++	if (count && buf[count - 1] == '\n')
++		buf[count - 1] = '\0';
++	else
++		buf[count] = '\0';
++
++	if (kstrtou16(buf, 0, &val))
++		return -EINVAL;
++
++	switch (val) {
++	case 0:
++	case 1:
++		printk("[%s tx debug counter]\n",(val==0)?"2.4G/5G":"6G");
++		npu_debug_band = val;
++		if(counter_base[2] == 0)
++		{
++			npu_wifi_offload_get_dbg_counter_address(dev);
++		}		
++		break;
++	default:
++		printk("plz echo 0(2.4G) or 1(5G).\n");
++		break;
++	}
++
++	return ret ? ret : count;
++}
++
++static ssize_t
++npu_tx_wifioffload_dbg_get(struct file *file, char __user *user_buf,
++			size_t count, loff_t *ppos){
++	char *buff;
++	int desc = 0;
++	ssize_t ret;
++	unsigned long int *Counter_Base;
++	static const size_t bufsz = 1536;
++
++	buff = kmalloc(bufsz, GFP_KERNEL);
++	if (!buff)
++		return -ENOMEM;	
++	
++	if(counter_base[npu_debug_band]==0) 
++		return 0;
++	else Counter_Base = (unsigned long int *)
++		counter_base[npu_debug_band];
++	
++	desc += scnprintf(buff + desc, bufsz - desc,"------WIFI TX (band%d)----------\n", npu_debug_band);
++	desc += scnprintf(buff + desc, bufsz - desc,"TDMA_RX_GET_PKT: \t\t%u\n", NPU_COUNTER(Counter_Base,TDMA_RX_GET_PKT));
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_PKT_FROM_HOSTADPT: \t\t%u\n", NPU_COUNTER(Counter_Base,TX_PKT_FROM_HOSTADPT));
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_FULL_DESC: \t\t\t%u\n", NPU_COUNTER(Counter_Base,TX_FULL_DESC));
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_DONE_GET_PKT: \t\t%u\n", NPU_COUNTER(Counter_Base, TX_DONE_GET_PKT));
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_SLOW_PATH_Q_FULL: \t\t%u\n", NPU_COUNTER(Counter_Base, TX_SLOW_PATH_Q_FULL));
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_SLOW_PATH_TXRING_FULL: \t\t%u\n", NPU_COUNTER(Counter_Base, TX_SLOW_PATH_TXRING_FULL));
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_SLOW_PATH_TOO_MUCH_PKT: \t\t%u\n", NPU_COUNTER(Counter_Base, TX_SLOW_PATH_TOO_MUCH_PKT));
++	//printk("TX_PKT_FROM_HOSTADP: \t\t%lu(band%d)\n", NPU_COUNTER(Counter_Base,TX_PKT_FROM_HOSTADP),band);
++	Counter_Base = (unsigned long int *)counter_base[2];
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_SKB_ALLOC_BUFID_COUNT\t\t%u\n", NPU_COUNTER(Counter_Base,TX_SKB_ALLOC_BUFID_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_SKB_FREE_BUFID_COUNT\t\t%u\n", NPU_COUNTER(Counter_Base,TX_SKB_FREE_BUFID_COUNT));
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_SKB_BUFID_ALLOC_FAIL\t\t%u\n", NPU_COUNTER(Counter_Base,TX_SKB_BUFID_ALLOC_FAIL));
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_DONE_VER_ABNORMAL: \t\t%u\n", NPU_COUNTER(Counter_Base, TX_DONE_VER_ABNORMAL));
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_DONE_TOKEN_LEAK: \t\t%u\n", NPU_COUNTER(Counter_Base, TX_DONE_TOKEN_LEAK));	
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_BUF_POOL_ABNORMAL_ALLOC: \t\t%u\n", NPU_COUNTER(Counter_Base, TX_BUF_POOL_ABNORMAL_ALLOC));
++	desc += scnprintf(buff + desc, bufsz - desc,"TX_BUF_POOL_ABNORMAL_FREE: \t\t%u\n", NPU_COUNTER(Counter_Base, TX_BUF_POOL_ABNORMAL_FREE));
++	desc += scnprintf(buff + desc, bufsz - desc,"WIFI_TX_TOKEN_ABNORMAL: \t\t%u\n", NPU_COUNTER(Counter_Base, WIFI_TX_TOKEN_ABNORMAL));
++	desc += scnprintf(buff + desc, bufsz - desc,"WIFI_TX_MSDU_PKT: \t\t%u\n", NPU_COUNTER(Counter_Base, WIFI_TX_MSDU_PKT));	
++	ret = simple_read_from_buffer(user_buf, count, ppos, buff, desc);
++	kfree(buff);
++	return ret;	
++}	
++
++static const struct file_operations fops_npu_wifioffload_dbg_counter = {
++	.write = npu_wifioffload_dbg_set,
++	.read = npu_wifioffload_dbg_get,
++	.open = simple_open,
++	.llseek = default_llseek,
++};
++
++static const struct file_operations fops_npu_wifioffload_tx_dbg_counter = {
++	.write = npu_tx_wifioffload_dbg_set,
++	.read = npu_tx_wifioffload_dbg_get,
++	.open = simple_open,
++	.llseek = default_llseek,
++};
++
+ /* PSE INFO */
+ static struct bmac_queue_info_t pse_queue_empty_info[] = {
+ 	{"CPU Q0",  ENUM_UMAC_CPU_PORT_1,     ENUM_UMAC_CTX_Q_0},
+@@ -4689,6 +5028,13 @@
+ 	debugfs_create_file("amsdu_algo", 0600, dir, dev, &fops_amsdu_algo);
+ 	debugfs_create_file("amsdu_para", 0600, dir, dev, &fops_amsdu_para);
+ 
++	/*npu debug count*/
++	debugfs_create_file("npu_wifioffload_dbg_counter", 0600, dir, dev, &fops_npu_wifioffload_dbg_counter);
++
++	/*npu wifi tx count*/
++	debugfs_create_file("npu_wifioffload_tx_dbg_counter", 0600, dir, dev, &fops_npu_wifioffload_tx_dbg_counter);	
++
++
+ 	/* Drop counters */
+ 	debugfs_create_file("tx_drop_stats", 0400, dir, dev, &mt7996_tx_drop_fops);
+ 	debugfs_create_file("rx_drop_stats", 0400, dir, dev, &mt7996_rx_drop_fops);
+diff -uNr old/mt7996/mtk_debug.h new/mt7996/mtk_debug.h
+--- old/mt7996/mtk_debug.h	2025-10-15 21:12:20.392266000 +0800
++++ new/mt7996/mtk_debug.h	2025-10-16 14:57:26.374042000 +0800
+@@ -3062,4 +3062,182 @@
+ 	BMAC_GROUP_VLD_5 = 0x10,
+ };
+ 
++/*npu offload Counter*/
++enum COUNTER_OFFSET{
++	GET_BUFID_FAIL = 0,		//00v
++	WHILE_COUNT = 1,		//01v
++	RX_DESC_DDONE,			//02
++	ALL_GET_PKT_COUNT,		//03v
++	DROP_PACKETS,			//04v
++	//ENQ_BUFID_FIAL_COUNT,		//05v
++	//ALL_ENQ_PKT_COUNT,		//06v
++	ENQ_DEQ_WHILE_COUNT,		//07v
++	ENQ_SRAM_COUNT,			//08v
++	ENQ_SRAM_FULL_COUNT,		//09vv
++	ENQ_SRAM_FAIL_COUNT,		//09v
++	DEQ_SRAM_COUNT,			//11v
++	DEQ_SRAM_FAIL_BUFID_COUNT,	//12v
++	DEQ_SRAM_FAIL_LEN_COUNT,	//13v
++	//DEQ_SRAM_NO_INFO_COUNT,		//14v
++	TO_HOSTAPD_COUNT,			//15vv
++	//ENQ_DRAM_FAIL_COUNT,		//16v
++	//ENQ_BUFID_ERROR_COUNT,		//17v
++	BA_IN_ORDER_PKT_COUNT,		//18v
++	BA_DUPL_PKT_COUNT,		//19v
++	BA_OLD_PKT_COUNT,		//20v
++	BA_WITHIN_WS_PKT_COUNT,		//21v
++	BA_POP_PKT_COUNT,		//22v
++	//BA_NO_PKT_IN_LIST_COUNT,	//23v
++	BA_AMSDU_COUNT,			//24v
++	AMPDU_COUNT,			//25v
++	//BA_NOT_DATA_PKT_COUNT,		//26v
++	//BA_RETURN_ERROR_COUNT,		//27v
++	BA_NO_MEM_COUNT,		//28v
++	TO_QDMA_COUNT,			//29v
++	TO_QDMA_COUNT_88,
++	TO_QDMA_COUNT_512,
++	TO_QDMA_COUNT_1518,
++	TO_QDMA_BYTE_LO,
++	TO_QDMA_BYTE_HI,
++	//ACCESS_PACKET,			//30v
++	HOST_APD_ERROR_COUNT,		//31v
++	//QDMA_RETURN_UNBIND_COUNT,	//32v
++	QDMA_RETURN_FAIL_COUNT,		//33v
++	//QDMA_RETURN_OK_COUNT,		//34v
++	SCATTER_CNT_MORE1,		//35v
++	BIGGER_PACKET,			//36v
++	ENQ_BIGPKT_TOSRAM_FAIL_COUNT,   //
++	SCATTER_PKT_ONE_BUFID,
++	GET_BUFID_FOR_BIGPKT_FAIL,
++	BIGPKT_TO_HOSTADPT_ERROR_COUNT,
++	API_HOSTADPT_SEND,
++	ENQ_BIGPKT_SRAM_FULL_COUNT,
++	ENQ_BIGPKT_SRAM_COUNT,
++	NO_BIGPKT_COUNT,
++	CHECK_BIGPKT,
++	CHECK_BIGPKT2,
++	CHECK_BIGPKT_OK,
++	CHECK_BIGPKT_ISLAST,
++	CHECK_BIGPKT_IDX_FAIL,
++	CHECK_BIGPKT_CNT_FAIL,
++	CHECK_BIGPKT_FAIL,
++	CHECK_BIGPKT_OVER_RETRY,
++	BIGPKT_TO_HOSTAPD_COUNT,
++	BIGPKT_DESC_FREE_COUNT,	
++	//BA_NODE_ALLOC_FAIL,	 	//37
++	//BA_NODE_ALLOC_COUNT,		//38
++	BA_AMSDU_MISS,			//39
++	//BA_TIMEOUT_FLUSH,		//40
++	BA_TIMEOUT_FLUSH100,		//42
++	BA_TIMEOUT_FLUSH250,		//43
++	BA_ENQ_DUP_SEQ,			//vv
++	BA_REORDERING_NODE_FREE_COUNT,	//10vv
++	BA_REORDERINT_NODE_ALLOC_FAIL, 	//11vv
++	BA_REORDERING_NODE_ALLOC_COUNT,	//12vv
++	BA_REORDERING_NODE_ALLOC_DRAM_COUNT,//vv
++	BA_ENQ_QLEN_ERROR_COUNT,
++	BA_WCID_ERROR,
++	HOSTADPT_API_Q_FULL,
++	ALL_GET_PKT_COUNT_512,	
++	ALL_GET_PKT_COUNT_1518,	
++	ALL_GET_PKT_COUNT_OTHER,
++	TDMA_TXDESC_FULL_COUNT,
++	TDMA_TXDESC_FULL_COUNT2,
++	TDMA_RX_GET_PKT,
++	RX_G4_PKT_NO_SN,
++	BAR_WCID_ERROR,
++	RX_PIPE_Q_FULL,
++	RX_PIPE_Q3_Q4_FULL,
++	PIPE_Q3_ENQ,
++	PIPE_Q3_DEQ,
++	PIPE_Q4_ENQ,
++	PIPE_Q4_DEQ,
++	ENQ_PKT_TO_SLOWPATH_CASE1,
++	ENQ_PKT_TO_SLOWPATH_CASE2,
++	ENQ_PKT_TO_SLOWPATH_CASE3,
++	ENQ_PIPELINE_PKT_CNT,
++	DEQ_PIPELINE_PKT_CNT,
++	TDMA_TXRING_SEND,
++	BUFID_FREE_CASE1,
++	MSDU_PG_2G_PKT,
++	MSDU_PG_5G_PKT,
++	MSDU_PG_6G_PKT,
++	MSDU_PG_READ_FAIL,
++	TX_PKT_FROM_HOSTADPT,
++	TX_FULL_DESC,
++	TX_DONE_GET_PKT,
++	TX_SLOW_PATH_Q_FULL,
++	TX_SLOW_PATH_TXRING_FULL,
++	TX_SLOW_PATH_TOO_MUCH_PKT,
++	PN_CHECK_FAIL,
++	SKB_BUFID_STATE_ABNORMAL1,	//err state when freeing skb(setting to BUF_IN_POOL)
++	SKB_BUFID_STATE_ABNORMAL2,	//err state when filling skb to Refill ring(setting to BUF_IN_RING)
++	SKB_BUFID_STATE_ABNORMAL3,	//err state when checking skb from rxdmad_c ring(setting to BUF_FROM_RING)
++#ifdef TCSUPPORT_WLAN_INODE
++	PPE_RX_NULL_COUNT,
++	PPE_RX_SEND_COUNT,
++	CPU_RX_NULL_COUNT,
++	CPU_RX_SEND_COUNT,
++	CPU_TX_ERR_COUNT,
++	CPU_TX_SEND_COUNT,
++	NPU_RX_RECV_COUNT,
++	SKB_MALLOC_FAIL,
++	SKB_MALLOC_CNT,
++	SKB_FREE_CNT,
++	//below for rx path
++	//ENQ_SRAM_FAIL_COUNT,
++	//ENQ_SRAM_COUNT,
++	//DEQ_SRAM_COUNT,
++	//DEQ_SRAM_FAIL_BUFID_COUNT,
++	//DEQ_SRAM_FAIL_LEN_COUNT,
++	//TO_HOSTAPD_COUNT,
++	//HOST_APD_ERROR_COUNT,
++	ENQ_DEQ_WHILE_COUNT_C3,
++	PPE_RX_ERROR_COUNT1,
++	PPE_RX_ERROR_COUNT2,
++	PPE_RX_ERROR_COUNT3,
++	PPE_RX_ERROR_COUNT4,
++	PPE_RX_ERROR_COUNT5,
++#endif
++	COUNTER_BOTTOM			//47
++};
++#define NPU_COUNTER_NUM				COUNTER_BOTTOM
++enum COUNTER_OFFSET_UTIL{
++	QDMA_TXDESC_NULL_COUNT=0,	//0vv
++	QDMA_FREE_BUFID_COUNT,		//1vv
++	QDMA_UNBIND_COUNT,		//2vv
++	QDMA_TO_ENQ_FAIL_COUNT,		//3vv
++	QDMA_TO_ENQ_FAIL_COUNT2,	//4
++	//QDMA_TO_PPE_COUNT,		//5
++	QDMA_DONE_COUNT,		//6vv
++	SKB_FREE_BUFID_COUNT,		//7vv
++	SKB_ALLOC_BUFID_COUNT,		//8vv
++	SKB_BUFID_ALLOC_FAIL,		//9vv
++	QDMA_TX_DSCP_IDX_INVALID,	//13vv
++	QDMA_TX_DSCP_INFO_ERROR,	//14vv
++	QDMA_DONE_DROP_BIT_ERROR,		//15
++	API_BUFF_SEND_BIGPKT,
++	API_BUFF_SEND_NOMALPKT,
++	HOSTADPT_API_DONE_COUNT,
++	BMGR0_BUFID_OVERFLOW,
++	MSDU_SKB_FREE_BUFID_COUNT,
++	MSDU_SKB_BUFID_ALLOC_FAIL,
++	MSDU_SKB_ALLOC_COUNT,
++	TX_SKB_FREE_BUFID_COUNT,		//7vv
++	TX_SKB_ALLOC_BUFID_COUNT,		//8vv
++	TX_SKB_BUFID_ALLOC_FAIL,		//9vv
++	TX_DONE_VER_ABNORMAL,
++	TX_DONE_TOKEN_LEAK,
++	TX_BUF_POOL_ABNORMAL_ALLOC,
++	TX_BUF_POOL_ABNORMAL_FREE,
++	WIFI_TX_TOKEN_ABNORMAL,
++	WIFI_TX_MSDU_PKT,
++	//QDMA_TXDESC_PUSH_COUNT,		//16
++	//QDMA_TXDESC_PUSH2_COUNT,	//17
++	//QDMA_TXDESC_POP_COUNT,		//18
++	UCOUNTER_BOTTOM			//19
++};
++#define UTIL_COUNTER_NUM			UCOUNTER_BOTTOM
++#define BAND_NUM	4
++#define NPU_COUNTER(addr,i)		(*((unsigned int *)((unsigned long int)addr + (i << 2))))
+ #endif
