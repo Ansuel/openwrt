@@ -1,0 +1,32 @@
+From 639e3f37d10765b6e875f1da2b78ee70783adf19 Mon Sep 17 00:00:00 2001
+Message-ID: <639e3f37d10765b6e875f1da2b78ee70783adf19.1760609130.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Thu, 16 Oct 2025 12:03:33 +0200
+Subject: [PATCH net-next 1/2] net: airoha: ppe: Do not use magic numbers in
+ airoha_ppe_foe_get_entry_locked()
+
+Explicit the size of entries pointed by hwe pointer in
+airoha_ppe_foe_get_entry_locked routine
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_ppe.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
+index 4b038673cefe..eda95107cd1d 100644
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -619,7 +619,8 @@ airoha_ppe_foe_get_entry_locked(struct airoha_ppe *ppe, u32 hash)
+ 					     REG_PPE_RAM_CTRL(ppe2)))
+ 			return NULL;
+ 
+-		for (i = 0; i < sizeof(struct airoha_foe_entry) / 4; i++)
++		for (i = 0; i < sizeof(struct airoha_foe_entry) / sizeof(*hwe);
++		     i++)
+ 			hwe[i] = airoha_fe_rr(eth,
+ 					      REG_PPE_RAM_ENTRY(ppe2, i));
+ 	}
+-- 
+2.51.0
+

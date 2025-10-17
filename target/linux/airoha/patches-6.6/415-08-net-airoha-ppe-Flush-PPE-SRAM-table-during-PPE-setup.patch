@@ -1,15 +1,18 @@
-From a3dc2eb72d3fcd0515354727a2f87290de2a5434 Mon Sep 17 00:00:00 2001
-Message-ID: <a3dc2eb72d3fcd0515354727a2f87290de2a5434.1758640781.git.lorenzo@kernel.org>
-In-Reply-To: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
-References: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+From a5125e7b27c837dbc1e82725a057f6194bedcd43 Mon Sep 17 00:00:00 2001
+Message-ID: <a5125e7b27c837dbc1e82725a057f6194bedcd43.1760605688.git.lorenzo@kernel.org>
+In-Reply-To: <36f9261198c92013fca08c3cee4620364a2447fb.1760605688.git.lorenzo@kernel.org>
+References: <36f9261198c92013fca08c3cee4620364a2447fb.1760605688.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Thu, 18 Sep 2025 11:30:35 +0200
-Subject: [PATCH net-next 09/12] net: airoha: ppe: Flush PPE SRAM table during
+Subject: [PATCH net-next 07/10] net: airoha: ppe: Flush PPE SRAM table during
  PPE setup
 
 Rely on airoha_ppe_foe_commit_sram_entry routine to flush SRAM PPE table
-entries. This patch allow moving PPE SRAM flush during PPE setup.
+entries. This patch allow moving PPE SRAM flush during PPE setup and
+avoid dumping uninitialized values via the debugfs if no entries are
+offloaded yet.
 
+Reviewed-by: Simon Horman <horms@kernel.org>
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
  drivers/net/ethernet/airoha/airoha_ppe.c | 24 ++++++++++++++----------
@@ -17,7 +20,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -1314,18 +1314,22 @@ static int airoha_ppe_flow_offload_cmd(s
+@@ -1309,18 +1309,22 @@ static int airoha_ppe_flow_offload_cmd(s
  	return -EOPNOTSUPP;
  }
  
@@ -46,7 +49,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  }
  
  static struct airoha_npu *airoha_ppe_npu_get(struct airoha_eth *eth)
-@@ -1363,10 +1367,6 @@ static int airoha_ppe_offload_setup(stru
+@@ -1357,10 +1361,6 @@ static int airoha_ppe_offload_setup(stru
  	}
  
  	airoha_ppe_hw_init(ppe);
@@ -57,7 +60,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	airoha_ppe_foe_flow_stats_reset(ppe, npu);
  
  	rcu_assign_pointer(eth->npu, npu);
-@@ -1537,6 +1537,10 @@ int airoha_ppe_init(struct airoha_eth *e
+@@ -1531,6 +1531,10 @@ int airoha_ppe_init(struct airoha_eth *e
  	if (!ppe->foe_check_time)
  		return -ENOMEM;
  
