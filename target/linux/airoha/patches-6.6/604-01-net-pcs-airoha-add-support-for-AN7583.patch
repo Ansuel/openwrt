@@ -97,9 +97,9 @@ index 916f03c259bd..f9ba4a47da1d 100644
  
  static void airoha_pcs_init_hsgmii(struct airoha_pcs_priv *priv)
 @@ -434,6 +449,13 @@ static int airoha_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
- 			regmap_clear_bits(priv->usxgmii_pcs,
- 					  AIROHA_PCS_USXGMII_PCS_AN_CONTROL_0,
- 					  AIROHA_PCS_USXGMII_AN_ENABLE);
+ 					AIROHA_PCS_USXGMII_PCS_AN_CONTROL_7,
+ 					AIROHA_PCS_USXGMII_RATE_UPDATE_MODE);
+ 		}
 +
 +		if (data->usxgmii_xfi_mode_sel &&
 +		    neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)

@@ -1,7 +1,7 @@
-From ddee0533ac9906ea5a40ac2e0474034135aa074d Mon Sep 17 00:00:00 2001
+From 2d788bba94a95a44fd246cecc5cbed0a4f28e609 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 17 Jan 2025 12:40:32 +0100
-Subject: [PATCH 4/8] net: pcs: airoha: add PCS driver for Airoha AN7581 SoC
+Subject: [PATCH 2/7] net: pcs: airoha: add PCS driver for Airoha AN7581 SoC
 
 Add PCS driver for Airoha AN7581 SoC for ethernet SERDES and permit usage of
 external PHY or connected SFP cage. Supported modes are USXGMII,
@@ -17,11 +17,11 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/pcs/Makefile                   |    2 +
  drivers/net/pcs/airoha/Kconfig             |   11 +
  drivers/net/pcs/airoha/Makefile            |    7 +
- drivers/net/pcs/airoha/pcs-airoha-common.c | 1033 ++++++++++++++
+ drivers/net/pcs/airoha/pcs-airoha-common.c | 1052 +++++++++++++++
  drivers/net/pcs/airoha/pcs-airoha.h        |  822 ++++++++++++
  drivers/net/pcs/airoha/pcs-an7581.c        | 1419 ++++++++++++++++++++
  include/linux/pcs/pcs-airoha.h             |    9 +
- 8 files changed, 3305 insertions(+)
+ 8 files changed, 3324 insertions(+)
  create mode 100644 drivers/net/pcs/airoha/Kconfig
  create mode 100644 drivers/net/pcs/airoha/Makefile
  create mode 100644 drivers/net/pcs/airoha/pcs-airoha-common.c
@@ -82,10 +82,10 @@ index 000000000000..25cb8f090c21
 +endif
 diff --git a/drivers/net/pcs/airoha/pcs-airoha-common.c b/drivers/net/pcs/airoha/pcs-airoha-common.c
 new file mode 100644
-index 000000000000..916f03c259bd
+index 000000000000..f61e291bc325
 --- /dev/null
 +++ b/drivers/net/pcs/airoha/pcs-airoha-common.c
-@@ -0,0 +1,1035 @@
+@@ -0,0 +1,1052 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Copyright (c) 2024 AIROHA Inc
@@ -509,19 +509,30 @@ index 000000000000..916f03c259bd
 +			   AIROHA_PCS_HSGMII_RATE_ADAPT_RX_EN |
 +			   AIROHA_PCS_HSGMII_RATE_ADAPT_TX_EN, rate_adapt);
 +
-+	/* FIXME: With an attached Aeonsemi PHY, AN is needed
-+	 * even with no inband.
-+	 */
 +	if (interface == PHY_INTERFACE_MODE_USXGMII ||
 +	    interface == PHY_INTERFACE_MODE_10GBASER) {
-+		if (interface == PHY_INTERFACE_MODE_USXGMII)
-+			regmap_set_bits(priv->usxgmii_pcs,
-+					AIROHA_PCS_USXGMII_PCS_AN_CONTROL_0,
-+					AIROHA_PCS_USXGMII_AN_ENABLE);
-+		else
++		if (interface == PHY_INTERFACE_MODE_USXGMII) {
++			if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
++				regmap_set_bits(priv->usxgmii_pcs,
++						AIROHA_PCS_USXGMII_PCS_AN_CONTROL_0,
++						AIROHA_PCS_USXGMII_AN_ENABLE);
++			else
++				regmap_clear_bits(priv->usxgmii_pcs,
++						  AIROHA_PCS_USXGMII_PCS_AN_CONTROL_0,
++						  AIROHA_PCS_USXGMII_AN_ENABLE);
++
++			regmap_clear_bits(priv->usxgmii_pcs,
++					  AIROHA_PCS_USXGMII_PCS_AN_CONTROL_7,
++					  AIROHA_PCS_USXGMII_RATE_UPDATE_MODE);
++		} else {
 +			regmap_clear_bits(priv->usxgmii_pcs,
 +					  AIROHA_PCS_USXGMII_PCS_AN_CONTROL_0,
 +					  AIROHA_PCS_USXGMII_AN_ENABLE);
++
++			regmap_set_bits(priv->usxgmii_pcs,
++					AIROHA_PCS_USXGMII_PCS_AN_CONTROL_7,
++					AIROHA_PCS_USXGMII_RATE_UPDATE_MODE);
++		}
 +	}
 +
 +	/* Clear any force bit that my be set by bootloader */
@@ -738,17 +749,16 @@ index 000000000000..916f03c259bd
 +				break;
 +			}
 +
-+			/* Trigger USXGMII change mode and force selected speed */
++			/* Force USXGMII to selected speed */
 +			regmap_update_bits(priv->usxgmii_pcs, AIROHA_PCS_USXGMII_PCS_AN_CONTROL_7,
-+					   AIROHA_PCS_USXGMII_RATE_UPDATE_MODE |
-+					   AIROHA_PCS_USXGMII_MODE,
-+					   AIROHA_PCS_USXGMII_RATE_UPDATE_MODE | mode);
++					   AIROHA_PCS_USXGMII_MODE, mode);
 +
-+			regmap_update_bits(priv->hsgmii_rate_adp, AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_11,
-+					   AIROHA_PCS_HSGMII_RATE_ADPT_FORCE_RATE_ADAPT_MODE_EN |
-+					   AIROHA_PCS_HSGMII_RATE_ADPT_FORCE_RATE_ADAPT_MODE,
-+					   AIROHA_PCS_HSGMII_RATE_ADPT_FORCE_RATE_ADAPT_MODE_EN |
-+					   rate_adapt);
++			if (interface == PHY_INTERFACE_MODE_10GBASER)
++				regmap_update_bits(priv->hsgmii_rate_adp, AIROHA_PCS_HSGMII_RATE_ADAPT_CTRL_11,
++						   AIROHA_PCS_HSGMII_RATE_ADPT_FORCE_RATE_ADAPT_MODE_EN |
++						   AIROHA_PCS_HSGMII_RATE_ADPT_FORCE_RATE_ADAPT_MODE,
++						   AIROHA_PCS_HSGMII_RATE_ADPT_FORCE_RATE_ADAPT_MODE_EN |
++						   rate_adapt);
 +		}
 +
 +		if (interface == PHY_INTERFACE_MODE_SGMII ||
@@ -907,7 +917,14 @@ index 000000000000..916f03c259bd
 +	return 0;
 +}
 +
++static unsigned int airoha_pcs_inband_caps(struct phylink_pcs *pcs,
++					   phy_interface_t interface)
++{
++	return LINK_INBAND_ENABLE | LINK_INBAND_DISABLE;
++}
++
 +static const struct phylink_pcs_ops airoha_pcs_ops = {
++	.pcs_inband_caps = airoha_pcs_inband_caps,
 +	.pcs_pre_config = airoha_pcs_pre_config,
 +	.pcs_post_config = airoha_pcs_post_config,
 +	.pcs_get_state = airoha_pcs_get_state,
@@ -1951,7 +1968,7 @@ index 000000000000..93ddec60d6dd
 +#endif
 diff --git a/drivers/net/pcs/airoha/pcs-an7581.c b/drivers/net/pcs/airoha/pcs-an7581.c
 new file mode 100644
-index 000000000000..e4e9e040029d
+index 000000000000..4e817639ed1d
 --- /dev/null
 +++ b/drivers/net/pcs/airoha/pcs-an7581.c
 @@ -0,0 +1,1419 @@
