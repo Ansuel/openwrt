@@ -1,0 +1,156 @@
+From 5b827a6709929edcb6d7e16f71a02da0a3b9a490 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 16 Oct 2025 17:02:11 +0200
+Subject: [PATCH] net: phy: as21xxx: fill in inband caps and better handle
+ inband
+
+It was reported that it's possible to enable inband by not enabling
+DPC_RA on a Banana Pi R4 Pro (MT7988a). This was also confirmed on an
+Airoha SoC (AN7583) to make sure we are not facing some internal
+workaround with the USXGMII PCS. (on the Airoha SoC the PCS is configured
+to enable AN when inband is enabled and to disable AN when it's
+disabled)
+
+With this new information, fill in the .inband_caps() OP and set the
+.config_inband() to enable DPC_RA when inband is enabled.
+
+Tested-by: Frank Wunderlich <frank-w@public-files.de>
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/phy/as21xxx.c | 43 +++++++++++++++++++++++++++++++++------
+ 1 file changed, 37 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/phy/as21xxx.c b/drivers/net/phy/as21xxx.c
+index 005277360656..2dd808186642 100644
+--- a/drivers/net/phy/as21xxx.c
++++ b/drivers/net/phy/as21xxx.c
+@@ -625,12 +625,8 @@ static int as21xxx_probe(struct phy_device *phydev)
+ 		return ret;
+ 
+ 	/* Enable PTP clk if not already Enabled */
+-	ret = phy_set_bits_mmd(phydev, MDIO_MMD_VEND1, VEND1_PTP_CLK,
+-			       VEND1_PTP_CLK_EN);
+-	if (ret)
+-		return ret;
+-
+-	return aeon_dpc_ra_enable(phydev);
++	return phy_set_bits_mmd(phydev, MDIO_MMD_VEND1, VEND1_PTP_CLK,
++				VEND1_PTP_CLK_EN);
+ }
+ 
+ static int as21xxx_read_link(struct phy_device *phydev, int *bmcr)
+@@ -943,6 +939,21 @@ static int as21xxx_match_phy_device(struct phy_device *phydev,
+ 	return ret;
+ }
+ 
++static unsigned int as21xxx_inband_caps(struct phy_device *phydev,
++					phy_interface_t interface)
++{
++	return LINK_INBAND_ENABLE | LINK_INBAND_DISABLE;
++}
++
++static int as21xxx_config_inband(struct phy_device *phydev,
++				 unsigned int modes)
++{
++	if (modes == LINK_INBAND_ENABLE)
++		return aeon_dpc_ra_enable(phydev);
++
++	return 0;
++}
++
+ static struct phy_driver as21xxx_drivers[] = {
+ 	{
+ 		/* PHY expose in C45 as 0x7500 0x9410
+@@ -958,6 +969,8 @@ static struct phy_driver as21xxx_drivers[] = {
+ 		PHY_ID_MATCH_EXACT(PHY_ID_AS21011JB1),
+ 		.name		= "Aeonsemi AS21011JB1",
+ 		.probe		= as21xxx_probe,
++		.inband_caps	= as21xxx_inband_caps,
++		.config_inband	= as21xxx_config_inband,
+ 		.match_phy_device = as21xxx_match_phy_device,
+ 		.read_status	= as21xxx_read_status,
+ 		.led_brightness_set = as21xxx_led_brightness_set,
+@@ -970,6 +983,8 @@ static struct phy_driver as21xxx_drivers[] = {
+ 		PHY_ID_MATCH_EXACT(PHY_ID_AS21011PB1),
+ 		.name		= "Aeonsemi AS21011PB1",
+ 		.probe		= as21xxx_probe,
++		.inband_caps	= as21xxx_inband_caps,
++		.config_inband	= as21xxx_config_inband,
+ 		.match_phy_device = as21xxx_match_phy_device,
+ 		.read_status	= as21xxx_read_status,
+ 		.led_brightness_set = as21xxx_led_brightness_set,
+@@ -982,6 +997,8 @@ static struct phy_driver as21xxx_drivers[] = {
+ 		PHY_ID_MATCH_EXACT(PHY_ID_AS21010PB1),
+ 		.name		= "Aeonsemi AS21010PB1",
+ 		.probe		= as21xxx_probe,
++		.inband_caps	= as21xxx_inband_caps,
++		.config_inband	= as21xxx_config_inband,
+ 		.match_phy_device = as21xxx_match_phy_device,
+ 		.read_status	= as21xxx_read_status,
+ 		.led_brightness_set = as21xxx_led_brightness_set,
+@@ -994,6 +1011,8 @@ static struct phy_driver as21xxx_drivers[] = {
+ 		PHY_ID_MATCH_EXACT(PHY_ID_AS21010JB1),
+ 		.name		= "Aeonsemi AS21010JB1",
+ 		.probe		= as21xxx_probe,
++		.inband_caps	= as21xxx_inband_caps,
++		.config_inband	= as21xxx_config_inband,
+ 		.match_phy_device = as21xxx_match_phy_device,
+ 		.read_status	= as21xxx_read_status,
+ 		.led_brightness_set = as21xxx_led_brightness_set,
+@@ -1006,6 +1025,8 @@ static struct phy_driver as21xxx_drivers[] = {
+ 		PHY_ID_MATCH_EXACT(PHY_ID_AS21210PB1),
+ 		.name		= "Aeonsemi AS21210PB1",
+ 		.probe		= as21xxx_probe,
++		.inband_caps	= as21xxx_inband_caps,
++		.config_inband	= as21xxx_config_inband,
+ 		.match_phy_device = as21xxx_match_phy_device,
+ 		.read_status	= as21xxx_read_status,
+ 		.led_brightness_set = as21xxx_led_brightness_set,
+@@ -1018,6 +1039,8 @@ static struct phy_driver as21xxx_drivers[] = {
+ 		PHY_ID_MATCH_EXACT(PHY_ID_AS21510JB1),
+ 		.name		= "Aeonsemi AS21510JB1",
+ 		.probe		= as21xxx_probe,
++		.inband_caps	= as21xxx_inband_caps,
++		.config_inband	= as21xxx_config_inband,
+ 		.match_phy_device = as21xxx_match_phy_device,
+ 		.read_status	= as21xxx_read_status,
+ 		.led_brightness_set = as21xxx_led_brightness_set,
+@@ -1030,6 +1053,8 @@ static struct phy_driver as21xxx_drivers[] = {
+ 		PHY_ID_MATCH_EXACT(PHY_ID_AS21510PB1),
+ 		.name		= "Aeonsemi AS21510PB1",
+ 		.probe		= as21xxx_probe,
++		.inband_caps	= as21xxx_inband_caps,
++		.config_inband	= as21xxx_config_inband,
+ 		.match_phy_device = as21xxx_match_phy_device,
+ 		.read_status	= as21xxx_read_status,
+ 		.led_brightness_set = as21xxx_led_brightness_set,
+@@ -1042,6 +1067,8 @@ static struct phy_driver as21xxx_drivers[] = {
+ 		PHY_ID_MATCH_EXACT(PHY_ID_AS21511JB1),
+ 		.name		= "Aeonsemi AS21511JB1",
+ 		.probe		= as21xxx_probe,
++		.inband_caps	= as21xxx_inband_caps,
++		.config_inband	= as21xxx_config_inband,
+ 		.match_phy_device = as21xxx_match_phy_device,
+ 		.read_status	= as21xxx_read_status,
+ 		.led_brightness_set = as21xxx_led_brightness_set,
+@@ -1054,6 +1081,8 @@ static struct phy_driver as21xxx_drivers[] = {
+ 		PHY_ID_MATCH_EXACT(PHY_ID_AS21210JB1),
+ 		.name		= "Aeonsemi AS21210JB1",
+ 		.probe		= as21xxx_probe,
++		.inband_caps	= as21xxx_inband_caps,
++		.config_inband	= as21xxx_config_inband,
+ 		.match_phy_device = as21xxx_match_phy_device,
+ 		.read_status	= as21xxx_read_status,
+ 		.led_brightness_set = as21xxx_led_brightness_set,
+@@ -1066,6 +1095,8 @@ static struct phy_driver as21xxx_drivers[] = {
+ 		PHY_ID_MATCH_EXACT(PHY_ID_AS21511PB1),
+ 		.name		= "Aeonsemi AS21511PB1",
+ 		.probe		= as21xxx_probe,
++		.inband_caps	= as21xxx_inband_caps,
++		.config_inband	= as21xxx_config_inband,
+ 		.match_phy_device = as21xxx_match_phy_device,
+ 		.read_status	= as21xxx_read_status,
+ 		.led_brightness_set = as21xxx_led_brightness_set,
+-- 
+2.51.0
+
