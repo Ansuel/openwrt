@@ -4,6 +4,7 @@
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/clock/en7523-clk.h>
 #include <dt-bindings/phy/phy.h>
+#include <dt-bindings/phy/airoha,an7581-usb-phy.h>
 #include <dt-bindings/reset/airoha,an7583-reset.h>
 #include <dt-bindings/leds/common.h>
 #include <dt-bindings/thermal/thermal.h>
@@ -538,8 +539,8 @@
 			reg-names = "mac", "ippc";
 			interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 
-			mediatek,u3p-dis-msk = <0x1>;
-			phys = <&usb0_u2 PHY_TYPE_USB2>;
+			phys = <&usb0_u2 PHY_TYPE_USB2>, <&usb1_u2 PHY_TYPE_USB2>,
+			       <&usb0_u3 PHY_TYPE_USB3>;
 
 			status = "disabled";
 		};
@@ -552,9 +553,23 @@
 			      <0x0 0x1fa6a000 0x0 0x8ff>;
 			reg-names = "phy", "ana", "pma", "dig";
 
-			airoha,port-id = <0>;
+			usb0_u2: usb2-phy@0 {
+				reg = <0x0>;
+				airoha,usb2-monitor-clk-sel = <AIROHA_USB2_MONCLK_SEL1>;
 
-			usb0_u2: usb2-phy {
+				#phy-cells = <1>;
+			};
+
+			usb1_u2: usb2-phy@1000 {
+				reg = <0x1000>;
+				airoha,usb2-monitor-clk-sel = <AIROHA_USB2_MONCLK_SEL2>;
+
+				#phy-cells = <1>;
+			};
+
+			usb0_u3: usb3-phy {
+				airoha,scu = <&scuclk>;
+
 				#phy-cells = <1>;
 			};
 		};
