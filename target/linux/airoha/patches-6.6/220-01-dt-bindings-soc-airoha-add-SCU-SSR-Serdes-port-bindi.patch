@@ -36,7 +36,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 #  M:	Ray Liu <ray.liu@airoha.com>
 --- /dev/null
 +++ b/include/dt-bindings/soc/airoha,scu-ssr.h
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,29 @@
 +/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 +
 +#ifndef __DT_BINDINGS_AIROHA_SCU_SSR_H
@@ -59,5 +59,10 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +/* USB2 port can be USB 3.0 port or PCIe2 1 line */
 +#define AIROHA_SCU_SSR_USB2_USB			0
 +#define AIROHA_SCU_SSR_USB2_PCIE2		1
++
++#define AIROHA_SCU_SERDES_WIFI1		0
++#define AIROHA_SCU_SERDES_WIFI2		1
++#define AIROHA_SCU_SERDES_USB1			2
++#define AIROHA_SCU_SERDES_USB2			3
 +
 +#endif /* __DT_BINDINGS_AIROHA_SCU_SSR_H */

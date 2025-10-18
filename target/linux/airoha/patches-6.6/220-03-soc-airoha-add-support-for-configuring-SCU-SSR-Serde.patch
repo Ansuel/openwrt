@@ -112,7 +112,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +obj-$(CONFIG_AIROHA_SCU_SSR)		+= airoha-scu-ssr.o
 --- /dev/null
 +++ b/drivers/soc/airoha/airoha-scu-ssr.c
-@@ -0,0 +1,194 @@
+@@ -0,0 +1,195 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Author: Christian Marangi <ansuelsmth@gmail.com>
@@ -138,6 +138,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define   AIROHA_SCU_PCIE_XSI1_SEL_PCIE	FIELD_PREP_CONST(AIROHA_SCU_PCIE_XSI0_SEL, 0x0)
 +#define   AIROHA_SCU_USB_PCIE_SEL	BIT(3)
 +
++#define AIROHA_SCU_MAX_SERDES_PORT		4
++
 +struct airoha_scu_ssr_priv {
 +	struct device *dev;
 +	struct regmap *regmap;
@@ -145,8 +147,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	u32 serdes_port[AIROHA_SCU_MAX_SERDES_PORT];
 +};
 +
-+int airoha_scu_ssr_get_serdes_mode(struct device *dev,
-+				   enum airoha_scu_serdes_port port)
++int airoha_scu_ssr_get_serdes_mode(struct device *dev, int port)
 +{
 +	struct airoha_scu_ssr_priv *priv;
 +	struct platform_device *pdev;
@@ -309,41 +310,11 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +MODULE_DESCRIPTION("Airoha SCU SSR/STR driver");
 --- /dev/null
 +++ b/include/linux/soc/airoha/airoha-scu-ssr.h
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,7 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +#ifndef __AIROHA_SCU_SSR__
 +#define __AIROHA_SCU_SSR__
 +
-+enum airoha_scu_serdes_port {
-+	AIROHA_SCU_SERDES_WIFI1 = 0,
-+	AIROHA_SCU_SERDES_WIFI2,
-+	AIROHA_SCU_SERDES_USB1,
-+	AIROHA_SCU_SERDES_USB2,
-+
-+	AIROHA_SCU_MAX_SERDES_PORT,
-+};
-+
-+int airoha_scu_ssr_get_serdes_mode(struct device *dev,
-+				   enum airoha_scu_serdes_port port);
-+
-+#endif
---- /dev/null
-+++ b/include/linux/soc/soc/airoha-scu-ssr.h
-@@ -0,0 +1,17 @@
-+/* SPDX-License-Identifier: GPL-2.0 */
-+#ifndef __AIROHA_SCU_SSR__
-+#define __AIROHA_SCU_SSR__
-+
-+enum airoha_scu_serdes_port {
-+	AIROHA_SCU_SERDES_WIFI1 = 0,
-+	AIROHA_SCU_SERDES_WIFI2,
-+	AIROHA_SCU_SERDES_USB1,
-+	AIROHA_SCU_SERDES_USB2,
-+
-+	AIROHA_SCU_MAX_SERDES_PORT,
-+};
-+
-+int airoha_scu_ssr_get_serdes_mode(struct device *dev,
-+				   enum airoha_scu_serdes_port port);
++int airoha_scu_ssr_get_serdes_mode(struct device *dev, int port);
 +
 +#endif

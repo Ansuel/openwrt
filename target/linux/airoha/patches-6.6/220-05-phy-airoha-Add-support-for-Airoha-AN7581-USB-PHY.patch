@@ -89,7 +89,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +obj-$(CONFIG_PHY_AIROHA_USB)		+= phy-airoha-usb.o
 --- /dev/null
 +++ b/drivers/phy/airoha/phy-airoha-usb.c
-@@ -0,0 +1,554 @@
+@@ -0,0 +1,582 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Author: Christian Marangi <ansuelsmth@gmail.com>
@@ -206,27 +206,33 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#define AIROHA_USB_PHY_U2_SR_COEF		28
 +#define AIROHA_USB_PHY_U2_SR_COEF_DIVISOR	1000
 +
++#define AIROHA_USB_PHY_DEFAULT_SR_CALIBRATION	0x5
 +#define AIROHA_USB_PHY_FREQDET_SLEEP		1000 /* 1ms */
 +#define AIROHA_USB_PHY_FREQDET_TIMEOUT		(AIROHA_USB_PHY_FREQDET_SLEEP * 10)
-+
-+#define AIROHA_USB_PHY_MAX_INSTANCE		2
 +
 +struct airoha_usb_phy_instance {
 +	struct phy *phy;
 +	u32 type;
 +};
 +
-+struct airoha_usb_phy_priv {
-+	struct device *dev;
++enum airoha_usb_phy_instance_type {
++	AIROHA_PHY_USB2,
++	AIROHA_PHY_USB3,
 +
-+	struct regmap *regmap;
-+
-+	unsigned int id;
-+
-+	struct airoha_usb_phy_instance *phys[AIROHA_USB_PHY_MAX_INSTANCE];
++	AIROHA_PHY_USB_MAX,
 +};
 +
-+static int airoha_usb_phy_u2_slew_rate_calibration(struct airoha_usb_phy_priv *priv)
++struct airoha_usb_phy_priv {
++	struct device *dev;
++	struct regmap *regmap;
++
++	unsigned int monclk_sel;
++	unsigned int serdes_port;
++
++	struct airoha_usb_phy_instance *phys[AIROHA_PHY_USB_MAX];
++};
++
++static void airoha_usb_phy_u2_slew_rate_calibration(struct airoha_usb_phy_priv *priv)
 +{
 +	u32 fm_out;
 +	u32 srctrl;
@@ -244,8 +250,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	/* Select Monitor Clock */
 +	regmap_update_bits(priv->regmap, AIROHA_USB_PHY_FMCR0,
 +			   AIROHA_USB_PHY_MONCLK_SEL,
-+			   priv->id == 0 ? AIROHA_USB_PHY_MONCLK_SEL0 :
-+					   AIROHA_USB_PHY_MONCLK_SEL1);
++			   FIELD_PREP(AIROHA_USB_PHY_MONCLK_SEL,
++				      priv->monclk_sel));
 +
 +	/* Set cyclecnt */
 +	regmap_update_bits(priv->regmap, AIROHA_USB_PHY_FMCR0,
@@ -278,10 +284,10 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +	/* Frequency was not detected, use default SR calibration value */
 +	if (!fm_out) {
-+		srctrl = 0x5;
++		srctrl = AIROHA_USB_PHY_DEFAULT_SR_CALIBRATION;
 +		dev_err(priv->dev, "Frequency not detected, using default SR calibration.\n");
-+	/* (1024 / FM_OUT) * REF_CK * U2_SR_COEF (round to the nearest digits) */
 +	} else {
++		/* (1024 / FM_OUT) * REF_CK * U2_SR_COEF (round to the nearest digits) */
 +		srctrl = AIROHA_USB_PHY_REF_CK * AIROHA_USB_PHY_U2_SR_COEF;
 +		srctrl = (srctrl * AIROHA_USB_PHY_U2_FM_DET_CYCLE_CNT) / fm_out;
 +		srctrl = DIV_ROUND_CLOSEST(srctrl, AIROHA_USB_PHY_U2_SR_COEF_DIVISOR);
@@ -291,11 +297,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	regmap_update_bits(priv->regmap, AIROHA_USB_PHY_USBPHYACR5,
 +			   AIROHA_USB_PHY_USB20_HSTX_SRCTRL,
 +			   FIELD_PREP(AIROHA_USB_PHY_USB20_HSTX_SRCTRL, srctrl));
-+
-+	return 0;
 +}
 +
-+static int airoha_usb_phy_u2_init(struct airoha_usb_phy_priv *priv)
++static void airoha_usb_phy_u2_init(struct airoha_usb_phy_priv *priv)
 +{
 +	regmap_update_bits(priv->regmap, AIROHA_USB_PHY_USBPHYACR4,
 +			   AIROHA_USB_PHY_USB20_FS_CR,
@@ -324,15 +328,13 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +			AIROHA_USB_PHY_USB20_BC11_SW_EN);
 +
 +	usleep_range(1000, 1500);
-+
-+	return 0;
 +}
 +
 +/*
 + * USB 3.0 mode can only work if USB serdes is correctly set.
 + * This is validated in xLate function.
 + */
-+static int airoha_usb_phy_u3_init(struct airoha_usb_phy_priv *priv)
++static void airoha_usb_phy_u3_init(struct airoha_usb_phy_priv *priv)
 +{
 +	regmap_update_bits(priv->regmap, AIROHA_USB_PHY_U3_PHYA_REG8,
 +			   AIROHA_USB_PHY_SSUSB_CDR_RST_DLY,
@@ -352,8 +354,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	regmap_update_bits(priv->regmap, AIROHA_USB_PHY_U3_PHYA_DA_REG19,
 +			   AIROHA_USB_PHY_SSUSB_PLL_SSC_DELTA1_U3,
 +			   FIELD_PREP(AIROHA_USB_PHY_SSUSB_PLL_SSC_DELTA1_U3, 0x43));
-+
-+	return 0;
 +}
 +
 +static int airoha_usb_phy_init(struct phy *phy)
@@ -361,14 +361,17 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	struct airoha_usb_phy_instance *instance = phy_get_drvdata(phy);
 +	struct airoha_usb_phy_priv *priv = dev_get_drvdata(phy->dev.parent);
 +
-+	if (instance->type == PHY_TYPE_USB2)
-+		return airoha_usb_phy_u2_init(priv);
++	switch (instance->type) {
++	case PHY_TYPE_USB2:
++		airoha_usb_phy_u2_init(priv);
++		break;
++	case PHY_TYPE_USB3:
++		airoha_usb_phy_u3_init(priv);
++		break;
++	default:
++		return -EINVAL;
++	}
 +
-+	return airoha_usb_phy_u3_init(priv);
-+}
-+
-+static int airoha_usb_phy_exit(struct phy *phy)
-+{
 +	return 0;
 +}
 +
@@ -400,10 +403,18 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	struct airoha_usb_phy_instance *instance = phy_get_drvdata(phy);
 +	struct airoha_usb_phy_priv *priv = dev_get_drvdata(phy->dev.parent);
 +
-+	if (instance->type == PHY_TYPE_USB2)
-+		return airoha_usb_phy_u2_power_on(priv);
++	switch (instance->type) {
++	case PHY_TYPE_USB2:
++		airoha_usb_phy_u2_power_on(priv);
++		break;
++	case PHY_TYPE_USB3:
++		airoha_usb_phy_u3_power_on(priv);
++		break;
++	default:
++		return -EINVAL;
++	}
 +
-+	return airoha_usb_phy_u3_power_on(priv);
++	return 0;
 +}
 +
 +static int airoha_usb_phy_u2_power_off(struct airoha_usb_phy_priv *priv)
@@ -432,16 +443,24 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	struct airoha_usb_phy_instance *instance = phy_get_drvdata(phy);
 +	struct airoha_usb_phy_priv *priv = dev_get_drvdata(phy->dev.parent);
 +
-+	if (instance->type == PHY_TYPE_USB2)
-+		return airoha_usb_phy_u2_power_off(priv);
++	switch (instance->type) {
++	case PHY_TYPE_USB2:
++		airoha_usb_phy_u2_power_off(priv);
++		break;
++	case PHY_TYPE_USB3:
++		airoha_usb_phy_u3_power_off(priv);
++		break;
++	default:
++		return -EINVAL;
++	}
 +
-+	return airoha_usb_phy_u3_power_off(priv);
++	return 0;
 +}
 +
 +static int airoha_usb_phy_u2_set_mode(struct airoha_usb_phy_priv *priv,
 +				      enum phy_mode mode)
 +{
-+	u32 val = 0;
++	u32 val;
 +
 +	/*
 +	 * For Device and Host mode, enable force IDDIG.
@@ -450,12 +469,14 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	 */
 +	switch (mode) {
 +	case PHY_MODE_USB_DEVICE:
-+		val |= AIROHA_USB_PHY_IDDIG;
-+		fallthrough;
++		val = AIROHA_USB_PHY_IDDIG;
++		break;
 +	case PHY_MODE_USB_HOST:
-+		val |= AIROHA_USB_PHY_FORCE_IDDIG;
++		val = AIROHA_USB_PHY_FORCE_IDDIG |
++		      AIROHA_USB_PHY_FORCE_IDDIG;
 +		break;
 +	case PHY_MODE_USB_OTG:
++		val = 0;
 +		break;
 +	default:
 +		return 0;
@@ -484,7 +505,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +{
 +	struct airoha_usb_phy_priv *priv = dev_get_drvdata(dev);
 +	struct airoha_usb_phy_instance *instance = NULL;
-+	struct device_node *phy_np = args->np;
++	int phy_type;
 +	int index;
 +
 +	if (args->args_count != 1) {
@@ -492,8 +513,15 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		return ERR_PTR(-EINVAL);
 +	}
 +
-+	for (index = 0; index < AIROHA_USB_PHY_MAX_INSTANCE; index++)
-+		if (phy_np == priv->phys[index]->phy->dev.of_node) {
++	phy_type = args->args[0];
++	if (!(phy_type == PHY_TYPE_USB2 || phy_type == PHY_TYPE_USB3)) {
++		dev_err(dev, "unsupported device type: %d\n", phy_type);
++		return ERR_PTR(-EINVAL);
++	}
++
++	for (index = 0; index < AIROHA_PHY_USB_MAX; index++)
++		if (priv->phys[index] &&
++		    phy_type == priv->phys[index]->type) {
 +			instance = priv->phys[index];
 +			break;
 +		}
@@ -503,40 +531,30 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		return ERR_PTR(-EINVAL);
 +	}
 +
-+	instance->type = args->args[0];
-+	if (!(instance->type == PHY_TYPE_USB2 || instance->type == PHY_TYPE_USB3)) {
-+		dev_err(dev, "unsupported device type: %d\n", instance->type);
-+		return ERR_PTR(-EINVAL);
-+	}
-+
 +	/* Validate Serdes for USB 3.0 */
 +	if (instance->type == PHY_TYPE_USB3) {
-+		enum airoha_scu_serdes_port serdes_port;
 +		int serdes_mode, expcted_mode;
 +
-+		switch (priv->id) {
-+		case 0:
-+			serdes_port = AIROHA_SCU_SERDES_USB1;
++		switch (priv->serdes_port) {
++		case AIROHA_SCU_SERDES_USB1:
 +			expcted_mode = AIROHA_SCU_SSR_USB1_USB;
 +			break;
-+		case 1:
-+			serdes_port = AIROHA_SCU_SERDES_USB2;
++		case AIROHA_SCU_SERDES_USB2:
 +			expcted_mode = AIROHA_SCU_SSR_USB2_USB;
 +			break;
 +		default: /* Impossible already validated */
 +			return ERR_PTR(-EINVAL);
 +		}
 +
-+		serdes_mode = airoha_scu_ssr_get_serdes_mode(dev, serdes_port);
++		serdes_mode = airoha_scu_ssr_get_serdes_mode(dev, priv->serdes_port);
 +		if (serdes_mode < 0) {
-+			dev_err(dev, "failed validating serdes mode for port %d: %d\n",
-+				priv->id, serdes_mode);
++			dev_err(dev, "failed validating serdes mode: %d\n",
++				serdes_mode);
 +			return ERR_PTR(serdes_mode);
 +		}
 +
 +		if (serdes_mode != expcted_mode) {
-+			dev_err(dev, "wrong serdes mode for port %d\n",
-+				priv->id);
++			dev_err(dev, "wrong serdes mode for port\n");
 +			return ERR_PTR(-EINVAL);
 +		}
 +	}
@@ -546,7 +564,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +static const struct phy_ops airoha_phy = {
 +	.init		= airoha_usb_phy_init,
-+	.exit		= airoha_usb_phy_exit,
 +	.power_on	= airoha_usb_phy_power_on,
 +	.power_off	= airoha_usb_phy_power_off,
 +	.set_mode	= airoha_usb_phy_set_mode,
@@ -564,9 +581,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	struct phy_provider *phy_provider;
 +	struct airoha_usb_phy_priv *priv;
 +	struct device *dev = &pdev->dev;
-+	struct device_node *child_np;
 +	void *base;
-+	int port;
++	int index;
 +	int ret;
 +
 +	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -575,12 +591,13 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +	priv->dev = dev;
 +
-+	ret = of_property_read_u32(dev->of_node, "airoha,port-id", &priv->id);
++	ret = of_property_read_u32(dev->of_node, "airoha,usb2-monitor-clk-sel",
++				   &priv->monclk_sel);
 +	if (ret)
-+		return dev_err_probe(dev, ret, "port ID is mandatory for USB PHY calibration.\n");
++		return dev_err_probe(dev, ret, "Monitor clock selection is mandatory for USB PHY calibration.\n");
 +
-+	if (priv->id > 1)
-+		return dev_err_probe(dev, -EINVAL, "only 2 USB port are supported on the SoC.\n");
++	if (priv->monclk_sel > 3)
++		return dev_err_probe(dev, -EINVAL, "only 4 Monitor clock are selectable on the SoC.\n");
 +
 +	base = devm_platform_ioremap_resource(pdev, 0);
 +	if (IS_ERR(base))
@@ -592,37 +609,48 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +
 +	platform_set_drvdata(pdev, priv);
 +
-+	port = 0;
-+	for_each_child_of_node(dev->of_node, child_np) {
-+		struct airoha_usb_phy_instance  *instance;
++	for (index = 0; index < AIROHA_PHY_USB_MAX; index++) {
++		struct airoha_usb_phy_instance *instance;
++		unsigned int phy_type;
++
++		switch (index) {
++		case AIROHA_PHY_USB2:
++			phy_type = PHY_TYPE_USB2;
++			break;
++		case AIROHA_PHY_USB3:
++			phy_type = PHY_TYPE_USB3;
++			break;
++		}
++
++		/* Skip registering USB3 instance if not supported */
++		if (phy_type == PHY_TYPE_USB3) {
++			ret = of_property_read_u32(dev->of_node, "airoha,serdes-port",
++						   &priv->serdes_port);
++			if (ret)
++				continue;
++
++			/* With Serdes Port property, SCU is required */
++			if (!of_property_present(dev->of_node, "airoha,scu"))
++				return dev_err_probe(dev, ret, "missing required SCU definition.\n");
++		}
 +
 +		instance = devm_kzalloc(dev, sizeof(*instance), GFP_KERNEL);
-+		if (!instance) {
-+			ret = -ENOMEM;
-+			goto put_child;
-+		}
++		if (!instance)
++			return -ENOMEM;
 +
-+		priv->phys[port] = instance;
++		instance->type = phy_type;
++		priv->phys[index] = instance;
 +
-+		instance->phy = devm_phy_create(dev, child_np, &airoha_phy);
-+		if (IS_ERR(instance->phy)) {
-+			dev_err_probe(dev, PTR_ERR(instance->phy), "failed to create phy\n");
-+			ret = PTR_ERR(instance->phy);
-+			goto put_child;
-+		}
++		instance->phy = devm_phy_create(dev, NULL, &airoha_phy);
++		if (IS_ERR(instance->phy))
++			return dev_err_probe(dev, PTR_ERR(instance->phy), "failed to create phy\n");
 +
 +		phy_set_drvdata(instance->phy, instance);
-+
-+		port++;
 +	}
 +
 +	phy_provider = devm_of_phy_provider_register(&pdev->dev, airoha_usb_phy_xlate);
 +
 +	return PTR_ERR_OR_ZERO(phy_provider);
-+
-+put_child:
-+	of_node_put(child_np);
-+	return ret;
 +}
 +
 +static const struct of_device_id airoha_phy_id_table[] = {
