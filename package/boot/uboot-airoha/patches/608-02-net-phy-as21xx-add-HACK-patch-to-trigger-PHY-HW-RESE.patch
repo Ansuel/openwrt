@@ -18,7 +18,7 @@ index 97fc80bf147..5786de53bc4 100644
  	int ret;
  
 +	/* HACK to trigger HW reset on GPIO 34 */
-+	if (phydev->addr == 0x1f) {
++	if (phydev->addr == 0x1c || phydev->addr == 0x1f) {
 +		writel(BIT(6), 0x1fbf0260);
 +		writel(BIT(3), 0x1fbf0278);
 +		writel(0x0, 0x1fbf0270);

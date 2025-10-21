@@ -46,7 +46,7 @@ new file mode 100644
 index 00000000000..97fc80bf147
 --- /dev/null
 +++ b/drivers/net/phy/as21xxx.c
-@@ -0,0 +1,721 @@
+@@ -0,0 +1,734 @@
 +// SPDX-License-Identifier: GPL-2.0+
 +
 +#include <phy.h>
@@ -759,12 +759,25 @@ index 00000000000..97fc80bf147
 +	return 0;
 +}
 +
++static int as21xxx_read_mmd(struct phy_device *phydev, int devad, int reg)
++{
++	struct mii_dev *bus = phydev->bus;
++	int ret;
++
++	ret = phy_read(phydev, devad, reg);
++
++	bus->write(bus, 0x0, MDIO_DEVAD_NONE, MII_BMSR, 0x1);
++
++	return ret;
++}
++
 +U_BOOT_PHY_DRIVER(as21xxx) = {
 +	.name = "Airoha as21xxx",
 +	.uid = PHY_VENDOR_AEONSEMI,
 +	.mask = 0xfffffc00,
 +	.config = &as21xxx_config,
 +	.probe = &as21xxx_probe,
++	.read_mmd = &as21xxx_read_mmd,
 +	.startup = &as21xxx_startup,
 +	.shutdown = &genphy_shutdown,
 +};

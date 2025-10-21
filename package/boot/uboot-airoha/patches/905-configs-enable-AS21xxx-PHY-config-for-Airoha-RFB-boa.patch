@@ -13,20 +13,22 @@ diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
 index 255509c5c37..6d5b9a4dba7 100644
 --- a/configs/an7581_evb_defconfig
 +++ b/configs/an7581_evb_defconfig
-@@ -108,3 +108,5 @@ CONFIG_DEFAULT_ENV_FILE="defenvs/an7581_rfb_env"
+@@ -108,3 +108,6 @@ CONFIG_DEFAULT_ENV_FILE="defenvs/an7581_rfb_env"
  CONFIG_FIP_LOADER=y
  CONFIG_PCS_AIROHA_AN7581=y
  CONFIG_PHY_AIROHA_EN8811=y
++CONFIG_PHY_ANEG_TIMEOUT=10000
 +CONFIG_PHY_ETHERNET_ID=y
 +CONFIG_PHY_AS21XXX=y
 diff --git a/configs/an7583_evb_defconfig b/configs/an7583_evb_defconfig
 index a3c882c807f..63ce0065957 100644
 --- a/configs/an7583_evb_defconfig
 +++ b/configs/an7583_evb_defconfig
-@@ -103,3 +103,5 @@ CONFIG_DEFAULT_ENV_FILE="defenvs/an7583_rfb_env"
+@@ -103,3 +103,6 @@ CONFIG_DEFAULT_ENV_FILE="defenvs/an7583_rfb_env"
  CONFIG_FIP_LOADER=y
  CONFIG_PCS_AIROHA_AN7581=y
  CONFIG_PHY_AIROHA_EN8811=y
++CONFIG_PHY_ANEG_TIMEOUT=10000
 +CONFIG_PHY_ETHERNET_ID=y
 +CONFIG_PHY_AS21XXX=y
 -- 

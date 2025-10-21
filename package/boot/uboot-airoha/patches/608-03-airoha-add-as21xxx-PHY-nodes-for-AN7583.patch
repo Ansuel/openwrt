@@ -31,7 +31,7 @@ index 3e05c43a362..41ce7b1a732 100644
  		};
  	};
 +
-+	as21xxx_0: ethernet-phy@f {
++	as21xxx_0: ethernet-phy@1d {
 +		reg = <0x1d>;
 +
 +		compatible = "ethernet-phy-id7500.9410";
@@ -40,7 +40,7 @@ index 3e05c43a362..41ce7b1a732 100644
 +		firmware-loader = <&fs_loader1>;
 +	};
 +
-+	as21xxx_1: ethernet-phy@f {
++	as21xxx_1: ethernet-phy@1f {
 +		reg = <0x1f>;
 +
 +		compatible = "ethernet-phy-id7500.9410";
