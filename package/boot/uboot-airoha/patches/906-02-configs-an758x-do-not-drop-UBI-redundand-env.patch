@@ -1,0 +1,58 @@
+From 8efbf7e0f7cdea7b8fca986cee7ed2921449e20a Mon Sep 17 00:00:00 2001
+From: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+Date: Sun, 19 Oct 2025 07:44:38 +0300
+Subject: [PATCH 093/102] configs: an758x: do not drop UBI redundand env
+
+redundand env is not set because SYS_REDUNDAND_ENVIRONMENT=y is missed
+
+also remove double defined PCS_AIROHA_AN7581=y
+
+Signed-off-by: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+---
+ configs/an7581_evb_defconfig | 2 +-
+ configs/an7583_evb_defconfig | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
+index d49ae08dcc2..713fc284aa4 100644
+--- a/configs/an7581_evb_defconfig
++++ b/configs/an7581_evb_defconfig
+@@ -95,6 +95,7 @@ CONFIG_CMD_UBIFS=y
+ CONFIG_ENV_IS_IN_UBI=y
+ CONFIG_ENV_UBI_PART="ubi"
+ CONFIG_ENV_UBI_VOLUME="ubootenv"
++CONFIG_SYS_REDUNDAND_ENVIRONMENT=y
+ CONFIG_ENV_UBI_VOLUME_REDUND="ubootenv2"
+ CONFIG_ENV_UBI_VID_OFFSET=0
+ CONFIG_MTD_UBI=y
+@@ -108,7 +109,6 @@ CONFIG_UBI_BLOCK=y
+ CONFIG_USE_DEFAULT_ENV_FILE=y
+ CONFIG_DEFAULT_ENV_FILE="defenvs/an7581_rfb_env"
+ CONFIG_FIP_LOADER=y
+-CONFIG_PCS_AIROHA_AN7581=y
+ CONFIG_PHY_AIROHA_EN8811=y
+ CONFIG_PHY_ANEG_TIMEOUT=10000
+ CONFIG_PHY_ETHERNET_ID=y
+diff --git a/configs/an7583_evb_defconfig b/configs/an7583_evb_defconfig
+index d18123b9088..d83f254add3 100644
+--- a/configs/an7583_evb_defconfig
++++ b/configs/an7583_evb_defconfig
+@@ -95,6 +95,7 @@ CONFIG_CMD_UBIFS=y
+ CONFIG_ENV_IS_IN_UBI=y
+ CONFIG_ENV_UBI_PART="ubi"
+ CONFIG_ENV_UBI_VOLUME="ubootenv"
++CONFIG_SYS_REDUNDAND_ENVIRONMENT=y
+ CONFIG_ENV_UBI_VOLUME_REDUND="ubootenv2"
+ CONFIG_ENV_UBI_VID_OFFSET=0
+ CONFIG_MTD_UBI=y
+@@ -108,7 +109,6 @@ CONFIG_UBI_BLOCK=y
+ CONFIG_USE_DEFAULT_ENV_FILE=y
+ CONFIG_DEFAULT_ENV_FILE="defenvs/an7583_rfb_env"
+ CONFIG_FIP_LOADER=y
+-CONFIG_PCS_AIROHA_AN7583=y
+ CONFIG_PHY_AIROHA_EN8811=y
+ CONFIG_PHY_ANEG_TIMEOUT=10000
+ CONFIG_PHY_ETHERNET_ID=y
+-- 
+2.51.0
+

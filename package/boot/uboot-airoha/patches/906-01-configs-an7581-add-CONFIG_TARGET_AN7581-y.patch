@@ -1,0 +1,26 @@
+From fbd92adf3022e5d627d8890d7e1aa7eb4f44c6f4 Mon Sep 17 00:00:00 2001
+From: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+Date: Sun, 19 Oct 2025 06:13:20 +0300
+Subject: [PATCH 092/102] configs: an7581: add CONFIG_TARGET_AN7581=y
+
+its better have target definition than relay on default
+
+Signed-off-by: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+---
+ configs/an7581_evb_defconfig | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
+index f8485954a09..d49ae08dcc2 100644
+--- a/configs/an7581_evb_defconfig
++++ b/configs/an7581_evb_defconfig
+@@ -1,5 +1,6 @@
+ CONFIG_ARM=y
+ CONFIG_ARCH_AIROHA=y
++CONFIG_TARGET_AN7581=y
+ CONFIG_AUTOBOOT_USE_MENUKEY=y
+ CONFIG_AUTOBOOT_MENU_SHOW=y
+ CONFIG_TEXT_BASE=0x81E00000
+-- 
+2.51.0
+
