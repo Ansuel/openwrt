@@ -19,11 +19,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/phy/as21xxx.c | 96 +++++++++++++++++++++------------------
  1 file changed, 53 insertions(+), 43 deletions(-)
 
-diff --git a/drivers/net/phy/as21xxx.c b/drivers/net/phy/as21xxx.c
-index ce190d5b0497..3550937c6c7a 100644
 --- a/drivers/net/phy/as21xxx.c
 +++ b/drivers/net/phy/as21xxx.c
-@@ -671,7 +671,7 @@ static int as21xxx_read_link(struct phy_device *phydev, int *bmcr)
+@@ -671,7 +671,7 @@ static int as21xxx_read_link(struct phy_
  
  static int as21xxx_read_c22_lpa(struct phy_device *phydev)
  {
@@ -32,7 +30,7 @@ index ce190d5b0497..3550937c6c7a 100644
  
  	/* MII_STAT1000 are only filled in the mapped C22
  	 * in C45, use that to fill lpagb values and check.
-@@ -698,12 +698,20 @@ static int as21xxx_read_c22_lpa(struct phy_device *phydev)
+@@ -698,12 +698,20 @@ static int as21xxx_read_c22_lpa(struct p
  	mii_stat1000_mod_linkmode_lpa_t(phydev->lp_advertising,
  					lpagb);
  
@@ -53,7 +51,7 @@ index ce190d5b0497..3550937c6c7a 100644
  	int ret;
  
  	ret = as21xxx_read_link(phydev, &bmcr);
-@@ -720,58 +728,60 @@ static int as21xxx_read_status(struct phy_device *phydev)
+@@ -720,58 +728,60 @@ static int as21xxx_read_status(struct ph
  	phydev->asym_pause = 0;
  
  	if (phydev->autoneg == AUTONEG_ENABLE) {
@@ -86,25 +84,6 @@ index ce190d5b0497..3550937c6c7a 100644
 -		switch (speed & VEND1_SPEED_STATUS) {
 -		case VEND1_SPEED_10000:
 -			phydev->speed = SPEED_10000;
--			phydev->duplex = DUPLEX_FULL;
--			break;
--		case VEND1_SPEED_5000:
--			phydev->speed = SPEED_5000;
--			phydev->duplex = DUPLEX_FULL;
--			break;
--		case VEND1_SPEED_2500:
--			phydev->speed = SPEED_2500;
--			phydev->duplex = DUPLEX_FULL;
--			break;
--		case VEND1_SPEED_1000:
--			phydev->speed = SPEED_1000;
--			if (bmcr & BMCR_FULLDPLX)
--				phydev->duplex = DUPLEX_FULL;
--			else
--				phydev->duplex = DUPLEX_HALF;
--			break;
--		case VEND1_SPEED_100:
--			phydev->speed = SPEED_100;
 +	speed = phy_read_mmd(phydev, MDIO_MMD_VEND1,
 +			     VEND1_SPEED_STATUS);
 +	if (speed < 0)
@@ -127,6 +106,25 @@ index ce190d5b0497..3550937c6c7a 100644
 +		phydev->speed = SPEED_1000;
 +		if (bmcr & BMCR_FULLDPLX)
  			phydev->duplex = DUPLEX_FULL;
+-			break;
+-		case VEND1_SPEED_5000:
+-			phydev->speed = SPEED_5000;
+-			phydev->duplex = DUPLEX_FULL;
+-			break;
+-		case VEND1_SPEED_2500:
+-			phydev->speed = SPEED_2500;
+-			phydev->duplex = DUPLEX_FULL;
+-			break;
+-		case VEND1_SPEED_1000:
+-			phydev->speed = SPEED_1000;
+-			if (bmcr & BMCR_FULLDPLX)
+-				phydev->duplex = DUPLEX_FULL;
+-			else
+-				phydev->duplex = DUPLEX_HALF;
+-			break;
+-		case VEND1_SPEED_100:
+-			phydev->speed = SPEED_100;
+-			phydev->duplex = DUPLEX_FULL;
 -			break;
 -		case VEND1_SPEED_10:
 -			phydev->speed = SPEED_10;
@@ -156,6 +154,3 @@ index ce190d5b0497..3550937c6c7a 100644
  	return 0;
  }
  
--- 
-2.48.1
-

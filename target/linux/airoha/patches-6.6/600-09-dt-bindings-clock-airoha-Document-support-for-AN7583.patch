@@ -45,8 +45,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 #  additionalProperties: false
  
 #  examples:
-diff --git a/include/dt-bindings/clock/en7523-clk.h b/include/dt-bindings/clock/en7523-clk.h
-index edfa64045f52..0fbbcb7b1b25 100644
 --- a/include/dt-bindings/clock/en7523-clk.h
 +++ b/include/dt-bindings/clock/en7523-clk.h
 @@ -14,4 +14,7 @@
@@ -57,9 +55,6 @@ index edfa64045f52..0fbbcb7b1b25 100644
 +#define AN7583_CLK_MDIO1	10
 +
  #endif /* _DT_BINDINGS_CLOCK_AIROHA_EN7523_H_ */
-diff --git a/include/dt-bindings/reset/airoha,an7583-reset.h b/include/dt-bindings/reset/airoha,an7583-reset.h
-new file mode 100644
-index 000000000000..96cfe11d2943
 --- /dev/null
 +++ b/include/dt-bindings/reset/airoha,an7583-reset.h
 @@ -0,0 +1,62 @@
@@ -125,6 +120,3 @@ index 000000000000..96cfe11d2943
 +#define AN7583_XPON_MAC_RST		48
 +
 +#endif /* __DT_BINDINGS_RESET_CONTROLLER_AIROHA_AN7583_H_ */
--- 
-2.48.1
-

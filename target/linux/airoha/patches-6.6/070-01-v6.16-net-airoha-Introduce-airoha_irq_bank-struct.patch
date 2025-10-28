@@ -18,11 +18,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_regs.h |  11 ++-
  3 files changed, 86 insertions(+), 44 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index c773b5ea9c05..e1c1cf965c2f 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -34,37 +34,40 @@ u32 airoha_rmw(void __iomem *base, u32 offset, u32 mask, u32 val)
+@@ -34,37 +34,40 @@ u32 airoha_rmw(void __iomem *base, u32 o
  	return val;
  }
  
@@ -78,7 +76,7 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  }
  
  static bool airhoa_is_lan_gdm_port(struct airoha_gdm_port *port)
-@@ -732,6 +735,7 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
+@@ -732,6 +735,7 @@ free_frag:
  static int airoha_qdma_rx_napi_poll(struct napi_struct *napi, int budget)
  {
  	struct airoha_queue *q = container_of(napi, struct airoha_queue, napi);
@@ -86,7 +84,7 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  	int cur, done = 0;
  
  	do {
-@@ -740,7 +744,7 @@ static int airoha_qdma_rx_napi_poll(struct napi_struct *napi, int budget)
+@@ -740,7 +744,7 @@ static int airoha_qdma_rx_napi_poll(stru
  	} while (cur && done < budget);
  
  	if (done < budget && napi_complete(napi))
@@ -95,7 +93,7 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  				       RX_DONE_INT_MASK);
  
  	return done;
-@@ -944,7 +948,7 @@ static int airoha_qdma_tx_napi_poll(struct napi_struct *napi, int budget)
+@@ -945,7 +949,7 @@ unlock:
  	}
  
  	if (done < budget && napi_complete(napi))
@@ -104,7 +102,7 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  				       TX_DONE_INT_MASK(id));
  
  	return done;
-@@ -1175,13 +1179,16 @@ static int airoha_qdma_hw_init(struct airoha_qdma *qdma)
+@@ -1176,13 +1180,16 @@ static int airoha_qdma_hw_init(struct ai
  	int i;
  
  	/* clear pending irqs */
@@ -125,7 +123,7 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  
  	/* setup irq binding */
  	for (i = 0; i < ARRAY_SIZE(qdma->q_tx); i++) {
-@@ -1226,13 +1233,14 @@ static int airoha_qdma_hw_init(struct airoha_qdma *qdma)
+@@ -1227,13 +1234,14 @@ static int airoha_qdma_hw_init(struct ai
  
  static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
  {
@@ -144,7 +142,7 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  		airoha_qdma_wr(qdma, REG_INT_STATUS(i), intr[i]);
  	}
  
-@@ -1240,7 +1248,7 @@ static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
+@@ -1241,7 +1249,7 @@ static irqreturn_t airoha_irq_handler(in
  		return IRQ_NONE;
  
  	if (intr[1] & RX_DONE_INT_MASK) {
@@ -153,7 +151,7 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  					RX_DONE_INT_MASK);
  
  		for (i = 0; i < ARRAY_SIZE(qdma->q_rx); i++) {
-@@ -1257,7 +1265,7 @@ static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
+@@ -1258,7 +1266,7 @@ static irqreturn_t airoha_irq_handler(in
  			if (!(intr[0] & TX_DONE_INT_MASK(i)))
  				continue;
  
@@ -162,7 +160,7 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  						TX_DONE_INT_MASK(i));
  			napi_schedule(&qdma->q_tx_irq[i].napi);
  		}
-@@ -1266,6 +1274,39 @@ static irqreturn_t airoha_irq_handler(int irq, void *dev_instance)
+@@ -1267,6 +1275,39 @@ static irqreturn_t airoha_irq_handler(in
  	return IRQ_HANDLED;
  }
  
@@ -202,7 +200,7 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  static int airoha_qdma_init(struct platform_device *pdev,
  			    struct airoha_eth *eth,
  			    struct airoha_qdma *qdma)
-@@ -1273,9 +1314,7 @@ static int airoha_qdma_init(struct platform_device *pdev,
+@@ -1274,9 +1315,7 @@ static int airoha_qdma_init(struct platf
  	int err, id = qdma - &eth->qdma[0];
  	const char *res;
  
@@ -212,7 +210,7 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  	res = devm_kasprintf(eth->dev, GFP_KERNEL, "qdma%d", id);
  	if (!res)
  		return -ENOMEM;
-@@ -1285,12 +1324,7 @@ static int airoha_qdma_init(struct platform_device *pdev,
+@@ -1286,12 +1325,7 @@ static int airoha_qdma_init(struct platf
  		return dev_err_probe(eth->dev, PTR_ERR(qdma->regs),
  				     "failed to iomap qdma%d regs\n", id);
  
@@ -226,7 +224,7 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  	if (err)
  		return err;
  
-@@ -2784,7 +2818,7 @@ static int airoha_alloc_gdm_port(struct airoha_eth *eth,
+@@ -2782,7 +2816,7 @@ static int airoha_alloc_gdm_port(struct
  	dev->features |= dev->hw_features;
  	dev->vlan_features = dev->hw_features;
  	dev->dev.of_node = np;
@@ -235,8 +233,6 @@ index c773b5ea9c05..e1c1cf965c2f 100644
  	SET_NETDEV_DEV(dev, eth->dev);
  
  	/* reserve hw queues for HTB offloading */
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index da5371bcd147..af263203d488 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -17,6 +17,7 @@
@@ -274,8 +270,6 @@ index da5371bcd147..af263203d488 100644
  	struct airoha_tx_irq_queue q_tx_irq[AIROHA_NUM_TX_IRQ];
  
  	struct airoha_queue q_tx[AIROHA_NUM_TX_RING];
-diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
-index 29c8f046b991..1d99fe9f8112 100644
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
 @@ -423,11 +423,12 @@
@@ -296,6 +290,3 @@ index 29c8f046b991..1d99fe9f8112 100644
  
  /* QDMA_CSR_INT_ENABLE1 */
  #define RX15_COHERENT_INT_MASK		BIT(31)
--- 
-2.51.0
-

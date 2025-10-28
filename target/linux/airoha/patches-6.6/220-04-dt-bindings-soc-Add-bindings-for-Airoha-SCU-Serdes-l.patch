@@ -19,9 +19,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  1 file changed, 11 insertions(+)
  create mode 100644 include/dt-bindings/soc/airoha,scu-ssr.h
 
-diff --git a/include/dt-bindings/soc/airoha,scu-ssr.h b/include/dt-bindings/soc/airoha,scu-ssr.h
-new file mode 100644
-index 000000000000..915f3cde7c1a
 --- /dev/null
 +++ b/include/dt-bindings/soc/airoha,scu-ssr.h
 @@ -0,0 +1,11 @@
@@ -36,6 +33,3 @@ index 000000000000..915f3cde7c1a
 +#define AIROHA_SCU_SERDES_USB2		3
 +
 +#endif /* __DT_BINDINGS_AIROHA_SCU_SSR_H */
--- 
-2.51.0
-

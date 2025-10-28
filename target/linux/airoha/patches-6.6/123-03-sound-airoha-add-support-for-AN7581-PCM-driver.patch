@@ -18,8 +18,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  create mode 100644 sound/airoha/Makefile
  create mode 100644 sound/airoha/an7581-pcm.c
 
-diff --git a/sound/Kconfig b/sound/Kconfig
-index 8b40205394fe..7886c2460e86 100644
 --- a/sound/Kconfig
 +++ b/sound/Kconfig
 @@ -63,6 +63,8 @@ source "sound/ppc/Kconfig"
@@ -31,8 +29,6 @@ index 8b40205394fe..7886c2460e86 100644
  source "sound/aoa/Kconfig"
  
  source "sound/arm/Kconfig"
-diff --git a/sound/Makefile b/sound/Makefile
-index 5942311a4232..85008bb22b7e 100644
 --- a/sound/Makefile
 +++ b/sound/Makefile
 @@ -6,7 +6,7 @@ obj-$(CONFIG_SOUND) += soundcore.o
@@ -44,9 +40,6 @@ index 5942311a4232..85008bb22b7e 100644
  obj-$(CONFIG_SND_AOA) += aoa/
  
  # This one must be compilable even if sound is configured out
-diff --git a/sound/airoha/Kconfig b/sound/airoha/Kconfig
-new file mode 100644
-index 000000000000..fe226fedd1a4
 --- /dev/null
 +++ b/sound/airoha/Kconfig
 @@ -0,0 +1,9 @@
@@ -59,18 +52,12 @@ index 000000000000..fe226fedd1a4
 +	  that can be used with other codecs.
 +	  Select Y if you have such device.
 +	  If unsure select "N".
-diff --git a/sound/airoha/Makefile b/sound/airoha/Makefile
-new file mode 100644
-index 000000000000..039b8853d5a2
 --- /dev/null
 +++ b/sound/airoha/Makefile
 @@ -0,0 +1,3 @@
 +# SPDX-License-Identifier: GPL-2.0
 +
 +obj-$(CONFIG_SND_AN7581_PCM) += an7581-pcm.o
-diff --git a/sound/airoha/an7581-pcm.c b/sound/airoha/an7581-pcm.c
-new file mode 100644
-index 000000000000..1b6fc2a86776
 --- /dev/null
 +++ b/sound/airoha/an7581-pcm.c
 @@ -0,0 +1,637 @@
@@ -711,6 +698,3 @@ index 000000000000..1b6fc2a86776
 +
 +MODULE_DESCRIPTION("Airoha SoC PCM platform driver for ALSA AN7581");
 +MODULE_LICENSE("GPL");
--- 
-2.51.0
-

@@ -21,7 +21,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1530,8 +1530,7 @@ static int airoha_hw_init(struct platfor
+@@ -1404,8 +1404,7 @@ static int airoha_hw_init(struct platfor
  	int err, i;
  
  	/* disable xsi */
@@ -31,7 +31,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (err)
  		return err;
  
-@@ -1539,7 +1538,8 @@ static int airoha_hw_init(struct platfor
+@@ -1413,7 +1412,8 @@ static int airoha_hw_init(struct platfor
  	if (err)
  		return err;
  
@@ -41,7 +41,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (err)
  		return err;
  
-@@ -3371,6 +3371,7 @@ free_metadata_dst:
+@@ -3071,6 +3071,7 @@ static int airoha_register_gdm_ports(str
  
  static int airoha_probe(struct platform_device *pdev)
  {
@@ -49,7 +49,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct device_node *np;
  	struct airoha_eth *eth;
  	int i, err;
-@@ -3379,6 +3380,10 @@ static int airoha_probe(struct platform_
+@@ -3079,6 +3080,10 @@ static int airoha_probe(struct platform_
  	if (!eth)
  		return -ENOMEM;
  
@@ -60,7 +60,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	eth->dev = &pdev->dev;
  
  	err = dma_set_mask_and_coherent(eth->dev, DMA_BIT_MASK(32));
-@@ -3403,12 +3408,18 @@ static int airoha_probe(struct platform_
+@@ -3103,12 +3108,18 @@ static int airoha_probe(struct platform_
  		return err;
  	}
  
@@ -84,7 +84,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  						    eth->xsi_rsts);
  	if (err) {
  		dev_err(eth->dev, "failed to get bulk xsi reset lines\n");
-@@ -3506,8 +3517,22 @@ static void airoha_remove(struct platfor
+@@ -3208,8 +3219,22 @@ static void airoha_remove(struct platfor
  	platform_set_drvdata(pdev, NULL);
  }
  
@@ -118,7 +118,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #define AIROHA_MAX_MTU			9216
  #define AIROHA_MAX_PACKET_SIZE		2048
  #define AIROHA_NUM_QOS_CHANNELS		4
-@@ -575,9 +574,18 @@ struct airoha_ppe {
+@@ -564,9 +563,18 @@ struct airoha_ppe {
  	struct dentry *debugfs_dir;
  };
  
@@ -137,7 +137,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	unsigned long state;
  	void __iomem *fe_regs;
  
-@@ -587,7 +595,7 @@ struct airoha_eth {
+@@ -576,7 +584,7 @@ struct airoha_eth {
  	struct rhashtable flow_table;
  
  	struct reset_control_bulk_data rsts[AIROHA_MAX_NUM_RSTS];
@@ -146,7 +146,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	struct net_device *napi_dev;
  
-@@ -632,6 +640,11 @@ static inline bool airhoa_is_lan_gdm_por
+@@ -619,6 +627,11 @@ static inline bool airhoa_is_lan_gdm_por
  	return port->id == 1;
  }
  

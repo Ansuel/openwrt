@@ -24,11 +24,9 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  drivers/net/ethernet/airoha/airoha_regs.h | 10 +++++++++
  4 files changed, 38 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index d1d3b854361e..a7ec609d64de 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -84,6 +84,8 @@ static void airoha_set_macaddr(struct airoha_gdm_port *port, const u8 *addr)
+@@ -84,6 +84,8 @@ static void airoha_set_macaddr(struct ai
  	val = (addr[3] << 16) | (addr[4] << 8) | addr[5];
  	airoha_fe_wr(eth, REG_FE_MAC_LMIN(reg), val);
  	airoha_fe_wr(eth, REG_FE_MAC_LMAX(reg), val);
@@ -37,11 +35,9 @@ index d1d3b854361e..a7ec609d64de 100644
  }
  
  static void airoha_set_gdm_port_fwd_cfg(struct airoha_eth *eth, u32 addr,
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index b815697302bf..a970b789cf23 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -614,6 +614,7 @@ void airoha_ppe_check_skb(struct airoha_ppe *ppe, struct sk_buff *skb,
+@@ -614,6 +614,7 @@ void airoha_ppe_check_skb(struct airoha_
  int airoha_ppe_setup_tc_block_cb(struct net_device *dev, void *type_data);
  int airoha_ppe_init(struct airoha_eth *eth);
  void airoha_ppe_deinit(struct airoha_eth *eth);
@@ -49,11 +45,9 @@ index b815697302bf..a970b789cf23 100644
  struct airoha_foe_entry *airoha_ppe_foe_get_entry(struct airoha_ppe *ppe,
  						  u32 hash);
  void airoha_ppe_foe_entry_get_stats(struct airoha_ppe *ppe, u32 hash,
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index 12d32c92717a..a783f16980e6 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -223,6 +223,7 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
+@@ -223,6 +223,7 @@ static int airoha_ppe_foe_entry_prepare(
  	int dsa_port = airoha_get_dsa_port(&dev);
  	struct airoha_foe_mac_info_common *l2;
  	u32 qdata, ports_pad, val;
@@ -61,7 +55,7 @@ index 12d32c92717a..a783f16980e6 100644
  
  	memset(hwe, 0, sizeof(*hwe));
  
-@@ -257,6 +258,8 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
+@@ -257,6 +258,8 @@ static int airoha_ppe_foe_entry_prepare(
  		 */
  		if (airhoa_is_lan_gdm_port(port))
  			val |= AIROHA_FOE_IB2_FAST_PATH;
@@ -70,7 +64,7 @@ index 12d32c92717a..a783f16980e6 100644
  	}
  
  	if (is_multicast_ether_addr(data->eth.h_dest))
-@@ -291,7 +294,7 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
+@@ -291,7 +294,7 @@ static int airoha_ppe_foe_entry_prepare(
  		hwe->ipv4.l2.src_mac_lo =
  			get_unaligned_be16(data->eth.h_source + 4);
  	} else {
@@ -79,7 +73,7 @@ index 12d32c92717a..a783f16980e6 100644
  	}
  
  	if (data->vlan.num) {
-@@ -1238,6 +1241,27 @@ void airoha_ppe_check_skb(struct airoha_ppe *ppe, struct sk_buff *skb,
+@@ -1238,6 +1241,27 @@ void airoha_ppe_check_skb(struct airoha_
  	airoha_ppe_foe_insert_entry(ppe, skb, hash);
  }
  
@@ -107,8 +101,6 @@ index 12d32c92717a..a783f16980e6 100644
  int airoha_ppe_init(struct airoha_eth *eth)
  {
  	struct airoha_ppe *ppe;
-diff --git a/drivers/net/ethernet/airoha/airoha_regs.h b/drivers/net/ethernet/airoha/airoha_regs.h
-index d931530fc96f..04187eb40ec6 100644
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
 @@ -313,6 +313,16 @@
@@ -128,6 +120,3 @@ index d931530fc96f..04187eb40ec6 100644
  #define REG_FE_GDM_TX_OK_PKT_CNT_H(_n)		(GDM_BASE(_n) + 0x280)
  #define REG_FE_GDM_TX_OK_BYTE_CNT_H(_n)		(GDM_BASE(_n) + 0x284)
  #define REG_FE_GDM_TX_ETH_PKT_CNT_H(_n)		(GDM_BASE(_n) + 0x288)
--- 
-2.51.0
-

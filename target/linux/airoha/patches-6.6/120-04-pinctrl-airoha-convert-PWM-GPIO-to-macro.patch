@@ -14,11 +14,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/pinctrl/mediatek/pinctrl-airoha.c | 465 ++++------------------
  1 file changed, 68 insertions(+), 397 deletions(-)
 
-diff --git a/drivers/pinctrl/mediatek/pinctrl-airoha.c b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-index a1620d7e59a4..b5e1d722d904 100644
 --- a/drivers/pinctrl/mediatek/pinctrl-airoha.c
 +++ b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-@@ -1075,404 +1075,75 @@ static const struct airoha_pinctrl_func_group pcie_reset_func_group[] = {
+@@ -1072,404 +1072,75 @@ static const struct airoha_pinctrl_func_
  };
  
  /* PWM */
@@ -491,6 +489,3 @@ index a1620d7e59a4..b5e1d722d904 100644
  };
  
  #define AIROHA_PINCTRL_PHY_LED(gpio, mux_val, map_mask, map_val)	\
--- 
-2.48.1
-

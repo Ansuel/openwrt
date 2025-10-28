@@ -20,11 +20,9 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  drivers/net/ethernet/airoha/airoha_ppe.c |  6 ++++++
  3 files changed, 16 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 8a8a6424c1dd..507ba046c719 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -71,15 +71,6 @@ static void airoha_qdma_irq_disable(struct airoha_irq_bank *irq_bank,
+@@ -71,15 +71,6 @@ static void airoha_qdma_irq_disable(stru
  	airoha_qdma_set_irqmask(irq_bank, index, mask, 0);
  }
  
@@ -40,7 +38,7 @@ index 8a8a6424c1dd..507ba046c719 100644
  static void airoha_set_macaddr(struct airoha_gdm_port *port, const u8 *addr)
  {
  	struct airoha_eth *eth = port->qdma->eth;
-@@ -1124,7 +1115,7 @@ static int airoha_qdma_init_hfwd_queues(struct airoha_qdma *qdma)
+@@ -1125,7 +1116,7 @@ static int airoha_qdma_init_hfwd_queues(
  			LMGR_INIT_START | LMGR_SRAM_MODE_MASK |
  			HW_FWD_DESC_NUM_MASK,
  			FIELD_PREP(HW_FWD_DESC_NUM_MASK, HW_DSCP_NUM) |
@@ -49,11 +47,9 @@ index 8a8a6424c1dd..507ba046c719 100644
  
  	return read_poll_timeout(airoha_qdma_rr, status,
  				 !(status & LMGR_INIT_START), USEC_PER_MSEC,
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index 3e03ae9a5d0d..b815697302bf 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -597,6 +597,15 @@ u32 airoha_rmw(void __iomem *base, u32 offset, u32 mask, u32 val);
+@@ -597,6 +597,15 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
@@ -69,11 +65,9 @@ index 3e03ae9a5d0d..b815697302bf 100644
  bool airoha_is_valid_gdm_port(struct airoha_eth *eth,
  			      struct airoha_gdm_port *port);
  
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index 2d273937f19c..12d32c92717a 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -251,6 +251,12 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
+@@ -251,6 +251,12 @@ static int airoha_ppe_foe_entry_prepare(
  		else
  			pse_port = 2; /* uplink relies on GDM2 loopback */
  		val |= FIELD_PREP(AIROHA_FOE_IB2_PSE_PORT, pse_port);
@@ -86,6 +80,3 @@ index 2d273937f19c..12d32c92717a 100644
  	}
  
  	if (is_multicast_ether_addr(data->eth.h_dest))
--- 
-2.51.0
-

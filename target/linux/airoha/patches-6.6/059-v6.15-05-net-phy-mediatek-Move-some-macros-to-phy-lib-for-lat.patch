@@ -16,11 +16,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/mediatek/mtk.h    | 4 ++++
  2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/phy/mediatek/mtk-ge.c b/drivers/net/phy/mediatek/mtk-ge.c
-index a24c5ba469ba..73d9b72f9d9e 100644
 --- a/drivers/net/phy/mediatek/mtk-ge.c
 +++ b/drivers/net/phy/mediatek/mtk-ge.c
-@@ -8,10 +8,6 @@
+@@ -9,10 +9,6 @@
  #define MTK_GPHY_ID_MT7530		0x03a29412
  #define MTK_GPHY_ID_MT7531		0x03a29441
  
@@ -31,8 +29,6 @@ index a24c5ba469ba..73d9b72f9d9e 100644
  #define MTK_PHY_PAGE_EXTENDED_2			0x0002
  #define MTK_PHY_PAGE_EXTENDED_3			0x0003
  #define MTK_PHY_RG_LPI_PCS_DSP_CTRL_REG11	0x11
-diff --git a/drivers/net/phy/mediatek/mtk.h b/drivers/net/phy/mediatek/mtk.h
-index 4e4468dc0234..320f76ffa81f 100644
 --- a/drivers/net/phy/mediatek/mtk.h
 +++ b/drivers/net/phy/mediatek/mtk.h
 @@ -8,7 +8,11 @@
@@ -47,6 +43,3 @@ index 4e4468dc0234..320f76ffa81f 100644
  #define MTK_PHY_PAGE_STANDARD			0x0000
  #define MTK_PHY_PAGE_EXTENDED_52B5		0x52b5
  
--- 
-2.48.1
-

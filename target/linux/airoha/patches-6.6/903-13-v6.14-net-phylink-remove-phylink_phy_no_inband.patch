@@ -16,11 +16,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/phylink.c | 27 ++++++---------------------
  1 file changed, 6 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
-index b0881fa9c72e..95fbc363f9a6 100644
 --- a/drivers/net/phy/phylink.c
 +++ b/drivers/net/phy/phylink.c
-@@ -3391,10 +3391,11 @@ static phy_interface_t phylink_choose_sfp_interface(struct phylink *pl,
+@@ -3415,10 +3415,11 @@ static phy_interface_t phylink_choose_sf
  	return interface;
  }
  
@@ -33,7 +31,7 @@ index b0881fa9c72e..95fbc363f9a6 100644
  	bool changed = false;
  
  	phylink_dbg(pl, "requesting link mode %s/%s with support %*pb\n",
-@@ -3428,8 +3429,7 @@ static void phylink_sfp_set_config(struct phylink *pl, u8 mode,
+@@ -3452,8 +3453,7 @@ static void phylink_sfp_set_config(struc
  		phylink_mac_initial_config(pl, false);
  }
  
@@ -41,9 +39,9 @@ index b0881fa9c72e..95fbc363f9a6 100644
 -				  struct phy_device *phy)
 +static int phylink_sfp_config_phy(struct phylink *pl, struct phy_device *phy)
  {
+ 	__ETHTOOL_DECLARE_LINK_MODE_MASK(support1);
  	__ETHTOOL_DECLARE_LINK_MODE_MASK(support);
- 	struct phylink_link_state config;
-@@ -3473,7 +3473,7 @@ static int phylink_sfp_config_phy(struct phylink *pl, u8 mode,
+@@ -3493,7 +3493,7 @@ static int phylink_sfp_config_phy(struct
  	if (ret) {
  		phylink_err(pl,
  			    "validation of %s/%s with support %*pb failed: %pe\n",
@@ -52,7 +50,7 @@ index b0881fa9c72e..95fbc363f9a6 100644
  			    phy_modes(config.interface),
  			    __ETHTOOL_LINK_MODE_MASK_NBITS, support,
  			    ERR_PTR(ret));
-@@ -3473,7 +3473,7 @@ static int phylink_sfp_config_phy(struct phylink *pl, u8 mode,
+@@ -3502,7 +3502,7 @@ static int phylink_sfp_config_phy(struct
  
  	pl->link_port = pl->sfp_port;
  
@@ -61,7 +59,7 @@ index b0881fa9c72e..95fbc363f9a6 100644
  
  	return 0;
  }
-@@ -3548,7 +3548,7 @@ static int phylink_sfp_config_optical(struct phylink *pl)
+@@ -3577,7 +3577,7 @@ static int phylink_sfp_config_optical(st
  
  	pl->link_port = pl->sfp_port;
  
@@ -70,7 +68,7 @@ index b0881fa9c72e..95fbc363f9a6 100644
  
  	return 0;
  }
-@@ -3619,20 +3619,10 @@ static void phylink_sfp_link_up(void *upstream)
+@@ -3648,20 +3648,10 @@ static void phylink_sfp_link_up(void *up
  	phylink_enable_and_run_resolve(pl, PHYLINK_DISABLE_LINK);
  }
  
@@ -86,12 +84,12 @@ index b0881fa9c72e..95fbc363f9a6 100644
  static int phylink_sfp_connect_phy(void *upstream, struct phy_device *phy)
  {
  	struct phylink *pl = upstream;
-	phy_interface_t interface;
+ 	phy_interface_t interface;
 -	u8 mode;
  	int ret;
  
  	/*
-@@ -3642,17 +3632,12 @@ static int phylink_sfp_connect_phy(void *upstream, struct phy_device *phy)
+@@ -3673,17 +3663,12 @@ static int phylink_sfp_connect_phy(void
  	 */
  	phy_support_asym_pause(phy);
  
@@ -110,6 +108,3 @@ index b0881fa9c72e..95fbc363f9a6 100644
  	if (ret < 0)
  		return ret;
  
--- 
-2.51.0
-

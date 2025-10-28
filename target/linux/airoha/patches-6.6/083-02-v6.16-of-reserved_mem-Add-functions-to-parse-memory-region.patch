@@ -19,8 +19,6 @@ Signed-off-by: Rob Herring (Arm) <robh@kernel.org>
  include/linux/of_reserved_mem.h | 26 +++++++++++
  2 files changed, 106 insertions(+)
 
-diff --git a/drivers/of/of_reserved_mem.c b/drivers/of/of_reserved_mem.c
-index ee2e31522d7e..77016c0cc296 100644
 --- a/drivers/of/of_reserved_mem.c
 +++ b/drivers/of/of_reserved_mem.c
 @@ -12,6 +12,7 @@
@@ -31,7 +29,7 @@ index ee2e31522d7e..77016c0cc296 100644
  #include <linux/of.h>
  #include <linux/of_fdt.h>
  #include <linux/of_platform.h>
-@@ -740,3 +741,82 @@ struct reserved_mem *of_reserved_mem_lookup(struct device_node *np)
+@@ -514,3 +515,82 @@ struct reserved_mem *of_reserved_mem_loo
  	return NULL;
  }
  EXPORT_SYMBOL_GPL(of_reserved_mem_lookup);
@@ -114,8 +112,6 @@ index ee2e31522d7e..77016c0cc296 100644
 +	return of_count_phandle_with_args(np, "memory-region", NULL);
 +}
 +EXPORT_SYMBOL_GPL(of_reserved_mem_region_count);
-diff --git a/include/linux/of_reserved_mem.h b/include/linux/of_reserved_mem.h
-index e338282da652..f573423359f4 100644
 --- a/include/linux/of_reserved_mem.h
 +++ b/include/linux/of_reserved_mem.h
 @@ -7,6 +7,7 @@
@@ -126,7 +122,7 @@ index e338282da652..f573423359f4 100644
  
  struct reserved_mem {
  	const char			*name;
-@@ -39,6 +40,12 @@ int of_reserved_mem_device_init_by_name(struct device *dev,
+@@ -40,6 +41,12 @@ int of_reserved_mem_device_init_by_name(
  void of_reserved_mem_device_release(struct device *dev);
  
  struct reserved_mem *of_reserved_mem_lookup(struct device_node *np);
@@ -139,7 +135,7 @@ index e338282da652..f573423359f4 100644
  #else
  
  #define RESERVEDMEM_OF_DECLARE(name, compat, init)			\
-@@ -63,6 +70,25 @@ static inline struct reserved_mem *of_reserved_mem_lookup(struct device_node *np
+@@ -64,6 +71,25 @@ static inline struct reserved_mem *of_re
  {
  	return NULL;
  }
@@ -165,6 +161,3 @@ index e338282da652..f573423359f4 100644
  #endif
  
  /**
--- 
-2.51.0
-

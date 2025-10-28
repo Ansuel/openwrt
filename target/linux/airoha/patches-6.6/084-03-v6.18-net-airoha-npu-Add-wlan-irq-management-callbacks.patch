@@ -16,11 +16,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_npu.h |  4 ++++
  2 files changed, 31 insertions(+)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_npu.c b/drivers/net/ethernet/airoha/airoha_npu.c
-index 2a337f00386f..5d1355126d16 100644
 --- a/drivers/net/ethernet/airoha/airoha_npu.c
 +++ b/drivers/net/ethernet/airoha/airoha_npu.c
-@@ -520,6 +520,29 @@ static u32 airoha_npu_wlan_queue_addr_get(struct airoha_npu *npu, int qid,
+@@ -520,6 +520,29 @@ static u32 airoha_npu_wlan_queue_addr_ge
  	return REG_RX_BASE(qid);
  }
  
@@ -50,7 +48,7 @@ index 2a337f00386f..5d1355126d16 100644
  struct airoha_npu *airoha_npu_get(struct device *dev, dma_addr_t *stats_addr)
  {
  	struct platform_device *pdev;
-@@ -627,6 +650,10 @@ static int airoha_npu_probe(struct platform_device *pdev)
+@@ -627,6 +650,10 @@ static int airoha_npu_probe(struct platf
  	npu->ops.wlan_send_msg = airoha_npu_wlan_msg_send;
  	npu->ops.wlan_get_msg = airoha_npu_wlan_msg_get;
  	npu->ops.wlan_get_queue_addr = airoha_npu_wlan_queue_addr_get;
@@ -61,8 +59,6 @@ index 2a337f00386f..5d1355126d16 100644
  
  	npu->regmap = devm_regmap_init_mmio(dev, base, &regmap_config);
  	if (IS_ERR(npu->regmap))
-diff --git a/drivers/net/ethernet/airoha/airoha_npu.h b/drivers/net/ethernet/airoha/airoha_npu.h
-index 7b9ff370c879..84c83753c2bd 100644
 --- a/drivers/net/ethernet/airoha/airoha_npu.h
 +++ b/drivers/net/ethernet/airoha/airoha_npu.h
 @@ -89,6 +89,10 @@ struct airoha_npu {
@@ -76,6 +72,3 @@ index 7b9ff370c879..84c83753c2bd 100644
  	} ops;
  };
  
--- 
-2.51.0
-

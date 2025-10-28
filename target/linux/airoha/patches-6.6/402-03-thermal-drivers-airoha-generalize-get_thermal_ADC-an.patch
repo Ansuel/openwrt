@@ -18,8 +18,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/thermal/airoha_thermal.c | 54 +++++++++++++++++++++++++-------
  1 file changed, 42 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/thermal/airoha_thermal.c b/drivers/thermal/airoha_thermal.c
-index 9bfa59b97032..4c973cce106a 100644
 --- a/drivers/thermal/airoha_thermal.c
 +++ b/drivers/thermal/airoha_thermal.c
 @@ -193,9 +193,18 @@
@@ -41,7 +39,7 @@ index 9bfa59b97032..4c973cce106a 100644
  	struct resource scu_adc_res;
  
  	u32 pllrg_protect;
-@@ -219,22 +228,29 @@ static int airoha_get_thermal_ADC(struct airoha_thermal_priv *priv)
+@@ -219,22 +228,29 @@ static int airoha_get_thermal_ADC(struct
  {
  	u32 val;
  
@@ -78,7 +76,7 @@ index 9bfa59b97032..4c973cce106a 100644
  
  	/* Restore PLLRG value on exit */
  	regmap_write(priv->chip_scu, EN7581_PLLRG_PROTECT, pllrg);
-@@ -343,10 +359,8 @@ static void en7581_thermal_setup_adc_val(struct device *dev,
+@@ -343,10 +359,8 @@ static void en7581_thermal_setup_adc_val
  {
  	u32 efuse_calib_info, cpu_sensor;
  
@@ -91,7 +89,7 @@ index 9bfa59b97032..4c973cce106a 100644
  
  	regmap_read(priv->map, EN7581_EFUSE_TEMP_OFFSET_REG, &efuse_calib_info);
  	if (efuse_calib_info) {
-@@ -429,13 +443,18 @@ static const struct regmap_config en7581_thermal_regmap_config = {
+@@ -429,13 +443,18 @@ static const struct regmap_config en7581
  	.val_bits		= 32,
  };
  
@@ -111,7 +109,7 @@ index 9bfa59b97032..4c973cce106a 100644
  
  	base = devm_platform_ioremap_resource(pdev, 0);
  	if (IS_ERR(base))
-@@ -454,6 +473,17 @@ static int en7581_thermal_probe(struct platform_device *pdev,
+@@ -454,6 +473,17 @@ static int en7581_thermal_probe(struct p
  	if (IS_ERR(priv->chip_scu))
  		return PTR_ERR(priv->chip_scu);
  
@@ -129,6 +127,3 @@ index 9bfa59b97032..4c973cce106a 100644
  	of_address_to_resource(chip_scu_np, 0, &priv->scu_adc_res);
  	of_node_put(chip_scu_np);
  
--- 
-2.48.1
-

@@ -21,11 +21,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/pinctrl/mediatek/pinctrl-airoha.c | 15 +++++++++------
  1 file changed, 9 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/pinctrl/mediatek/pinctrl-airoha.c b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-index f7f8fd2f35fc..d89da9581c55 100644
 --- a/drivers/pinctrl/mediatek/pinctrl-airoha.c
 +++ b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-@@ -108,6 +108,9 @@
+@@ -102,6 +102,9 @@
  #define JTAG_UDI_EN_MASK			BIT(4)
  #define JTAG_DFD_EN_MASK			BIT(3)
  
@@ -35,17 +33,16 @@ index f7f8fd2f35fc..d89da9581c55 100644
  /* LED MAP */
  #define REG_LAN_LED0_MAPPING			0x027c
  #define REG_LAN_LED1_MAPPING			0x0280
-@@ -718,17 +721,17 @@ static const struct airoha_pinctrl_func_group mdio_func_group[] = {
- 	{
+@@ -713,16 +716,16 @@ static const struct airoha_pinctrl_func_
  		.name = "mdio",
  		.regmap[0] = {
--			AIROHA_FUNC_MUX,
+ 			AIROHA_FUNC_MUX,
 -			REG_GPIO_PON_MODE,
 -			GPIO_SGMII_MDIO_MODE_MASK,
 -			GPIO_SGMII_MDIO_MODE_MASK
 -		},
 -		.regmap[1] = {
- 			AIROHA_FUNC_MUX,
+-			AIROHA_FUNC_MUX,
  			REG_GPIO_2ND_I2C_MODE,
  			GPIO_MDC_IO_MASTER_MODE_MODE,
  			GPIO_MDC_IO_MASTER_MODE_MODE
@@ -59,6 +56,3 @@ index f7f8fd2f35fc..d89da9581c55 100644
  		.regmap_size = 2,
  	},
  };
--- 
-2.51.0
-

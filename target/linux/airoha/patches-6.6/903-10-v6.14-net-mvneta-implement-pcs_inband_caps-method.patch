@@ -14,11 +14,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/marvell/mvneta.c | 27 +++++++++++++++++----------
  1 file changed, 17 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index 1fb285fa0bdb..fe6261b81540 100644
 --- a/drivers/net/ethernet/marvell/mvneta.c
 +++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -3960,20 +3960,27 @@ static struct mvneta_port *mvneta_pcs_to_port(struct phylink_pcs *pcs)
+@@ -3959,20 +3959,27 @@ static struct mvneta_port *mvneta_pcs_to
  	return container_of(pcs, struct mvneta_port, phylink_pcs);
  }
  
@@ -55,7 +53,7 @@ index 1fb285fa0bdb..fe6261b81540 100644
  }
  
  static void mvneta_pcs_get_state(struct phylink_pcs *pcs,
-@@ -4071,7 +4078,7 @@ static void mvneta_pcs_an_restart(struct phylink_pcs *pcs)
+@@ -4070,7 +4077,7 @@ static void mvneta_pcs_an_restart(struct
  }
  
  static const struct phylink_pcs_ops mvneta_phylink_pcs_ops = {
@@ -64,6 +62,3 @@ index 1fb285fa0bdb..fe6261b81540 100644
  	.pcs_get_state = mvneta_pcs_get_state,
  	.pcs_config = mvneta_pcs_config,
  	.pcs_an_restart = mvneta_pcs_an_restart,
--- 
-2.51.0
-

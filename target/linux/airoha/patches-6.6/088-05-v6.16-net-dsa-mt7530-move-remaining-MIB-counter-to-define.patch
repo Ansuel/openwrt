@@ -14,11 +14,9 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  drivers/net/dsa/mt7530.h |  9 +++++++++
  2 files changed, 18 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index 2202c657930e..fdceefb2083c 100644
 --- a/drivers/net/dsa/mt7530.c
 +++ b/drivers/net/dsa/mt7530.c
-@@ -32,15 +32,15 @@ static struct mt753x_pcs *pcs_to_mt753x_pcs(struct phylink_pcs *pcs)
+@@ -31,15 +31,15 @@ static struct mt753x_pcs *pcs_to_mt753x_
  
  /* String, offset, and register size in bytes if different from 4 bytes */
  static const struct mt7530_mib_desc mt7530_mib[] = {
@@ -43,11 +41,9 @@ index 2202c657930e..fdceefb2083c 100644
  };
  
  static void
-diff --git a/drivers/net/dsa/mt7530.h b/drivers/net/dsa/mt7530.h
-index 0cc999fa1380..d4b838a055ad 100644
 --- a/drivers/net/dsa/mt7530.h
 +++ b/drivers/net/dsa/mt7530.h
-@@ -424,9 +424,12 @@ enum mt7530_vlan_port_acc_frm {
+@@ -412,9 +412,12 @@ enum mt7530_vlan_port_acc_frm {
  /* Register for MIB */
  #define MT7530_PORT_MIB_COUNTER(x)	(0x4000 + (x) * 0x100)
  /* Each define is an offset of MT7530_PORT_MIB_COUNTER */
@@ -60,7 +56,7 @@ index 0cc999fa1380..d4b838a055ad 100644
  #define   MT7530_PORT_MIB_TX_SINGLE_COLLISION 0x18
  #define   MT7530_PORT_MIB_TX_MULTIPLE_COLLISION 0x1c
  #define   MT7530_PORT_MIB_TX_DEFERRED	0x20
-@@ -440,10 +443,13 @@ enum mt7530_vlan_port_acc_frm {
+@@ -428,10 +431,13 @@ enum mt7530_vlan_port_acc_frm {
  #define   MT7530_PORT_MIB_TX_PKT_SZ_512_TO_1023 0x40
  #define   MT7530_PORT_MIB_TX_PKT_SZ_1024_TO_MAX 0x44
  #define   MT7530_PORT_MIB_TX_BYTES	0x48 /* 64 bytes */
@@ -74,7 +70,7 @@ index 0cc999fa1380..d4b838a055ad 100644
  #define   MT7530_PORT_MIB_RX_UNDER_SIZE_ERR 0x7c
  #define   MT7530_PORT_MIB_RX_FRAG_ERR	0x80
  #define   MT7530_PORT_MIB_RX_OVER_SZ_ERR 0x84
-@@ -456,6 +462,9 @@ enum mt7530_vlan_port_acc_frm {
+@@ -444,6 +450,9 @@ enum mt7530_vlan_port_acc_frm {
  #define   MT7530_PORT_MIB_RX_PKT_SZ_512_TO_1023 0xa0
  #define   MT7530_PORT_MIB_RX_PKT_SZ_1024_TO_MAX 0xa4
  #define   MT7530_PORT_MIB_RX_BYTES	0xa8 /* 64 bytes */
@@ -84,6 +80,3 @@ index 0cc999fa1380..d4b838a055ad 100644
  #define MT7530_MIB_CCR			0x4fe0
  #define  CCR_MIB_ENABLE			BIT(31)
  #define  CCR_RX_OCT_CNT_GOOD		BIT(7)
--- 
-2.51.0
-

@@ -12,7 +12,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -621,13 +621,26 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -610,13 +610,26 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
@@ -43,7 +43,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static inline bool airoha_is_7581(struct airoha_eth *eth)
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -83,8 +83,8 @@ static void airoha_set_macaddr(struct ai
+@@ -82,8 +82,8 @@ static void airoha_set_macaddr(struct ai
  	struct airoha_eth *eth = port->qdma->eth;
  	u32 val, reg;
  
@@ -54,7 +54,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	val = (addr[0] << 16) | (addr[1] << 8) | addr[2];
  	airoha_fe_wr(eth, reg, val);
  
-@@ -3286,11 +3286,10 @@ static int airoha_register_port_debugfs(
+@@ -3110,11 +3110,10 @@ static int airoha_register_port_debugfs(
  }
  
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
@@ -67,7 +67,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct net_device *dev;
  	int err, p;
  	u32 id;
-@@ -3321,7 +3320,6 @@ static int airoha_alloc_gdm_port(struct
+@@ -3145,7 +3144,6 @@ static int airoha_alloc_gdm_port(struct
  		return -ENOMEM;
  	}
  
@@ -75,23 +75,23 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	dev->netdev_ops = &airoha_netdev_ops;
  	dev->ethtool_ops = &airoha_ethtool_ops;
  	dev->max_mtu = AIROHA_MAX_MTU;
-@@ -3330,7 +3328,6 @@ static int airoha_alloc_gdm_port(struct
- 	dev->features |= AIROHA_HW_FEATURES;
- 	dev->vlan_features = AIROHA_HW_FEATURES;
+@@ -3157,7 +3155,6 @@ static int airoha_alloc_gdm_port(struct
+ 	dev->features |= dev->hw_features;
+ 	dev->vlan_features = dev->hw_features;
  	dev->dev.of_node = np;
 -	dev->irq = qdma->irq_banks[0].irq;
  	SET_NETDEV_DEV(dev, eth->dev);
  
  	/* reserve hw queues for HTB offloading */
-@@ -3351,7 +3348,6 @@ static int airoha_alloc_gdm_port(struct
+@@ -3178,7 +3175,6 @@ static int airoha_alloc_gdm_port(struct
  	port = netdev_priv(dev);
  	u64_stats_init(&port->stats.syncp);
  	spin_lock_init(&port->stats.lock);
 -	port->qdma = qdma;
  	port->dev = dev;
  	port->id = id;
- 	port->np = np;
-@@ -3351,11 +3348,17 @@ static int airoha_alloc_gdm_port(struct
+ 	eth->ports[p] = port;
+@@ -3192,11 +3188,17 @@ static int airoha_register_gdm_ports(str
  
  	for (i = 0; i < ARRAY_SIZE(eth->ports); i++) {
  		struct airoha_gdm_port *port = eth->ports[i];
@@ -110,7 +110,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		err = airoha_register_port_debugfs(port);
  		if (err)
  			return err;
-@@ -3456,7 +3465,6 @@ static int airoha_probe(struct platform_
+@@ -3287,7 +3289,6 @@ static int airoha_probe(struct platform_
  	for (i = 0; i < ARRAY_SIZE(eth->qdma); i++)
  		airoha_qdma_start_napi(&eth->qdma[i]);
  
@@ -118,7 +118,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	for_each_child_of_node(pdev->dev.of_node, np) {
  		if (!of_device_is_compatible(np, "airoha,eth-mac"))
  			continue;
-@@ -3464,7 +3472,7 @@ static int airoha_probe(struct platform_
+@@ -3295,7 +3296,7 @@ static int airoha_probe(struct platform_
  		if (!of_device_is_available(np))
  			continue;
  
@@ -129,7 +129,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  			goto error_napi_stop;
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -316,7 +316,7 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -315,7 +315,7 @@ static int airoha_ppe_foe_entry_prepare(
  			if (!airoha_is_valid_gdm_port(eth, port))
  				return -EINVAL;
  
@@ -138,7 +138,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  				pse_port = port->id == 4 ? FE_PSE_PORT_GDM4
  							 : port->id;
  			else
-@@ -337,7 +337,7 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -336,7 +336,7 @@ static int airoha_ppe_foe_entry_prepare(
  			/* For downlink traffic consume SRAM memory for hw
  			 * forwarding descriptors queue.
  			 */

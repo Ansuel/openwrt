@@ -23,9 +23,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  create mode 100644 Documentation/devicetree/bindings/phy/airoha,an7581-usb-phy.yaml
  create mode 100644 include/dt-bindings/phy/airoha,an7581-usb-phy.h
 
-diff --git a/Documentation/devicetree/bindings/phy/airoha,an7581-usb-phy.yaml b/Documentation/devicetree/bindings/phy/airoha,an7581-usb-phy.yaml
-new file mode 100644
-index 000000000000..39ceaded5d0e
 --- /dev/null
 +++ b/Documentation/devicetree/bindings/phy/airoha,an7581-usb-phy.yaml
 @@ -0,0 +1,83 @@
@@ -112,13 +109,11 @@ index 000000000000..39ceaded5d0e
 +        #phy-cells = <1>;
 +    };
 +
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 3eee238c2ea2..2468f4fea5b7 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -745,6 +745,13 @@ S:	Maintained
- F:	Documentation/devicetree/bindings/spi/airoha,en7581-snand.yaml
- F:	drivers/spi/spi-airoha-snfi.c
+@@ -647,6 +647,13 @@ S:	Supported
+ F:	fs/aio.c
+ F:	include/linux/*aio*.h
  
 +AIROHA USB PHY DRIVER
 +M:	Christian Marangi <ansuelsmth@gmail.com>
@@ -128,11 +123,8 @@ index 3eee238c2ea2..2468f4fea5b7 100644
 +F:	include/dt-bindings/phy/airoha,an7581-usb-phy.h
 +
  AIRSPY MEDIA DRIVER
+ M:	Antti Palosaari <crope@iki.fi>
  L:	linux-media@vger.kernel.org
- S:	Orphan
-diff --git a/include/dt-bindings/phy/airoha,an7581-usb-phy.h b/include/dt-bindings/phy/airoha,an7581-usb-phy.h
-new file mode 100644
-index 000000000000..efbb0ae75e3a
 --- /dev/null
 +++ b/include/dt-bindings/phy/airoha,an7581-usb-phy.h
 @@ -0,0 +1,11 @@
@@ -147,6 +139,3 @@ index 000000000000..efbb0ae75e3a
 +#define AIROHA_USB2_MONCLK_SEL3                 3
 +
 +#endif
--- 
-2.51.0
-

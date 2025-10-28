@@ -14,11 +14,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/phylink.c | 5 +++--
  1 file changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
-index 6ca7ea970f51..65e81ef2225d 100644
 --- a/drivers/net/phy/phylink.c
 +++ b/drivers/net/phy/phylink.c
-@@ -1467,7 +1467,6 @@ static void phylink_resolve(struct work_struct *w)
+@@ -1475,7 +1475,6 @@ static void phylink_resolve(struct work_
  		switch (pl->cur_link_an_mode) {
  		case MLO_AN_PHY:
  			link_state = pl->phy_state;
@@ -26,7 +24,7 @@ index 6ca7ea970f51..65e81ef2225d 100644
  			mac_config = link_state.link;
  			break;
  
-@@ -1528,11 +1527,13 @@ static void phylink_resolve(struct work_struct *w)
+@@ -1536,11 +1535,13 @@ static void phylink_resolve(struct work_
  				link_state.pause = pl->phy_state.pause;
  				mac_config = true;
  			}
@@ -41,6 +39,3 @@ index 6ca7ea970f51..65e81ef2225d 100644
  	if (mac_config) {
  		if (link_state.interface != pl->link_config.interface) {
  			/* The interface has changed, force the link down and
--- 
-2.51.0
-

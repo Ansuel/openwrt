@@ -38,8 +38,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  
 #  AIROHA SPI SNFI DRIVER
 #  M:	Lorenzo Bianconi <lorenzo@kernel.org>
-diff --git a/drivers/phy/Kconfig b/drivers/phy/Kconfig
-index 8d58efe998ec..7f9f5b786643 100644
 --- a/drivers/phy/Kconfig
 +++ b/drivers/phy/Kconfig
 @@ -72,16 +72,7 @@ config PHY_CAN_TRANSCEIVER
@@ -60,11 +58,9 @@ index 8d58efe998ec..7f9f5b786643 100644
  source "drivers/phy/allwinner/Kconfig"
  source "drivers/phy/amlogic/Kconfig"
  source "drivers/phy/broadcom/Kconfig"
-diff --git a/drivers/phy/Makefile b/drivers/phy/Makefile
-index e281442acc75..9ab557db59e6 100644
 --- a/drivers/phy/Makefile
 +++ b/drivers/phy/Makefile
-@@ -10,8 +10,8 @@ obj-$(CONFIG_PHY_LPC18XX_USB_OTG)	+= phy-lpc18xx-usb-otg.o
+@@ -10,8 +10,8 @@ obj-$(CONFIG_PHY_LPC18XX_USB_OTG)	+= phy
  obj-$(CONFIG_PHY_XGENE)			+= phy-xgene.o
  obj-$(CONFIG_PHY_PISTACHIO_USB)		+= phy-pistachio-usb.o
  obj-$(CONFIG_USB_LGM_PHY)		+= phy-lgm-usb.o
@@ -75,9 +71,6 @@ index e281442acc75..9ab557db59e6 100644
  					   amlogic/	\
  					   broadcom/	\
  					   cadence/	\
-diff --git a/drivers/phy/airoha/Kconfig b/drivers/phy/airoha/Kconfig
-new file mode 100644
-index 000000000000..70b7eac4a2bf
 --- /dev/null
 +++ b/drivers/phy/airoha/Kconfig
 @@ -0,0 +1,13 @@
@@ -94,18 +87,12 @@ index 000000000000..70b7eac4a2bf
 +	  Say Y here to add support for Airoha PCIe PHY driver.
 +	  This driver create the basic PHY instance and provides initialize
 +	  callback for PCIe GEN3 port.
-diff --git a/drivers/phy/airoha/Makefile b/drivers/phy/airoha/Makefile
-new file mode 100644
-index 000000000000..3222f749546b
 --- /dev/null
 +++ b/drivers/phy/airoha/Makefile
 @@ -0,0 +1,3 @@
 +# SPDX-License-Identifier: GPL-2.0
 +
 +obj-$(CONFIG_PHY_AIROHA_PCIE)		+= phy-airoha-pcie.o
-diff --git a/drivers/phy/airoha/phy-airoha-pcie-regs.h b/drivers/phy/airoha/phy-airoha-pcie-regs.h
-new file mode 100644
-index 000000000000..b938a7b468fe
 --- /dev/null
 +++ b/drivers/phy/airoha/phy-airoha-pcie-regs.h
 @@ -0,0 +1,494 @@
@@ -603,9 +590,6 @@ index 000000000000..b938a7b468fe
 +#define REG_PCIE_PEXTP_DIG_LN_RX30_P1		0x0100
 +
 +#endif /* _PHY_AIROHA_PCIE_H */
-diff --git a/drivers/phy/airoha/phy-airoha-pcie.c b/drivers/phy/airoha/phy-airoha-pcie.c
-new file mode 100644
-index 000000000000..56e9ade8a9fd
 --- /dev/null
 +++ b/drivers/phy/airoha/phy-airoha-pcie.c
 @@ -0,0 +1,1290 @@
@@ -1899,6 +1883,3 @@ index 000000000000..56e9ade8a9fd
 +MODULE_DESCRIPTION("Airoha PCIe PHY driver");
 +MODULE_AUTHOR("Lorenzo Bianconi <lorenzo@kernel.org>");
 +MODULE_LICENSE("GPL");
--- 
-2.51.0
-

@@ -15,8 +15,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/thermal/airoha_thermal.c | 102 +++++++++++++++++++++++--------
  1 file changed, 75 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/thermal/airoha_thermal.c b/drivers/thermal/airoha_thermal.c
-index 04bda890dbb1..9bfa59b97032 100644
 --- a/drivers/thermal/airoha_thermal.c
 +++ b/drivers/thermal/airoha_thermal.c
 @@ -198,12 +198,23 @@ struct airoha_thermal_priv {
@@ -43,7 +41,7 @@ index 04bda890dbb1..9bfa59b97032 100644
  static int airoha_get_thermal_ADC(struct airoha_thermal_priv *priv)
  {
  	u32 val;
-@@ -220,7 +231,8 @@ static void airoha_init_thermal_ADC_mode(struct airoha_thermal_priv *priv)
+@@ -220,7 +231,8 @@ static void airoha_init_thermal_ADC_mode
  	regmap_read(priv->chip_scu, EN7581_PLLRG_PROTECT, &pllrg);
  
  	/* Give access to thermal regs */
@@ -53,7 +51,7 @@ index 04bda890dbb1..9bfa59b97032 100644
  	adc_mux = FIELD_PREP(EN7581_MUX_TADC, EN7581_SCU_THERMAL_MUX_DIODE1);
  	regmap_write(priv->chip_scu, EN7581_PWD_TADC, adc_mux);
  
-@@ -228,7 +240,7 @@ static void airoha_init_thermal_ADC_mode(struct airoha_thermal_priv *priv)
+@@ -228,7 +240,7 @@ static void airoha_init_thermal_ADC_mode
  	regmap_write(priv->chip_scu, EN7581_PLLRG_PROTECT, pllrg);
  }
  
@@ -62,7 +60,7 @@ index 04bda890dbb1..9bfa59b97032 100644
  {
  	struct airoha_thermal_priv *priv = thermal_zone_device_priv(tz);
  	int min_value, max_value, avg_value, value;
-@@ -253,7 +265,7 @@ static int airoha_thermal_get_temp(struct thermal_zone_device *tz, int *temp)
+@@ -253,7 +265,7 @@ static int airoha_thermal_get_temp(struc
  	return 0;
  }
  
@@ -71,7 +69,7 @@ index 04bda890dbb1..9bfa59b97032 100644
  				    int high)
  {
  	struct airoha_thermal_priv *priv = thermal_zone_device_priv(tz);
-@@ -290,12 +302,12 @@ static int airoha_thermal_set_trips(struct thermal_zone_device *tz, int low,
+@@ -290,12 +302,12 @@ static int airoha_thermal_set_trips(stru
  	return 0;
  }
  
@@ -88,7 +86,7 @@ index 04bda890dbb1..9bfa59b97032 100644
  {
  	struct airoha_thermal_priv *priv = data;
  	enum thermal_notify_event event;
-@@ -326,7 +338,7 @@ static irqreturn_t airoha_thermal_irq(int irq, void *data)
+@@ -326,7 +338,7 @@ static irqreturn_t airoha_thermal_irq(in
  	return IRQ_HANDLED;
  }
  
@@ -97,7 +95,7 @@ index 04bda890dbb1..9bfa59b97032 100644
  					 struct airoha_thermal_priv *priv)
  {
  	u32 efuse_calib_info, cpu_sensor;
-@@ -356,7 +368,7 @@ static void airoha_thermal_setup_adc_val(struct device *dev,
+@@ -356,7 +368,7 @@ static void airoha_thermal_setup_adc_val
  	}
  }
  
@@ -106,7 +104,7 @@ index 04bda890dbb1..9bfa59b97032 100644
  {
  	/* Set measure mode */
  	regmap_write(priv->map, EN7581_TEMPMSRCTL0,
-@@ -411,30 +423,26 @@ static void airoha_thermal_setup_monitor(struct airoha_thermal_priv *priv)
+@@ -411,30 +423,26 @@ static void airoha_thermal_setup_monitor
  		     FIELD_PREP(EN7581_ADC_POLL_INTVL, 146));
  }
  
@@ -141,7 +139,7 @@ index 04bda890dbb1..9bfa59b97032 100644
  	if (IS_ERR(priv->map))
  		return PTR_ERR(priv->map);
  
-@@ -454,18 +462,55 @@ static int airoha_thermal_probe(struct platform_device *pdev)
+@@ -454,18 +462,55 @@ static int airoha_thermal_probe(struct p
  		return irq;
  
  	ret = devm_request_threaded_irq(&pdev->dev, irq, NULL,
@@ -201,7 +199,7 @@ index 04bda890dbb1..9bfa59b97032 100644
  	if (IS_ERR(priv->tz)) {
  		dev_err(dev, "register thermal zone sensor failed\n");
  		return PTR_ERR(priv->tz);
-@@ -473,15 +518,18 @@ static int airoha_thermal_probe(struct platform_device *pdev)
+@@ -473,15 +518,18 @@ static int airoha_thermal_probe(struct p
  
  	platform_set_drvdata(pdev, priv);
  
@@ -226,6 +224,3 @@ index 04bda890dbb1..9bfa59b97032 100644
  	{},
  };
  MODULE_DEVICE_TABLE(of, airoha_thermal_match);
--- 
-2.48.1
-

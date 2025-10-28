@@ -14,8 +14,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/clk/clk-en7523.c | 264 +++++++++++++++++++++++++++++++++++++++
  1 file changed, 264 insertions(+)
 
-diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
-index 00c80221a274..b3c57aac8480 100644
 --- a/drivers/clk/clk-en7523.c
 +++ b/drivers/clk/clk-en7523.c
 @@ -12,6 +12,7 @@
@@ -26,7 +24,7 @@ index 00c80221a274..b3c57aac8480 100644
  
  #define RST_NR_PER_BANK			32
  
-@@ -104,6 +105,14 @@ static const u32 bus7581_base[] = { 600000000, 540000000 };
+@@ -104,6 +105,14 @@ static const u32 bus7581_base[] = { 6000
  static const u32 npu7581_base[] = { 800000000, 750000000, 720000000, 600000000 };
  static const u32 crypto_base[] = { 540000000, 480000000 };
  static const u32 emmc7581_base[] = { 200000000, 150000000 };
@@ -41,7 +39,7 @@ index 00c80221a274..b3c57aac8480 100644
  
  static const struct en_clk_desc en7523_base_clks[] = {
  	{
-@@ -306,6 +315,138 @@ static const struct en_clk_desc en7581_base_clks[] = {
+@@ -306,6 +315,138 @@ static const struct en_clk_desc en7581_b
  	}
  };
  
@@ -241,7 +239,7 @@ index 00c80221a274..b3c57aac8480 100644
  static u32 en7523_get_base_rate(const struct en_clk_desc *desc, u32 val)
  {
  	if (!desc->base_bits)
-@@ -881,6 +1075,62 @@ static int en7581_clk_hw_init(struct platform_device *pdev,
+@@ -881,6 +1076,62 @@ static int en7581_clk_hw_init(struct pla
  	return en7581_reset_register(&pdev->dev, clk_map);
  }
  
@@ -304,7 +302,7 @@ index 00c80221a274..b3c57aac8480 100644
  static int en7523_clk_probe(struct platform_device *pdev)
  {
  	const struct en_clk_soc_data *soc_data;
-@@ -940,9 +1190,23 @@ static const struct en_clk_soc_data en7581_data = {
+@@ -940,9 +1191,23 @@ static const struct en_clk_soc_data en75
  	.hw_init = en7581_clk_hw_init,
  };
  
@@ -328,6 +326,3 @@ index 00c80221a274..b3c57aac8480 100644
  	{ /* sentinel */ }
  };
  
--- 
-2.48.1
-

@@ -21,11 +21,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_eth.c | 10 +++++++++-
  1 file changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 1e9ab65218ff..c169b8b411b4 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2541,7 +2541,15 @@ static int airoha_alloc_gdm_port(struct airoha_eth *eth,
+@@ -2881,7 +2881,15 @@ static int airoha_alloc_gdm_port(struct
  	if (err)
  		return err;
  
@@ -42,6 +40,3 @@ index 1e9ab65218ff..c169b8b411b4 100644
  }
  
  static int airoha_probe(struct platform_device *pdev)
--- 
-2.51.0
-

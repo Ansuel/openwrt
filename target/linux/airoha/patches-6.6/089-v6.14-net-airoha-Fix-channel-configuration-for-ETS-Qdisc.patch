@@ -16,11 +16,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_eth.c | 5 ++++-
  1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index b9f1c42f0a40..a30c417d66f2 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2840,11 +2840,14 @@ static int airoha_qdma_get_tx_ets_stats(struct airoha_gdm_port *port,
+@@ -2184,11 +2184,14 @@ static int airoha_qdma_get_tx_ets_stats(
  static int airoha_tc_setup_qdisc_ets(struct airoha_gdm_port *port,
  				     struct tc_ets_qopt_offload *opt)
  {
@@ -36,6 +34,3 @@ index b9f1c42f0a40..a30c417d66f2 100644
  	switch (opt->command) {
  	case TC_ETS_REPLACE:
  		return airoha_qdma_set_tx_ets_sched(port, channel, opt);
--- 
-2.51.0
-

@@ -16,8 +16,6 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_ppe.c | 103 ++++++++++++++++++-----
  2 files changed, 98 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index ec8908f904c6..86e08832246d 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -422,12 +422,23 @@ struct airoha_flow_data {
@@ -54,11 +52,9 @@ index ec8908f904c6..86e08832246d 100644
  	struct hlist_head *foe_flow;
  	u16 foe_check_time[PPE_NUM_ENTRIES];
  
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index f10dab935cab..7219125ade13 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -24,6 +24,13 @@ static const struct rhashtable_params airoha_flow_table_params = {
+@@ -24,6 +24,13 @@ static const struct rhashtable_params ai
  	.automatic_shrinking = true,
  };
  
@@ -72,7 +68,7 @@ index f10dab935cab..7219125ade13 100644
  static bool airoha_ppe2_is_enabled(struct airoha_eth *eth)
  {
  	return airoha_fe_rr(eth, REG_PPE_GLO_CFG(1)) & PPE_GLO_CFG_EN_MASK;
-@@ -476,6 +483,43 @@ static int airoha_ppe_foe_commit_entry(struct airoha_ppe *ppe,
+@@ -476,6 +483,43 @@ static int airoha_ppe_foe_commit_entry(s
  	return 0;
  }
  
@@ -116,7 +112,7 @@ index f10dab935cab..7219125ade13 100644
  static void airoha_ppe_foe_insert_entry(struct airoha_ppe *ppe, u32 hash)
  {
  	struct airoha_flow_table_entry *e;
-@@ -505,11 +549,37 @@ static void airoha_ppe_foe_insert_entry(struct airoha_ppe *ppe, u32 hash)
+@@ -505,11 +549,37 @@ unlock:
  	spin_unlock_bh(&ppe_lock);
  }
  
@@ -155,7 +151,7 @@ index f10dab935cab..7219125ade13 100644
  	e->hash = 0xffff;
  
  	spin_lock_bh(&ppe_lock);
-@@ -519,23 +589,6 @@ static int airoha_ppe_foe_flow_commit_entry(struct airoha_ppe *ppe,
+@@ -519,23 +589,6 @@ static int airoha_ppe_foe_flow_commit_en
  	return 0;
  }
  
@@ -179,7 +175,7 @@ index f10dab935cab..7219125ade13 100644
  static int airoha_ppe_flow_offload_replace(struct airoha_gdm_port *port,
  					   struct flow_cls_offload *f)
  {
-@@ -890,9 +943,20 @@ int airoha_ppe_init(struct airoha_eth *eth)
+@@ -890,9 +943,20 @@ int airoha_ppe_init(struct airoha_eth *e
  	if (err)
  		return err;
  
@@ -201,7 +197,7 @@ index f10dab935cab..7219125ade13 100644
  
  	return err;
  }
-@@ -909,6 +973,7 @@ void airoha_ppe_deinit(struct airoha_eth *eth)
+@@ -909,6 +973,7 @@ void airoha_ppe_deinit(struct airoha_eth
  	}
  	rcu_read_unlock();
  
@@ -209,6 +205,3 @@ index f10dab935cab..7219125ade13 100644
  	rhashtable_destroy(&eth->flow_table);
  	debugfs_remove(eth->ppe->debugfs_dir);
  }
--- 
-2.51.0
-

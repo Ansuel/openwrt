@@ -13,11 +13,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/pinctrl/mediatek/pinctrl-airoha.c | 570 ++++------------------
  1 file changed, 82 insertions(+), 488 deletions(-)
 
-diff --git a/drivers/pinctrl/mediatek/pinctrl-airoha.c b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-index e00a90067462..a1620d7e59a4 100644
 --- a/drivers/pinctrl/mediatek/pinctrl-airoha.c
 +++ b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-@@ -1475,516 +1475,110 @@ static const struct airoha_pinctrl_func_group pwm_func_group[] = {
+@@ -1472,516 +1472,110 @@ static const struct airoha_pinctrl_func_
  	},
  };
  
@@ -616,6 +614,3 @@ index e00a90067462..a1620d7e59a4 100644
  };
  
  static const struct airoha_pinctrl_func en7581_pinctrl_funcs[] = {
--- 
-2.48.1
-

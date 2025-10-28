@@ -17,7 +17,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -117,11 +117,13 @@ static int airoha_set_vip_for_gdm_port(s
+@@ -116,11 +116,13 @@ static int airoha_set_vip_for_gdm_port(s
  	switch (port->id) {
  	case 3:
  		/* FIXME: handle XSI_PCIE1_PORT */
@@ -33,7 +33,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		break;
  	default:
  		return 0;
-@@ -1849,8 +1851,8 @@ static int airoha_dev_set_macaddr(struct
+@@ -1723,8 +1725,8 @@ static int airoha_dev_set_macaddr(struct
  static void airhoha_set_gdm2_loopback(struct airoha_gdm_port *port)
  {
  	u32 pse_port = port->id == 3 ? FE_PSE_PORT_GDM3 : FE_PSE_PORT_GDM4;
@@ -43,7 +43,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	/* Forward the traffic to the proper GDM port */
  	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(2), pse_port);
-@@ -1859,6 +1861,8 @@ static void airhoha_set_gdm2_loopback(st
+@@ -1733,6 +1735,8 @@ static void airhoha_set_gdm2_loopback(st
  	/* Enable GDM2 loopback */
  	airoha_fe_wr(eth, REG_GDM_TXCHN_EN(2), 0xffffffff);
  	airoha_fe_wr(eth, REG_GDM_RXCHN_EN(2), 0xffff);
@@ -52,7 +52,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	airoha_fe_rmw(eth, REG_GDM_LPBK_CFG(2),
  		      LPBK_CHAN_MASK | LPBK_MODE_MASK | LPBK_EN_MASK,
  		      FIELD_PREP(LPBK_CHAN_MASK, chan) |
-@@ -1882,7 +1886,7 @@ static void airhoha_set_gdm2_loopback(st
+@@ -1756,7 +1760,7 @@ static void airhoha_set_gdm2_loopback(st
  		      SP_CPORT_MASK(wan_port & 0x7),
  		      FE_PSE_PORT_CDM2 << __ffs(SP_CPORT_MASK(wan_port & 0x7)));
  
@@ -61,8 +61,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		airoha_fe_rmw(eth, REG_SRC_PORT_FC_MAP6,
  			      FC_ID_OF_SRC_PORT24_MASK,
  			      FIELD_PREP(FC_ID_OF_SRC_PORT24_MASK, 2));
-@@ -2084,6 +2088,20 @@ static bool airoha_dev_is_tx_busy(struct
- 	return index >= q->tail && (q->head < q->tail || q->head > index);
+@@ -1904,6 +1908,20 @@ static u32 airoha_get_dsa_tag(struct sk_
+ #endif
  }
  
 +static int airoha_get_fe_port(struct airoha_gdm_port *port)
@@ -82,7 +82,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
  				   struct net_device *dev)
  {
-@@ -2124,7 +2142,7 @@ static netdev_tx_t airoha_dev_xmit(struc
+@@ -1944,7 +1962,7 @@ static netdev_tx_t airoha_dev_xmit(struc
  		}
  	}
  
@@ -91,7 +91,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	msg1 = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, fport) |
  	       FIELD_PREP(QDMA_ETH_TXMSG_METER_MASK, 0x7f);
  
-@@ -3589,6 +3607,12 @@ static const char * const en7581_xsi_rst
+@@ -3222,6 +3240,12 @@ static const char * const en7581_xsi_rst
  	"xfp-mac",
  };
  
@@ -104,7 +104,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static const struct airoha_eth_soc_data en7581_soc_data = {
  	.version = 0x7581,
  	.xsi_rsts_names = en7581_xsi_rsts_names,
-@@ -3596,8 +3620,16 @@ static const struct airoha_eth_soc_data
+@@ -3229,8 +3253,16 @@ static const struct airoha_eth_soc_data
  	.num_ppe = 2,
  };
  
@@ -123,7 +123,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  MODULE_DEVICE_TABLE(of, of_airoha_match);
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -648,6 +648,11 @@ static inline bool airoha_is_7581(struct
+@@ -621,6 +621,11 @@ static inline bool airoha_is_7581(struct
  	return eth->soc->version == 0x7581;
  }
  

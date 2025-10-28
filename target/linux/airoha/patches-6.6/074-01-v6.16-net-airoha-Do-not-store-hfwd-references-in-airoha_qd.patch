@@ -18,11 +18,9 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  drivers/net/ethernet/airoha/airoha_eth.h | 6 ------
  2 files changed, 2 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 0d627e511266..1ed43a5c629f 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1077,17 +1077,13 @@ static int airoha_qdma_init_hfwd_queues(struct airoha_qdma *qdma)
+@@ -1078,17 +1078,13 @@ static int airoha_qdma_init_hfwd_queues(
  	int size;
  
  	size = HW_DSCP_NUM * sizeof(struct airoha_qdma_fwd_desc);
@@ -42,8 +40,6 @@ index 0d627e511266..1ed43a5c629f 100644
  		return -ENOMEM;
  
  	airoha_qdma_wr(qdma, REG_FWD_BUF_BASE, dma_addr);
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index 531a3c49c156..3e03ae9a5d0d 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -513,12 +513,6 @@ struct airoha_qdma {
@@ -59,6 +55,3 @@ index 531a3c49c156..3e03ae9a5d0d 100644
  };
  
  struct airoha_gdm_port {
--- 
-2.51.0
-

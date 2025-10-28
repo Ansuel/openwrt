@@ -12,8 +12,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/usb/host/Kconfig | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/usb/host/Kconfig b/drivers/usb/host/Kconfig
-index d011d6c753ed..9d8626f36ca6 100644
 --- a/drivers/usb/host/Kconfig
 +++ b/drivers/usb/host/Kconfig
 @@ -71,7 +71,7 @@ config USB_XHCI_HISTB
@@ -25,6 +23,3 @@ index d011d6c753ed..9d8626f36ca6 100644
  	help
  	  Say 'Y' to enable the support for the xHCI host controller
  	  found in MediaTek SoCs.
--- 
-2.51.0
-

@@ -14,11 +14,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_npu.c | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_npu.c b/drivers/net/ethernet/airoha/airoha_npu.c
-index e0448e1225b8..66a8a992dbf2 100644
 --- a/drivers/net/ethernet/airoha/airoha_npu.c
 +++ b/drivers/net/ethernet/airoha/airoha_npu.c
-@@ -720,8 +720,7 @@ static int airoha_npu_probe(struct platform_device *pdev)
+@@ -726,8 +726,7 @@ static int airoha_npu_probe(struct platf
  	usleep_range(1000, 2000);
  
  	/* enable NPU cores */
@@ -28,6 +26,3 @@ index e0448e1225b8..66a8a992dbf2 100644
  	regmap_write(npu->regmap, REG_CR_BOOT_TRIGGER, 0x1);
  	msleep(100);
  
--- 
-2.51.0
-

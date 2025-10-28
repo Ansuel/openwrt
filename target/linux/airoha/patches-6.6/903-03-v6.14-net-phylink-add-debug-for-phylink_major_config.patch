@@ -14,11 +14,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/phylink.c | 27 ++++++++++++++++++++++++++-
  1 file changed, 26 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
-index 098021f1ab49..fda53dd58285 100644
 --- a/drivers/net/phy/phylink.c
 +++ b/drivers/net/phy/phylink.c
-@@ -175,6 +175,24 @@ static const char *phylink_an_mode_str(unsigned int mode)
+@@ -176,6 +176,24 @@ static const char *phylink_an_mode_str(u
  	return mode < ARRAY_SIZE(modestr) ? modestr[mode] : "unknown";
  }
  
@@ -43,7 +41,7 @@ index 098021f1ab49..fda53dd58285 100644
  static unsigned int phylink_interface_signal_rate(phy_interface_t interface)
  {
  	switch (interface) {
-@@ -1164,7 +1182,9 @@ static void phylink_major_config(struct phylink *pl, bool restart,
+@@ -1236,7 +1254,9 @@ static void phylink_major_config(struct
  	unsigned int neg_mode;
  	int err;
  
@@ -52,9 +50,9 @@ index 098021f1ab49..fda53dd58285 100644
 +		    phylink_an_mode_str(pl->req_link_an_mode),
 +		    phy_modes(state->interface));
  
- 	if (pl->mac_ops->mac_select_pcs) {
+ 	if (pl->using_mac_select_pcs) {
  		pcs = pl->mac_ops->mac_select_pcs(pl->config, state->interface);
-@@ -1180,6 +1200,11 @@ static void phylink_major_config(struct phylink *pl, bool restart,
+@@ -1252,6 +1272,11 @@ static void phylink_major_config(struct
  
  	phylink_pcs_neg_mode(pl, pcs, state->interface, state->advertising);
  
@@ -66,6 +64,3 @@ index 098021f1ab49..fda53dd58285 100644
  	phylink_pcs_poll_stop(pl);
  
  	if (pl->mac_ops->mac_prepare) {
--- 
-2.51.0
-

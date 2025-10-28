@@ -19,11 +19,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_ppe.c | 121 ++++++++++++++++++++---
  3 files changed, 115 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index d748dc6de923..723eba7cfa0c 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -694,7 +694,7 @@ static int airoha_qdma_rx_process(struct airoha_queue *q, int budget)
+@@ -694,7 +694,7 @@ static int airoha_qdma_rx_process(struct
  
  		reason = FIELD_GET(AIROHA_RXD4_PPE_CPU_REASON, msg1);
  		if (reason == PPE_CPU_REASON_HIT_UNBIND_RATE_REACHED)
@@ -32,8 +30,6 @@ index d748dc6de923..723eba7cfa0c 100644
  
  		done++;
  		napi_gro_receive(&q->napi, q->skb);
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index 86e08832246d..e82abfc1a67b 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -431,10 +431,14 @@ enum airoha_flow_entry_type {
@@ -52,7 +48,7 @@ index 86e08832246d..e82abfc1a67b 100644
  	u32 hash;
  
  	enum airoha_flow_entry_type type;
-@@ -548,7 +552,8 @@ u32 airoha_rmw(void __iomem *base, u32 offset, u32 mask, u32 val);
+@@ -548,7 +552,8 @@ u32 airoha_rmw(void __iomem *base, u32 o
  bool airoha_is_valid_gdm_port(struct airoha_eth *eth,
  			      struct airoha_gdm_port *port);
  
@@ -62,11 +58,9 @@ index 86e08832246d..e82abfc1a67b 100644
  int airoha_ppe_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
  				 void *cb_priv);
  int airoha_ppe_init(struct airoha_eth *eth);
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index 7219125ade13..d4969c2a0352 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -204,6 +204,15 @@ static int airoha_get_dsa_port(struct net_device **dev)
+@@ -204,6 +204,15 @@ static int airoha_get_dsa_port(struct ne
  #endif
  }
  
@@ -82,7 +76,7 @@ index 7219125ade13..d4969c2a0352 100644
  static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
  					struct airoha_foe_entry *hwe,
  					struct net_device *dev, int type,
-@@ -254,13 +263,7 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_eth *eth,
+@@ -254,13 +263,7 @@ static int airoha_ppe_foe_entry_prepare(
  
  	qdata = FIELD_PREP(AIROHA_FOE_SHAPER_ID, 0x7f);
  	if (type == PPE_PKT_TYPE_BRIDGE) {
@@ -97,7 +91,7 @@ index 7219125ade13..d4969c2a0352 100644
  		hwe->bridge.data = qdata;
  		hwe->bridge.ib2 = val;
  		l2 = &hwe->bridge.l2.common;
-@@ -385,6 +388,19 @@ static u32 airoha_ppe_foe_get_entry_hash(struct airoha_foe_entry *hwe)
+@@ -385,6 +388,19 @@ static u32 airoha_ppe_foe_get_entry_hash
  		hv3 = hwe->ipv6.src_ip[1] ^ hwe->ipv6.dest_ip[1];
  		hv3 ^= hwe->ipv6.src_ip[0];
  		break;
@@ -117,7 +111,7 @@ index 7219125ade13..d4969c2a0352 100644
  	case PPE_PKT_TYPE_IPV4_DSLITE:
  	case PPE_PKT_TYPE_IPV6_6RD:
  	default:
-@@ -496,15 +512,24 @@ static void airoha_ppe_foe_remove_flow(struct airoha_ppe *ppe,
+@@ -496,15 +512,24 @@ static void airoha_ppe_foe_remove_flow(s
  		airoha_ppe_foe_commit_entry(ppe, &e->data, e->hash);
  		e->hash = 0xffff;
  	}
@@ -142,7 +136,7 @@ index 7219125ade13..d4969c2a0352 100644
  }
  
  static void airoha_ppe_foe_flow_remove_entry(struct airoha_ppe *ppe,
-@@ -520,10 +545,56 @@ static void airoha_ppe_foe_flow_remove_entry(struct airoha_ppe *ppe,
+@@ -520,10 +545,56 @@ static void airoha_ppe_foe_flow_remove_e
  	spin_unlock_bh(&ppe_lock);
  }
  
@@ -200,7 +194,7 @@ index 7219125ade13..d4969c2a0352 100644
  	struct hlist_node *n;
  	u32 index, state;
  
-@@ -539,12 +610,33 @@ static void airoha_ppe_foe_insert_entry(struct airoha_ppe *ppe, u32 hash)
+@@ -539,12 +610,33 @@ static void airoha_ppe_foe_insert_entry(
  
  	index = airoha_ppe_foe_get_entry_hash(hwe);
  	hlist_for_each_entry_safe(e, n, &ppe->foe_flow[index], list) {
@@ -238,7 +232,7 @@ index 7219125ade13..d4969c2a0352 100644
  unlock:
  	spin_unlock_bh(&ppe_lock);
  }
-@@ -899,7 +991,8 @@ int airoha_ppe_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
+@@ -899,7 +991,8 @@ int airoha_ppe_setup_tc_block_cb(enum tc
  	return err;
  }
  
@@ -248,7 +242,7 @@ index 7219125ade13..d4969c2a0352 100644
  {
  	u16 now, diff;
  
-@@ -912,7 +1005,7 @@ void airoha_ppe_check_skb(struct airoha_ppe *ppe, u16 hash)
+@@ -912,7 +1005,7 @@ void airoha_ppe_check_skb(struct airoha_
  		return;
  
  	ppe->foe_check_time[hash] = now;
@@ -257,6 +251,3 @@ index 7219125ade13..d4969c2a0352 100644
  }
  
  int airoha_ppe_init(struct airoha_eth *eth)
--- 
-2.51.0
-

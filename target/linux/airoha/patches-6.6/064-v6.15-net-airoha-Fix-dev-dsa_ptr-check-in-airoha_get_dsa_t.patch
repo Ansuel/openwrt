@@ -23,11 +23,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_eth.c | 7 +------
  1 file changed, 1 insertion(+), 6 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index e4130576ad10..c0a642568ac1 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1741,18 +1741,13 @@ static u32 airoha_get_dsa_tag(struct sk_buff *skb, struct net_device *dev)
+@@ -1742,18 +1742,13 @@ static u32 airoha_get_dsa_tag(struct sk_
  {
  #if IS_ENABLED(CONFIG_NET_DSA)
  	struct ethhdr *ehdr;
@@ -47,6 +45,3 @@ index e4130576ad10..c0a642568ac1 100644
  		return 0;
  
  	if (skb_cow_head(skb, 0))
--- 
-2.51.0
-

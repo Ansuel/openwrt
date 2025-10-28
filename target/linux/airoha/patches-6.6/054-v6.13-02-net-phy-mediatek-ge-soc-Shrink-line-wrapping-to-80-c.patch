@@ -14,11 +14,9 @@ Signed-off-by: Andrew Lunn <andrew@lunn.ch>
  drivers/net/phy/mediatek-ge-soc.c | 125 +++++++++++++++++++++---------
  1 file changed, 88 insertions(+), 37 deletions(-)
 
-diff --git a/drivers/net/phy/mediatek-ge-soc.c b/drivers/net/phy/mediatek-ge-soc.c
-index e9c422f4e24b..1d7719b6c351 100644
 --- a/drivers/net/phy/mediatek-ge-soc.c
 +++ b/drivers/net/phy/mediatek-ge-soc.c
-@@ -342,7 +342,8 @@ static int cal_cycle(struct phy_device *phydev, int devad,
+@@ -342,7 +342,8 @@ static int cal_cycle(struct phy_device *
  	ret = phy_read_mmd_poll_timeout(phydev, MDIO_MMD_VEND1,
  					MTK_PHY_RG_AD_CAL_CLK, reg_val,
  					reg_val & MTK_PHY_DA_CAL_CLK, 500,
@@ -28,7 +26,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  	if (ret) {
  		phydev_err(phydev, "Calibration cycle timeout\n");
  		return ret;
-@@ -441,40 +442,72 @@ static int tx_amp_fill_result(struct phy_device *phydev, u16 *buf)
+@@ -441,40 +442,72 @@ static int tx_amp_fill_result(struct phy
  	}
  
  	phy_modify_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_TXVLD_DA_RG,
@@ -117,7 +115,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  
  	return 0;
  }
-@@ -663,7 +696,8 @@ static int tx_vcm_cal_sw(struct phy_device *phydev, u8 rg_txreserve_x)
+@@ -663,7 +696,8 @@ static int tx_vcm_cal_sw(struct phy_devi
  		goto restore;
  
  	/* We calibrate TX-VCM in different logic. Check upper index and then
@@ -127,7 +125,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  	 */
  	ret = upper_ret - lower_ret;
  	if (ret == 1) {
-@@ -692,7 +726,8 @@ static int tx_vcm_cal_sw(struct phy_device *phydev, u8 rg_txreserve_x)
+@@ -692,7 +726,8 @@ static int tx_vcm_cal_sw(struct phy_devi
  	} else if (upper_idx == TXRESERVE_MAX && upper_ret == 0 &&
  		   lower_ret == 0) {
  		ret = 0;
@@ -137,7 +135,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  			    upper_idx);
  	} else {
  		ret = -EINVAL;
-@@ -796,7 +831,8 @@ static void mt7981_phy_finetune(struct phy_device *phydev)
+@@ -796,7 +831,8 @@ static void mt7981_phy_finetune(struct p
  
  	/* TR_OPEN_LOOP_EN = 1, lpf_x_average = 9 */
  	phy_modify_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_RG_DEV1E_REG234,
@@ -147,7 +145,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  		       BIT(0) | FIELD_PREP(MTK_PHY_LPF_X_AVERAGE_MASK, 0x9));
  
  	/* rg_tr_lpf_cnt_val = 512 */
-@@ -865,7 +901,8 @@ static void mt7988_phy_finetune(struct phy_device *phydev)
+@@ -865,7 +901,8 @@ static void mt7988_phy_finetune(struct p
  
  	/* TR_OPEN_LOOP_EN = 1, lpf_x_average = 10 */
  	phy_modify_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_RG_DEV1E_REG234,
@@ -157,7 +155,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  		       BIT(0) | FIELD_PREP(MTK_PHY_LPF_X_AVERAGE_MASK, 0xa));
  
  	/* rg_tr_lpf_cnt_val = 1023 */
-@@ -977,7 +1014,8 @@ static void mt798x_phy_eee(struct phy_device *phydev)
+@@ -977,7 +1014,8 @@ static void mt798x_phy_eee(struct phy_de
  	phy_restore_page(phydev, MTK_PHY_PAGE_STANDARD, 0);
  
  	phy_select_page(phydev, MTK_PHY_PAGE_EXTENDED_3);
@@ -167,7 +165,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  		     FIELD_PREP(MTK_PHY_LPI_WAKE_TIMER_1000_MASK, 0x19c));
  
  	__phy_modify(phydev, MTK_PHY_LPI_REG_1c, MTK_PHY_SMI_DET_ON_THRESH_MASK,
-@@ -987,7 +1025,8 @@ static void mt798x_phy_eee(struct phy_device *phydev)
+@@ -987,7 +1025,8 @@ static void mt798x_phy_eee(struct phy_de
  	phy_modify_mmd(phydev, MDIO_MMD_VEND1,
  		       MTK_PHY_RG_LPI_PCS_DSP_CTRL_REG122,
  		       MTK_PHY_LPI_NORM_MSE_HI_THRESH1000_MASK,
@@ -177,7 +175,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  }
  
  static int cal_sw(struct phy_device *phydev, enum CAL_ITEM cal_item,
-@@ -1147,7 +1186,8 @@ static int mt798x_phy_hw_led_on_set(struct phy_device *phydev, u8 index,
+@@ -1147,7 +1186,8 @@ static int mt798x_phy_hw_led_on_set(stru
  					(index ? 16 : 0), &priv->led_state);
  	if (changed)
  		return phy_modify_mmd(phydev, MDIO_MMD_VEND2, index ?
@@ -187,7 +185,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  				      MTK_PHY_LED_ON_MASK,
  				      on ? MTK_PHY_LED_ON_FORCE_ON : 0);
  	else
-@@ -1157,7 +1197,8 @@ static int mt798x_phy_hw_led_on_set(struct phy_device *phydev, u8 index,
+@@ -1157,7 +1197,8 @@ static int mt798x_phy_hw_led_on_set(stru
  static int mt798x_phy_hw_led_blink_set(struct phy_device *phydev, u8 index,
  				       bool blinking)
  {
@@ -197,7 +195,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  	struct mtk_socphy_priv *priv = phydev->priv;
  	bool changed;
  
-@@ -1170,8 +1211,10 @@ static int mt798x_phy_hw_led_blink_set(struct phy_device *phydev, u8 index,
+@@ -1170,8 +1211,10 @@ static int mt798x_phy_hw_led_blink_set(s
  			      (index ? 16 : 0), &priv->led_state);
  	if (changed)
  		return phy_write_mmd(phydev, MDIO_MMD_VEND2, index ?
@@ -210,7 +208,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  	else
  		return 0;
  }
-@@ -1237,7 +1280,8 @@ static int mt798x_phy_led_hw_is_supported(struct phy_device *phydev, u8 index,
+@@ -1237,7 +1280,8 @@ static int mt798x_phy_led_hw_is_supporte
  static int mt798x_phy_led_hw_control_get(struct phy_device *phydev, u8 index,
  					 unsigned long *rules)
  {
@@ -220,7 +218,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  	unsigned int bit_netdev = MTK_PHY_LED_STATE_NETDEV + (index ? 16 : 0);
  	unsigned int bit_on = MTK_PHY_LED_STATE_FORCE_ON + (index ? 16 : 0);
  	struct mtk_socphy_priv *priv = phydev->priv;
-@@ -1258,8 +1302,8 @@ static int mt798x_phy_led_hw_control_get(struct phy_device *phydev, u8 index,
+@@ -1258,8 +1302,8 @@ static int mt798x_phy_led_hw_control_get
  	if (blink < 0)
  		return -EIO;
  
@@ -231,7 +229,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  	    (blink & (MTK_PHY_LED_BLINK_RX | MTK_PHY_LED_BLINK_TX)))
  		set_bit(bit_netdev, &priv->led_state);
  	else
-@@ -1333,17 +1377,23 @@ static int mt798x_phy_led_hw_control_set(struct phy_device *phydev, u8 index,
+@@ -1333,17 +1377,23 @@ static int mt798x_phy_led_hw_control_set
  
  	if (rules & BIT(TRIGGER_NETDEV_RX)) {
  		blink |= (on & MTK_PHY_LED_ON_LINK) ?
@@ -261,7 +259,7 @@ index e9c422f4e24b..1d7719b6c351 100644
  			  MTK_PHY_LED_BLINK_TX;
  	}
  
-@@ -1400,7 +1450,8 @@ static int mt7988_phy_fix_leds_polarities(struct phy_device *phydev)
+@@ -1400,7 +1450,8 @@ static int mt7988_phy_fix_leds_polaritie
  	/* Only now setup pinctrl to avoid bogus blinking */
  	pinctrl = devm_pinctrl_get_select(&phydev->mdio.dev, "gbe-led");
  	if (IS_ERR(pinctrl))
@@ -271,6 +269,3 @@ index e9c422f4e24b..1d7719b6c351 100644
  
  	return 0;
  }
--- 
-2.48.1
-
