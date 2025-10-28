@@ -1,77 +1,59 @@
-From 4e73549513b6437fe0305b20fd78265a43f0c6c2 Mon Sep 17 00:00:00 2001
+From fadd22890b239e5a251dbe47367cfbeb1ea105f7 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 7 Feb 2025 13:28:40 +0100
-Subject: [PATCH 5/5] phy: airoha: Add support for Airoha AN7581 USB PHY
+Subject: [PATCH 07/10] phy: airoha: Add support for Airoha AN7581 USB PHY
 
 Add support for Airoha AN7581 USB PHY driver. AN7581 supports up to 2
 USB port with USB 2.0 mode always supported and USB 3.0 mode available
 only if the Serdes port is correctly configured for USB 3.0.
 
-On xLate probe, the Serdes mode is validated and the driver return error
-if the Serdes mode doesn't reflect the expected mode. This is required
-as Serdes mode are controlled by the SCU SSR bits and can be either USB
-3.0 mode or HSGMII or PCIe 2. In such case USB 3.0 won't work.
+The second USB port on the SoC can be both used for USB 3.0 operation or
+PCIe. (toggled by the SCU SSR register and configured by the USB PHY
+driver)
 
-If the USB 3.0 mode is not supported, the modes needs to be also
+If the USB 3.0 mode is not configured, the modes needs to be also
 disabled in the xHCI node or the driver will report unsable clock and
 fail probe.
+
+Also USB 3.0 PHY instance are provided only if the airoha,serdes-port
+and airoha,scu property is defined in DT, if it's not then USB 3.0 PHY
+is assumed not supported.
+
+For USB 2.0 Slew Rate calibration, airoha,usb2-monitor-clk-sel is
+mandatory and is used to select the monitor clock for calibration.
+
+Normally it's 1 for USB port 1 and 2 for USB port 2.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
  MAINTAINERS                         |   1 +
- drivers/phy/Kconfig                 |   1 +
- drivers/phy/Makefile                |   3 +-
- drivers/phy/airoha/Kconfig          |  13 +
- drivers/phy/airoha/Makefile         |   3 +
- drivers/phy/airoha/phy-airoha-usb.c | 554 ++++++++++++++++++++++++++++
- 6 files changed, 574 insertions(+), 1 deletion(-)
- create mode 100644 drivers/phy/airoha/Kconfig
- create mode 100644 drivers/phy/airoha/Makefile
+ drivers/phy/airoha/Kconfig          |  10 +
+ drivers/phy/airoha/Makefile         |   1 +
+ drivers/phy/airoha/phy-airoha-usb.c | 597 ++++++++++++++++++++++++++++
+ 4 files changed, 609 insertions(+)
  create mode 100644 drivers/phy/airoha/phy-airoha-usb.c
 
-# diff --git a/MAINTAINERS b/MAINTAINERS
-# index 2b15c3257bcd..60e95f24046c 100644
-# --- a/MAINTAINERS
-# +++ b/MAINTAINERS
-# @@ -758,6 +758,7 @@ M:	Christian Marangi <ansuelsmth@gmail.com>
-#  L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
-#  S:	Maintained
-#  F:	Documentation/devicetree/bindings/phy/airoha,an7581-usb-phy.yam
-# +F:	drivers/phy/airoha/phy-airoha-usb.c
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 3f930a613658..a7294bf67ae9 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -750,6 +750,7 @@ M:	Christian Marangi <ansuelsmth@gmail.com>
+ L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
+ S:	Maintained
+ F:	Documentation/devicetree/bindings/phy/airoha,an7581-usb-phy.yaml
++F:	drivers/phy/airoha/phy-airoha-usb.c
+ F:	include/dt-bindings/phy/airoha,an7581-usb-phy.h
  
-#  AIRSPY MEDIA DRIVER
-#  L:	linux-media@vger.kernel.org
-# diff --git a/drivers/phy/Kconfig b/drivers/phy/Kconfig
-# index 8d58efe998ec..19c9c518fc3d 100644
---- a/drivers/phy/Kconfig
-+++ b/drivers/phy/Kconfig
-@@ -82,6 +82,7 @@ config PHY_AIROHA_PCIE
+ AIRSPY MEDIA DRIVER
+diff --git a/drivers/phy/airoha/Kconfig b/drivers/phy/airoha/Kconfig
+index 70b7eac4a2bf..0675d8f2f9d1 100644
+--- a/drivers/phy/airoha/Kconfig
++++ b/drivers/phy/airoha/Kconfig
+@@ -11,3 +11,13 @@ config PHY_AIROHA_PCIE
+ 	  Say Y here to add support for Airoha PCIe PHY driver.
  	  This driver create the basic PHY instance and provides initialize
  	  callback for PCIe GEN3 port.
- 
-+source "drivers/phy/airoha/Kconfig"
- source "drivers/phy/allwinner/Kconfig"
- source "drivers/phy/amlogic/Kconfig"
- source "drivers/phy/broadcom/Kconfig"
---- a/drivers/phy/Makefile
-+++ b/drivers/phy/Makefile
-@@ -11,7 +11,8 @@ obj-$(CONFIG_PHY_XGENE)			+= phy-xgene.o
- obj-$(CONFIG_PHY_PISTACHIO_USB)		+= phy-pistachio-usb.o
- obj-$(CONFIG_USB_LGM_PHY)		+= phy-lgm-usb.o
- obj-$(CONFIG_PHY_AIROHA_PCIE)		+= phy-airoha-pcie.o
--obj-y					+= allwinner/	\
-+obj-y					+= airoha/	\
-+					   allwinner/	\
- 					   amlogic/	\
- 					   broadcom/	\
- 					   cadence/	\
---- /dev/null
-+++ b/drivers/phy/airoha/Kconfig
-@@ -0,0 +1,13 @@
-+# SPDX-License-Identifier: GPL-2.0-only
-+#
-+# Phy drivers for Mediatek devices
-+#
++
 +config PHY_AIROHA_USB
 +	tristate "Airoha USB PHY Driver"
 +	depends on ARCH_AIROHA || COMPILE_TEST
@@ -81,15 +63,21 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	  Say 'Y' here to add support for Airoha USB PHY driver.
 +	  This driver create the basic PHY instance and provides initialize
 +	  callback for USB port.
---- /dev/null
+diff --git a/drivers/phy/airoha/Makefile b/drivers/phy/airoha/Makefile
+index 3222f749546b..fd188d08c412 100644
+--- a/drivers/phy/airoha/Makefile
 +++ b/drivers/phy/airoha/Makefile
-@@ -0,0 +1,3 @@
-+# SPDX-License-Identifier: GPL-2.0
-+
+@@ -1,3 +1,4 @@
+ # SPDX-License-Identifier: GPL-2.0
+ 
+ obj-$(CONFIG_PHY_AIROHA_PCIE)		+= phy-airoha-pcie.o
 +obj-$(CONFIG_PHY_AIROHA_USB)		+= phy-airoha-usb.o
+diff --git a/drivers/phy/airoha/phy-airoha-usb.c b/drivers/phy/airoha/phy-airoha-usb.c
+new file mode 100644
+index 000000000000..2d6d63e2de83
 --- /dev/null
 +++ b/drivers/phy/airoha/phy-airoha-usb.c
-@@ -0,0 +1,582 @@
+@@ -0,0 +1,596 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Author: Christian Marangi <ansuelsmth@gmail.com>
@@ -100,10 +88,16 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +#include <linux/bitfield.h>
 +#include <linux/math.h>
 +#include <linux/module.h>
++#include <linux/mfd/syscon.h>
 +#include <linux/phy/phy.h>
 +#include <linux/platform_device.h>
 +#include <linux/regmap.h>
-+#include <linux/soc/airoha/airoha-scu-ssr.h>
++
++/* SCU */
++#define AIROHA_SCU_SSTR				0x9c
++#define   AIROHA_SCU_SSTR_USB_PCIE_SEL		BIT(3)
++#define   AIROHA_SCU_SSTR_USB_PCIE_SEL_PCIE	FIELD_PREP_CONST(AIROHA_SCU_SSTR_USB_PCIE_SEL, 0x0)
++#define   AIROHA_SCU_SSTR_USB_PCIE_SEL_USB	FIELD_PREP_CONST(AIROHA_SCU_SSTR_USB_PCIE_SEL, 0x1)
 +
 +/* U2PHY */
 +#define AIROHA_USB_PHY_FMCR0			0x100
@@ -225,6 +219,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +struct airoha_usb_phy_priv {
 +	struct device *dev;
 +	struct regmap *regmap;
++	struct regmap *scu;
 +
 +	unsigned int monclk_sel;
 +	unsigned int serdes_port;
@@ -366,6 +361,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		airoha_usb_phy_u2_init(priv);
 +		break;
 +	case PHY_TYPE_USB3:
++		if (phy_get_mode(phy) == PHY_MODE_PCIE)
++			return 0;
++
 +		airoha_usb_phy_u3_init(priv);
 +		break;
 +	default:
@@ -408,6 +406,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		airoha_usb_phy_u2_power_on(priv);
 +		break;
 +	case PHY_TYPE_USB3:
++		if (phy_get_mode(phy) == PHY_MODE_PCIE)
++			return 0;
++
 +		airoha_usb_phy_u3_power_on(priv);
 +		break;
 +	default:
@@ -448,6 +449,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		airoha_usb_phy_u2_power_off(priv);
 +		break;
 +	case PHY_TYPE_USB3:
++		if (phy_get_mode(phy) == PHY_MODE_PCIE)
++			return 0;
++
 +		airoha_usb_phy_u3_power_off(priv);
 +		break;
 +	default:
@@ -489,15 +493,40 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	return 0;
 +}
 +
++static int airoha_usb_phy_u3_set_mode(struct airoha_usb_phy_priv *priv,
++				      enum phy_mode mode)
++{
++	u32 sel;
++
++	/* Only USB2 supports PCIe mode */
++	if (mode == PHY_MODE_PCIE &&
++	    priv->serdes_port != AIROHA_SCU_SERDES_USB2)
++		return -EINVAL;
++
++	if (mode == PHY_MODE_PCIE)
++		sel = AIROHA_SCU_SSTR_USB_PCIE_SEL_PCIE;
++	else
++		sel = AIROHA_SCU_SSTR_USB_PCIE_SEL_USB;
++
++	regmap_update_bits(priv->scu, AIROHA_SCU_SSTR,
++			   AIROHA_SCU_SSTR_USB_PCIE_SEL, sel);
++
++	return 0;
++}
++
 +static int airoha_usb_phy_set_mode(struct phy *phy, enum phy_mode mode, int submode)
 +{
 +	struct airoha_usb_phy_instance *instance = phy_get_drvdata(phy);
 +	struct airoha_usb_phy_priv *priv = dev_get_drvdata(phy->dev.parent);
 +
-+	if (instance->type == PHY_TYPE_USB2)
++	switch (instance->type) {
++	case PHY_TYPE_USB2:
 +		return airoha_usb_phy_u2_set_mode(priv, mode);
-+
-+	return 0;
++	case PHY_TYPE_USB3:
++		return airoha_usb_phy_u3_set_mode(priv, mode);
++	default:
++		return 0;
++	}
 +}
 +
 +static struct phy *airoha_usb_phy_xlate(struct device *dev,
@@ -505,8 +534,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +{
 +	struct airoha_usb_phy_priv *priv = dev_get_drvdata(dev);
 +	struct airoha_usb_phy_instance *instance = NULL;
-+	int phy_type;
-+	int index;
++	unsigned int index, phy_type;
 +
 +	if (args->args_count != 1) {
 +		dev_err(dev, "invalid number of cells in 'phy' property\n");
@@ -531,34 +559,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +		return ERR_PTR(-EINVAL);
 +	}
 +
-+	/* Validate Serdes for USB 3.0 */
-+	if (instance->type == PHY_TYPE_USB3) {
-+		int serdes_mode, expcted_mode;
-+
-+		switch (priv->serdes_port) {
-+		case AIROHA_SCU_SERDES_USB1:
-+			expcted_mode = AIROHA_SCU_SSR_USB1_USB;
-+			break;
-+		case AIROHA_SCU_SERDES_USB2:
-+			expcted_mode = AIROHA_SCU_SSR_USB2_USB;
-+			break;
-+		default: /* Impossible already validated */
-+			return ERR_PTR(-EINVAL);
-+		}
-+
-+		serdes_mode = airoha_scu_ssr_get_serdes_mode(dev, priv->serdes_port);
-+		if (serdes_mode < 0) {
-+			dev_err(dev, "failed validating serdes mode: %d\n",
-+				serdes_mode);
-+			return ERR_PTR(serdes_mode);
-+		}
-+
-+		if (serdes_mode != expcted_mode) {
-+			dev_err(dev, "wrong serdes mode for port\n");
-+			return ERR_PTR(-EINVAL);
-+		}
-+	}
-+
 +	return instance->phy;
 +}
 +
@@ -581,8 +581,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	struct phy_provider *phy_provider;
 +	struct airoha_usb_phy_priv *priv;
 +	struct device *dev = &pdev->dev;
++	unsigned int index;
 +	void *base;
-+	int index;
 +	int ret;
 +
 +	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
@@ -610,8 +610,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +	platform_set_drvdata(pdev, priv);
 +
 +	for (index = 0; index < AIROHA_PHY_USB_MAX; index++) {
++		enum airoha_usb_phy_instance_type phy_type;
 +		struct airoha_usb_phy_instance *instance;
-+		unsigned int phy_type;
 +
 +		switch (index) {
 +		case AIROHA_PHY_USB2:
@@ -630,8 +630,10 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +				continue;
 +
 +			/* With Serdes Port property, SCU is required */
-+			if (!of_property_present(dev->of_node, "airoha,scu"))
-+				return dev_err_probe(dev, ret, "missing required SCU definition.\n");
++			priv->scu = syscon_regmap_lookup_by_phandle(dev->of_node,
++								    "airoha,scu");
++			if (IS_ERR(priv->scu))
++				return dev_err_probe(dev, PTR_ERR(priv->scu), "failed to get SCU syscon.\n");
 +		}
 +
 +		instance = devm_kzalloc(dev, sizeof(*instance), GFP_KERNEL);
@@ -672,3 +674,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 +MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 +MODULE_LICENSE("GPL");
 +MODULE_DESCRIPTION("Airoha USB PHY driver");
+-- 
+2.51.0
+
