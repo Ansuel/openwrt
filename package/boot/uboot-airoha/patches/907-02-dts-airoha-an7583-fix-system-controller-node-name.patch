@@ -1,0 +1,29 @@
+From de6f43c3c1fe8deac5633ee63d7360ad2ffdfabf Mon Sep 17 00:00:00 2001
+From: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+Date: Tue, 28 Oct 2025 12:01:34 +0300
+Subject: [PATCH 095/102] dts: airoha: an7583: fix system controller node name
+
+Generally node name includes proper register starting address,
+fix scu node to follow this common rule.
+
+Signed-off-by: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+---
+ arch/arm/dts/an7583.dtsi | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/arch/arm/dts/an7583.dtsi b/arch/arm/dts/an7583.dtsi
+index 55dd1a8e1cb..b443e01f98d 100644
+--- a/arch/arm/dts/an7583.dtsi
++++ b/arch/arm/dts/an7583.dtsi
+@@ -250,7 +250,7 @@
+ 			reg = <0x0 0x1fbe3400 0x0 0xff>;
+ 		};
+ 
+-		scu: system-controller@1fa20000 {
++		scu: system-controller@1fb00000 {
+ 			compatible = "syscon", "simple-mfd";
+ 			reg = <0x0 0x1fb00000 0x0 0x970>;
+ 
+-- 
+2.51.0
+
