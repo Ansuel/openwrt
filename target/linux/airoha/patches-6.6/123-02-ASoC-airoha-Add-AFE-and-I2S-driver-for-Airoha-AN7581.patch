@@ -282,7 +282,7 @@ index 000000000000..9df236881b9b
 +		.playback = {
 +			.stream_name = "DL1",
 +			.channels_min = 1,
-+			.channels_max = 8,
++			.channels_max = 2,
 +			.rates = SNDRV_PCM_RATE_8000_192000,
 +			.formats = ARH_PCM_FORMATS,
 +		},
@@ -355,26 +355,26 @@ index 000000000000..9df236881b9b
 +		.irq_cnt_reg = -1,
 +		.irq_cnt_shift = -1,
 +		.irq_cnt_maskbit = -1,
-+		.irq_en_reg = AFE_IRQ1_CON0,
-+		.irq_en_shift = 4,
++		.irq_en_reg = AFE_IRQ0_CON0,
++		.irq_en_shift = 0,
 +		.irq_fs_reg = -1,
 +		.irq_fs_shift = -1,
 +		.irq_fs_maskbit = -1,
-+		.irq_clr_reg = AFE_IRQ1_CON0,
-+		.irq_clr_shift = 0,
++		.irq_clr_reg = AFE_IRQ0_CON0,
++		.irq_clr_shift = 2,
 +	},
 +	[AN7581_IRQ_1] = {
 +		.id = AN7581_IRQ_1,
 +		.irq_cnt_reg = -1,
 +		.irq_cnt_shift = -1,
 +		.irq_cnt_maskbit = -1,
-+		.irq_en_reg = AFE_IRQ0_CON0,
-+		.irq_en_shift = 4,
++		.irq_en_reg = AFE_IRQ1_CON0,
++		.irq_en_shift = 0,
 +		.irq_fs_reg = -1,
 +		.irq_fs_shift = -1,
 +		.irq_fs_maskbit = -1,
-+		.irq_clr_reg = AFE_IRQ0_CON0,
-+		.irq_clr_shift = 1,
++		.irq_clr_reg = AFE_IRQ1_CON0,
++		.irq_clr_shift = 2,
 +	},
 +};
 +
@@ -606,7 +606,7 @@ new file mode 100644
 index 000000000000..542caa107921
 --- /dev/null
 +++ b/sound/soc/airoha/an7581/an7581-i2s.c
-@@ -0,0 +1,110 @@
+@@ -0,0 +1,133 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Airoha ALSA SoC I2S platform driver for AN7581
@@ -658,10 +658,10 @@ index 000000000000..542caa107921
 +
 +static int an7581_i2s_machine_probe(struct platform_device *pdev)
 +{
++	struct device_node *platform_dai_node, *codec_dai_node;
 +	struct snd_soc_card *card = &an7581_i2s_card;
-+	struct device_node *platform_dai_node;
++	struct device_node *platform, *codec;
 +	struct snd_soc_dai_link *dai_link;
-+	struct device_node *platform;
 +	int ret, i;
 +
 +	card->dev = &pdev->dev;
@@ -685,6 +685,29 @@ index 000000000000..542caa107921
 +		if (dai_link->platforms->name)
 +			continue;
 +		dai_link->platforms->of_node = platform_dai_node;
++	}
++
++	codec = of_get_child_by_name(pdev->dev.of_node, "codec");
++
++	if (codec) {
++		codec_dai_node = of_parse_phandle(codec, "sound-dai", 0);
++		of_node_put(codec);
++
++		if (!codec_dai_node) {
++			of_node_put(platform_dai_node);
++			dev_err(&pdev->dev, "Failed to parse codec/sound-dai property\n");
++			return -EINVAL;
++		}
++	} else {
++		of_node_put(platform_dai_node);
++		dev_err(&pdev->dev, "Property 'codec' missing or invalid\n");
++		return -EINVAL;
++	}
++
++	for_each_card_prelinks(card, i, dai_link) {
++		if (dai_link->codecs->name)
++			continue;
++		dai_link->codecs->of_node = codec_dai_node;
 +	}
 +
 +	ret = devm_snd_soc_register_card(&pdev->dev, card);
@@ -734,8 +757,8 @@ index 000000000000..2b14a66afa68
 +#define AFE_DAC_CON0			0x0
 +
 +#define AFE_DL1_BASE			0xa8
-+#define AFE_DL1_END			0xac
-+#define AFE_DL1_CUR			0xb0
++#define AFE_DL1_END			0xb0
++#define AFE_DL1_CUR			0xac
 +
 +#define AFE_UL1_BASE			0xc4
 +#define AFE_UL1_END			0xc8

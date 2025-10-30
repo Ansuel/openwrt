@@ -378,7 +378,7 @@
 		};
 	};
 
-	sound {
+	sound: sound {
 		compatible = "airoha,an7581-i2s";
 
 		platform {
