@@ -201,7 +201,7 @@ index 00000000000..97fc80bf147
 +#define AEON_CPU_CTRL_FW_LOAD		(BIT(4) | BIT(2) | BIT(1) | BIT(0))
 +#define AEON_CPU_CTRL_FW_START		BIT(0)
 +
-+#define AEON_FW_SIZE			261400
++#define AEON_FW_SIZE			286856
 +
 +enum as21xxx_led_event {
 +	VEND1_LED_REG_A_EVENT_ON_10 = 0x0,
