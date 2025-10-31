@@ -135,6 +135,13 @@
 };
 
 &sound {
+	audio-routing = "Headphone", "HP_L",
+			"Headphone", "HP_R",
+			"LINPUT1", "AMIC",
+			"RINPUT1", "AMIC";
+
+	status = "okay";
+
 	codec {
 		sound-dai = <&wm8960>;
 	};

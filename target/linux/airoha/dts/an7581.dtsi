@@ -381,6 +381,8 @@
 	sound: sound {
 		compatible = "airoha,an7581-i2s";
 
+		status = "disabled";
+
 		platform {
 			sound-dai = <&afe>;
 		};
