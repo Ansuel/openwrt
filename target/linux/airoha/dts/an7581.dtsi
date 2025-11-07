@@ -460,6 +460,7 @@
 
 			interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
 			resets = <&scuclk EN7581_PCM1_RST>;
+			reset-names = "pcm1";
 		};
 
 		uart4: serial@1fbf0600 {
