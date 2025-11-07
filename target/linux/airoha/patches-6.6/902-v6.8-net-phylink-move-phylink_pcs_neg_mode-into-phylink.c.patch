@@ -14,11 +14,9 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  include/linux/phylink.h   | 66 ---------------------------------------
  2 files changed, 66 insertions(+), 66 deletions(-)
 
-diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
-index 3d25a4a6212b..a816391add12 100644
 --- a/drivers/net/phy/phylink.c
 +++ b/drivers/net/phy/phylink.c
-@@ -1074,6 +1074,72 @@ static void phylink_pcs_an_restart(struct phylink *pl)
+@@ -1156,6 +1156,72 @@ static void phylink_pcs_an_restart(struc
  		pl->pcs->ops->pcs_an_restart(pl->pcs);
  }
  
@@ -91,15 +89,12 @@ index 3d25a4a6212b..a816391add12 100644
  static void phylink_major_config(struct phylink *pl, bool restart,
  				  const struct phylink_link_state *state)
  {
-diff --git a/include/linux/phylink.h b/include/linux/phylink.h
-index 875439ab45de..d589f89c612c 100644
 --- a/include/linux/phylink.h
 +++ b/include/linux/phylink.h
-@@ -98,72 +98,6 @@ static inline bool phylink_autoneg_inband(unsigned int mode)
- 	return mode == MLO_AN_INBAND;
+@@ -99,72 +99,6 @@ static inline bool phylink_autoneg_inban
  }
  
--/**
+ /**
 - * phylink_pcs_neg_mode() - helper to determine PCS inband mode
 - * @mode: one of %MLO_AN_FIXED, %MLO_AN_PHY, %MLO_AN_INBAND.
 - * @interface: interface mode to be used
@@ -165,9 +160,7 @@ index 875439ab45de..d589f89c612c 100644
 -	return neg_mode;
 -}
 -
- /**
+-/**
   * struct phylink_link_state - link state structure
   * @advertising: ethtool bitmask containing advertised link modes
--- 
-2.51.0
-
+  * @lp_advertising: ethtool bitmask containing link partner advertised link

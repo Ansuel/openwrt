@@ -42,11 +42,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  4 files changed, 1106 insertions(+)
  create mode 100644 drivers/net/phy/as21xxx.c
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 127a9fd0feb9..a95cecabfe1b 100644
 --- a/drivers/net/phy/Kconfig
 +++ b/drivers/net/phy/Kconfig
-@@ -76,6 +76,18 @@ config SFP
+@@ -142,6 +142,18 @@ endif # RTL8366_SMI
  
  comment "MII PHY device drivers"
  
@@ -65,21 +63,16 @@ index 127a9fd0feb9..a95cecabfe1b 100644
  config AIR_EN8811H_PHY
  	tristate "Airoha EN8811H 2.5 Gigabit PHY"
  	help
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 7de69320a3a7..57933366fe54 100644
 --- a/drivers/net/phy/Makefile
 +++ b/drivers/net/phy/Makefile
-@@ -32,6 +32,7 @@ obj-$(CONFIG_AIR_EN8811H_PHY)   += air_en8811h.o
+@@ -52,6 +52,7 @@ obj-$(CONFIG_ADIN1100_PHY)	+= adin1100.o
+ obj-$(CONFIG_AIR_EN8811H_PHY)   += air_en8811h.o
  obj-$(CONFIG_AMD_PHY)		+= amd.o
- obj-$(CONFIG_AMCC_QT2025_PHY)	+= qt2025.o
  obj-$(CONFIG_AQUANTIA_PHY)	+= aquantia/
 +obj-$(CONFIG_AS21XXX_PHY)	+= as21xxx.o
  obj-$(CONFIG_AX88796B_PHY)	+= ax88796b.o
  obj-$(CONFIG_BCM54140_PHY)	+= bcm54140.o
  obj-$(CONFIG_BCM63XX_PHY)	+= bcm63xx.o
-diff --git a/drivers/net/phy/as21xxx.c b/drivers/net/phy/as21xxx.c
-new file mode 100644
-index 000000000000..92697f43087d
 --- /dev/null
 +++ b/drivers/net/phy/as21xxx.c
 @@ -0,0 +1,1087 @@
@@ -1170,6 +1163,3 @@ index 000000000000..92697f43087d
 +MODULE_DESCRIPTION("Aeonsemi AS21xxx PHY driver");
 +MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 +MODULE_LICENSE("GPL");
--- 
-2.48.1
-

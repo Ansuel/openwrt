@@ -35,16 +35,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  rename {sound/soc/mediatek/common => include/sound/mediatek}/mtk-afe-fe-dai.h (100%)
  rename {sound/soc/mediatek/common => include/sound/mediatek}/mtk-afe-platform-driver.h (100%)
 
-diff --git a/sound/soc/mediatek/common/mtk-afe-fe-dai.h b/include/sound/mediatek/mtk-afe-fe-dai.h
-similarity index 100%
-rename from sound/soc/mediatek/common/mtk-afe-fe-dai.h
-rename to include/sound/mediatek/mtk-afe-fe-dai.h
-diff --git a/sound/soc/mediatek/common/mtk-afe-platform-driver.h b/include/sound/mediatek/mtk-afe-platform-driver.h
-similarity index 100%
-rename from sound/soc/mediatek/common/mtk-afe-platform-driver.h
-rename to include/sound/mediatek/mtk-afe-platform-driver.h
-diff --git a/sound/soc/mediatek/common/mtk-afe-fe-dai.c b/sound/soc/mediatek/common/mtk-afe-fe-dai.c
-index 3809068f5620..de58ee0afe27 100644
 --- a/sound/soc/mediatek/common/mtk-afe-fe-dai.c
 +++ b/sound/soc/mediatek/common/mtk-afe-fe-dai.c
 @@ -11,9 +11,9 @@
@@ -59,8 +49,6 @@ index 3809068f5620..de58ee0afe27 100644
  #include "mtk-base-afe.h"
  
  #define AFE_BASE_END_OFFSET 8
-diff --git a/sound/soc/mediatek/common/mtk-afe-platform-driver.c b/sound/soc/mediatek/common/mtk-afe-platform-driver.c
-index 6b6330583941..fc1681281ad5 100644
 --- a/sound/soc/mediatek/common/mtk-afe-platform-driver.c
 +++ b/sound/soc/mediatek/common/mtk-afe-platform-driver.c
 @@ -10,7 +10,7 @@
@@ -72,11 +60,9 @@ index 6b6330583941..fc1681281ad5 100644
  #include "mtk-base-afe.h"
  
  int mtk_afe_combine_sub_dai(struct mtk_base_afe *afe)
-diff --git a/sound/soc/mediatek/mt2701/mt2701-afe-pcm.c b/sound/soc/mediatek/mt2701/mt2701-afe-pcm.c
-index fcae38135d93..ce50eda77bd9 100644
 --- a/sound/soc/mediatek/mt2701/mt2701-afe-pcm.c
 +++ b/sound/soc/mediatek/mt2701/mt2701-afe-pcm.c
-@@ -16,8 +16,8 @@
+@@ -18,8 +18,8 @@
  
  #include "mt2701-afe-common.h"
  #include "mt2701-afe-clock-ctrl.h"
@@ -87,8 +73,6 @@ index fcae38135d93..ce50eda77bd9 100644
  
  static const struct snd_pcm_hardware mt2701_afe_hardware = {
  	.info = SNDRV_PCM_INFO_MMAP | SNDRV_PCM_INFO_INTERLEAVED
-diff --git a/sound/soc/mediatek/mt6797/mt6797-afe-pcm.c b/sound/soc/mediatek/mt6797/mt6797-afe-pcm.c
-index f62a32f2f2b6..dd8583df7d0a 100644
 --- a/sound/soc/mediatek/mt6797/mt6797-afe-pcm.c
 +++ b/sound/soc/mediatek/mt6797/mt6797-afe-pcm.c
 @@ -16,8 +16,8 @@
@@ -102,8 +86,6 @@ index f62a32f2f2b6..dd8583df7d0a 100644
  
  enum {
  	MTK_AFE_RATE_8K = 0,
-diff --git a/sound/soc/mediatek/mt7986/mt7986-afe-pcm.c b/sound/soc/mediatek/mt7986/mt7986-afe-pcm.c
-index 7a6ad9116e55..640c3a7bff2d 100644
 --- a/sound/soc/mediatek/mt7986/mt7986-afe-pcm.c
 +++ b/sound/soc/mediatek/mt7986/mt7986-afe-pcm.c
 @@ -16,8 +16,8 @@
@@ -117,8 +99,6 @@ index 7a6ad9116e55..640c3a7bff2d 100644
  
  enum {
  	MTK_AFE_RATE_8K = 0,
-diff --git a/sound/soc/mediatek/mt8173/mt8173-afe-pcm.c b/sound/soc/mediatek/mt8173/mt8173-afe-pcm.c
-index 04ed0cfec174..6c58daa0a963 100644
 --- a/sound/soc/mediatek/mt8173/mt8173-afe-pcm.c
 +++ b/sound/soc/mediatek/mt8173/mt8173-afe-pcm.c
 @@ -18,8 +18,8 @@
@@ -132,8 +112,6 @@ index 04ed0cfec174..6c58daa0a963 100644
  
  /*****************************************************************************
   *                  R E G I S T E R       D E F I N I T I O N
-diff --git a/sound/soc/mediatek/mt8183/mt8183-afe-pcm.c b/sound/soc/mediatek/mt8183/mt8183-afe-pcm.c
-index e8884354995c..9e1fa40bcb56 100644
 --- a/sound/soc/mediatek/mt8183/mt8183-afe-pcm.c
 +++ b/sound/soc/mediatek/mt8183/mt8183-afe-pcm.c
 @@ -17,8 +17,8 @@
@@ -147,8 +125,6 @@ index e8884354995c..9e1fa40bcb56 100644
  
  enum {
  	MTK_AFE_RATE_8K = 0,
-diff --git a/sound/soc/mediatek/mt8183/mt8183-da7219-max98357.c b/sound/soc/mediatek/mt8183/mt8183-da7219-max98357.c
-index 3388e076ccc9..faba30a58e9e 100644
 --- a/sound/soc/mediatek/mt8183/mt8183-da7219-max98357.c
 +++ b/sound/soc/mediatek/mt8183/mt8183-da7219-max98357.c
 @@ -16,7 +16,7 @@
@@ -160,8 +136,6 @@ index 3388e076ccc9..faba30a58e9e 100644
  #include "mt8183-afe-common.h"
  
  #define DA7219_CODEC_DAI "da7219-hifi"
-diff --git a/sound/soc/mediatek/mt8183/mt8183-mt6358-ts3a227-max98357.c b/sound/soc/mediatek/mt8183/mt8183-mt6358-ts3a227-max98357.c
-index 497a9043be7b..5d6bcaaebd8f 100644
 --- a/sound/soc/mediatek/mt8183/mt8183-mt6358-ts3a227-max98357.c
 +++ b/sound/soc/mediatek/mt8183/mt8183-mt6358-ts3a227-max98357.c
 @@ -15,7 +15,7 @@
@@ -173,8 +147,6 @@ index 497a9043be7b..5d6bcaaebd8f 100644
  #include "mt8183-afe-common.h"
  
  #define RT1015_CODEC_DAI "rt1015-aif"
-diff --git a/sound/soc/mediatek/mt8186/mt8186-afe-pcm.c b/sound/soc/mediatek/mt8186/mt8186-afe-pcm.c
-index db7c93401bee..2ffb64d88c56 100644
 --- a/sound/soc/mediatek/mt8186/mt8186-afe-pcm.c
 +++ b/sound/soc/mediatek/mt8186/mt8186-afe-pcm.c
 @@ -14,8 +14,8 @@
@@ -188,8 +160,6 @@ index db7c93401bee..2ffb64d88c56 100644
  
  #include "mt8186-afe-common.h"
  #include "mt8186-afe-clk.h"
-diff --git a/sound/soc/mediatek/mt8186/mt8186-misc-control.c b/sound/soc/mediatek/mt8186/mt8186-misc-control.c
-index 2317de8c44c0..96ee69fdc8a6 100644
 --- a/sound/soc/mediatek/mt8186/mt8186-misc-control.c
 +++ b/sound/soc/mediatek/mt8186/mt8186-misc-control.c
 @@ -11,8 +11,8 @@
@@ -203,8 +173,6 @@ index 2317de8c44c0..96ee69fdc8a6 100644
  #include "mt8186-afe-common.h"
  
  static const char * const mt8186_sgen_mode_str[] = {
-diff --git a/sound/soc/mediatek/mt8186/mt8186-mt6366-common.c b/sound/soc/mediatek/mt8186/mt8186-mt6366-common.c
-index fa08eb0654d8..4155db56c59a 100644
 --- a/sound/soc/mediatek/mt8186/mt8186-mt6366-common.c
 +++ b/sound/soc/mediatek/mt8186/mt8186-mt6366-common.c
 @@ -9,7 +9,7 @@
@@ -216,8 +184,6 @@ index fa08eb0654d8..4155db56c59a 100644
  #include "mt8186-afe-common.h"
  #include "mt8186-mt6366-common.h"
  
-diff --git a/sound/soc/mediatek/mt8188/mt8188-afe-pcm.c b/sound/soc/mediatek/mt8188/mt8188-afe-pcm.c
-index ac4fdf8ba78f..30bb0cd34953 100644
 --- a/sound/soc/mediatek/mt8188/mt8188-afe-pcm.c
 +++ b/sound/soc/mediatek/mt8188/mt8188-afe-pcm.c
 @@ -24,8 +24,8 @@
@@ -231,8 +197,6 @@ index ac4fdf8ba78f..30bb0cd34953 100644
  
  #define MT8188_MEMIF_BUFFER_BYTES_ALIGN  (0x40)
  #define MT8188_MEMIF_DL7_MAX_PERIOD_SIZE (0x3fff)
-diff --git a/sound/soc/mediatek/mt8192/mt8192-afe-pcm.c b/sound/soc/mediatek/mt8192/mt8192-afe-pcm.c
-index fd6af74d7995..1498714ff6c0 100644
 --- a/sound/soc/mediatek/mt8192/mt8192-afe-pcm.c
 +++ b/sound/soc/mediatek/mt8192/mt8192-afe-pcm.c
 @@ -16,8 +16,8 @@
@@ -246,8 +210,6 @@ index fd6af74d7995..1498714ff6c0 100644
  
  #include "mt8192-afe-common.h"
  #include "mt8192-afe-clk.h"
-diff --git a/sound/soc/mediatek/mt8195/mt8195-afe-pcm.c b/sound/soc/mediatek/mt8195/mt8195-afe-pcm.c
-index 5d025ad72263..a18fdfd9049c 100644
 --- a/sound/soc/mediatek/mt8195/mt8195-afe-pcm.c
 +++ b/sound/soc/mediatek/mt8195/mt8195-afe-pcm.c
 @@ -20,8 +20,8 @@
@@ -261,8 +223,6 @@ index 5d025ad72263..a18fdfd9049c 100644
  
  #define MT8195_MEMIF_BUFFER_BYTES_ALIGN  (0x40)
  #define MT8195_MEMIF_DL7_MAX_PERIOD_SIZE (0x3fff)
-diff --git a/sound/soc/mediatek/mt8195/mt8195-mt6359.c b/sound/soc/mediatek/mt8195/mt8195-mt6359.c
-index e57391c213e7..9594689d935a 100644
 --- a/sound/soc/mediatek/mt8195/mt8195-mt6359.c
 +++ b/sound/soc/mediatek/mt8195/mt8195-mt6359.c
 @@ -19,7 +19,7 @@
@@ -273,7 +233,178 @@ index e57391c213e7..9594689d935a 100644
 +#include <sound/mediatek/mtk-afe-platform-driver.h>
  #include "../common/mtk-dsp-sof-common.h"
  #include "../common/mtk-soc-card.h"
- #include "../common/mtk-soundcard-driver.h"
--- 
-2.50.1
-
+ #include "mt8195-afe-clk.h"
+--- /dev/null
++++ b/include/sound/mediatek/mtk-afe-fe-dai.h
+@@ -0,0 +1,53 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * mtk-afe-fe-dais.h  --  Mediatek afe fe dai operator definition
++ *
++ * Copyright (c) 2016 MediaTek Inc.
++ * Author: Garlic Tseng <garlic.tseng@mediatek.com>
++ */
++
++#ifndef _MTK_AFE_FE_DAI_H_
++#define _MTK_AFE_FE_DAI_H_
++
++struct snd_soc_dai_ops;
++struct mtk_base_afe;
++struct mtk_base_afe_memif;
++
++int mtk_afe_fe_startup(struct snd_pcm_substream *substream,
++		       struct snd_soc_dai *dai);
++void mtk_afe_fe_shutdown(struct snd_pcm_substream *substream,
++			 struct snd_soc_dai *dai);
++int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
++			 struct snd_pcm_hw_params *params,
++			 struct snd_soc_dai *dai);
++int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
++		       struct snd_soc_dai *dai);
++int mtk_afe_fe_prepare(struct snd_pcm_substream *substream,
++		       struct snd_soc_dai *dai);
++int mtk_afe_fe_trigger(struct snd_pcm_substream *substream, int cmd,
++		       struct snd_soc_dai *dai);
++
++extern const struct snd_soc_dai_ops mtk_afe_fe_ops;
++
++int mtk_dynamic_irq_acquire(struct mtk_base_afe *afe);
++int mtk_dynamic_irq_release(struct mtk_base_afe *afe, int irq_id);
++int mtk_afe_suspend(struct snd_soc_component *component);
++int mtk_afe_resume(struct snd_soc_component *component);
++
++int mtk_memif_set_enable(struct mtk_base_afe *afe, int id);
++int mtk_memif_set_disable(struct mtk_base_afe *afe, int id);
++int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
++		       unsigned char *dma_area,
++		       dma_addr_t dma_addr,
++		       size_t dma_bytes);
++int mtk_memif_set_channel(struct mtk_base_afe *afe,
++			  int id, unsigned int channel);
++int mtk_memif_set_rate(struct mtk_base_afe *afe,
++		       int id, unsigned int rate);
++int mtk_memif_set_rate_substream(struct snd_pcm_substream *substream,
++				 int id, unsigned int rate);
++int mtk_memif_set_format(struct mtk_base_afe *afe,
++			 int id, snd_pcm_format_t format);
++int mtk_memif_set_pbuf_size(struct mtk_base_afe *afe,
++			    int id, int pbuf_size);
++#endif
+--- /dev/null
++++ b/include/sound/mediatek/mtk-afe-platform-driver.h
+@@ -0,0 +1,28 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * mtk-afe-platform-driver.h  --  Mediatek afe platform driver definition
++ *
++ * Copyright (c) 2016 MediaTek Inc.
++ * Author: Garlic Tseng <garlic.tseng@mediatek.com>
++ */
++
++#ifndef _MTK_AFE_PLATFORM_DRIVER_H_
++#define _MTK_AFE_PLATFORM_DRIVER_H_
++
++#define AFE_PCM_NAME "mtk-afe-pcm"
++extern const struct snd_soc_component_driver mtk_afe_pcm_platform;
++
++struct mtk_base_afe;
++struct snd_pcm;
++struct snd_soc_component;
++struct snd_soc_pcm_runtime;
++
++snd_pcm_uframes_t mtk_afe_pcm_pointer(struct snd_soc_component *component,
++				      struct snd_pcm_substream *substream);
++int mtk_afe_pcm_new(struct snd_soc_component *component,
++		    struct snd_soc_pcm_runtime *rtd);
++
++int mtk_afe_combine_sub_dai(struct mtk_base_afe *afe);
++int mtk_afe_add_sub_dai_control(struct snd_soc_component *component);
++#endif
++
+--- a/sound/soc/mediatek/common/mtk-afe-fe-dai.h
++++ /dev/null
+@@ -1,53 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/*
+- * mtk-afe-fe-dais.h  --  Mediatek afe fe dai operator definition
+- *
+- * Copyright (c) 2016 MediaTek Inc.
+- * Author: Garlic Tseng <garlic.tseng@mediatek.com>
+- */
+-
+-#ifndef _MTK_AFE_FE_DAI_H_
+-#define _MTK_AFE_FE_DAI_H_
+-
+-struct snd_soc_dai_ops;
+-struct mtk_base_afe;
+-struct mtk_base_afe_memif;
+-
+-int mtk_afe_fe_startup(struct snd_pcm_substream *substream,
+-		       struct snd_soc_dai *dai);
+-void mtk_afe_fe_shutdown(struct snd_pcm_substream *substream,
+-			 struct snd_soc_dai *dai);
+-int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
+-			 struct snd_pcm_hw_params *params,
+-			 struct snd_soc_dai *dai);
+-int mtk_afe_fe_hw_free(struct snd_pcm_substream *substream,
+-		       struct snd_soc_dai *dai);
+-int mtk_afe_fe_prepare(struct snd_pcm_substream *substream,
+-		       struct snd_soc_dai *dai);
+-int mtk_afe_fe_trigger(struct snd_pcm_substream *substream, int cmd,
+-		       struct snd_soc_dai *dai);
+-
+-extern const struct snd_soc_dai_ops mtk_afe_fe_ops;
+-
+-int mtk_dynamic_irq_acquire(struct mtk_base_afe *afe);
+-int mtk_dynamic_irq_release(struct mtk_base_afe *afe, int irq_id);
+-int mtk_afe_suspend(struct snd_soc_component *component);
+-int mtk_afe_resume(struct snd_soc_component *component);
+-
+-int mtk_memif_set_enable(struct mtk_base_afe *afe, int id);
+-int mtk_memif_set_disable(struct mtk_base_afe *afe, int id);
+-int mtk_memif_set_addr(struct mtk_base_afe *afe, int id,
+-		       unsigned char *dma_area,
+-		       dma_addr_t dma_addr,
+-		       size_t dma_bytes);
+-int mtk_memif_set_channel(struct mtk_base_afe *afe,
+-			  int id, unsigned int channel);
+-int mtk_memif_set_rate(struct mtk_base_afe *afe,
+-		       int id, unsigned int rate);
+-int mtk_memif_set_rate_substream(struct snd_pcm_substream *substream,
+-				 int id, unsigned int rate);
+-int mtk_memif_set_format(struct mtk_base_afe *afe,
+-			 int id, snd_pcm_format_t format);
+-int mtk_memif_set_pbuf_size(struct mtk_base_afe *afe,
+-			    int id, int pbuf_size);
+-#endif
+--- a/sound/soc/mediatek/common/mtk-afe-platform-driver.h
++++ /dev/null
+@@ -1,28 +0,0 @@
+-/* SPDX-License-Identifier: GPL-2.0 */
+-/*
+- * mtk-afe-platform-driver.h  --  Mediatek afe platform driver definition
+- *
+- * Copyright (c) 2016 MediaTek Inc.
+- * Author: Garlic Tseng <garlic.tseng@mediatek.com>
+- */
+-
+-#ifndef _MTK_AFE_PLATFORM_DRIVER_H_
+-#define _MTK_AFE_PLATFORM_DRIVER_H_
+-
+-#define AFE_PCM_NAME "mtk-afe-pcm"
+-extern const struct snd_soc_component_driver mtk_afe_pcm_platform;
+-
+-struct mtk_base_afe;
+-struct snd_pcm;
+-struct snd_soc_component;
+-struct snd_soc_pcm_runtime;
+-
+-snd_pcm_uframes_t mtk_afe_pcm_pointer(struct snd_soc_component *component,
+-				      struct snd_pcm_substream *substream);
+-int mtk_afe_pcm_new(struct snd_soc_component *component,
+-		    struct snd_soc_pcm_runtime *rtd);
+-
+-int mtk_afe_combine_sub_dai(struct mtk_base_afe *afe);
+-int mtk_afe_add_sub_dai_control(struct snd_soc_component *component);
+-#endif
+-

@@ -14,11 +14,9 @@ Signed-off-by: Andrew Lunn <andrew@lunn.ch>
  drivers/net/phy/mediatek-ge-soc.c | 36 ++++++++++++++++---------------
  1 file changed, 19 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/net/phy/mediatek-ge-soc.c b/drivers/net/phy/mediatek-ge-soc.c
-index f4f9412d0cd7..e9c422f4e24b 100644
 --- a/drivers/net/phy/mediatek-ge-soc.c
 +++ b/drivers/net/phy/mediatek-ge-soc.c
-@@ -408,16 +408,17 @@ static int tx_offset_cal_efuse(struct phy_device *phydev, u32 *buf)
+@@ -408,16 +408,17 @@ static int tx_offset_cal_efuse(struct ph
  
  static int tx_amp_fill_result(struct phy_device *phydev, u16 *buf)
  {
@@ -42,7 +40,7 @@ index f4f9412d0cd7..e9c422f4e24b 100644
  	switch (phydev->drv->phy_id) {
  	case MTK_GPHY_ID_MT7981:
  		/* We add some calibration to efuse values
-@@ -1069,10 +1070,10 @@ static int start_cal(struct phy_device *phydev, enum CAL_ITEM cal_item,
+@@ -1069,10 +1070,10 @@ static int start_cal(struct phy_device *
  
  static int mt798x_phy_calibration(struct phy_device *phydev)
  {
@@ -55,7 +53,7 @@ index f4f9412d0cd7..e9c422f4e24b 100644
  
  	cell = nvmem_cell_get(&phydev->mdio.dev, "phy-cal-data");
  	if (IS_ERR(cell)) {
-@@ -1210,14 +1211,15 @@ static int mt798x_phy_led_brightness_set(struct phy_device *phydev,
+@@ -1210,14 +1211,15 @@ static int mt798x_phy_led_brightness_set
  	return mt798x_phy_hw_led_on_set(phydev, index, (value != LED_OFF));
  }
  
@@ -79,7 +77,7 @@ index f4f9412d0cd7..e9c422f4e24b 100644
  
  static int mt798x_phy_led_hw_is_supported(struct phy_device *phydev, u8 index,
  					  unsigned long rules)
-@@ -1415,7 +1417,7 @@ static int mt7988_phy_probe_shared(struct phy_device *phydev)
+@@ -1415,7 +1417,7 @@ static int mt7988_phy_probe_shared(struc
  	 * LED_C and LED_D respectively. At the same time those pins are used to
  	 * bootstrap configuration of the reference clock source (LED_A),
  	 * DRAM DDRx16b x2/x1 (LED_B) and boot device (LED_C, LED_D).
@@ -88,6 +86,3 @@ index f4f9412d0cd7..e9c422f4e24b 100644
  	 * either to GND or to VIO.
  	 * The detected value at boot time is accessible at run-time using the
  	 * TPBANK0 register located in the gpio base of the pinctrl, in order
--- 
-2.48.1
-

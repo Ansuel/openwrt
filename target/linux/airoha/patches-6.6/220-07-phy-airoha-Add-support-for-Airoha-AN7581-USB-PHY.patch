@@ -33,11 +33,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  4 files changed, 609 insertions(+)
  create mode 100644 drivers/phy/airoha/phy-airoha-usb.c
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 3f930a613658..a7294bf67ae9 100644
 --- a/MAINTAINERS
 +++ b/MAINTAINERS
-@@ -750,6 +750,7 @@ M:	Christian Marangi <ansuelsmth@gmail.com>
+@@ -652,6 +652,7 @@ M:	Christian Marangi <ansuelsmth@gmail.c
  L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
  S:	Maintained
  F:	Documentation/devicetree/bindings/phy/airoha,an7581-usb-phy.yaml
@@ -45,8 +43,6 @@ index 3f930a613658..a7294bf67ae9 100644
  F:	include/dt-bindings/phy/airoha,an7581-usb-phy.h
  
  AIRSPY MEDIA DRIVER
-diff --git a/drivers/phy/airoha/Kconfig b/drivers/phy/airoha/Kconfig
-index 70b7eac4a2bf..0675d8f2f9d1 100644
 --- a/drivers/phy/airoha/Kconfig
 +++ b/drivers/phy/airoha/Kconfig
 @@ -11,3 +11,13 @@ config PHY_AIROHA_PCIE
@@ -63,8 +59,6 @@ index 70b7eac4a2bf..0675d8f2f9d1 100644
 +	  Say 'Y' here to add support for Airoha USB PHY driver.
 +	  This driver create the basic PHY instance and provides initialize
 +	  callback for USB port.
-diff --git a/drivers/phy/airoha/Makefile b/drivers/phy/airoha/Makefile
-index 3222f749546b..fd188d08c412 100644
 --- a/drivers/phy/airoha/Makefile
 +++ b/drivers/phy/airoha/Makefile
 @@ -1,3 +1,4 @@
@@ -72,9 +66,6 @@ index 3222f749546b..fd188d08c412 100644
  
  obj-$(CONFIG_PHY_AIROHA_PCIE)		+= phy-airoha-pcie.o
 +obj-$(CONFIG_PHY_AIROHA_USB)		+= phy-airoha-usb.o
-diff --git a/drivers/phy/airoha/phy-airoha-usb.c b/drivers/phy/airoha/phy-airoha-usb.c
-new file mode 100644
-index 000000000000..2d6d63e2de83
 --- /dev/null
 +++ b/drivers/phy/airoha/phy-airoha-usb.c
 @@ -0,0 +1,596 @@
@@ -674,6 +665,3 @@ index 000000000000..2d6d63e2de83
 +MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 +MODULE_LICENSE("GPL");
 +MODULE_DESCRIPTION("Airoha USB PHY driver");
--- 
-2.51.0
-

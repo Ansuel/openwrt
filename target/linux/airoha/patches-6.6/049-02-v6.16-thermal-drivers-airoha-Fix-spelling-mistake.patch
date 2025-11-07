@@ -14,8 +14,6 @@ Signed-off-by: Daniel Lezcano <daniel.lezcano@linaro.org>
  drivers/thermal/airoha_thermal.c | 10 +++++-----
  1 file changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/thermal/airoha_thermal.c b/drivers/thermal/airoha_thermal.c
-index 45116cdaee65..9a7a702a17de 100644
 --- a/drivers/thermal/airoha_thermal.c
 +++ b/drivers/thermal/airoha_thermal.c
 @@ -155,7 +155,7 @@
@@ -27,7 +25,7 @@ index 45116cdaee65..9a7a702a17de 100644
   */
  #define   EN7581_MSRCTL_1SAMPLE			0x0
  #define   EN7581_MSRCTL_AVG2SAMPLE		0x1
-@@ -365,12 +365,12 @@ static void airoha_thermal_setup_monitor(struct airoha_thermal_priv *priv)
+@@ -365,12 +365,12 @@ static void airoha_thermal_setup_monitor
  	/*
  	 * Configure ADC valid reading addr
  	 * The AHB temp monitor system doesn't have direct access to the
@@ -44,6 +42,3 @@ index 45116cdaee65..9a7a702a17de 100644
  	 *
  	 * We set valid instead of volt as we don't enable valid/volt
  	 * split reading and AHB read valid addr in such case.
--- 
-2.48.1
-

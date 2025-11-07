@@ -22,11 +22,9 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  drivers/net/ethernet/airoha/airoha_eth.h | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index f66b9b736b94..60690b685710 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -540,7 +540,7 @@ void airoha_ppe_deinit(struct airoha_eth *eth);
+@@ -540,7 +540,7 @@ void airoha_ppe_deinit(struct airoha_eth
  struct airoha_foe_entry *airoha_ppe_foe_get_entry(struct airoha_ppe *ppe,
  						  u32 hash);
  
@@ -35,6 +33,3 @@ index f66b9b736b94..60690b685710 100644
  int airoha_ppe_debugfs_init(struct airoha_ppe *ppe);
  #else
  static inline int airoha_ppe_debugfs_init(struct airoha_ppe *ppe)
--- 
-2.51.0
-

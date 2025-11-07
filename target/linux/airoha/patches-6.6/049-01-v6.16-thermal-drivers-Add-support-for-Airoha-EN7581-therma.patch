@@ -28,11 +28,9 @@ Signed-off-by: Daniel Lezcano <daniel.lezcano@linaro.org>
  3 files changed, 499 insertions(+)
  create mode 100644 drivers/thermal/airoha_thermal.c
 
-diff --git a/drivers/thermal/Kconfig b/drivers/thermal/Kconfig
-index 510c2b821546..a09c188b9ad1 100644
 --- a/drivers/thermal/Kconfig
 +++ b/drivers/thermal/Kconfig
-@@ -327,6 +327,15 @@ config QORIQ_THERMAL
+@@ -317,6 +317,15 @@ config QORIQ_THERMAL
  	  cpufreq is used as the cooling device to throttle CPUs when the
  	  passive trip is crossed.
  
@@ -48,11 +46,9 @@ index 510c2b821546..a09c188b9ad1 100644
  config SPEAR_THERMAL
  	tristate "SPEAr thermal sensor driver"
  	depends on PLAT_SPEAR || COMPILE_TEST
-diff --git a/drivers/thermal/Makefile b/drivers/thermal/Makefile
-index 9abf43a74f2b..d7718978db24 100644
 --- a/drivers/thermal/Makefile
 +++ b/drivers/thermal/Makefile
-@@ -38,6 +38,7 @@ obj-$(CONFIG_K3_THERMAL)	+= k3_bandgap.o k3_j72xx_bandgap.o
+@@ -34,6 +34,7 @@ obj-$(CONFIG_K3_THERMAL)	+= k3_bandgap.o
  # platform thermal drivers
  obj-y				+= broadcom/
  obj-$(CONFIG_THERMAL_MMIO)		+= thermal_mmio.o
@@ -60,9 +56,6 @@ index 9abf43a74f2b..d7718978db24 100644
  obj-$(CONFIG_SPEAR_THERMAL)	+= spear_thermal.o
  obj-$(CONFIG_SUN8I_THERMAL)     += sun8i_thermal.o
  obj-$(CONFIG_ROCKCHIP_THERMAL)	+= rockchip_thermal.o
-diff --git a/drivers/thermal/airoha_thermal.c b/drivers/thermal/airoha_thermal.c
-new file mode 100644
-index 000000000000..45116cdaee65
 --- /dev/null
 +++ b/drivers/thermal/airoha_thermal.c
 @@ -0,0 +1,489 @@
@@ -555,6 +548,3 @@ index 000000000000..45116cdaee65
 +MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
 +MODULE_DESCRIPTION("Airoha thermal driver");
 +MODULE_LICENSE("GPL");
--- 
-2.48.1
-

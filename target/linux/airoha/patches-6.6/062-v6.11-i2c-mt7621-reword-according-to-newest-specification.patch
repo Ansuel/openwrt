@@ -15,11 +15,9 @@ Signed-off-by: Andi Shyti <andi.shyti@kernel.org>
  drivers/i2c/busses/i2c-mt7621.c | 26 +++++++++++++-------------
  1 file changed, 13 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/i2c/busses/i2c-mt7621.c b/drivers/i2c/busses/i2c-mt7621.c
-index 81d46169bc1f..23d417ff5e71 100644
 --- a/drivers/i2c/busses/i2c-mt7621.c
 +++ b/drivers/i2c/busses/i2c-mt7621.c
-@@ -117,27 +117,27 @@ static int mtk_i2c_check_ack(struct mtk_i2c *i2c, u32 expected)
+@@ -117,27 +117,27 @@ static int mtk_i2c_check_ack(struct mtk_
  	return ((ack & ack_expected) == ack_expected) ? 0 : -ENXIO;
  }
  
@@ -52,7 +50,7 @@ index 81d46169bc1f..23d417ff5e71 100644
  {
  	struct mtk_i2c *i2c;
  	struct i2c_msg *pmsg;
-@@ -157,7 +157,7 @@ static int mtk_i2c_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+@@ -157,7 +157,7 @@ static int mtk_i2c_master_xfer(struct i2
  			goto err_timeout;
  
  		/* start sequence */
@@ -61,7 +59,7 @@ index 81d46169bc1f..23d417ff5e71 100644
  		if (ret)
  			goto err_timeout;
  
-@@ -169,14 +169,14 @@ static int mtk_i2c_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+@@ -169,14 +169,14 @@ static int mtk_i2c_master_xfer(struct i2
  			if (pmsg->flags & I2C_M_RD)
  				addr |= 1;
  			iowrite32(addr, i2c->base + REG_SM0D0_REG);
@@ -78,7 +76,7 @@ index 81d46169bc1f..23d417ff5e71 100644
  			if (ret)
  				goto err_timeout;
  		}
-@@ -202,7 +202,7 @@ static int mtk_i2c_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+@@ -202,7 +202,7 @@ static int mtk_i2c_master_xfer(struct i2
  				cmd = SM0CTL1_WRITE;
  			}
  
@@ -87,7 +85,7 @@ index 81d46169bc1f..23d417ff5e71 100644
  			if (ret)
  				goto err_timeout;
  
-@@ -222,7 +222,7 @@ static int mtk_i2c_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+@@ -222,7 +222,7 @@ static int mtk_i2c_master_xfer(struct i2
  		}
  	}
  
@@ -96,7 +94,7 @@ index 81d46169bc1f..23d417ff5e71 100644
  	if (ret)
  		goto err_timeout;
  
-@@ -230,7 +230,7 @@ static int mtk_i2c_master_xfer(struct i2c_adapter *adap, struct i2c_msg *msgs,
+@@ -230,7 +230,7 @@ static int mtk_i2c_master_xfer(struct i2
  	return i;
  
  err_ack:
@@ -105,7 +103,7 @@ index 81d46169bc1f..23d417ff5e71 100644
  	if (ret)
  		goto err_timeout;
  	return -ENXIO;
-@@ -247,8 +247,8 @@ static u32 mtk_i2c_func(struct i2c_adapter *a)
+@@ -247,8 +247,8 @@ static u32 mtk_i2c_func(struct i2c_adapt
  }
  
  static const struct i2c_algorithm mtk_i2c_algo = {
@@ -116,6 +114,3 @@ index 81d46169bc1f..23d417ff5e71 100644
  };
  
  static const struct of_device_id i2c_mtk_dt_ids[] = {
--- 
-2.48.1
-

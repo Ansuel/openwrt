@@ -20,11 +20,9 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  drivers/net/dsa/mt7530.c | 46 ++++++++++++++++++++++++++++++++++++++++
  1 file changed, 46 insertions(+)
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index fdceefb2083c..0a33ca1dd7ca 100644
 --- a/drivers/net/dsa/mt7530.c
 +++ b/drivers/net/dsa/mt7530.c
-@@ -906,6 +906,51 @@ static void mt7530_get_rmon_stats(struct dsa_switch *ds, int port,
+@@ -905,6 +905,51 @@ static void mt7530_get_rmon_stats(struct
  	*ranges = mt7530_rmon_ranges;
  }
  
@@ -76,7 +74,7 @@ index fdceefb2083c..0a33ca1dd7ca 100644
  static void mt7530_get_eth_ctrl_stats(struct dsa_switch *ds, int port,
  				      struct ethtool_eth_ctrl_stats *ctrl_stats)
  {
-@@ -3207,6 +3252,7 @@ const struct dsa_switch_ops mt7530_switch_ops = {
+@@ -3272,6 +3317,7 @@ const struct dsa_switch_ops mt7530_switc
  	.get_eth_mac_stats	= mt7530_get_eth_mac_stats,
  	.get_rmon_stats		= mt7530_get_rmon_stats,
  	.get_eth_ctrl_stats	= mt7530_get_eth_ctrl_stats,
@@ -84,6 +82,3 @@ index fdceefb2083c..0a33ca1dd7ca 100644
  	.set_ageing_time	= mt7530_set_ageing_time,
  	.port_enable		= mt7530_port_enable,
  	.port_disable		= mt7530_port_disable,
--- 
-2.51.0
-

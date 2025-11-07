@@ -1,0 +1,78 @@
+From b92a35dd3f8539bfa1c5df54a275106e24bad990 Mon Sep 17 00:00:00 2001
+From: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+Date: Tue, 28 Oct 2025 11:54:22 +0300
+Subject: [PATCH 094/102] dts: airoha: an7581: remove board specific mtd
+ partitions from a common file
+
+Other board may want to use other partitioning, so put partitions to a
+board specific file.
+
+Signed-off-by: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+---
+ arch/arm/dts/an7581-u-boot.dtsi     | 16 ----------------
+ arch/arm/dts/en7581-evb-u-boot.dtsi | 22 ++++++++++++++++++++++
+ 2 files changed, 22 insertions(+), 16 deletions(-)
+
+diff --git a/arch/arm/dts/an7581-u-boot.dtsi b/arch/arm/dts/an7581-u-boot.dtsi
+index 0af2c843250..4548076b96a 100644
+--- a/arch/arm/dts/an7581-u-boot.dtsi
++++ b/arch/arm/dts/an7581-u-boot.dtsi
+@@ -152,22 +152,6 @@
+ 				spi-max-frequency = <50000000>;
+ 				spi-tx-bus-width = <1>;
+ 				spi-rx-bus-width = <2>;
+-
+-				partitions {
+-					compatible = "fixed-partitions";
+-					#address-cells = <1>;
+-					#size-cells = <1>;
+-
+-					bl2@0 {
+-						label = "bl2";
+-						reg = <0x0 0x20000>;
+-					};
+-
+-					ubi@20000 {
+-						label = "ubi";
+-						reg = <0x20000 0x0>;
+-					};
+-				};
+ 			};
+ 		};
+ 
+diff --git a/arch/arm/dts/en7581-evb-u-boot.dtsi b/arch/arm/dts/en7581-evb-u-boot.dtsi
+index 94a06403308..c52bd3eb547 100644
+--- a/arch/arm/dts/en7581-evb-u-boot.dtsi
++++ b/arch/arm/dts/en7581-evb-u-boot.dtsi
+@@ -17,6 +17,28 @@
+ 
+ #include "an7581-u-boot.dtsi"
+ 
++&snfi {
++	status = "okay";
++};
++
++&spi_nand {
++	partitions {
++		compatible = "fixed-partitions";
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		bl2@0 {
++			label = "bl2";
++			reg = <0x0 0x20000>;
++		};
++
++		ubi@20000 {
++			label = "ubi";
++			reg = <0x20000 0x0>;
++		};
++	};
++};
++
+ &mdio {
+ 	as21xxx_0: ethernet-phy@1c {
+ 		reg = <0x1c>;
+-- 
+2.51.0
+

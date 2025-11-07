@@ -24,8 +24,6 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/mediatek/Kconfig | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/mediatek/Kconfig b/drivers/net/phy/mediatek/Kconfig
-index 2a8ac5aed0f8..6a4c2b328c41 100644
 --- a/drivers/net/phy/mediatek/Kconfig
 +++ b/drivers/net/phy/mediatek/Kconfig
 @@ -15,8 +15,7 @@ config MEDIATEK_GE_PHY
@@ -38,6 +36,3 @@ index 2a8ac5aed0f8..6a4c2b328c41 100644
  	select MTK_NET_PHYLIB
  	help
  	  Supports MediaTek SoC built-in Gigabit Ethernet PHYs.
--- 
-2.48.1
-

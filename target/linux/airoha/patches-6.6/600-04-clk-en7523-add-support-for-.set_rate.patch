@@ -19,11 +19,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/clk/clk-en7523.c | 141 +++++++++++++++++++++++++++++++++++++++
  1 file changed, 141 insertions(+)
 
-diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
-index 10fb0dcdc88b..54c0462c0dee 100644
 --- a/drivers/clk/clk-en7523.c
 +++ b/drivers/clk/clk-en7523.c
-@@ -506,8 +506,149 @@ static unsigned long en75xx_recalc_rate(struct clk_hw *hw,
+@@ -506,8 +506,149 @@ static unsigned long en75xx_recalc_rate(
  	return rate / en7523_get_div(desc, val);
  }
  
@@ -173,6 +171,3 @@ index 10fb0dcdc88b..54c0462c0dee 100644
  };
  
  static int en75xx_register_clocks(struct device *dev,
--- 
-2.48.1
-

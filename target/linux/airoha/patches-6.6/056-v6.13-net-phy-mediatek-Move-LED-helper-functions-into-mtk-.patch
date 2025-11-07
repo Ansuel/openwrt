@@ -22,8 +22,6 @@ Signed-off-by: David S. Miller <davem@davemloft.net>
  create mode 100644 drivers/net/phy/mediatek/mtk-phy-lib.c
  create mode 100644 drivers/net/phy/mediatek/mtk.h
 
-diff --git a/drivers/net/phy/mediatek/Kconfig b/drivers/net/phy/mediatek/Kconfig
-index 112d9c0f219c..19b5d23e7cd0 100644
 --- a/drivers/net/phy/mediatek/Kconfig
 +++ b/drivers/net/phy/mediatek/Kconfig
 @@ -1,4 +1,7 @@
@@ -42,8 +40,6 @@ index 112d9c0f219c..19b5d23e7cd0 100644
  	help
  	  Supports MediaTek SoC built-in Gigabit Ethernet PHYs.
  
-diff --git a/drivers/net/phy/mediatek/Makefile b/drivers/net/phy/mediatek/Makefile
-index 005bde26c1d7..814879d0abe5 100644
 --- a/drivers/net/phy/mediatek/Makefile
 +++ b/drivers/net/phy/mediatek/Makefile
 @@ -1,3 +1,4 @@
@@ -51,8 +47,6 @@ index 005bde26c1d7..814879d0abe5 100644
 +obj-$(CONFIG_MTK_NET_PHYLIB)		+= mtk-phy-lib.o
  obj-$(CONFIG_MEDIATEK_GE_PHY)		+= mtk-ge.o
  obj-$(CONFIG_MEDIATEK_GE_SOC_PHY)	+= mtk-ge-soc.o
-diff --git a/drivers/net/phy/mediatek/mtk-ge-soc.c b/drivers/net/phy/mediatek/mtk-ge-soc.c
-index a931832b1418..d3a8b3946056 100644
 --- a/drivers/net/phy/mediatek/mtk-ge-soc.c
 +++ b/drivers/net/phy/mediatek/mtk-ge-soc.c
 @@ -8,6 +8,8 @@
@@ -121,7 +115,7 @@ index a931832b1418..d3a8b3946056 100644
  struct mtk_socphy_shared {
  	u32			boottrap;
  	struct mtk_socphy_priv	priv[4];
-@@ -1172,76 +1131,23 @@ static int mt798x_phy_config_init(struct phy_device *phydev)
+@@ -1172,76 +1131,23 @@ static int mt798x_phy_config_init(struct
  	return mt798x_phy_calibration(phydev);
  }
  
@@ -205,7 +199,7 @@ index a931832b1418..d3a8b3946056 100644
  }
  
  static int mt798x_phy_led_brightness_set(struct phy_device *phydev,
-@@ -1249,11 +1155,12 @@ static int mt798x_phy_led_brightness_set(struct phy_device *phydev,
+@@ -1249,11 +1155,12 @@ static int mt798x_phy_led_brightness_set
  {
  	int err;
  
@@ -220,7 +214,7 @@ index a931832b1418..d3a8b3946056 100644
  }
  
  static const unsigned long supported_triggers =
-@@ -1269,155 +1176,26 @@ static const unsigned long supported_triggers =
+@@ -1269,155 +1176,26 @@ static const unsigned long supported_tri
  static int mt798x_phy_led_hw_is_supported(struct phy_device *phydev, u8 index,
  					  unsigned long rules)
  {
@@ -387,7 +381,7 @@ index a931832b1418..d3a8b3946056 100644
  };
  
  static bool mt7988_phy_led_get_polarity(struct phy_device *phydev, int led_num)
-@@ -1492,14 +1270,6 @@ static int mt7988_phy_probe_shared(struct phy_device *phydev)
+@@ -1492,14 +1270,6 @@ static int mt7988_phy_probe_shared(struc
  	return 0;
  }
  
@@ -402,7 +396,7 @@ index a931832b1418..d3a8b3946056 100644
  static int mt7988_phy_probe(struct phy_device *phydev)
  {
  	struct mtk_socphy_shared *shared;
-@@ -1525,7 +1295,7 @@ static int mt7988_phy_probe(struct phy_device *phydev)
+@@ -1525,7 +1295,7 @@ static int mt7988_phy_probe(struct phy_d
  
  	phydev->priv = priv;
  
@@ -411,7 +405,7 @@ index a931832b1418..d3a8b3946056 100644
  
  	err = mt7988_phy_fix_leds_polarities(phydev);
  	if (err)
-@@ -1552,7 +1322,7 @@ static int mt7981_phy_probe(struct phy_device *phydev)
+@@ -1552,7 +1322,7 @@ static int mt7981_phy_probe(struct phy_d
  
  	phydev->priv = priv;
  
@@ -420,9 +414,6 @@ index a931832b1418..d3a8b3946056 100644
  
  	return mt798x_phy_calibration(phydev);
  }
-diff --git a/drivers/net/phy/mediatek/mtk-phy-lib.c b/drivers/net/phy/mediatek/mtk-phy-lib.c
-new file mode 100644
-index 000000000000..34b0957b201b
 --- /dev/null
 +++ b/drivers/net/phy/mediatek/mtk-phy-lib.c
 @@ -0,0 +1,254 @@
@@ -680,9 +671,6 @@ index 000000000000..34b0957b201b
 +MODULE_AUTHOR("Sky Huang <SkyLake.Huang@mediatek.com>");
 +MODULE_AUTHOR("Daniel Golle <daniel@makrotopia.org>");
 +MODULE_LICENSE("GPL");
-diff --git a/drivers/net/phy/mediatek/mtk.h b/drivers/net/phy/mediatek/mtk.h
-new file mode 100644
-index 000000000000..9aaff2c2270d
 --- /dev/null
 +++ b/drivers/net/phy/mediatek/mtk.h
 @@ -0,0 +1,86 @@
@@ -772,6 +760,3 @@ index 000000000000..9aaff2c2270d
 +void mtk_phy_leds_state_init(struct phy_device *phydev);
 +
 +#endif /* _MTK_EPHY_H_ */
--- 
-2.48.1
-

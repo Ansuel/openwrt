@@ -1,0 +1,68 @@
+From 07af12173bf310618f5d9a52cc8b2060e9f1b0e0 Mon Sep 17 00:00:00 2001
+From: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+Date: Fri, 23 May 2025 21:15:14 +0300
+Subject: [PATCH 097/102] arm/an7581: do not use psci for system reset, it not
+ work during BL31 stage
+
+Without a fix a following messages appears in the loop:
+
+  resetting ...
+  "Synchronous Abort" handler, esr 0x5e000000
+  elr: 0000000081e01cc0 lr : 00000000819f8370 (reloc)
+  elr: 000000009ff4ccc0 lr : 000000009fb43370
+  x0 : 0000000084000009 x1 : 0000000000000001
+  x2 : 000000009ffe929c x3 : 0000000000000000
+  x4 : 000000009fb7e900 x5 : 0000000000000000
+  x6 : 000000009fb47170 x7 : 000000009fb43730
+  x8 : 00000000000002b4 x9 : 000000009fb4325c
+  x10: 0000000000000002 x11: 00000000ffffffff
+  x12: 0000000000000001 x13: 000000009fb43730
+  x14: 000000009fb431f4 x15: 0000000000000000
+  x16: 000000009ff6c76c x17: dd7fe39aed3a17e8
+  x18: 000000009fb46e10 x19: 000000009ffdc948
+  x20: 0000000000000000 x21: 0000000000000000
+  x22: 000000009fb6d7d0 x23: 0000000000000001
+  x24: 000000009ffe929c x25: 0000000000000000
+  x26: 000000009fb7e900 x27: 0000000000000000
+  x28: 0000000000000000 x29: 000000009fb43350
+
+  Code: f9401fc4 f94023c5 f94027c6 d4000003 (f9000fc0)
+  Resetting CPU ...
+
+Signed-off-by: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+---
+ arch/arm/mach-airoha/an7581/init.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm/mach-airoha/an7581/init.c b/arch/arm/mach-airoha/an7581/init.c
+index 53309556a68..b2e43cd8b1b 100644
+--- a/arch/arm/mach-airoha/an7581/init.c
++++ b/arch/arm/mach-airoha/an7581/init.c
+@@ -2,9 +2,11 @@
+ 
+ #include <fdtdec.h>
+ #include <init.h>
++#include <sysreset.h>
+ #include <asm/armv8/mmu.h>
+ #include <asm/global_data.h>
+ #include <asm/system.h>
++#include <asm/io.h>
+ 
+ DECLARE_GLOBAL_DATA_PTR;
+ 
+@@ -35,9 +37,10 @@ int dram_init_banksize(void)
+ 	return 0;
+ }
+ 
+-void reset_cpu(ulong addr)
++void reset_cpu(void)
+ {
+-	psci_system_reset();
++	writel(0x80000000, 0x1FB00040);
++	while(1);
+ }
+ 
+ static struct mm_region an7581_mem_map[] = {
+-- 
+2.51.0
+

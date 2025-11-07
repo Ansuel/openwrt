@@ -30,11 +30,9 @@ Reviewed-by: Jonathan Cameron <Jonathan.Cameron@huawei.com>
  include/linux/ioport.h | 32 ++++++++++++++++++++++++++++++++
  1 file changed, 32 insertions(+)
 
-diff --git a/include/linux/ioport.h b/include/linux/ioport.h
-index 6e9fb667a1c5..5385349f0b8a 100644
 --- a/include/linux/ioport.h
 +++ b/include/linux/ioport.h
-@@ -249,6 +249,38 @@ struct resource *lookup_resource(struct resource *root, resource_size_t start);
+@@ -216,6 +216,38 @@ struct resource *lookup_resource(struct
  int adjust_resource(struct resource *res, resource_size_t start,
  		    resource_size_t size);
  resource_size_t resource_alignment(struct resource *res);
@@ -73,6 +71,3 @@ index 6e9fb667a1c5..5385349f0b8a 100644
  static inline resource_size_t resource_size(const struct resource *res)
  {
  	return res->end - res->start + 1;
--- 
-2.51.0
-

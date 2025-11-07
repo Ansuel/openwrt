@@ -33,11 +33,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_ppe.c |  8 ++++++--
  3 files changed, 22 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 69e523dd4186..d748dc6de923 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2454,6 +2454,19 @@ static void airoha_metadata_dst_free(struct airoha_gdm_port *port)
+@@ -2452,6 +2452,19 @@ static void airoha_metadata_dst_free(str
  	}
  }
  
@@ -57,11 +55,9 @@ index 69e523dd4186..d748dc6de923 100644
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index 60690b685710..ec8908f904c6 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -532,6 +532,9 @@ u32 airoha_rmw(void __iomem *base, u32 offset, u32 mask, u32 val);
+@@ -532,6 +532,9 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
@@ -71,11 +67,9 @@ index 60690b685710..ec8908f904c6 100644
  void airoha_ppe_check_skb(struct airoha_ppe *ppe, u16 hash);
  int airoha_ppe_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
  				 void *cb_priv);
-diff --git a/drivers/net/ethernet/airoha/airoha_ppe.c b/drivers/net/ethernet/airoha/airoha_ppe.c
-index 8b55e871352d..f10dab935cab 100644
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -197,7 +197,8 @@ static int airoha_get_dsa_port(struct net_device **dev)
+@@ -197,7 +197,8 @@ static int airoha_get_dsa_port(struct ne
  #endif
  }
  
@@ -85,7 +79,7 @@ index 8b55e871352d..f10dab935cab 100644
  					struct net_device *dev, int type,
  					struct airoha_flow_data *data,
  					int l4proto)
-@@ -225,6 +226,9 @@ static int airoha_ppe_foe_entry_prepare(struct airoha_foe_entry *hwe,
+@@ -225,6 +226,9 @@ static int airoha_ppe_foe_entry_prepare(
  		struct airoha_gdm_port *port = netdev_priv(dev);
  		u8 pse_port;
  
@@ -95,7 +89,7 @@ index 8b55e871352d..f10dab935cab 100644
  		if (dsa_port >= 0)
  			pse_port = port->id == 4 ? FE_PSE_PORT_GDM4 : port->id;
  		else
-@@ -633,7 +637,7 @@ static int airoha_ppe_flow_offload_replace(struct airoha_gdm_port *port,
+@@ -633,7 +637,7 @@ static int airoha_ppe_flow_offload_repla
  	    !is_valid_ether_addr(data.eth.h_dest))
  		return -EINVAL;
  
@@ -104,6 +98,3 @@ index 8b55e871352d..f10dab935cab 100644
  					   &data, l4proto);
  	if (err)
  		return err;
--- 
-2.51.0
-

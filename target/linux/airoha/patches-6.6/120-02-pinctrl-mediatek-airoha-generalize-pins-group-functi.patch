@@ -16,8 +16,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/pinctrl/mediatek/pinctrl-airoha.c | 569 ++++++++++++----------
  1 file changed, 319 insertions(+), 250 deletions(-)
 
-diff --git a/drivers/pinctrl/mediatek/pinctrl-airoha.c b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-index 8ef7f88477aa..8af9109db992 100644
 --- a/drivers/pinctrl/mediatek/pinctrl-airoha.c
 +++ b/drivers/pinctrl/mediatek/pinctrl-airoha.c
 @@ -30,14 +30,14 @@
@@ -41,7 +39,7 @@ index 8ef7f88477aa..8af9109db992 100644
  	}
  
  #define PINCTRL_CONF_DESC(p, offset, mask)				\
-@@ -359,16 +359,46 @@ struct airoha_pinctrl_gpiochip {
+@@ -356,16 +356,46 @@ struct airoha_pinctrl_gpiochip {
  	u32 irq_type[AIROHA_NUM_PINS];
  };
  
@@ -89,7 +87,7 @@ index 8ef7f88477aa..8af9109db992 100644
  	PINCTRL_PIN(0, "uart1_txd"),
  	PINCTRL_PIN(1, "uart1_rxd"),
  	PINCTRL_PIN(2, "i2c_scl"),
-@@ -429,172 +459,172 @@ static struct pinctrl_pin_desc airoha_pinctrl_pins[] = {
+@@ -426,172 +456,172 @@ static struct pinctrl_pin_desc airoha_pi
  	PINCTRL_PIN(63, "pcie_reset2"),
  };
  
@@ -428,7 +426,7 @@ index 8ef7f88477aa..8af9109db992 100644
  };
  
  static const char *const pon_groups[] = { "pon" };
-@@ -1957,33 +1987,33 @@ static const struct airoha_pinctrl_func_group phy4_led1_func_group[] = {
+@@ -1954,33 +1984,33 @@ static const struct airoha_pinctrl_func_
  	},
  };
  
@@ -487,7 +485,7 @@ index 8ef7f88477aa..8af9109db992 100644
  	PINCTRL_CONF_DESC(0, REG_I2C_SDA_PU, UART1_TXD_PU_MASK),
  	PINCTRL_CONF_DESC(1, REG_I2C_SDA_PU, UART1_RXD_PU_MASK),
  	PINCTRL_CONF_DESC(2, REG_I2C_SDA_PU, I2C_SDA_PU_MASK),
-@@ -2044,7 +2074,7 @@ static const struct airoha_pinctrl_conf airoha_pinctrl_pullup_conf[] = {
+@@ -2041,7 +2071,7 @@ static const struct airoha_pinctrl_conf
  	PINCTRL_CONF_DESC(63, REG_I2C_SDA_PU, PCIE2_RESET_PU_MASK),
  };
  
@@ -496,7 +494,7 @@ index 8ef7f88477aa..8af9109db992 100644
  	PINCTRL_CONF_DESC(0, REG_I2C_SDA_PD, UART1_TXD_PD_MASK),
  	PINCTRL_CONF_DESC(1, REG_I2C_SDA_PD, UART1_RXD_PD_MASK),
  	PINCTRL_CONF_DESC(2, REG_I2C_SDA_PD, I2C_SDA_PD_MASK),
-@@ -2105,7 +2135,7 @@ static const struct airoha_pinctrl_conf airoha_pinctrl_pulldown_conf[] = {
+@@ -2102,7 +2132,7 @@ static const struct airoha_pinctrl_conf
  	PINCTRL_CONF_DESC(63, REG_I2C_SDA_PD, PCIE2_RESET_PD_MASK),
  };
  
@@ -505,7 +503,7 @@ index 8ef7f88477aa..8af9109db992 100644
  	PINCTRL_CONF_DESC(0, REG_I2C_SDA_E2, UART1_TXD_E2_MASK),
  	PINCTRL_CONF_DESC(1, REG_I2C_SDA_E2, UART1_RXD_E2_MASK),
  	PINCTRL_CONF_DESC(2, REG_I2C_SDA_E2, I2C_SDA_E2_MASK),
-@@ -2166,7 +2196,7 @@ static const struct airoha_pinctrl_conf airoha_pinctrl_drive_e2_conf[] = {
+@@ -2163,7 +2193,7 @@ static const struct airoha_pinctrl_conf
  	PINCTRL_CONF_DESC(63, REG_I2C_SDA_E2, PCIE2_RESET_E2_MASK),
  };
  
@@ -514,7 +512,7 @@ index 8ef7f88477aa..8af9109db992 100644
  	PINCTRL_CONF_DESC(0, REG_I2C_SDA_E4, UART1_TXD_E4_MASK),
  	PINCTRL_CONF_DESC(1, REG_I2C_SDA_E4, UART1_RXD_E4_MASK),
  	PINCTRL_CONF_DESC(2, REG_I2C_SDA_E4, I2C_SDA_E4_MASK),
-@@ -2227,7 +2257,7 @@ static const struct airoha_pinctrl_conf airoha_pinctrl_drive_e4_conf[] = {
+@@ -2224,7 +2254,7 @@ static const struct airoha_pinctrl_conf
  	PINCTRL_CONF_DESC(63, REG_I2C_SDA_E4, PCIE2_RESET_E4_MASK),
  };
  
@@ -523,7 +521,7 @@ index 8ef7f88477aa..8af9109db992 100644
  	PINCTRL_CONF_DESC(61, REG_PCIE_RESET_OD, PCIE0_RESET_OD_MASK),
  	PINCTRL_CONF_DESC(62, REG_PCIE_RESET_OD, PCIE1_RESET_OD_MASK),
  	PINCTRL_CONF_DESC(63, REG_PCIE_RESET_OD, PCIE2_RESET_OD_MASK),
-@@ -2548,12 +2578,17 @@ airoha_pinctrl_get_conf_reg(const struct airoha_pinctrl_conf *conf,
+@@ -2551,12 +2581,17 @@ airoha_pinctrl_get_conf_reg(const struct
  }
  
  static int airoha_pinctrl_get_conf(struct airoha_pinctrl *pinctrl,
@@ -544,7 +542,7 @@ index 8ef7f88477aa..8af9109db992 100644
  	if (!reg)
  		return -EINVAL;
  
-@@ -2566,12 +2601,17 @@ static int airoha_pinctrl_get_conf(struct airoha_pinctrl *pinctrl,
+@@ -2569,12 +2604,17 @@ static int airoha_pinctrl_get_conf(struc
  }
  
  static int airoha_pinctrl_set_conf(struct airoha_pinctrl *pinctrl,
@@ -565,7 +563,7 @@ index 8ef7f88477aa..8af9109db992 100644
  	if (!reg)
  		return -EINVAL;
  
-@@ -2584,44 +2624,34 @@ static int airoha_pinctrl_set_conf(struct airoha_pinctrl *pinctrl,
+@@ -2587,44 +2627,34 @@ static int airoha_pinctrl_set_conf(struc
  }
  
  #define airoha_pinctrl_get_pullup_conf(pinctrl, pin, val)			\
@@ -620,7 +618,7 @@ index 8ef7f88477aa..8af9109db992 100644
  				(pin), (val))
  
  static int airoha_pinconf_get_direction(struct pinctrl_dev *pctrl_dev, u32 p)
-@@ -2798,12 +2828,13 @@ static int airoha_pinconf_set(struct pinctrl_dev *pctrl_dev,
+@@ -2803,12 +2833,13 @@ static int airoha_pinconf_set(struct pin
  static int airoha_pinconf_group_get(struct pinctrl_dev *pctrl_dev,
  				    unsigned int group, unsigned long *config)
  {
@@ -634,9 +632,9 @@ index 8ef7f88477aa..8af9109db992 100644
 -				       airoha_pinctrl_groups[group].pins[i],
 +				       pinctrl->grps[group].pins[i],
  				       config))
- 			return -EOPNOTSUPP;
+ 			return -ENOTSUPP;
  
-@@ -2820,13 +2851,14 @@ static int airoha_pinconf_group_set(struct pinctrl_dev *pctrl_dev,
+@@ -2825,13 +2856,14 @@ static int airoha_pinconf_group_set(stru
  				    unsigned int group, unsigned long *configs,
  				    unsigned int num_configs)
  {
@@ -653,7 +651,7 @@ index 8ef7f88477aa..8af9109db992 100644
  					 configs, num_configs);
  		if (err)
  			return err;
-@@ -2852,23 +2884,16 @@ static const struct pinctrl_ops airoha_pctlops = {
+@@ -2857,23 +2889,16 @@ static const struct pinctrl_ops airoha_p
  	.dt_free_map = pinconf_generic_dt_free_map,
  };
  
@@ -680,7 +678,7 @@ index 8ef7f88477aa..8af9109db992 100644
  	pinctrl = devm_kzalloc(dev, sizeof(*pinctrl), GFP_KERNEL);
  	if (!pinctrl)
  		return -ENOMEM;
-@@ -2883,14 +2908,23 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
+@@ -2888,14 +2913,23 @@ static int airoha_pinctrl_probe(struct p
  
  	pinctrl->chip_scu = map;
  
@@ -707,7 +705,7 @@ index 8ef7f88477aa..8af9109db992 100644
  
  		err = pinctrl_generic_add_group(pinctrl->ctrl, grp->name,
  						(int *)grp->pins, grp->npins,
-@@ -2903,10 +2937,10 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
+@@ -2908,10 +2942,10 @@ static int airoha_pinctrl_probe(struct p
  	}
  
  	/* build functions */
@@ -720,7 +718,7 @@ index 8ef7f88477aa..8af9109db992 100644
  		err = pinmux_generic_add_function(pinctrl->ctrl,
  						  func->desc.name,
  						  func->desc.group_names,
-@@ -2919,6 +2953,10 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
+@@ -2924,6 +2958,10 @@ static int airoha_pinctrl_probe(struct p
  		}
  	}
  
@@ -731,7 +729,7 @@ index 8ef7f88477aa..8af9109db992 100644
  	err = pinctrl_enable(pinctrl->ctrl);
  	if (err)
  		return err;
-@@ -2927,8 +2965,39 @@ static int airoha_pinctrl_probe(struct platform_device *pdev)
+@@ -2932,8 +2970,39 @@ static int airoha_pinctrl_probe(struct p
  	return airoha_pinctrl_add_gpiochip(pinctrl, pdev);
  }
  
@@ -772,6 +770,3 @@ index 8ef7f88477aa..8af9109db992 100644
  	{ /* sentinel */ }
  };
  MODULE_DEVICE_TABLE(of, airoha_pinctrl_of_match);
--- 
-2.48.1
-

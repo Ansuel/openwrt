@@ -18,11 +18,9 @@ Signed-off-by: Paolo Abeni <pabeni@redhat.com>
  drivers/net/dsa/mt7530.h | 14 ++++++++
  2 files changed, 70 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index f183a604355e..2202c657930e 100644
 --- a/drivers/net/dsa/mt7530.c
 +++ b/drivers/net/dsa/mt7530.c
-@@ -34,24 +34,10 @@ static struct mt753x_pcs *pcs_to_mt753x_pcs(struct phylink_pcs *pcs)
+@@ -33,24 +33,10 @@ static struct mt753x_pcs *pcs_to_mt753x_
  static const struct mt7530_mib_desc mt7530_mib[] = {
  	MIB_DESC(1, 0x00, "TxDrop"),
  	MIB_DESC(1, 0x04, "TxCrcErr"),
@@ -47,7 +45,7 @@ index f183a604355e..2202c657930e 100644
  	MIB_DESC(1, 0xb0, "RxCtrlDrop"),
  	MIB_DESC(1, 0xb4, "RxIngressDrop"),
  	MIB_DESC(1, 0xb8, "RxArlDrop"),
-@@ -811,6 +797,61 @@ mt7530_get_sset_count(struct dsa_switch *ds, int port, int sset)
+@@ -810,6 +796,61 @@ mt7530_get_sset_count(struct dsa_switch
  	return ARRAY_SIZE(mt7530_mib);
  }
  
@@ -109,7 +107,7 @@ index f183a604355e..2202c657930e 100644
  static const struct ethtool_rmon_hist_range mt7530_rmon_ranges[] = {
  	{ 0, 64 },
  	{ 65, 127 },
-@@ -3163,6 +3204,7 @@ const struct dsa_switch_ops mt7530_switch_ops = {
+@@ -3228,6 +3269,7 @@ const struct dsa_switch_ops mt7530_switc
  	.get_strings		= mt7530_get_strings,
  	.get_ethtool_stats	= mt7530_get_ethtool_stats,
  	.get_sset_count		= mt7530_get_sset_count,
@@ -117,11 +115,9 @@ index f183a604355e..2202c657930e 100644
  	.get_rmon_stats		= mt7530_get_rmon_stats,
  	.get_eth_ctrl_stats	= mt7530_get_eth_ctrl_stats,
  	.set_ageing_time	= mt7530_set_ageing_time,
-diff --git a/drivers/net/dsa/mt7530.h b/drivers/net/dsa/mt7530.h
-index a651ad29b750..0cc999fa1380 100644
 --- a/drivers/net/dsa/mt7530.h
 +++ b/drivers/net/dsa/mt7530.h
-@@ -424,6 +424,14 @@ enum mt7530_vlan_port_acc_frm {
+@@ -412,6 +412,14 @@ enum mt7530_vlan_port_acc_frm {
  /* Register for MIB */
  #define MT7530_PORT_MIB_COUNTER(x)	(0x4000 + (x) * 0x100)
  /* Each define is an offset of MT7530_PORT_MIB_COUNTER */
@@ -136,7 +132,7 @@ index a651ad29b750..0cc999fa1380 100644
  #define   MT7530_PORT_MIB_TX_PAUSE	0x2c
  #define   MT7530_PORT_MIB_TX_PKT_SZ_64	0x30
  #define   MT7530_PORT_MIB_TX_PKT_SZ_65_TO_127 0x34
-@@ -431,6 +439,11 @@ enum mt7530_vlan_port_acc_frm {
+@@ -419,6 +427,11 @@ enum mt7530_vlan_port_acc_frm {
  #define   MT7530_PORT_MIB_TX_PKT_SZ_256_TO_511 0x3c
  #define   MT7530_PORT_MIB_TX_PKT_SZ_512_TO_1023 0x40
  #define   MT7530_PORT_MIB_TX_PKT_SZ_1024_TO_MAX 0x44
@@ -148,7 +144,7 @@ index a651ad29b750..0cc999fa1380 100644
  #define   MT7530_PORT_MIB_RX_UNDER_SIZE_ERR 0x7c
  #define   MT7530_PORT_MIB_RX_FRAG_ERR	0x80
  #define   MT7530_PORT_MIB_RX_OVER_SZ_ERR 0x84
-@@ -442,6 +455,7 @@ enum mt7530_vlan_port_acc_frm {
+@@ -430,6 +443,7 @@ enum mt7530_vlan_port_acc_frm {
  #define   MT7530_PORT_MIB_RX_PKT_SZ_256_TO_511 0x9c
  #define   MT7530_PORT_MIB_RX_PKT_SZ_512_TO_1023 0xa0
  #define   MT7530_PORT_MIB_RX_PKT_SZ_1024_TO_MAX 0xa4
@@ -156,6 +152,3 @@ index a651ad29b750..0cc999fa1380 100644
  #define MT7530_MIB_CCR			0x4fe0
  #define  CCR_MIB_ENABLE			BIT(31)
  #define  CCR_RX_OCT_CNT_GOOD		BIT(7)
--- 
-2.51.0
-

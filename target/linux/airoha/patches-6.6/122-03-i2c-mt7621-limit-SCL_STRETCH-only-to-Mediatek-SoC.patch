@@ -14,11 +14,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/i2c/busses/i2c-mt7621.c | 10 ++++++++--
  1 file changed, 8 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/i2c/busses/i2c-mt7621.c b/drivers/i2c/busses/i2c-mt7621.c
-index 865958d497be..1fd876f34b52 100644
 --- a/drivers/i2c/busses/i2c-mt7621.c
 +++ b/drivers/i2c/busses/i2c-mt7621.c
-@@ -88,6 +88,7 @@ static int mtk_i2c_wait_idle(struct mtk_i2c *i2c, bool atomic)
+@@ -88,6 +88,7 @@ static int mtk_i2c_wait_idle(struct mtk_
  
  static void mtk_i2c_reset(struct mtk_i2c *i2c)
  {
@@ -26,7 +24,7 @@ index 865958d497be..1fd876f34b52 100644
  	int ret;
  
  	ret = device_reset(i2c->adap.dev.parent);
-@@ -98,8 +99,12 @@ static void mtk_i2c_reset(struct mtk_i2c *i2c)
+@@ -98,8 +99,12 @@ static void mtk_i2c_reset(struct mtk_i2c
  	 * Don't set SM0CTL0_ODRAIN as its bit meaning is inverted. To
  	 * configure open-drain mode, this bit needs to be cleared.
  	 */
@@ -41,7 +39,7 @@ index 865958d497be..1fd876f34b52 100644
  	iowrite32(0, i2c->base + REG_SM0CFG2_REG);
  	/* Clear any pending interrupt */
  	iowrite32(1, i2c->base + REG_PINTEN_REG);
-@@ -276,6 +281,7 @@ static const struct i2c_algorithm mtk_i2c_algo = {
+@@ -276,6 +281,7 @@ static const struct i2c_algorithm mtk_i2
  
  static const struct of_device_id i2c_mtk_dt_ids[] = {
  	{ .compatible = "mediatek,mt7621-i2c" },
@@ -49,6 +47,3 @@ index 865958d497be..1fd876f34b52 100644
  	{ /* sentinel */ }
  };
  
--- 
-2.48.1
-

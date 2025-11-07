@@ -14,8 +14,6 @@ Signed-off-by: Andrew Lunn <andrew@lunn.ch>
  drivers/net/phy/mediatek-ge-soc.c | 8 +++++---
  1 file changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/phy/mediatek-ge-soc.c b/drivers/net/phy/mediatek-ge-soc.c
-index 1d7719b6c351..a931832b1418 100644
 --- a/drivers/net/phy/mediatek-ge-soc.c
 +++ b/drivers/net/phy/mediatek-ge-soc.c
 @@ -110,7 +110,7 @@
@@ -27,7 +25,7 @@ index 1d7719b6c351..a931832b1418 100644
  
  #define MTK_PHY_RG_AD_CAL_CLK			0x17b
  #define   MTK_PHY_DA_CAL_CLK			BIT(0)
-@@ -351,8 +351,10 @@ static int cal_cycle(struct phy_device *phydev, int devad,
+@@ -351,8 +351,10 @@ static int cal_cycle(struct phy_device *
  
  	phy_clear_bits_mmd(phydev, MDIO_MMD_VEND1, MTK_PHY_RG_AD_CALIN,
  			   MTK_PHY_DA_CALIN_FLAG);
@@ -40,6 +38,3 @@ index 1d7719b6c351..a931832b1418 100644
  	phydev_dbg(phydev, "cal_val: 0x%x, ret: %d\n", cal_val, ret);
  
  	return ret;
--- 
-2.48.1
-

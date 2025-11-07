@@ -19,11 +19,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/ethernet/airoha/airoha_npu.h | 3 +++
  2 files changed, 12 insertions(+)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_npu.c b/drivers/net/ethernet/airoha/airoha_npu.c
-index 5d1355126d16..e0448e1225b8 100644
 --- a/drivers/net/ethernet/airoha/airoha_npu.c
 +++ b/drivers/net/ethernet/airoha/airoha_npu.c
-@@ -690,6 +690,15 @@ static int airoha_npu_probe(struct platform_device *pdev)
+@@ -696,6 +696,15 @@ static int airoha_npu_probe(struct platf
  		INIT_WORK(&core->wdt_work, airoha_npu_wdt_work);
  	}
  
@@ -39,8 +37,6 @@ index 5d1355126d16..e0448e1225b8 100644
  	err = dma_set_coherent_mask(dev, DMA_BIT_MASK(32));
  	if (err)
  		return err;
-diff --git a/drivers/net/ethernet/airoha/airoha_npu.h b/drivers/net/ethernet/airoha/airoha_npu.h
-index 84c83753c2bd..a448c74208a9 100644
 --- a/drivers/net/ethernet/airoha/airoha_npu.h
 +++ b/drivers/net/ethernet/airoha/airoha_npu.h
 @@ -5,6 +5,7 @@
@@ -60,6 +56,3 @@ index 84c83753c2bd..a448c74208a9 100644
  	struct airoha_foe_stats __iomem *stats;
  
  	struct {
--- 
-2.51.0
-

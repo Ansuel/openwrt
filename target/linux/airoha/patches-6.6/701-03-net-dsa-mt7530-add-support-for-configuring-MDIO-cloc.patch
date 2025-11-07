@@ -15,8 +15,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/dsa/mt7530.h |  1 +
  2 files changed, 24 insertions(+)
 
-diff --git a/drivers/net/dsa/mt7530.c b/drivers/net/dsa/mt7530.c
-index d70399bce5b9..f0dc884c86a2 100644
 --- a/drivers/net/dsa/mt7530.c
 +++ b/drivers/net/dsa/mt7530.c
 @@ -3,6 +3,7 @@
@@ -27,7 +25,7 @@ index d70399bce5b9..f0dc884c86a2 100644
  #include <linux/etherdevice.h>
  #include <linux/if_bridge.h>
  #include <linux/iopoll.h>
-@@ -2158,6 +2159,7 @@ mt7530_setup_mdio(struct mt7530_priv *priv)
+@@ -2423,6 +2424,7 @@ mt7530_setup_mdio(struct mt7530_priv *pr
  	struct dsa_switch *ds = priv->ds;
  	struct device *dev = priv->dev;
  	struct mii_bus *bus;
@@ -35,7 +33,7 @@ index d70399bce5b9..f0dc884c86a2 100644
  	static int idx;
  	int ret = 0;
  
-@@ -2195,6 +2197,21 @@ mt7530_setup_mdio(struct mt7530_priv *priv)
+@@ -2460,6 +2462,21 @@ mt7530_setup_mdio(struct mt7530_priv *pr
  			mt7530_free_mdio_irq(priv);
  	}
  
@@ -57,9 +55,9 @@ index d70399bce5b9..f0dc884c86a2 100644
  out:
  	of_node_put(mnp);
  	return ret;
-@@ -2991,6 +3008,9 @@ mt753x_setup(struct dsa_switch *ds)
- 	if (ret && priv->irq_domain)
- 		mt7530_free_mdio_irq(priv);
+@@ -3226,6 +3243,9 @@ mt753x_setup(struct dsa_switch *ds)
+ 			mt7530_free_irq(priv);
+ 	}
  
 +	if (ret && priv->mdio_clk)
 +		clk_disable_unprepare(priv->mdio_clk);
@@ -67,9 +65,9 @@ index d70399bce5b9..f0dc884c86a2 100644
  	return ret;
  }
  
-@@ -3236,6 +3256,9 @@ mt7530_remove_common(struct mt7530_priv *priv)
- 	if (priv->irq_domain)
- 		mt7530_free_mdio_irq(priv);
+@@ -3466,6 +3486,9 @@ mt7530_remove_common(struct mt7530_priv
+ 	if (priv->irq)
+ 		mt7530_free_irq(priv);
  
 +	if (priv->mdio_clk)
 +		clk_disable_unprepare(priv->mdio_clk);
@@ -77,11 +75,9 @@ index d70399bce5b9..f0dc884c86a2 100644
  	dsa_unregister_switch(priv->ds);
  
  	mutex_destroy(&priv->reg_mutex);
-diff --git a/drivers/net/dsa/mt7530.h b/drivers/net/dsa/mt7530.h
-index c3ea403d7acf..ff5fecc0e21e 100644
 --- a/drivers/net/dsa/mt7530.h
 +++ b/drivers/net/dsa/mt7530.h
-@@ -833,6 +833,7 @@ struct mt7530_priv {
+@@ -875,6 +875,7 @@ struct mt7530_priv {
  	struct regulator	*core_pwr;
  	struct regulator	*io_pwr;
  	struct gpio_desc	*reset;
@@ -89,6 +85,3 @@ index c3ea403d7acf..ff5fecc0e21e 100644
  	const struct mt753x_info *info;
  	unsigned int		id;
  	bool			mcm;
--- 
-2.48.1
-

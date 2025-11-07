@@ -24,11 +24,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/phy/as21xxx.c | 7 ++++---
  1 file changed, 4 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/phy/as21xxx.c b/drivers/net/phy/as21xxx.c
-index 92697f43087d..005277360656 100644
 --- a/drivers/net/phy/as21xxx.c
 +++ b/drivers/net/phy/as21xxx.c
-@@ -884,11 +884,12 @@ static int as21xxx_match_phy_device(struct phy_device *phydev,
+@@ -884,11 +884,12 @@ static int as21xxx_match_phy_device(stru
  	u32 phy_id;
  	int ret;
  
@@ -44,6 +42,3 @@ index 92697f43087d..005277360656 100644
  	ret = phy_read_mmd(phydev, MDIO_MMD_PCS, MII_PHYSID1);
  	if (ret < 0)
  		return ret;
--- 
-2.50.0
-

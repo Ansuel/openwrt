@@ -16,11 +16,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/ethernet/airoha/airoha_eth.h |   3 +
  2 files changed, 101 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 81ea01a652b9..de1d167f123a 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1626,6 +1626,8 @@ static int airoha_dev_open(struct net_device *dev)
+@@ -1641,6 +1641,8 @@ static int airoha_dev_open(struct net_de
  	struct airoha_gdm_port *port = netdev_priv(dev);
  	struct airoha_qdma *qdma = port->qdma;
  
@@ -29,7 +27,7 @@ index 81ea01a652b9..de1d167f123a 100644
  	netif_tx_start_all_queues(dev);
  	err = airoha_set_vip_for_gdm_port(port, true);
  	if (err)
-@@ -1678,6 +1680,8 @@ static int airoha_dev_stop(struct net_device *dev)
+@@ -1694,6 +1696,8 @@ static int airoha_dev_stop(struct net_de
  		}
  	}
  
@@ -38,7 +36,7 @@ index 81ea01a652b9..de1d167f123a 100644
  	return 0;
  }
  
-@@ -2766,6 +2770,17 @@ static const struct ethtool_ops airoha_ethtool_ops = {
+@@ -2782,6 +2786,17 @@ static const struct ethtool_ops airoha_e
  	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
  };
  
@@ -56,7 +54,7 @@ index 81ea01a652b9..de1d167f123a 100644
  static int airoha_metadata_dst_alloc(struct airoha_gdm_port *port)
  {
  	int i;
-@@ -2810,6 +2825,57 @@ bool airoha_is_valid_gdm_port(struct airoha_eth *eth,
+@@ -2826,6 +2841,57 @@ bool airoha_is_valid_gdm_port(struct air
  	return false;
  }
  
@@ -114,7 +112,7 @@ index 81ea01a652b9..de1d167f123a 100644
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
  				 struct device_node *np, int index)
  {
-@@ -2884,19 +2950,30 @@ static int airoha_alloc_gdm_port(struct airoha_eth *eth,
+@@ -2900,19 +2966,30 @@ static int airoha_alloc_gdm_port(struct
  	port->id = id;
  	eth->ports[p] = port;
  
@@ -155,7 +153,7 @@ index 81ea01a652b9..de1d167f123a 100644
  }
  
  static int airoha_probe(struct platform_device *pdev)
-@@ -2977,6 +3054,10 @@ static int airoha_probe(struct platform_device *pdev)
+@@ -2992,6 +3069,10 @@ static int airoha_probe(struct platform_
  		}
  	}
  
@@ -166,7 +164,7 @@ index 81ea01a652b9..de1d167f123a 100644
  	return 0;
  
  error_napi_stop:
-@@ -2990,10 +3071,14 @@ static int airoha_probe(struct platform_device *pdev)
+@@ -3004,10 +3085,14 @@ error_hw_cleanup:
  	for (i = 0; i < ARRAY_SIZE(eth->ports); i++) {
  		struct airoha_gdm_port *port = eth->ports[i];
  
@@ -183,7 +181,7 @@ index 81ea01a652b9..de1d167f123a 100644
  	}
  	free_netdev(eth->napi_dev);
  	platform_set_drvdata(pdev, NULL);
-@@ -3019,6 +3104,7 @@ static void airoha_remove(struct platform_device *pdev)
+@@ -3033,6 +3118,7 @@ static void airoha_remove(struct platfor
  
  		airoha_dev_stop(port->dev);
  		unregister_netdev(port->dev);
@@ -191,8 +189,6 @@ index 81ea01a652b9..de1d167f123a 100644
  		airoha_metadata_dst_free(port);
  	}
  	free_netdev(eth->napi_dev);
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
-index 77fd13d466dc..3141168d8ae3 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -528,6 +528,9 @@ struct airoha_gdm_port {
@@ -205,6 +201,3 @@ index 77fd13d466dc..3141168d8ae3 100644
  	struct airoha_hw_stats stats;
  
  	DECLARE_BITMAP(qos_sq_bmap, AIROHA_NUM_QOS_CHANNELS);
--- 
-2.51.0
-

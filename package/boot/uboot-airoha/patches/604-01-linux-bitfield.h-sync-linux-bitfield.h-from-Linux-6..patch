@@ -1,4 +1,4 @@
-From 01cc7046ad2a1537791cda5175bce281f0a0acfc Mon Sep 17 00:00:00 2001
+From 0c71afe8c4d312e60d6d275885dfd1b9c1fe4535 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Sat, 7 Jun 2025 23:11:20 +0200
 Subject: [PATCH] linux/bitfield.h: sync <linux/bitfield.h> from Linux 6.15
@@ -10,11 +10,11 @@ similar to how it's done with in Linux.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- include/linux/bitfield.h | 103 ++++++++++++++++++++++++++++-----------
- 1 file changed, 75 insertions(+), 28 deletions(-)
+ include/linux/bitfield.h | 77 +++++++++++++++++++++++++---------------
+ 1 file changed, 49 insertions(+), 28 deletions(-)
 
 diff --git a/include/linux/bitfield.h b/include/linux/bitfield.h
-index 7ad02f8cbb9..63928f17322 100644
+index 1b73ba6f9fa..63928f17322 100644
 --- a/include/linux/bitfield.h
 +++ b/include/linux/bitfield.h
 @@ -1,21 +1,13 @@
@@ -115,36 +115,7 @@ index 7ad02f8cbb9..63928f17322 100644
  		!((((typeof(_mask))_val) << __bf_shf(_mask)) & ~(_mask)); \
  	})
  
-@@ -90,10 +116,36 @@
- 		((typeof(_mask))(_val) << __bf_shf(_mask)) & (_mask);	\
- 	})
- 
-+#define __BF_CHECK_POW2(n)	BUILD_BUG_ON_ZERO(((n) & ((n) - 1)) != 0)
-+
-+/**
-+ * FIELD_PREP_CONST() - prepare a constant bitfield element
-+ * @_mask: shifted mask defining the field's length and position
-+ * @_val:  value to put in the field
-+ *
-+ * FIELD_PREP_CONST() masks and shifts up the value.  The result should
-+ * be combined with other fields of the bitfield using logical OR.
-+ *
-+ * Unlike FIELD_PREP() this is a constant expression and can therefore
-+ * be used in initializers. Error checking is less comfortable for this
-+ * version, and non-constant masks cannot be used.
-+ */
-+#define FIELD_PREP_CONST(_mask, _val)					\
-+	(								\
-+		/* mask must be non-zero */				\
-+		BUILD_BUG_ON_ZERO((_mask) == 0) +			\
-+		/* check if value fits */				\
-+		BUILD_BUG_ON_ZERO(~((_mask) >> __bf_shf(_mask)) & (_val)) + \
-+		/* check if mask is contiguous */			\
-+		__BF_CHECK_POW2((_mask) + (1ULL << __bf_shf(_mask))) +	\
-+		/* and create the value */				\
-+		(((typeof(_mask))(_val) << __bf_shf(_mask)) & (_mask))	\
-+	)
-+
+@@ -119,7 +145,7 @@
  /**
   * FIELD_GET() - extract a bitfield element
   * @_mask: shifted mask defining the field's length and position
@@ -153,7 +124,7 @@ index 7ad02f8cbb9..63928f17322 100644
   *
   * FIELD_GET() extracts the field specified by @_mask from the
   * bitfield passed in as @_reg by masking and shifting it down.
-@@ -108,20 +160,18 @@ extern void __compiletime_error("value doesn't fit into mask")
+@@ -134,20 +160,18 @@ extern void __compiletime_error("value doesn't fit into mask")
  __field_overflow(void);
  extern void __compiletime_error("bad bitfield mask")
  __bad_mask(void);
@@ -176,7 +147,7 @@ index 7ad02f8cbb9..63928f17322 100644
  static __always_inline __##type type##_encode_bits(base v, base field)	\
  {									\
  	if (__builtin_constant_p(v) && (v & ~field_mask(field)))	\
-@@ -133,26 +183,23 @@ static __always_inline __##type type##_replace_bits(__##type old,	\
+@@ -159,26 +183,23 @@ static __always_inline __##type type##_replace_bits(__##type old,	\
  {									\
  	return (old & ~to(field)) | type##_encode_bits(val, field);	\
  }									\

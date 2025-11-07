@@ -16,11 +16,9 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/phylink.c | 8 +++-----
  1 file changed, 3 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
-index bb20ae5674e5..3af6368a9fbf 100644
 --- a/drivers/net/phy/phylink.c
 +++ b/drivers/net/phy/phylink.c
-@@ -1466,13 +1466,11 @@ static void phylink_resolve(struct work_struct *w)
+@@ -1474,13 +1474,11 @@ static void phylink_resolve(struct work_
  	} else if (pl->cur_link_an_mode == MLO_AN_FIXED) {
  		phylink_get_fixed_state(pl, &link_state);
  		mac_config = link_state.link;
@@ -37,6 +35,3 @@ index bb20ae5674e5..3af6368a9fbf 100644
  		case MLO_AN_INBAND:
  			phylink_mac_pcs_get_state(pl, &link_state);
  
--- 
-2.51.0
-

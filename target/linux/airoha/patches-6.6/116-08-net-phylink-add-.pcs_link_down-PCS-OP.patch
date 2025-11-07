@@ -20,11 +20,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  include/linux/phylink.h   | 2 ++
  2 files changed, 10 insertions(+)
 
-diff --git a/drivers/net/phy/phylink.c b/drivers/net/phy/phylink.c
-index 214b62fba991..e5588d710b2a 100644
 --- a/drivers/net/phy/phylink.c
 +++ b/drivers/net/phy/phylink.c
-@@ -1073,6 +1073,12 @@ static void phylink_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_mode,
+@@ -1106,6 +1106,12 @@ static void phylink_pcs_link_up(struct p
  		pcs->ops->pcs_link_up(pcs, neg_mode, interface, speed, duplex);
  }
  
@@ -37,7 +35,7 @@ index 214b62fba991..e5588d710b2a 100644
  static void phylink_pcs_poll_stop(struct phylink *pl)
  {
  	if (pl->cfg_link_an_mode == MLO_AN_INBAND)
-@@ -1694,6 +1700,8 @@ static void phylink_link_down(struct phylink *pl)
+@@ -1437,6 +1443,8 @@ static void phylink_link_down(struct phy
  
  	if (ndev)
  		netif_carrier_off(ndev);
@@ -46,11 +44,9 @@ index 214b62fba991..e5588d710b2a 100644
  	pl->mac_ops->mac_link_down(pl->config, pl->cur_link_an_mode,
  				   pl->cur_interface);
  	phylink_info(pl, "Link is Down\n");
-diff --git a/include/linux/phylink.h b/include/linux/phylink.h
-index 898b00451bbf..43733743c125 100644
 --- a/include/linux/phylink.h
 +++ b/include/linux/phylink.h
-@@ -477,6 +477,7 @@ struct phylink_pcs {
+@@ -507,6 +507,7 @@ struct phylink_pcs {
   * @pcs_an_restart: restart 802.3z BaseX autonegotiation.
   * @pcs_link_up: program the PCS for the resolved link configuration
   *               (where necessary).
@@ -58,7 +54,7 @@ index 898b00451bbf..43733743c125 100644
   */
  struct phylink_pcs_ops {
  	int (*pcs_validate)(struct phylink_pcs *pcs, unsigned long *supported,
-@@ -500,6 +501,7 @@ struct phylink_pcs_ops {
+@@ -526,6 +527,7 @@ struct phylink_pcs_ops {
  	void (*pcs_an_restart)(struct phylink_pcs *pcs);
  	void (*pcs_link_up)(struct phylink_pcs *pcs, unsigned int neg_mode,
  			    phy_interface_t interface, int speed, int duplex);
@@ -66,6 +62,3 @@ index 898b00451bbf..43733743c125 100644
  };
  
  #if 0 /* For kernel-doc purposes only. */
--- 
-2.50.0
-

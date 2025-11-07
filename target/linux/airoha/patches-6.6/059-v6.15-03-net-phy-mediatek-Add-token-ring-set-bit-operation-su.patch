@@ -18,8 +18,6 @@ Signed-off-by: Jakub Kicinski <kuba@kernel.org>
  drivers/net/phy/mediatek/mtk.h         |  2 ++
  3 files changed, 15 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/phy/mediatek/mtk-ge-soc.c b/drivers/net/phy/mediatek/mtk-ge-soc.c
-index 5d7373793659..37777ad104d8 100644
 --- a/drivers/net/phy/mediatek/mtk-ge-soc.c
 +++ b/drivers/net/phy/mediatek/mtk-ge-soc.c
 @@ -62,6 +62,10 @@
@@ -33,7 +31,7 @@ index 5d7373793659..37777ad104d8 100644
  /* ch_addr = 0x1, node_addr = 0xf, data_addr = 0x20 */
  /* ResetSyncOffset */
  #define RESET_SYNC_OFFSET_MASK			GENMASK(11, 8)
-@@ -789,10 +793,8 @@ static void mt798x_phy_common_finetune(struct phy_device *phydev)
+@@ -789,10 +793,8 @@ static void mt798x_phy_common_finetune(s
  			FIELD_PREP(SLAVE_DSP_READY_TIME_MASK, 0x18) |
  			FIELD_PREP(MASTER_DSP_READY_TIME_MASK, 0x18));
  
@@ -46,11 +44,9 @@ index 5d7373793659..37777ad104d8 100644
  
  	__mtk_tr_modify(phydev, 0x0, 0x7, 0x15,
  			NORMAL_MSE_LO_THRESH_MASK,
-diff --git a/drivers/net/phy/mediatek/mtk-phy-lib.c b/drivers/net/phy/mediatek/mtk-phy-lib.c
-index 7275e4ee2298..df8fdadcc0f4 100644
 --- a/drivers/net/phy/mediatek/mtk-phy-lib.c
 +++ b/drivers/net/phy/mediatek/mtk-phy-lib.c
-@@ -69,6 +69,13 @@ void mtk_tr_modify(struct phy_device *phydev, u8 ch_addr, u8 node_addr,
+@@ -69,6 +69,13 @@ void mtk_tr_modify(struct phy_device *ph
  }
  EXPORT_SYMBOL_GPL(mtk_tr_modify);
  
@@ -64,11 +60,9 @@ index 7275e4ee2298..df8fdadcc0f4 100644
  int mtk_phy_read_page(struct phy_device *phydev)
  {
  	return __phy_read(phydev, MTK_EXT_PAGE_ACCESS);
-diff --git a/drivers/net/phy/mediatek/mtk.h b/drivers/net/phy/mediatek/mtk.h
-index af44d1ad8c9e..2d8e5b934a02 100644
 --- a/drivers/net/phy/mediatek/mtk.h
 +++ b/drivers/net/phy/mediatek/mtk.h
-@@ -72,6 +72,8 @@ void __mtk_tr_modify(struct phy_device *phydev, u8 ch_addr, u8 node_addr,
+@@ -72,6 +72,8 @@ void __mtk_tr_modify(struct phy_device *
  		     u8 data_addr, u32 mask, u32 set);
  void mtk_tr_modify(struct phy_device *phydev, u8 ch_addr, u8 node_addr,
  		   u8 data_addr, u32 mask, u32 set);
@@ -77,6 +71,3 @@ index af44d1ad8c9e..2d8e5b934a02 100644
  
  int mtk_phy_read_page(struct phy_device *phydev);
  int mtk_phy_write_page(struct phy_device *phydev, int page);
--- 
-2.48.1
-

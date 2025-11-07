@@ -12,8 +12,6 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  include/dt-bindings/clock/en7523-clk.h | 2 ++
  1 file changed, 2 insertions(+)
 
-diff --git a/include/dt-bindings/clock/en7523-clk.h b/include/dt-bindings/clock/en7523-clk.h
-index 0fbbcb7b1b25..d1163807c0b7 100644
 --- a/include/dt-bindings/clock/en7523-clk.h
 +++ b/include/dt-bindings/clock/en7523-clk.h
 @@ -17,4 +17,6 @@
@@ -23,6 +21,3 @@ index 0fbbcb7b1b25..d1163807c0b7 100644
 +#define EN7581_CLK_SWITCH_MDC	9
 +
  #endif /* _DT_BINDINGS_CLOCK_AIROHA_EN7523_H_ */
--- 
-2.48.1
-

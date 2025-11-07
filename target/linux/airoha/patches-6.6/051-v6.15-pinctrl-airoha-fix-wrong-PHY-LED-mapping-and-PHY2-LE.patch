@@ -26,8 +26,6 @@ Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
  drivers/pinctrl/mediatek/pinctrl-airoha.c | 159 ++++++++++------------
  1 file changed, 70 insertions(+), 89 deletions(-)
 
-diff --git a/drivers/pinctrl/mediatek/pinctrl-airoha.c b/drivers/pinctrl/mediatek/pinctrl-airoha.c
-index 547a798b71c8..5d84a778683d 100644
 --- a/drivers/pinctrl/mediatek/pinctrl-airoha.c
 +++ b/drivers/pinctrl/mediatek/pinctrl-airoha.c
 @@ -6,6 +6,7 @@
@@ -38,7 +36,7 @@ index 547a798b71c8..5d84a778683d 100644
  #include <linux/bits.h>
  #include <linux/cleanup.h>
  #include <linux/gpio/driver.h>
-@@ -112,39 +113,19 @@
+@@ -106,39 +107,19 @@
  #define REG_LAN_LED1_MAPPING			0x0280
  
  #define LAN4_LED_MAPPING_MASK			GENMASK(18, 16)
@@ -83,7 +81,7 @@ index 547a798b71c8..5d84a778683d 100644
  
  /* CONF */
  #define REG_I2C_SDA_E2				0x001c
-@@ -1476,8 +1457,8 @@ static const struct airoha_pinctrl_func_group phy1_led0_func_group[] = {
+@@ -1470,8 +1451,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -94,7 +92,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1491,8 +1472,8 @@ static const struct airoha_pinctrl_func_group phy1_led0_func_group[] = {
+@@ -1485,8 +1466,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -105,7 +103,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1506,8 +1487,8 @@ static const struct airoha_pinctrl_func_group phy1_led0_func_group[] = {
+@@ -1500,8 +1481,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -116,7 +114,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1521,8 +1502,8 @@ static const struct airoha_pinctrl_func_group phy1_led0_func_group[] = {
+@@ -1515,8 +1496,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -127,7 +125,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	},
-@@ -1540,8 +1521,8 @@ static const struct airoha_pinctrl_func_group phy2_led0_func_group[] = {
+@@ -1534,8 +1515,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -138,7 +136,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1555,8 +1536,8 @@ static const struct airoha_pinctrl_func_group phy2_led0_func_group[] = {
+@@ -1549,8 +1530,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -149,7 +147,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1570,8 +1551,8 @@ static const struct airoha_pinctrl_func_group phy2_led0_func_group[] = {
+@@ -1564,8 +1545,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -160,7 +158,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1585,8 +1566,8 @@ static const struct airoha_pinctrl_func_group phy2_led0_func_group[] = {
+@@ -1579,8 +1560,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -171,7 +169,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	},
-@@ -1604,8 +1585,8 @@ static const struct airoha_pinctrl_func_group phy3_led0_func_group[] = {
+@@ -1598,8 +1579,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -182,7 +180,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1619,8 +1600,8 @@ static const struct airoha_pinctrl_func_group phy3_led0_func_group[] = {
+@@ -1613,8 +1594,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -193,7 +191,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1634,8 +1615,8 @@ static const struct airoha_pinctrl_func_group phy3_led0_func_group[] = {
+@@ -1628,8 +1609,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -204,7 +202,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1649,8 +1630,8 @@ static const struct airoha_pinctrl_func_group phy3_led0_func_group[] = {
+@@ -1643,8 +1624,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -215,7 +213,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	},
-@@ -1668,8 +1649,8 @@ static const struct airoha_pinctrl_func_group phy4_led0_func_group[] = {
+@@ -1662,8 +1643,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -226,7 +224,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1683,8 +1664,8 @@ static const struct airoha_pinctrl_func_group phy4_led0_func_group[] = {
+@@ -1677,8 +1658,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -237,7 +235,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1698,8 +1679,8 @@ static const struct airoha_pinctrl_func_group phy4_led0_func_group[] = {
+@@ -1692,8 +1673,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -248,7 +246,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1713,8 +1694,8 @@ static const struct airoha_pinctrl_func_group phy4_led0_func_group[] = {
+@@ -1707,8 +1688,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED0_MAPPING,
@@ -259,7 +257,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	},
-@@ -1732,8 +1713,8 @@ static const struct airoha_pinctrl_func_group phy1_led1_func_group[] = {
+@@ -1726,8 +1707,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -270,7 +268,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1747,8 +1728,8 @@ static const struct airoha_pinctrl_func_group phy1_led1_func_group[] = {
+@@ -1741,8 +1722,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -281,7 +279,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1762,8 +1743,8 @@ static const struct airoha_pinctrl_func_group phy1_led1_func_group[] = {
+@@ -1756,8 +1737,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -292,7 +290,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1777,8 +1758,8 @@ static const struct airoha_pinctrl_func_group phy1_led1_func_group[] = {
+@@ -1771,8 +1752,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -303,7 +301,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	},
-@@ -1796,8 +1777,8 @@ static const struct airoha_pinctrl_func_group phy2_led1_func_group[] = {
+@@ -1790,8 +1771,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -314,7 +312,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1811,8 +1792,8 @@ static const struct airoha_pinctrl_func_group phy2_led1_func_group[] = {
+@@ -1805,8 +1786,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -325,7 +323,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1826,8 +1807,8 @@ static const struct airoha_pinctrl_func_group phy2_led1_func_group[] = {
+@@ -1820,8 +1801,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -336,7 +334,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1841,8 +1822,8 @@ static const struct airoha_pinctrl_func_group phy2_led1_func_group[] = {
+@@ -1835,8 +1816,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -347,7 +345,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	},
-@@ -1860,8 +1841,8 @@ static const struct airoha_pinctrl_func_group phy3_led1_func_group[] = {
+@@ -1854,8 +1835,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -358,7 +356,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1875,8 +1856,8 @@ static const struct airoha_pinctrl_func_group phy3_led1_func_group[] = {
+@@ -1869,8 +1850,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -369,7 +367,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1890,8 +1871,8 @@ static const struct airoha_pinctrl_func_group phy3_led1_func_group[] = {
+@@ -1884,8 +1865,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -380,7 +378,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1905,8 +1886,8 @@ static const struct airoha_pinctrl_func_group phy3_led1_func_group[] = {
+@@ -1899,8 +1880,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -391,7 +389,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	},
-@@ -1924,8 +1905,8 @@ static const struct airoha_pinctrl_func_group phy4_led1_func_group[] = {
+@@ -1918,8 +1899,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -402,7 +400,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1939,8 +1920,8 @@ static const struct airoha_pinctrl_func_group phy4_led1_func_group[] = {
+@@ -1933,8 +1914,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -413,7 +411,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1954,8 +1935,8 @@ static const struct airoha_pinctrl_func_group phy4_led1_func_group[] = {
+@@ -1948,8 +1929,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -424,7 +422,7 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	}, {
-@@ -1969,8 +1950,8 @@ static const struct airoha_pinctrl_func_group phy4_led1_func_group[] = {
+@@ -1963,8 +1944,8 @@ static const struct airoha_pinctrl_func_
  		.regmap[1] = {
  			AIROHA_FUNC_MUX,
  			REG_LAN_LED1_MAPPING,
@@ -435,6 +433,3 @@ index 547a798b71c8..5d84a778683d 100644
  		},
  		.regmap_size = 2,
  	},
--- 
-2.48.1
-

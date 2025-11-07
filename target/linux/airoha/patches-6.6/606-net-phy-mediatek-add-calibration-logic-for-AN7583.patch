@@ -23,20 +23,17 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  6 files changed, 263 insertions(+), 9 deletions(-)
  create mode 100644 drivers/net/phy/mediatek/an7583.c
 
-diff --git a/drivers/net/phy/mediatek/Makefile b/drivers/net/phy/mediatek/Makefile
-index 7c5c8f8158e5..c554343c84d4 100644
 --- a/drivers/net/phy/mediatek/Makefile
 +++ b/drivers/net/phy/mediatek/Makefile
-@@ -4,3 +4,3 @@ obj-$(CONFIG_MEDIATEK_GE_PHY)		+= mtk-ge.o
+@@ -3,4 +3,4 @@ obj-$(CONFIG_MTK_NET_PHYLIB)		+= mtk-phy
+ obj-$(CONFIG_MEDIATEK_GE_PHY)		+= mtk-ge.o
  obj-$(CONFIG_MEDIATEK_GE_SOC_PHY)	+= mtk-ge-soc.o
  mtk-ge-soc-objs				+= mtk-ge-soc.o
 -mtk-ge-soc-objs				+= airoha-phy-lib.o an7581.o
 +mtk-ge-soc-objs				+= airoha-phy-lib.o an7581.o an7583.o
-diff --git a/drivers/net/phy/mediatek/airoha-phy-lib.c b/drivers/net/phy/mediatek/airoha-phy-lib.c
-index 78783aac2d03..a28cf6b7f51e 100644
 --- a/drivers/net/phy/mediatek/airoha-phy-lib.c
 +++ b/drivers/net/phy/mediatek/airoha-phy-lib.c
-@@ -613,8 +613,9 @@ static int airoha_rx_offset_cal_sw(struct phy_device *phydev)
+@@ -612,8 +612,9 @@ static int airoha_rx_offset_cal_sw(struc
  	phy_clear_bits_mmd(phydev, MDIO_MMD_VEND1, 0x171,
  			   BIT(8) | BIT(7));
  
@@ -48,9 +45,6 @@ index 78783aac2d03..a28cf6b7f51e 100644
  
  	return 0;
  }
-diff --git a/drivers/net/phy/mediatek/an7583.c b/drivers/net/phy/mediatek/an7583.c
-new file mode 100644
-index 000000000000..5e8c02d0bdfb
 --- /dev/null
 +++ b/drivers/net/phy/mediatek/an7583.c
 @@ -0,0 +1,253 @@
@@ -307,11 +301,9 @@ index 000000000000..5e8c02d0bdfb
 +
 +	return 0;
 +}
-diff --git a/drivers/net/phy/mediatek/mtk-ge-soc.c b/drivers/net/phy/mediatek/mtk-ge-soc.c
-index da08ee90948d..4ec1c394304b 100644
 --- a/drivers/net/phy/mediatek/mtk-ge-soc.c
 +++ b/drivers/net/phy/mediatek/mtk-ge-soc.c
-@@ -1147,12 +1147,6 @@ static int an7581_phy_led_polarity_set(struct phy_device *phydev, int index,
+@@ -1139,12 +1139,6 @@ static int an7581_phy_led_polarity_set(s
  			      MTK_PHY_LED_ON_POLARITY, val);
  }
  
@@ -324,7 +316,7 @@ index da08ee90948d..4ec1c394304b 100644
  static struct phy_driver mtk_socphy_driver[] = {
  	{
  		PHY_ID_MATCH_EXACT(MTK_GPHY_ID_MT7981),
-@@ -1213,6 +1207,8 @@ static struct phy_driver mtk_socphy_driver[] = {
+@@ -1205,6 +1199,8 @@ static struct phy_driver mtk_socphy_driv
  		.led_hw_control_set = mt798x_phy_led_hw_control_set,
  		.led_hw_control_get = mt798x_phy_led_hw_control_get,
  		.led_polarity_set = an7581_phy_led_polarity_set,
@@ -333,19 +325,15 @@ index da08ee90948d..4ec1c394304b 100644
  	},
  };
  
-diff --git a/drivers/net/phy/mediatek/mtk-ge-soc.h b/drivers/net/phy/mediatek/mtk-ge-soc.h
-index db8e96c83a99..aed4be71deb2 100644
 --- a/drivers/net/phy/mediatek/mtk-ge-soc.h
 +++ b/drivers/net/phy/mediatek/mtk-ge-soc.h
-@@ -412,5 +412,6 @@ int airoha_phy_auto_select_transformer(struct phy_device *phydev);
+@@ -412,5 +412,6 @@ int airoha_phy_auto_select_transformer(s
  int airoha_phy_tx_amp_compensation(struct phy_device *phydev);
  
  int an7581_phy_config_init(struct phy_device *phydev);
 +int an7583_phy_config_init(struct phy_device *phydev);
  
  #endif /* _MTK_GE_SOC_H_ */
-diff --git a/drivers/net/phy/mediatek/mtk.h b/drivers/net/phy/mediatek/mtk.h
-index f172f7d671c9..11f32a8f4b3a 100644
 --- a/drivers/net/phy/mediatek/mtk.h
 +++ b/drivers/net/phy/mediatek/mtk.h
 @@ -13,6 +13,7 @@
@@ -356,6 +344,3 @@ index f172f7d671c9..11f32a8f4b3a 100644
  #define MTK_PHY_PAGE_STANDARD			0x0000
  #define MTK_PHY_PAGE_EXTENDED_52B5		0x52b5
  
--- 
-2.51.0
-

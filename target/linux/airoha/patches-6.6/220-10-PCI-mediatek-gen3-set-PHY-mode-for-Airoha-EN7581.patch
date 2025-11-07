@@ -17,11 +17,9 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/pci/controller/pcie-mediatek-gen3.c | 6 ++++++
  1 file changed, 6 insertions(+)
 
-diff --git a/drivers/pci/controller/pcie-mediatek-gen3.c b/drivers/pci/controller/pcie-mediatek-gen3.c
-index 9d52504acae4..6ccceafb438e 100644
 --- a/drivers/pci/controller/pcie-mediatek-gen3.c
 +++ b/drivers/pci/controller/pcie-mediatek-gen3.c
-@@ -973,6 +973,12 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
+@@ -932,6 +932,12 @@ static int mtk_pcie_en7581_power_up(stru
  	size = lower_32_bits(resource_size(entry->res));
  	regmap_write(pbus_regmap, args[1], GENMASK(31, __fls(size)));
  
@@ -34,6 +32,3 @@ index 9d52504acae4..6ccceafb438e 100644
  	/*
  	 * Unlike the other MediaTek Gen3 controllers, the Airoha EN7581
  	 * requires PHY initialization and power-on before PHY reset deassert.
--- 
-2.51.0
-
