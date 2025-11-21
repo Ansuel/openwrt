@@ -379,7 +379,7 @@
 	};
 
 	sound: sound {
-		compatible = "airoha,an7581-i2s";
+		compatible = "airoha,an7581-wm8960-sound";
 
 		status = "disabled";
 

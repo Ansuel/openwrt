@@ -1,97 +1,106 @@
-From 5039c497d135b78c46d6a8a1752d1e3dc5c83acd Mon Sep 17 00:00:00 2001
+From 62c050b628cb98162ba9fc281ab87feca4d70bd6 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Thu, 31 Jul 2025 15:32:32 +0200
-Subject: [PATCH] ASoC: airoha: Add AFE and I2S driver for Airoha AN7581
+Subject: [PATCH] ASoC: airoha: Add AFE and machine driver for Airoha AN7581
 
 Add support for the Sound system present on Airoha AN7581 SoC. This is
 based on the mediatek AFE drivers.
 
-Also add the I2S driver to create an actual sound card for the AFE.
+Also add the machine driver to create an actual sound card for the AFE.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- sound/soc/Kconfig                           |   1 +
- sound/soc/Makefile                          |   1 +
- sound/soc/airoha/Kconfig                    |  19 +
- sound/soc/airoha/Makefile                   |   2 +
- sound/soc/airoha/an7581/Makefile            |   9 +
- sound/soc/airoha/an7581/an7581-afe-common.h |  39 ++
- sound/soc/airoha/an7581/an7581-afe-pcm.c    | 456 ++++++++++++++++++++
- sound/soc/airoha/an7581/an7581-dai-etdm.c   | 370 ++++++++++++++++
- sound/soc/airoha/an7581/an7581-i2s.c        | 168 ++++++++
- sound/soc/airoha/an7581/an7581-reg.h        |  61 +++
- 10 files changed, 1126 insertions(+)
- create mode 100644 sound/soc/airoha/Kconfig
- create mode 100644 sound/soc/airoha/Makefile
- create mode 100644 sound/soc/airoha/an7581/Makefile
- create mode 100644 sound/soc/airoha/an7581/an7581-afe-common.h
- create mode 100644 sound/soc/airoha/an7581/an7581-afe-pcm.c
- create mode 100644 sound/soc/airoha/an7581/an7581-dai-etdm.c
- create mode 100644 sound/soc/airoha/an7581/an7581-i2s.c
- create mode 100644 sound/soc/airoha/an7581/an7581-reg.h
+ MAINTAINERS                                   |  10 +-
+ sound/soc/mediatek/Kconfig                    |  20 +
+ sound/soc/mediatek/Makefile                   |   1 +
+ sound/soc/mediatek/an7581/Makefile            |   9 +
+ sound/soc/mediatek/an7581/an7581-afe-common.h |  39 ++
+ sound/soc/mediatek/an7581/an7581-afe-pcm.c    | 456 ++++++++++++++++++
+ sound/soc/mediatek/an7581/an7581-dai-etdm.c   | 371 ++++++++++++++
+ sound/soc/mediatek/an7581/an7581-reg.h        |  61 +++
+ sound/soc/mediatek/an7581/an7581-wm8960.c     | 170 +++++++
+ 9 files changed, 1136 insertions(+), 1 deletion(-)
+ create mode 100644 sound/soc/mediatek/an7581/Makefile
+ create mode 100644 sound/soc/mediatek/an7581/an7581-afe-common.h
+ create mode 100644 sound/soc/mediatek/an7581/an7581-afe-pcm.c
+ create mode 100644 sound/soc/mediatek/an7581/an7581-dai-etdm.c
+ create mode 100644 sound/soc/mediatek/an7581/an7581-reg.h
+ create mode 100644 sound/soc/mediatek/an7581/an7581-wm8960.c
 
-diff --git a/sound/soc/Kconfig b/sound/soc/Kconfig
-index 1b983c7006f1..5ea1af792f2e 100644
---- a/sound/soc/Kconfig
-+++ b/sound/soc/Kconfig
-@@ -103,6 +103,7 @@ config SND_SOC_USB
+# diff --git a/MAINTAINERS b/MAINTAINERS
+# index 48810529994a..13a2508f2905 100644
+# --- a/MAINTAINERS
+# +++ b/MAINTAINERS
+# @@ -766,13 +766,21 @@ F:	Documentation/devicetree/bindings/phy/airoha,en7581-pcie-phy.yaml
+#  F:	drivers/phy/phy-airoha-pcie-regs.h
+#  F:	drivers/phy/phy-airoha-pcie.c
  
- # All the supported SoCs
- source "sound/soc/adi/Kconfig"
-+source "sound/soc/airoha/Kconfig"
- source "sound/soc/amd/Kconfig"
- source "sound/soc/apple/Kconfig"
- source "sound/soc/atmel/Kconfig"
-diff --git a/sound/soc/Makefile b/sound/soc/Makefile
-index 462322c38aa4..a6a9f5e84bad 100644
---- a/sound/soc/Makefile
-+++ b/sound/soc/Makefile
-@@ -46,6 +46,7 @@ obj-$(CONFIG_SND_SOC)	+= codecs/
- obj-$(CONFIG_SND_SOC)	+= generic/
- obj-$(CONFIG_SND_SOC)	+= apple/
- obj-$(CONFIG_SND_SOC)	+= adi/
-+obj-$(CONFIG_SND_SOC)	+= airoha/
- obj-$(CONFIG_SND_SOC)	+= amd/
- obj-$(CONFIG_SND_SOC)	+= atmel/
- obj-$(CONFIG_SND_SOC)	+= au1x/
-diff --git a/sound/soc/airoha/Kconfig b/sound/soc/airoha/Kconfig
-new file mode 100644
-index 000000000000..7c271c164f1f
---- /dev/null
-+++ b/sound/soc/airoha/Kconfig
-@@ -0,0 +1,19 @@
-+# SPDX-License-Identifier: GPL-2.0-only
+# +AIROHA SOUND DRIVER
+# +M:	Christian Marangi <ansuelsmth@gmail.com>
+# +L:	linux-sound@vger.kernel.org
+# +S:	Maintained
+# +F:	Documentation/devicetree/bindings/spi/airoha,en7581-snand.yaml
+# +F:	sound/soc/mediatek/an7581/*
+# +
+#  AIROHA SPI SNFI DRIVER
+#  M:	Lorenzo Bianconi <lorenzo@kernel.org>
+#  M:	Ray Liu <ray.liu@airoha.com>
+#  L:	linux-arm-kernel@lists.infradead.org (moderated for non-subscribers)
+#  L:	linux-spi@vger.kernel.org
+#  S:	Maintained
+# -F:	Documentation/devicetree/bindings/spi/airoha,en7581-snand.yaml
+# +F:	Documentation/devicetree/bindings/sound/airoha,an7581-afe.yaml
+# +F:	Documentation/devicetree/bindings/sound/airoha,an7581-wm8960.yaml
+#  F:	drivers/spi/spi-airoha-snfi.c
+ 
+#  AIRSPY MEDIA DRIVER
+diff --git a/sound/soc/mediatek/Kconfig b/sound/soc/mediatek/Kconfig
+index 3a1e1fa3fe5c..04d1f00fd980 100644
+--- a/sound/soc/mediatek/Kconfig
++++ b/sound/soc/mediatek/Kconfig
+@@ -5,6 +5,26 @@ config SND_SOC_MEDIATEK
+ 	tristate
+ 	select REGMAP_MMIO
+ 
 +config SND_SOC_AN7581
 +	tristate "ASoC support for Airoha AN7581 chip"
 +	depends on ARCH_AIROHA || COMPILE_TEST
 +	select SND_SOC_MEDIATEK
 +	help
-+	  This adds ASoC driver for Airoha AN7581 boards
++	  This adds ASoC platform driver support for Airoha AN7581 chip
 +	  that can be used with other codecs.
 +	  Select Y if you have such device.
 +	  If unsure select "N".
 +
-+config SND_SOC_AN7581_I2S
-+	tristate "I2S support for Airoha AN7581 chip"
-+	depends on SND_SOC_AN7581
++config SND_SOC_AN7581_WM8960
++	tristate "ASoc Audio driver for Airoha AN7581 with WM8960 codec"
++	depends on SND_SOC_AN7581 && I2C
++	select SND_SOC_WM8960
 +	help
-+	  This adds I2S driver for Airoha AN7581 boards
-+	  that can be used with other codecs.
++	  This adds support for ASoC machine driver for Airoha AN7581
++	  boards with the WM8960 codecs.
 +	  Select Y if you have such device.
 +	  If unsure select "N".
-diff --git a/sound/soc/airoha/Makefile b/sound/soc/airoha/Makefile
-new file mode 100644
-index 000000000000..fef7fed384a9
---- /dev/null
-+++ b/sound/soc/airoha/Makefile
-@@ -0,0 +1,2 @@
-+# SPDX-License-Identifier: GPL-2.0
++
+ config SND_SOC_MT2701
+ 	tristate "ASoC support for Mediatek MT2701 chip"
+ 	depends on ARCH_MEDIATEK
+diff --git a/sound/soc/mediatek/Makefile b/sound/soc/mediatek/Makefile
+index 7cd67bce92e9..692d7a472ecc 100644
+--- a/sound/soc/mediatek/Makefile
++++ b/sound/soc/mediatek/Makefile
+@@ -1,5 +1,6 @@
+ # SPDX-License-Identifier: GPL-2.0
+ obj-$(CONFIG_SND_SOC_MEDIATEK) += common/
 +obj-$(CONFIG_SND_SOC_AN7581) += an7581/
-diff --git a/sound/soc/airoha/an7581/Makefile b/sound/soc/airoha/an7581/Makefile
+ obj-$(CONFIG_SND_SOC_MT2701) += mt2701/
+ obj-$(CONFIG_SND_SOC_MT6797) += mt6797/
+ obj-$(CONFIG_SND_SOC_MT7986) += mt7986/
+diff --git a/sound/soc/mediatek/an7581/Makefile b/sound/soc/mediatek/an7581/Makefile
 new file mode 100644
-index 000000000000..9f5c7ceccac0
+index 000000000000..f48cd0269bea
 --- /dev/null
-+++ b/sound/soc/airoha/an7581/Makefile
++++ b/sound/soc/mediatek/an7581/Makefile
 @@ -0,0 +1,9 @@
 +# SPDX-License-Identifier: GPL-2.0
 +
@@ -101,12 +110,12 @@ index 000000000000..9f5c7ceccac0
 +	an7581-dai-etdm.o
 +
 +obj-$(CONFIG_SND_SOC_AN7581) += snd-soc-an7581-afe.o
-+obj-$(CONFIG_SND_SOC_AN7581_I2S) += an7581-i2s.o
-diff --git a/sound/soc/airoha/an7581/an7581-afe-common.h b/sound/soc/airoha/an7581/an7581-afe-common.h
++obj-$(CONFIG_SND_SOC_AN7581_WM8960) += an7581-wm8960.o
+diff --git a/sound/soc/mediatek/an7581/an7581-afe-common.h b/sound/soc/mediatek/an7581/an7581-afe-common.h
 new file mode 100644
 index 000000000000..fef1a7b4529e
 --- /dev/null
-+++ b/sound/soc/airoha/an7581/an7581-afe-common.h
++++ b/sound/soc/mediatek/an7581/an7581-afe-common.h
 @@ -0,0 +1,39 @@
 +/* SPDX-License-Identifier: GPL-2.0 */
 +/*
@@ -147,11 +156,11 @@ index 000000000000..fef1a7b4529e
 +int an7581_dai_etdm_register(struct mtk_base_afe *afe);
 +
 +#endif
-diff --git a/sound/soc/airoha/an7581/an7581-afe-pcm.c b/sound/soc/airoha/an7581/an7581-afe-pcm.c
+diff --git a/sound/soc/mediatek/an7581/an7581-afe-pcm.c b/sound/soc/mediatek/an7581/an7581-afe-pcm.c
 new file mode 100644
-index 000000000000..d49e7fd8beda
+index 000000000000..34ff0ca6cf4e
 --- /dev/null
-+++ b/sound/soc/airoha/an7581/an7581-afe-pcm.c
++++ b/sound/soc/mediatek/an7581/an7581-afe-pcm.c
 @@ -0,0 +1,456 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
@@ -168,28 +177,28 @@ index 000000000000..d49e7fd8beda
 +
 +#include "an7581-afe-common.h"
 +#include "an7581-reg.h"
-+#include <sound/mediatek/mtk-afe-platform-driver.h>
-+#include <sound/mediatek/mtk-afe-fe-dai.h>
++#include "../common/mtk-afe-platform-driver.h"
++#include "../common/mtk-afe-fe-dai.h"
 +
 +enum {
-+	ARH_AFE_RATE_7K = 16,
 +	ARH_AFE_RATE_8K = 0,
-+	ARH_AFE_RATE_11K = 17,
 +	ARH_AFE_RATE_12K = 1,
-+	ARH_AFE_RATE_14K = 18,
 +	ARH_AFE_RATE_16K = 2,
-+	ARH_AFE_RATE_22K = 19,
 +	ARH_AFE_RATE_24K = 3,
-+	ARH_AFE_RATE_29K = 20,
 +	ARH_AFE_RATE_32K = 4,
-+	ARH_AFE_RATE_44K = 21,
 +	ARH_AFE_RATE_48K = 5,
-+	ARH_AFE_RATE_88K = 22,
 +	ARH_AFE_RATE_96K = 6,
-+	ARH_AFE_RATE_176K = 23,
 +	ARH_AFE_RATE_192K = 7,
-+	ARH_AFE_RATE_352K = 24,
 +	ARH_AFE_RATE_384K = 8,
++	ARH_AFE_RATE_7K = 16,
++	ARH_AFE_RATE_11K = 17,
++	ARH_AFE_RATE_14K = 18,
++	ARH_AFE_RATE_22K = 19,
++	ARH_AFE_RATE_29K = 20,
++	ARH_AFE_RATE_44K = 21,
++	ARH_AFE_RATE_88K = 22,
++	ARH_AFE_RATE_176K = 23,
++	ARH_AFE_RATE_352K = 24,
 +};
 +
 +unsigned int an7581_afe_rate_transform(struct device *dev, unsigned int rate)
@@ -609,12 +618,12 @@ index 000000000000..d49e7fd8beda
 +
 +MODULE_DESCRIPTION("Airoha SoC AFE platform driver for ALSA AN7581");
 +MODULE_LICENSE("GPL");
-diff --git a/sound/soc/airoha/an7581/an7581-dai-etdm.c b/sound/soc/airoha/an7581/an7581-dai-etdm.c
+diff --git a/sound/soc/mediatek/an7581/an7581-dai-etdm.c b/sound/soc/mediatek/an7581/an7581-dai-etdm.c
 new file mode 100644
-index 000000000000..1bd70d498d0b
+index 000000000000..fdf6ed0cce56
 --- /dev/null
-+++ b/sound/soc/airoha/an7581/an7581-dai-etdm.c
-@@ -0,0 +1,370 @@
++++ b/sound/soc/mediatek/an7581/an7581-dai-etdm.c
+@@ -0,0 +1,371 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Airoha ALSA SoC Audio DAI eTDM Control
@@ -756,7 +765,7 @@ index 000000000000..1bd70d498d0b
 +	unsigned int mask = 0;
 +
 +	dev_dbg(afe->dev, "%s(), stream %d, rate %u, bitwidth %u\n",
-+		 __func__, stream, rate, bit_width);
++		__func__, stream, rate, bit_width);
 +
 +	/* CON0 */
 +	mask |= ETDM_BIT_LEN;
@@ -944,6 +953,7 @@ index 000000000000..1bd70d498d0b
 +
 +/* dai driver */
 +#define MTK_ETDM_FORMATS (SNDRV_PCM_FMTBIT_S16_LE |\
++			  SNDRV_PCM_FMTBIT_S24_LE |\
 +			  SNDRV_PCM_FMTBIT_S32_LE)
 +
 +static struct snd_soc_dai_driver mtk_dai_etdm_driver[] = {
@@ -985,12 +995,79 @@ index 000000000000..1bd70d498d0b
 +
 +	return 0;
 +}
-diff --git a/sound/soc/airoha/an7581/an7581-i2s.c b/sound/soc/airoha/an7581/an7581-i2s.c
+diff --git a/sound/soc/mediatek/an7581/an7581-reg.h b/sound/soc/mediatek/an7581/an7581-reg.h
 new file mode 100644
-index 000000000000..cc02b5382e2d
+index 000000000000..dba51ee5c6fe
 --- /dev/null
-+++ b/sound/soc/airoha/an7581/an7581-i2s.c
-@@ -0,0 +1,168 @@
++++ b/sound/soc/mediatek/an7581/an7581-reg.h
+@@ -0,0 +1,61 @@
++/* SPDX-License-Identifier: GPL-2.0 */
++/*
++ * an7581-reg.h  --  Airoha AN7581 audio driver reg definition
++ */
++
++#ifndef _AN7581_REG_H_
++#define _AN7581_REG_H_
++
++#define AFE_DAC_CON0			0x0
++
++#define ETDM_IN1_CON0			0x5c
++#define   RELATCH_SRC			GENMASK(30, 28)
++#define   ETDM_CH_NUM			GENMASK(27, 23)
++#define   ETDM_WRD_LEN			GENMASK(20, 16)
++#define   ETDM_BIT_LEN			GENMASK(15, 11)
++#define   ETDM_FMT			GENMASK(8, 6)
++#define   ETDM_SYNC			BIT(1)
++#define   ETDM_EN			BIT(0)
++#define ETDM_IN1_CON1			0x60
++#define ETDM_IN1_CON2			0x64
++#define   IN_CLK_SRC			GENMASK(12, 10)
++#define ETDM_IN1_CON3			0x68
++#define   IN_SEL_FS			GENMASK(30, 26)
++#define ETDM_IN1_CON4			0x6c
++#define   IN_RELATCH			GENMASK(24, 20)
++#define   IN_CLK_INV			BIT(18)
++#define ETDM_IN1_CON5			0x70
++#define ETDM_IN1_CON6			0x74
++#define ETDM_OUT1_CON0			0x7c
++#define ETDM_OUT1_CON1			0x80
++#define ETDM_OUT1_CON2			0x84
++#define ETDM_OUT1_CON3			0x88
++#define ETDM_OUT1_CON4			0x8c
++#define   OUT_RELATCH			GENMASK(28, 24)
++#define   OUT_CLK_SRC			GENMASK(8, 6)
++#define   OUT_SEL_FS			GENMASK(4, 0)
++#define ETDM_OUT1_CON5			0x90
++#define   ETDM_CLK_DIV			BIT(12)
++#define   OUT_CLK_INV			BIT(9)
++#define ETDM_OUT1_CON6			0x94
++#define ETDM_OUT1_CON7			0x98
++
++#define AFE_DL1_BASE			0xa8
++#define AFE_DL1_END			0xb0
++#define AFE_DL1_CUR			0xac
++
++#define AFE_UL1_BASE			0xc4
++#define AFE_UL1_END			0xc8
++#define AFE_UL1_CUR			0xcc
++
++#define AFE_IRQ0_CON0			0xe4
++
++#define AFE_IRQ_STS			0xf8
++#define  AFE_IRQ_STS_PLAY		BIT(1)
++#define  AFE_IRQ_STS_RECORD		BIT(0)
++
++#define AFE_IRQ1_CON0			0x100
++
++#define AFE_MAX_REGISTER		AFE_IRQ1_CON0
++
++#endif
+diff --git a/sound/soc/mediatek/an7581/an7581-wm8960.c b/sound/soc/mediatek/an7581/an7581-wm8960.c
+new file mode 100644
+index 000000000000..5d6c736aa6f2
+--- /dev/null
++++ b/sound/soc/mediatek/an7581/an7581-wm8960.c
+@@ -0,0 +1,170 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Airoha ALSA SoC I2S platform driver for AN7581
@@ -1002,12 +1079,12 @@ index 000000000000..cc02b5382e2d
 +
 +#include "an7581-afe-common.h"
 +
-+static const struct snd_soc_dapm_widget an7581_i2s_widgets[] = {
++static const struct snd_soc_dapm_widget an7581_wm8960_widgets[] = {
 +	SND_SOC_DAPM_HP("Headphone", NULL),
 +	SND_SOC_DAPM_MIC("AMIC", NULL),
 +};
 +
-+static const struct snd_kcontrol_new an7581_i2s_controls[] = {
++static const struct snd_kcontrol_new an7581_wm8960_controls[] = {
 +	SOC_DAPM_PIN_SWITCH("Headphone"),
 +	SOC_DAPM_PIN_SWITCH("AMIC"),
 +};
@@ -1023,14 +1100,15 @@ index 000000000000..cc02b5382e2d
 +		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
 +
 +SND_SOC_DAILINK_DEFS(codec,
-+	DAILINK_COMP_ARRAY(COMP_CPU("ETDM")),
-+	DAILINK_COMP_ARRAY(COMP_CODEC(NULL, "wm8960-hifi")),
-+	DAILINK_COMP_ARRAY(COMP_EMPTY()));
++		     DAILINK_COMP_ARRAY(COMP_CPU("ETDM")),
++		     DAILINK_COMP_ARRAY(COMP_CODEC(NULL, "wm8960-hifi")),
++		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
 +
-+static struct snd_soc_dai_link an7581_i2s_dai_links[] = {
++static struct snd_soc_dai_link an7581_wm8960_dai_links[] = {
++	/* FE */
 +	{
-+		.name = "an7581-i2s-playback",
-+		.stream_name = "an7581-i2s-playback",
++		.name = "wm8960-playback",
++		.stream_name = "wm8960-playback",
 +		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 +			    SND_SOC_DPCM_TRIGGER_POST},
 +		.dynamic = 0,
@@ -1038,14 +1116,15 @@ index 000000000000..cc02b5382e2d
 +		SND_SOC_DAILINK_REG(playback),
 +	},
 +	{
-+		.name = "an7581-i2s-capture",
-+		.stream_name = "an7581-i2s-capture",
++		.name = "wm8960-capture",
++		.stream_name = "wm8960-capture",
 +		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 +			    SND_SOC_DPCM_TRIGGER_POST},
 +		.dynamic = 0,
 +		.capture_only = 1,
 +		SND_SOC_DAILINK_REG(capture),
 +	},
++	/* BE */
 +	{
 +		.name = "wm8960-codec",
 +		.no_pcm = 1,
@@ -1057,21 +1136,21 @@ index 000000000000..cc02b5382e2d
 +	},
 +};
 +
-+static struct snd_soc_card an7581_i2s_card = {
-+	.name = "an7581-i2s",
++static struct snd_soc_card an7581_wm8960_card = {
++	.name = "an7581-wm8960",
 +	.owner = THIS_MODULE,
-+	.dai_link = an7581_i2s_dai_links,
-+	.num_links = ARRAY_SIZE(an7581_i2s_dai_links),
-+	.controls = an7581_i2s_controls,
-+	.num_controls = ARRAY_SIZE(an7581_i2s_controls),
-+	.dapm_widgets = an7581_i2s_widgets,
-+	.num_dapm_widgets = ARRAY_SIZE(an7581_i2s_widgets),
++	.dai_link = an7581_wm8960_dai_links,
++	.num_links = ARRAY_SIZE(an7581_wm8960_dai_links),
++	.controls = an7581_wm8960_controls,
++	.num_controls = ARRAY_SIZE(an7581_wm8960_controls),
++	.dapm_widgets = an7581_wm8960_widgets,
++	.num_dapm_widgets = ARRAY_SIZE(an7581_wm8960_widgets),
 +};
 +
-+static int an7581_i2s_machine_probe(struct platform_device *pdev)
++static int an7581_wm8960_machine_probe(struct platform_device *pdev)
 +{
 +	struct device_node *platform_dai_node, *codec_dai_node;
-+	struct snd_soc_card *card = &an7581_i2s_card;
++	struct snd_soc_card *card = &an7581_wm8960_card;
 +	struct device_node *platform, *codec;
 +	struct snd_soc_dai_link *dai_link;
 +	int ret, i;
@@ -1142,90 +1221,23 @@ index 000000000000..cc02b5382e2d
 +	return ret;
 +}
 +
-+static const struct of_device_id an7581_i2s_machine_dt_match[] = {
-+	{ .compatible = "airoha,an7581-i2s" },
++static const struct of_device_id an7581_wm8960_machine_dt_match[] = {
++	{ .compatible = "airoha,an7581-wm8960-sound" },
 +	{ /* sentinel */ }
 +};
-+MODULE_DEVICE_TABLE(of, an7581_i2s_machine_dt_match);
++MODULE_DEVICE_TABLE(of, an7581_wm8960_machine_dt_match);
 +
-+static struct platform_driver an7581_i2s_driver = {
++static struct platform_driver an7581_wm8960_driver = {
 +	.driver = {
-+		   .name = "an7581-i2s",
-+		   .of_match_table = an7581_i2s_machine_dt_match,
++		   .name = "an7581-wm8960",
++		   .of_match_table = an7581_wm8960_machine_dt_match,
 +	},
-+	.probe = an7581_i2s_machine_probe,
++	.probe = an7581_wm8960_machine_probe,
 +};
-+module_platform_driver(an7581_i2s_driver);
++module_platform_driver(an7581_wm8960_driver);
 +
 +MODULE_DESCRIPTION("Airoha SoC I2S platform driver for ALSA AN7581");
 +MODULE_LICENSE("GPL");
-diff --git a/sound/soc/airoha/an7581/an7581-reg.h b/sound/soc/airoha/an7581/an7581-reg.h
-new file mode 100644
-index 000000000000..dba51ee5c6fe
---- /dev/null
-+++ b/sound/soc/airoha/an7581/an7581-reg.h
-@@ -0,0 +1,61 @@
-+/* SPDX-License-Identifier: GPL-2.0 */
-+/*
-+ * an7581-reg.h  --  Airoha AN7581 audio driver reg definition
-+ */
-+
-+#ifndef _AN7581_REG_H_
-+#define _AN7581_REG_H_
-+
-+#define AFE_DAC_CON0			0x0
-+
-+#define ETDM_IN1_CON0			0x5c
-+#define   RELATCH_SRC			GENMASK(30, 28)
-+#define   ETDM_CH_NUM			GENMASK(27, 23)
-+#define   ETDM_WRD_LEN			GENMASK(20, 16)
-+#define   ETDM_BIT_LEN			GENMASK(15, 11)
-+#define   ETDM_FMT			GENMASK(8, 6)
-+#define   ETDM_SYNC			BIT(1)
-+#define   ETDM_EN			BIT(0)
-+#define ETDM_IN1_CON1			0x60
-+#define ETDM_IN1_CON2			0x64
-+#define   IN_CLK_SRC			GENMASK(12, 10)
-+#define ETDM_IN1_CON3			0x68
-+#define   IN_SEL_FS			GENMASK(30, 26)
-+#define ETDM_IN1_CON4			0x6c
-+#define   IN_RELATCH			GENMASK(24, 20)
-+#define   IN_CLK_INV			BIT(18)
-+#define ETDM_IN1_CON5			0x70
-+#define ETDM_IN1_CON6			0x74
-+#define ETDM_OUT1_CON0			0x7c
-+#define ETDM_OUT1_CON1			0x80
-+#define ETDM_OUT1_CON2			0x84
-+#define ETDM_OUT1_CON3			0x88
-+#define ETDM_OUT1_CON4			0x8c
-+#define   OUT_RELATCH			GENMASK(28, 24)
-+#define   OUT_CLK_SRC			GENMASK(8, 6)
-+#define   OUT_SEL_FS			GENMASK(4, 0)
-+#define ETDM_OUT1_CON5			0x90
-+#define   ETDM_CLK_DIV			BIT(12)
-+#define   OUT_CLK_INV			BIT(9)
-+#define ETDM_OUT1_CON6			0x94
-+#define ETDM_OUT1_CON7			0x98
-+
-+#define AFE_DL1_BASE			0xa8
-+#define AFE_DL1_END			0xb0
-+#define AFE_DL1_CUR			0xac
-+
-+#define AFE_UL1_BASE			0xc4
-+#define AFE_UL1_END			0xc8
-+#define AFE_UL1_CUR			0xcc
-+
-+#define AFE_IRQ0_CON0			0xe4
-+
-+#define AFE_IRQ_STS			0xf8
-+#define  AFE_IRQ_STS_PLAY		BIT(1)
-+#define  AFE_IRQ_STS_RECORD		BIT(0)
-+
-+#define AFE_IRQ1_CON0			0x100
-+
-+#define AFE_MAX_REGISTER		AFE_IRQ1_CON0
-+
-+#endif
 -- 
 2.51.0
 
