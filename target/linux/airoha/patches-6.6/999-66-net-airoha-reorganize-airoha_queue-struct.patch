@@ -1,0 +1,56 @@
+From 91fcfad11c1c93a420d87ebf4dd17dde9c32e1d9 Mon Sep 17 00:00:00 2001
+Message-ID: <91fcfad11c1c93a420d87ebf4dd17dde9c32e1d9.1760709734.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Fri, 17 Oct 2025 16:01:20 +0200
+Subject: [PATCH net-next] net: airoha: reorganize airoha_queue struct
+
+Do not allocate memory for rx-only fields for tx queues and for tx-only
+fields for rx queues.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.h | 22 +++++++++++++++-------
+ 1 file changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/airoha/airoha_eth.h b/drivers/net/ethernet/airoha/airoha_eth.h
+index 4fb6b92f1f55..6a475476a433 100644
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -184,19 +184,27 @@ struct airoha_queue {
+ 	spinlock_t lock;
+ 	struct airoha_queue_entry *entry;
+ 	struct airoha_qdma_desc *desc;
+-	u16 head;
+-	u16 tail;
+ 
+ 	int queued;
+ 	int ndesc;
+-	int free_thr;
+-	int buf_size;
+ 
+ 	struct napi_struct napi;
+-	struct page_pool *page_pool;
+-	struct sk_buff *skb;
+ 
+-	struct list_head tx_list;
++	union {
++		struct { /* rx */
++			u16 head;
++			u16 tail;
++			int buf_size;
++
++			struct page_pool *page_pool;
++			struct sk_buff *skb;
++		};
++
++		struct { /* tx */
++			struct list_head tx_list;
++			int free_thr;
++		};
++	};
+ };
+ 
+ struct airoha_tx_irq_queue {
+-- 
+2.51.0
+

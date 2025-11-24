@@ -1,15 +1,16 @@
-From 722b925eea5f560224c7f0760e9f2b05a223f51e Mon Sep 17 00:00:00 2001
-Message-ID: <722b925eea5f560224c7f0760e9f2b05a223f51e.1758640781.git.lorenzo@kernel.org>
-In-Reply-To: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
-References: <6cc8cf5869e3d87d7ef37fc66e682c6c78960cd4.1758640781.git.lorenzo@kernel.org>
+From a0ca1f36328fca88d35e95426e6865ef9abe68b1 Mon Sep 17 00:00:00 2001
+Message-ID: <a0ca1f36328fca88d35e95426e6865ef9abe68b1.1760605688.git.lorenzo@kernel.org>
+In-Reply-To: <36f9261198c92013fca08c3cee4620364a2447fb.1760605688.git.lorenzo@kernel.org>
+References: <36f9261198c92013fca08c3cee4620364a2447fb.1760605688.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Thu, 18 Sep 2025 11:15:35 +0200
-Subject: [PATCH net-next 08/12] net: airoha: ppe: Configure SRAM PPE entries
+Subject: [PATCH net-next 06/10] net: airoha: ppe: Configure SRAM PPE entries
  via the cpu
 
 Introduce airoha_ppe_foe_commit_sram_entry routine in order to configure
-the SRAM PPE entries via the CPU instead of using the NPU APIs and
-increase the PPE entries inserction rate.
+the SRAM PPE entries directly via the CPU instead of using the NPU APIs.
+This is a preliminary patch to enable netfilter flowtable hw offload for
+AN7583 SoC.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
@@ -18,7 +19,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -676,6 +676,27 @@ static bool airoha_ppe_foe_compare_entry
+@@ -670,6 +670,27 @@ static bool airoha_ppe_foe_compare_entry
  	return !memcmp(&e->data.d, &hwe->d, len - sizeof(hwe->ib1));
  }
  
@@ -29,12 +30,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	u32 *ptr = (u32 *)hwe, val;
 +	int i;
 +
-+	for (i = 0; i < sizeof(*hwe) / 4; i++)
++	for (i = 0; i < sizeof(*hwe) / sizeof(*ptr); i++)
 +		airoha_fe_wr(ppe->eth, REG_PPE_RAM_ENTRY(ppe2, i), ptr[i]);
 +
 +	wmb();
 +	airoha_fe_wr(ppe->eth, REG_PPE_RAM_CTRL(ppe2),
-+                     FIELD_PREP(PPE_SRAM_CTRL_ENTRY_MASK, hash) |
++		     FIELD_PREP(PPE_SRAM_CTRL_ENTRY_MASK, hash) |
 +		     PPE_SRAM_CTRL_WR_MASK | PPE_SRAM_CTRL_REQ_MASK);
 +
 +	return read_poll_timeout_atomic(airoha_fe_rr, val,
@@ -46,7 +47,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static int airoha_ppe_foe_commit_entry(struct airoha_ppe *ppe,
  				       struct airoha_foe_entry *e,
  				       u32 hash, bool rx_wlan)
-@@ -705,13 +726,8 @@ static int airoha_ppe_foe_commit_entry(s
+@@ -699,13 +720,8 @@ static int airoha_ppe_foe_commit_entry(s
  	if (!rx_wlan)
  		airoha_ppe_foe_flow_stats_update(ppe, npu, hwe, hash);
  

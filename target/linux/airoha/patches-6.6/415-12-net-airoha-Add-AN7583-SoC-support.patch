@@ -17,52 +17,47 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -117,11 +117,13 @@ static int airoha_set_vip_for_gdm_port(s
- 	switch (port->id) {
- 	case 3:
- 		/* FIXME: handle XSI_PCIE1_PORT */
--		vip_port = XSI_PCIE0_VIP_PORT_MASK;
-+		vip_port = airoha_is_7581(eth) ? XSI_PCIE0_VIP_PORT_MASK
-+					       : XSI_ETH_VIP_PORT_MASK;
- 		break;
- 	case 4:
- 		/* FIXME: handle XSI_USB_PORT */
--		vip_port = XSI_ETH_VIP_PORT_MASK;
-+		vip_port = airoha_is_7581(eth) ? XSI_ETH_VIP_PORT_MASK
-+					       : XSI_PCIE0_VIP_PORT_MASK;
- 		break;
- 	default:
- 		return 0;
-@@ -1849,8 +1851,8 @@ static int airoha_dev_set_macaddr(struct
- static void airhoha_set_gdm2_loopback(struct airoha_gdm_port *port)
+@@ -1848,10 +1848,8 @@ static int airoha_dev_set_macaddr(struct
+ 
+ static int airhoha_set_gdm2_loopback(struct airoha_gdm_port *port)
  {
- 	u32 pse_port = port->id == 3 ? FE_PSE_PORT_GDM3 : FE_PSE_PORT_GDM4;
--	u32 wan_port, chan = port->id == 3 ? 4 : 0;
+-	u32 val, pse_port, chan = port->id == AIROHA_GDM3_IDX ? 4 : 0;
  	struct airoha_eth *eth = port->qdma->eth;
-+	u32 wan_port, chan;
+-	/* XXX: handle XSI_USB_PORT and XSI_PCE1_PORT */
+-	u32 nbq = port->id == AIROHA_GDM3_IDX ? 4 : 0;
++	u32 val, pse_port, chan, nbq;
+ 	int src_port;
  
  	/* Forward the traffic to the proper GDM port */
- 	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(2), pse_port);
-@@ -1859,6 +1861,8 @@ static void airhoha_set_gdm2_loopback(st
+@@ -1863,6 +1861,8 @@ static int airhoha_set_gdm2_loopback(str
  	/* Enable GDM2 loopback */
  	airoha_fe_wr(eth, REG_GDM_TXCHN_EN(2), 0xffffffff);
  	airoha_fe_wr(eth, REG_GDM_RXCHN_EN(2), 0xffff);
 +
-+	chan = port->id == 3 ? airoha_is_7581(eth) ? 4 : 3 : 0;
++	chan = port->id == AIROHA_GDM3_IDX ? airoha_is_7581(eth) ? 4 : 3 : 0;
  	airoha_fe_rmw(eth, REG_GDM_LPBK_CFG(2),
  		      LPBK_CHAN_MASK | LPBK_MODE_MASK | LPBK_EN_MASK,
  		      FIELD_PREP(LPBK_CHAN_MASK, chan) |
-@@ -1882,7 +1886,7 @@ static void airhoha_set_gdm2_loopback(st
- 		      SP_CPORT_MASK(wan_port & 0x7),
- 		      FE_PSE_PORT_CDM2 << __ffs(SP_CPORT_MASK(wan_port & 0x7)));
+@@ -1877,6 +1877,8 @@ static int airhoha_set_gdm2_loopback(str
+ 	airoha_fe_clear(eth, REG_FE_VIP_PORT_EN, BIT(2));
+ 	airoha_fe_clear(eth, REG_FE_IFC_PORT_EN, BIT(2));
  
--	if (port->id != 3)
-+	if (port->id != 3 && airoha_is_7581(eth))
++	/* XXX: handle XSI_USB_PORT and XSI_PCE1_PORT */
++	nbq = port->id == AIROHA_GDM3_IDX && airoha_is_7581(eth) ? 4 : 0;
+ 	src_port = eth->soc->ops.get_src_port_id(port, nbq);
+ 	if (src_port < 0)
+ 		return src_port;
+@@ -1890,7 +1892,7 @@ static int airhoha_set_gdm2_loopback(str
+ 		      SP_CPORT_MASK(val),
+ 		      FE_PSE_PORT_CDM2 << __ffs(SP_CPORT_MASK(val)));
+ 
+-	if (port->id != AIROHA_GDM3_IDX)
++	if (port->id != AIROHA_GDM3_IDX && airoha_is_7581(eth))
  		airoha_fe_rmw(eth, REG_SRC_PORT_FC_MAP6,
  			      FC_ID_OF_SRC_PORT24_MASK,
  			      FIELD_PREP(FC_ID_OF_SRC_PORT24_MASK, 2));
-@@ -2084,6 +2088,20 @@ static bool airoha_dev_is_tx_busy(struct
- 	return index >= q->tail && (q->head < q->tail || q->head > index);
+@@ -2100,6 +2102,20 @@ static bool airoha_dev_tx_queue_busy(str
+ 	return index >= tail;
  }
  
 +static int airoha_get_fe_port(struct airoha_gdm_port *port)
@@ -82,7 +77,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
  				   struct net_device *dev)
  {
-@@ -2124,7 +2142,7 @@ static netdev_tx_t airoha_dev_xmit(struc
+@@ -2140,7 +2156,7 @@ static netdev_tx_t airoha_dev_xmit(struc
  		}
  	}
  
@@ -91,9 +86,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	msg1 = FIELD_PREP(QDMA_ETH_TXMSG_FPORT_MASK, fport) |
  	       FIELD_PREP(QDMA_ETH_TXMSG_METER_MASK, 0x7f);
  
-@@ -3589,6 +3607,12 @@ static const char * const en7581_xsi_rst
- 	"xfp-mac",
- };
+@@ -3629,6 +3645,34 @@ static int airoha_en7581_get_src_port_id
+ 	return -EINVAL;
+ }
  
 +static const char * const an7583_xsi_rsts_names[] = {
 +	"hsi0-mac",
@@ -101,11 +96,33 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	"xfp-mac",
 +};
 +
++static int airoha_an7583_get_src_port_id(struct airoha_gdm_port *port, int nbq)
++{
++	switch (port->id) {
++	case 3:
++		/* 7583 SoC supports eth serdes on GDM3 port */
++		if (!nbq)
++			return HSGMII_LAN_7583_ETH_SRCPORT;
++		break;
++	case 4:
++		/* 7583 SoC supports PCIe and USB serdes on GDM4 port */
++		if (!nbq)
++			return HSGMII_LAN_7583_PCIE_SRCPORT;
++		if (nbq == 1)
++			return HSGMII_LAN_7583_USB_SRCPORT;
++		break;
++	default:
++		break;
++	}
++
++	return -EINVAL;
++}
++
  static const struct airoha_eth_soc_data en7581_soc_data = {
  	.version = 0x7581,
  	.xsi_rsts_names = en7581_xsi_rsts_names,
-@@ -3596,8 +3620,16 @@ static const struct airoha_eth_soc_data
- 	.num_ppe = 2,
+@@ -3639,8 +3683,19 @@ static const struct airoha_eth_soc_data
+ 	},
  };
  
 +static const struct airoha_eth_soc_data an7583_soc_data = {
@@ -113,6 +130,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	.xsi_rsts_names = an7583_xsi_rsts_names,
 +	.num_xsi_rsts = ARRAY_SIZE(an7583_xsi_rsts_names),
 +	.num_ppe = 1,
++	.ops = {
++		.get_src_port_id = airoha_an7583_get_src_port_id,
++	},
 +};
 +
  static const struct of_device_id of_airoha_match[] = {
@@ -123,7 +143,20 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  MODULE_DEVICE_TABLE(of, of_airoha_match);
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -648,6 +648,11 @@ static inline bool airoha_is_7581(struct
+@@ -85,6 +85,12 @@ enum {
+ };
+ 
+ enum {
++	HSGMII_LAN_7583_ETH_SRCPORT	= 0x16,
++	HSGMII_LAN_7583_PCIE_SRCPORT	= 0x18,
++	HSGMII_LAN_7583_USB_SRCPORT,
++};
++
++enum {
+ 	XSI_PCIE0_VIP_PORT_MASK	= BIT(22),
+ 	XSI_PCIE1_VIP_PORT_MASK	= BIT(23),
+ 	XSI_USB_VIP_PORT_MASK	= BIT(25),
+@@ -658,6 +664,11 @@ static inline bool airoha_is_7581(struct
  	return eth->soc->version == 0x7581;
  }
  
@@ -137,13 +170,13 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -36,6 +36,9 @@ static int airoha_ppe_get_num_stats_entr
- 					    u32 *num_stats)
- {
- #ifdef CONFIG_NET_AIROHA_FLOW_STATS
+@@ -37,6 +37,9 @@ static int airoha_ppe_get_num_stats_entr
+ 	if (!IS_ENABLED(CONFIG_NET_AIROHA_FLOW_STATS))
+ 		return -EOPNOTSUPP;
+ 
 +	if (airoha_is_7583(ppe->eth))
 +		return -EOPNOTSUPP;
 +
- 	*num_stats = PPE_STATS_NUM_ENTRIES;
- 	return 0;
- #else
+ 	return PPE_STATS_NUM_ENTRIES;
+ }
+ 
