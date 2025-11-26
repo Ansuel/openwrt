@@ -13,28 +13,40 @@ diff --git a/drivers/net/phy/as21xxx.c b/drivers/net/phy/as21xxx.c
 index 97fc80bf147..5786de53bc4 100644
 --- a/drivers/net/phy/as21xxx.c
 +++ b/drivers/net/phy/as21xxx.c
-@@ -530,6 +530,26 @@ static int as21xxx_config(struct phy_device *phydev)
+@@ -530,6 +530,9 @@ static int as21xxx_config(struct phy_device *phydev)
+ 			     		 VEND1_LED_REG_A_EVENT_ON_LINK_BLINK_ACT));
+ }
+ 
++static bool phy1_reset = false;
++static bool phy2_reset = false;
++
+ static int as21xxx_config(struct phy_device *phydev)
+ {
+ 	struct as21xxx_priv *priv = phydev->priv;
+@@ -530,6 +530,28 @@ static int as21xxx_config(struct phy_device *phydev)
  	u16 ret_sts;
  	int ret;
  
 +	/* HACK to trigger HW reset on GPIO 34 */
-+	if (phydev->addr == 0x1c || phydev->addr == 0x1f) {
++	if (!phy1_reset && (phydev->addr == 0x1c || phydev->addr == 0x1f)) {
 +		writel(BIT(6), 0x1fbf0260);
 +		writel(BIT(3), 0x1fbf0278);
 +		writel(0x0, 0x1fbf0270);
 +		udelay(200000);
 +		writel(BIT(3), 0x1fbf0270);
 +		udelay(350000);
++		phy1_reset = true;
 +	}
 +
 +	/* HACK to trigger HW reset on GPIO 35 */
-+	if (phydev->addr == 0x1d) {
++	if (!phy2_reset && phydev->addr == 0x1d) {
 +		writel(BIT(4), 0x1fbf0260);
 +		writel(BIT(2), 0x1fbf0278);
 +		writel(0x0, 0x1fbf0270);
 +		udelay(200000);
 +		writel(BIT(2), 0x1fbf0270);
 +		udelay(350000);
++		phy2_reset = true;
 +	}
 +
  	get_phy_id(phydev->bus, phydev->addr, MDIO_MMD_PCS, &phyid);
