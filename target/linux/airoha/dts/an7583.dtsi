@@ -112,77 +112,92 @@
 
 		opp-500000000 {
 			opp-hz = /bits/ 64 <500000000>;
-			required-opps = <&smcc_opp0>;
+			required-opps = <&smcc_opp0>, <&bus_low>,
+					<&gsw_low>, <&emi_low>, <&npu_low>;
 		};
 
 		opp-550000000 {
 			opp-hz = /bits/ 64 <550000000>;
-			required-opps = <&smcc_opp1>;
+			required-opps = <&smcc_opp1>, <&bus_low>,
+					<&gsw_low>, <&emi_low>, <&npu_low>;
 		};
 
 		opp-600000000 {
 			opp-hz = /bits/ 64 <600000000>;
-			required-opps = <&smcc_opp2>;
+			required-opps = <&smcc_opp2>, <&bus_low>,
+					<&gsw_low>, <&emi_low>, <&npu_low>;
 		};
 
 		opp-650000000 {
 			opp-hz = /bits/ 64 <650000000>;
-			required-opps = <&smcc_opp3>;
+			required-opps = <&smcc_opp3>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 
 		opp-7000000000 {
 			opp-hz = /bits/ 64 <700000000>;
-			required-opps = <&smcc_opp4>;
+			required-opps = <&smcc_opp4>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 
 		opp-7500000000 {
 			opp-hz = /bits/ 64 <750000000>;
-			required-opps = <&smcc_opp5>;
+			required-opps = <&smcc_opp5>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 
 		opp-8000000000 {
 			opp-hz = /bits/ 64 <800000000>;
-			required-opps = <&smcc_opp6>;
+			required-opps = <&smcc_opp6>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 
 		opp-8500000000 {
 			opp-hz = /bits/ 64 <850000000>;
-			required-opps = <&smcc_opp7>;
+			required-opps = <&smcc_opp7>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 
 		opp-9000000000 {
 			opp-hz = /bits/ 64 <900000000>;
-			required-opps = <&smcc_opp8>;
+			required-opps = <&smcc_opp8>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 
 		opp-9500000000 {
 			opp-hz = /bits/ 64 <950000000>;
-			required-opps = <&smcc_opp9>;
+			required-opps = <&smcc_opp9>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 
 		opp-10000000000 {
 			opp-hz = /bits/ 64 <1000000000>;
-			required-opps = <&smcc_opp10>;
+			required-opps = <&smcc_opp10>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 
 		opp-10500000000 {
 			opp-hz = /bits/ 64 <1050000000>;
-			required-opps = <&smcc_opp11>;
+			required-opps = <&smcc_opp11>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 
 		opp-11000000000 {
 			opp-hz = /bits/ 64 <1100000000>;
-			required-opps = <&smcc_opp12>;
+			required-opps = <&smcc_opp12>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 
 		opp-11500000000 {
 			opp-hz = /bits/ 64 <1150000000>;
-			required-opps = <&smcc_opp13>;
+			required-opps = <&smcc_opp13>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 
 		opp-12000000000 {
 			opp-hz = /bits/ 64 <1200000000>;
-			required-opps = <&smcc_opp14>;
+			required-opps = <&smcc_opp14>, <&bus_high>,
+					<&gsw_high>, <&emi_high>, <&npu_high>;
 		};
 	};
 
@@ -248,6 +263,78 @@
 		smcc_opp14: opp14 {
 			opp-level = <14>;
 		};
+	};
+
+	npu_opp_table: opp-table-npu {
+		compatible = "operating-points-v2";
+
+		npu_low: opp-400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+		};
+
+		npu_high: opp-720000000 {
+			opp-hz = /bits/ 64 <720000000>;
+		};
+	};
+
+	emi_opp_table: opp-table-emi {
+		compatible = "operating-points-v2";
+
+		emi_low: opp-400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+		};
+
+		emi_high: opp-540000000 {
+			opp-hz = /bits/ 64 <540000000>;
+		};
+	};
+
+	bus_opp_table: opp-table-bus {
+		compatible = "operating-points-v2";
+
+		bus_low: opp-240000000 {
+			opp-hz = /bits/ 64 <240000000>;
+		};
+
+		bus_high: opp-300000000 {
+			opp-hz = /bits/ 64 <300000000>;
+		};
+	};
+
+	gsw_opp_table: opp-table-gsw {
+		compatible = "operating-points-v2";
+
+		gsw_low: opp-270000000 {
+			opp-hz = /bits/ 64 <270000000>;
+		};
+
+		gsw_high: opp-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+		};
+	};
+
+	npu-devfreq {
+		compatible = "airoha,devfreq";
+		operating-points-v2 = <&npu_opp_table>;
+		clocks = <&scuclk EN7523_CLK_NPU>;
+	};
+
+	emi-devfreq {
+		compatible = "airoha,devfreq";
+		operating-points-v2 = <&emi_opp_table>;
+		clocks = <&scuclk EN7523_CLK_EMI>;
+	};
+
+	bus-devfreq {
+		compatible = "airoha,devfreq";
+		operating-points-v2 = <&bus_opp_table>;
+		clocks = <&scuclk EN7523_CLK_BUS>;
+	};
+
+	gsw-devfreq {
+		compatible = "airoha,devfreq";
+		operating-points-v2 = <&gsw_opp_table>;
+		clocks = <&scuclk EN7523_CLK_GSW>;
 	};
 
 	timer {
