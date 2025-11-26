@@ -69,7 +69,7 @@ new file mode 100644
 index 000000000000..3c948336c871
 --- /dev/null
 +++ b/drivers/phy/airoha/phy-airoha-an7583-usb.c
-@@ -0,0 +1,1310 @@
+@@ -0,0 +1,1309 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Author: Christian Marangi <ansuelsmth@gmail.com>
@@ -84,7 +84,6 @@ index 000000000000..3c948336c871
 +#include <linux/platform_device.h>
 +#include <linux/regmap.h>
 +#include <linux/mfd/syscon.h>
-+#include <linux/soc/airoha/airoha-scu-ssr.h>
 +
 +/* SCU */
 +#define AIROHA_SCU_SSTR				0x9c
