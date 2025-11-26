@@ -1,0 +1,167 @@
+From 9c94028e5fd8371e47942b1c9053ab5ded52f632 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Wed, 26 Nov 2025 01:01:10 +0100
+Subject: [PATCH] PM / devfreq: add Airoha SoC devfreq driver
+
+Add simple Airoha SoC devfreq driver. This simple driver register a
+driver from a given clock and register a passive governor to scale the
+frequency with the CPU frequency.
+
+required-opp on the CPU frequency will be used to correctly bind the
+clock to the related CPU frequency.
+
+GSW, NPU, SOE, BUS and many other clock will register this devfreq
+driver to scale all these internal peripheral  from idle to performance
+mode.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/devfreq/Kconfig          |  10 +++
+ drivers/devfreq/Makefile         |   1 +
+ drivers/devfreq/airoha-devfreq.c | 101 +++++++++++++++++++++++++++++++
+ 3 files changed, 112 insertions(+)
+ create mode 100644 drivers/devfreq/airoha-devfreq.c
+
+diff --git a/drivers/devfreq/Kconfig b/drivers/devfreq/Kconfig
+index c999c4a1e567..1e857a7e9caf 100644
+--- a/drivers/devfreq/Kconfig
++++ b/drivers/devfreq/Kconfig
+@@ -75,6 +75,16 @@ config DEVFREQ_GOV_PASSIVE
+ 
+ comment "DEVFREQ Drivers"
+ 
++config ARM_AIROHA_DEVFREQ
++	tristate "Scaling support for Airoha SoC"
++	depends on ARCH_AIROHA || COMPILE_TEST
++	select DEVFREQ_GOV_PASSIVE
++	help
++	  This adds the DEVFREQ driver for the Airoha SoC.
++
++	  The driver register with the cpufreq notifier and find the right frequency
++	  based on the required OPP set in DT.
++
+ config ARM_EXYNOS_BUS_DEVFREQ
+ 	tristate "ARM Exynos Generic Memory Bus DEVFREQ Driver"
+ 	depends on ARCH_EXYNOS || COMPILE_TEST
+diff --git a/drivers/devfreq/Makefile b/drivers/devfreq/Makefile
+index 404179d79a9d..5ca27684dee3 100644
+--- a/drivers/devfreq/Makefile
++++ b/drivers/devfreq/Makefile
+@@ -8,6 +8,7 @@ obj-$(CONFIG_DEVFREQ_GOV_USERSPACE)	+= governor_userspace.o
+ obj-$(CONFIG_DEVFREQ_GOV_PASSIVE)	+= governor_passive.o
+ 
+ # DEVFREQ Drivers
++obj-$(CONFIG_ARM_AIROHA_DEVFREQ)	+= airoha-devfreq.o
+ obj-$(CONFIG_ARM_EXYNOS_BUS_DEVFREQ)	+= exynos-bus.o
+ obj-$(CONFIG_ARM_HISI_UNCORE_DEVFREQ)	+= hisi_uncore_freq.o
+ obj-$(CONFIG_ARM_IMX_BUS_DEVFREQ)	+= imx-bus.o
+diff --git a/drivers/devfreq/airoha-devfreq.c b/drivers/devfreq/airoha-devfreq.c
+new file mode 100644
+index 000000000000..2c1afccad8ca
+--- /dev/null
++++ b/drivers/devfreq/airoha-devfreq.c
+@@ -0,0 +1,101 @@
++// SPDX-License-Identifier: GPL-2.0
++
++#include <linux/kernel.h>
++#include <linux/init.h>
++#include <linux/module.h>
++#include <linux/cpufreq.h>
++#include <linux/devfreq.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++#include <linux/clk.h>
++#include <linux/slab.h>
++#include <linux/pm_opp.h>
++
++#include "governor.h"
++
++struct airoha_devfreq_data {
++	struct clk *clk;
++
++	struct devfreq_passive_data gov_data;
++};
++
++static int airoha_devfreq_get_cur_freq(struct device *dev, unsigned long *freq)
++{
++	struct airoha_devfreq_data *data = dev_get_drvdata(dev);
++
++	*freq = clk_get_rate(data->clk);
++
++	return 0;
++};
++
++static int airoha_devfreq_target(struct device *dev, unsigned long *freq,
++				 u32 flags)
++{
++	struct airoha_devfreq_data *data = dev_get_drvdata(dev);
++
++	return clk_set_rate(data->clk, *freq);
++};
++
++static int airoha_devfreq_get_dev_status(struct device *dev,
++					 struct devfreq_dev_status *stat)
++{
++	struct airoha_devfreq_data *data = dev_get_drvdata(dev);
++
++	stat->busy_time = 0;
++	stat->total_time = 0;
++	stat->current_frequency = clk_get_rate(data->clk);
++
++	return 0;
++};
++
++static struct devfreq_dev_profile airoha_devfreq_devfreq_profile = {
++	.target = airoha_devfreq_target,
++	.get_dev_status = airoha_devfreq_get_dev_status,
++	.get_cur_freq = airoha_devfreq_get_cur_freq
++};
++
++static int airoha_devfreq_probe(struct platform_device *pdev)
++{
++	struct device *dev = &pdev->dev;
++	struct airoha_devfreq_data *data;
++	struct devfreq *devfreq;
++	int ret;
++
++	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++	data->clk = devm_clk_get_enabled(dev, NULL);
++	if (IS_ERR(data->clk))
++		return dev_err_probe(dev, PTR_ERR(data->clk), "failed to get clk\n");
++
++	ret = devm_pm_opp_of_add_table(dev);
++	if (ret)
++		return dev_err_probe(dev, ret, "failed to parse fab freq thresholds\n");
++
++	dev_set_drvdata(dev, data);
++
++	data->gov_data.parent_type = CPUFREQ_PARENT_DEV;
++	devfreq = devm_devfreq_add_device(dev, &airoha_devfreq_devfreq_profile,
++					  DEVFREQ_GOV_PASSIVE, &data->gov_data);
++
++	return PTR_ERR_OR_ZERO(devfreq);
++};
++
++static const struct of_device_id airoha_devfreq_match_table[] = {
++	{ .compatible = "airoha,devfreq" },
++	{}
++};
++
++static struct platform_driver airoha_devfreq_driver = {
++	.probe		= airoha_devfreq_probe,
++	.driver		= {
++		.name   = "airoha-devfreq",
++		.of_match_table = airoha_devfreq_match_table,
++	},
++};
++module_platform_driver(airoha_devfreq_driver);
++
++MODULE_DESCRIPTION("Airoha Devfreq driver");
++MODULE_AUTHOR("Christian Marangi <ansuelsmth@gmail.com>");
++MODULE_LICENSE("GPL");
+-- 
+2.51.0
+
