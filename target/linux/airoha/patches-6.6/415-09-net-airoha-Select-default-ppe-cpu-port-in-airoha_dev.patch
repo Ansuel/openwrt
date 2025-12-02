@@ -1,15 +1,18 @@
-From 14549a23214ad4bc7d88f182f44d030405c0f7b9 Mon Sep 17 00:00:00 2001
-Message-ID: <14549a23214ad4bc7d88f182f44d030405c0f7b9.1758815505.git.lorenzo@kernel.org>
-In-Reply-To: <f8e2fa02a3000d80cf187acb55abc86cc3e9d2f0.1758815505.git.lorenzo@kernel.org>
-References: <f8e2fa02a3000d80cf187acb55abc86cc3e9d2f0.1758815505.git.lorenzo@kernel.org>
+From e5d3ce82694d935b231bd3374bf867152ae43d5f Mon Sep 17 00:00:00 2001
+Message-ID: <e5d3ce82694d935b231bd3374bf867152ae43d5f.1760605688.git.lorenzo@kernel.org>
+In-Reply-To: <36f9261198c92013fca08c3cee4620364a2447fb.1760605688.git.lorenzo@kernel.org>
+References: <36f9261198c92013fca08c3cee4620364a2447fb.1760605688.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 21 Sep 2025 15:38:32 +0200
-Subject: [PATCH 2/4] net: airoha: Select default ppe cpu port in
+Subject: [PATCH net-next 08/10] net: airoha: Select default ppe cpu port in
  airoha_dev_init()
 
-Select PPE defualt cpu port in airoha_dev_init routine.
-For PPE2 always use secondary cpu port. For PPE1 select cpu port
-according to the running QDMA.
+Select the PPE default cpu port in airoha_dev_init routine.
+This patch allows to distribute the load between the two available cpu
+ports (FE_PSE_PORT_CDM1 and FE_PSE_PORT_CDM2) if the device is running a
+single PPE module (e.g. 7583) selecting the cpu port based on the use
+QDMA device. For multi-PPE device (e.g. 7581) assign FE_PSE_PORT_CDM1 to
+PPE1 and FE_PSE_PORT_CDM2 to PPE2.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
@@ -44,7 +47,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	/* enable 1:N vlan action, init vlan table */
  	airoha_fe_set(eth, REG_MC_VLAN_EN, MC_VLAN_EN_MASK);
  
-@@ -1911,8 +1892,10 @@ static void airhoha_set_gdm2_loopback(st
+@@ -1920,8 +1901,10 @@ static void airhoha_set_gdm2_loopback(st
  static int airoha_dev_init(struct net_device *dev)
  {
  	struct airoha_gdm_port *port = netdev_priv(dev);
@@ -57,7 +60,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	airoha_set_macaddr(port, dev->dev_addr);
  
-@@ -1925,16 +1908,27 @@ static int airoha_dev_init(struct net_de
+@@ -1934,16 +1917,27 @@ static int airoha_dev_init(struct net_de
  		fallthrough;
  	case 2:
  		if (airoha_ppe_is_enabled(eth, 1)) {
