@@ -123,39 +123,6 @@
 	pinctrl-1 = <&mmc_pins>;
 	status = "okay";
 
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	card@0 {
-		compatible = "mmc-card";
-		reg = <0>;
-
-		partitions {
-			compatible = "fixed-partitions";
-			#address-cells = <1>;
-			#size-cells = <1>;
-
-			bootloader@0 {
-				label = "bootloader";
-				reg = <0x00000000 0x00080000>;
-			};
-
-			tclinux@80000 {
-				label = "tclinux";
-				reg = <0x00080000 0x02800000>;
-			};
-
-			tclinux_slave@2880000 {
-				label = "tclinux_slave";
-				reg = <0x02880000 0x02800000>;
-			};
-
-			rootfs_data@5080000 {
-				label = "rootfs_data";
-				reg = <0x5080000 0x00800000>;
-			};
-		};
-	};
 };
 
 &i2c0 {

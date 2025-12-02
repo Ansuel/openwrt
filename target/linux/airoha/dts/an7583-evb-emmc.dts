@@ -145,48 +145,6 @@
 	pinctrl-1 = <&mmc_pins>;
 	status = "okay";
 
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	card@0 {
-		compatible = "mmc-card";
-		reg = <0>;
-
-		block {
-			compatible = "block-device";
-			partitions {
-				block-partition-factory {
-					partname = "art";
-
-					nvmem-layout {
-						compatible = "fixed-layout";
-						#address-cells = <1>;
-						#size-cells = <1>;
-
-						eeprom_factory_0: eeprom@0 {
-							reg = <0x40000 0x1e00>;
-						};
-
-						mac_factory_2c0000: mac@2c0000 {
-							reg = <0x2c0000 0x6>;
-						};
-
-						pon_mac_factory_2c0006: pon_mac@2c0006 {
-							reg = <0x2c0006 0x6>;
-						};
-
-						onu_type_factory_2e0000: onu_type@2e0000 {
-							reg = <0x2e0000 0x10>;
-						};
-
-						board_config_factory_2e0010: board_config@2e0010 {
-							reg = <0x2e0010 0x8>;
-						};
-					};
-				};
-			};
-		};
-	};
 };
 
 &i2c0 {

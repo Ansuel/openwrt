@@ -21,5 +21,6 @@ define Device/airoha_an7583-evb-emmc
   DEVICE_MODEL := AN7583 Evaluation Board (EMMC)
   DEVICE_DTS := an7583-evb-emmc
   DEVICE_PACKAGES := kmod-phy-airoha-en8811h kmod-i2c-an7581
+  IMAGE/sysupgrade.bin := append-kernel | pad-to 8M | append-rootfs | pad-rootfs | append-metadata
 endef
 TARGET_DEVICES += airoha_an7583-evb-emmc
