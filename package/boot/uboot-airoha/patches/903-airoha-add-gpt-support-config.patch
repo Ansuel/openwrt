@@ -1,0 +1,37 @@
+From b287e11b5c601cf6f59e41f631765528d3a9153c Mon Sep 17 00:00:00 2001
+From: YaleiZang <yalei.zang@airoha.com>
+Date: Tue, 2 Dec 2025 19:38:46 +0800
+Subject: [PATCH] airoha:fix gpt write with airoha bootrom
+
+---
+ disk/part_efi.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+diff --git a/disk/part_efi.c b/disk/part_efi.c
+index 932d058c..ab3be374 100644
+--- a/disk/part_efi.c
++++ b/disk/part_efi.c
+@@ -461,8 +461,9 @@ int gpt_fill_pte(struct blk_desc *desc,
+ 		 * If our partition overlaps with either the GPT
+ 		 * header, or the partition entry, reject it.
+ 		 */
+-		if (((start < hdr_end && hdr_start < (start + size)) ||
+-		     (start < pte_end && pte_start < (start + size)))) {
++		//if (((start < hdr_end && hdr_start < (start + size)) ||
++		//     (start < pte_end && pte_start < (start + size)))) {
++		if (start < pte_end && pte_start < (start + size)) {
+ 			log_debug("Partition overlap\n");
+ 			return -ENOSPC;
+ 		}
+@@ -601,7 +602,7 @@ int gpt_fill_header(struct blk_desc *desc, gpt_header *gpt_h, char *str_guid,
+ 	gpt_h->partition_entry_lba =
+ 		cpu_to_le64(partition_entries_offset(desc));
+ 	gpt_h->first_usable_lba =
+-		cpu_to_le64(le64_to_cpu(gpt_h->partition_entry_lba) + 32);
++		cpu_to_le64(le64_to_cpu(1));
+ 	gpt_h->num_partition_entries = cpu_to_le32(GPT_ENTRY_NUMBERS);
+ 	gpt_h->sizeof_partition_entry = cpu_to_le32(sizeof(gpt_entry));
+ 	gpt_h->header_crc32 = 0;
+-- 
+2.17.1
+
