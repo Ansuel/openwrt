@@ -139,7 +139,7 @@
 			"Headphone", "HP_R",
 			"LINPUT1", "AMIC",
 			"RINPUT1", "AMIC";
-
+	dai-format = "i2s";
 	status = "okay";
 
 	codec {
@@ -147,8 +147,21 @@
 	};
 };
 
+&afe {
+	pinctrl-names = "default";
+	pinctrl-0 = <&i2s_pins>;
+	status = "okay";
+};
+
 &en7581_pinctrl {
 	gpio-ranges = <&en7581_pinctrl 0 13 47>;
+
+	i2s_pins: i2s-pins {
+		mux {
+			function = "i2s";
+			groups = "i2s";
+		};
+	};
 
 	mdio_pins: mdio-pins {
 		mux {
