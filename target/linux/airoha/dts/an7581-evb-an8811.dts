@@ -215,17 +215,16 @@
 
 	phy-handle = <&an8811>;
 	phy-mode = "2500base-x";
-	
-	fixed-link {
-		speed = <2500>;
-		full-duplex;
-	};
 };
 
 &mdio {
 	an8811: ethernet-phy@f {
 		reg = <0xf>;
 		phy-mode = "2500base-x";
+
+		reset-gpios = <&en7581_pinctrl 28 GPIO_ACTIVE_LOW>;
+		reset-assert-us = <10000>;
+		reset-deassert-us = <20000>;
 	};
 };
 
