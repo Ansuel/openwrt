@@ -9,5 +9,7 @@ FEATURES:=dt squashfs nand ramdisk gpio usb
 KERNEL_PATCHVER:=6.6
 
 include $(INCLUDE_DIR)/target.mk
+DEFAULT_PACKAGES += \
+	kmod-net-airoha
 
 $(eval $(call BuildTarget))

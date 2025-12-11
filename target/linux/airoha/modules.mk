@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
+NETWORK_DEVICES_MENU:=Network Devices
 OTHER_MENU:=Other modules
 
 I2C_MT7621_MODULES:= \
@@ -39,4 +40,25 @@ endef
 
 $(eval $(call KernelPackage,pwm-an7581))
 
+
+define KernelPackage/net-airoha
+  SUBMENU:=$(NETWORK_DEVICES_MENU)
+  TITLE:=Airoha Ethernet
+  DEPENDS:=@TARGET_airoha
+  KCONFIG:= \
+        CONFIG_NET_VENDOR_AIROHA=y \
+        CONFIG_NET_AIROHA \
+        CONFIG_NET_AIROHA_NPU \
+        CONFIG_NET_AIROHA_FLOW_STATS=y
+  FILES:= \
+        $(LINUX_DIR)/drivers/net/ethernet/airoha/airoha-eth.ko \
+        $(LINUX_DIR)/drivers/net/ethernet/airoha/airoha_npu.ko
+  AUTOLOAD:=$(call AutoProbe,airoha-eth,1)
+endef
+
+define KernelPackage/net-airoha/description
+ Kernel module to enable Ethernet support for Airoha SoC
+endef
+
+$(eval $(call KernelPackage,net-airoha))
 
