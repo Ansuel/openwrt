@@ -1,4 +1,4 @@
-From 500f525a21bfc18605b23e7b39fc1d8f74393b30 Mon Sep 17 00:00:00 2001
+From 0b407c66b393e76252630b1cb348a7c2e221801b Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Wed, 25 Jun 2025 00:00:59 +0200
 Subject: [PATCH 6/8] net: pcs: airoha: add support for Airoha AN7583 SoC
@@ -44,7 +44,7 @@ index 25cb8f090c21..69b8b0a0266b 100644
 +pcs-airoha-objs			+= pcs-an7583.o
 +endif
 diff --git a/drivers/net/pcs/airoha/pcs-airoha-common.c b/drivers/net/pcs/airoha/pcs-airoha-common.c
-index 916f03c259bd..f9ba4a47da1d 100644
+index 61258211d974..d8e0e68dd339 100644
 --- a/drivers/net/pcs/airoha/pcs-airoha-common.c
 +++ b/drivers/net/pcs/airoha/pcs-airoha-common.c
 @@ -19,6 +19,7 @@
@@ -96,7 +96,7 @@ index 916f03c259bd..f9ba4a47da1d 100644
  }
  
  static void airoha_pcs_init_hsgmii(struct airoha_pcs_priv *priv)
-@@ -434,6 +449,13 @@ static int airoha_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
+@@ -449,6 +464,13 @@ static int airoha_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
  					AIROHA_PCS_USXGMII_PCS_AN_CONTROL_7,
  					AIROHA_PCS_USXGMII_RATE_UPDATE_MODE);
  		}
@@ -110,17 +110,7 @@ index 916f03c259bd..f9ba4a47da1d 100644
  	}
  
  	/* Clear any force bit that my be set by bootloader */
-@@ -985,7 +1007,8 @@ static int airoha_pcs_probe(struct platform_device *pdev)
- 	 * manual rx calibration is needed. This is only limited to
- 	 * any SoC revision before E2.
- 	 */
--	if (data->port_type == AIROHA_PCS_ETH) {
-+	if (device_is_compatible(dev, "airoha,an7581-pcs-eth") &&
-+	    data->port_type == AIROHA_PCS_ETH) {
- 		u32 val;
- 
- 		ret = regmap_read(priv->scu, AIROHA_SCU_PDIDR, &val);
-@@ -1003,6 +1026,8 @@ static int airoha_pcs_probe(struct platform_device *pdev)
+@@ -1009,6 +1031,8 @@ static int airoha_pcs_probe(struct platform_device *pdev)
  
  static const struct airoha_pcs_match_data an7581_pcs_eth = {
  	.port_type = AIROHA_PCS_ETH,
@@ -129,7 +119,7 @@ index 916f03c259bd..f9ba4a47da1d 100644
  	.bringup = an7581_pcs_bringup,
  	.link_up = an7581_pcs_phya_link_up,
  	.rxlock_workaround = an7581_pcs_rxlock_workaround,
-@@ -1008,13 +1032,33 @@ static const struct airoha_pcs_match_data an7581_pcs_eth = {
+@@ -1016,6 +1040,8 @@ static const struct airoha_pcs_match_data an7581_pcs_eth = {
  
  static const struct airoha_pcs_match_data an7581_pcs_pon = {
  	.port_type = AIROHA_PCS_PON,
@@ -137,6 +127,9 @@ index 916f03c259bd..f9ba4a47da1d 100644
 +	.usxgmii_ber_time_fixup = true,
  	.bringup = an7581_pcs_bringup,
  	.link_up = an7581_pcs_phya_link_up,
+ };
+@@ -1025,10 +1051,28 @@ static const struct airoha_pcs_match_data an7581_pcs_usb = {
+ 	.bringup = an7581_pcs_usb_bringup,
  };
  
 +static const struct airoha_pcs_match_data an7583_pcs_eth = {
@@ -158,13 +151,14 @@ index 916f03c259bd..f9ba4a47da1d 100644
  static const struct of_device_id airoha_pcs_of_table[] = {
  	{ .compatible = "airoha,an7581-pcs-eth", .data = &an7581_pcs_eth },
  	{ .compatible = "airoha,an7581-pcs-pon", .data = &an7581_pcs_pon },
+ 	{ .compatible = "airoha,an7581-pcs-usb", .data = &an7581_pcs_usb },
 +	{ .compatible = "airoha,an7583-pcs-eth", .data = &an7583_pcs_eth },
 +	{ .compatible = "airoha,an7583-pcs-pon", .data = &an7583_pcs_pon },
  	{ /* sentinel */ },
  };
  MODULE_DEVICE_TABLE(of, airoha_pcs_of_table);
 diff --git a/drivers/net/pcs/airoha/pcs-airoha.h b/drivers/net/pcs/airoha/pcs-airoha.h
-index 93ddec60d6dd..790adbe5179c 100644
+index 16afd6f47130..c09b0b6828d5 100644
 --- a/drivers/net/pcs/airoha/pcs-airoha.h
 +++ b/drivers/net/pcs/airoha/pcs-airoha.h
 @@ -14,6 +14,9 @@
@@ -177,7 +171,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define   AIROHA_SCU_WAN_SEL			GENMASK(7, 0)
  #define   AIROHA_SCU_WAN_SEL_SGMII		FIELD_PREP_CONST(AIROHA_SCU_WAN_SEL, 0x10)
  #define   AIROHA_SCU_WAN_SEL_HSGMII		FIELD_PREP_CONST(AIROHA_SCU_WAN_SEL, 0x11)
-@@ -244,6 +247,8 @@
+@@ -281,6 +284,8 @@
  #define AIROHA_PCS_USXGMII_PCS_AN_CONTROL_6	0x31c
  #define   AIROHA_PCS_USXGMII_TOG_PCS_AUTONEG_STS BIT(0)
  #define AIROHA_PCS_USXGMII_PCS_AN_CONTROL_7	0x320
@@ -186,7 +180,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define   AIROHA_PCS_USXGMII_RATE_UPDATE_MODE	BIT(12)
  #define   AIROHA_PCS_USXGMII_MODE		GENMASK(10, 8)
  #define   AIROHA_PCS_USXGMII_MODE_10000		FIELD_PREP_CONST(AIROHA_PCS_USXGMII_MODE, 0x0)
-@@ -251,9 +256,27 @@
+@@ -288,9 +293,27 @@
  #define   AIROHA_PCS_USXGMII_MODE_2500		FIELD_PREP_CONST(AIROHA_PCS_USXGMII_MODE, 0x2)
  #define   AIROHA_PCS_USXGMII_MODE_1000		FIELD_PREP_CONST(AIROHA_PCS_USXGMII_MODE, 0x3)
  #define   AIROHA_PCS_USXGMII_MODE_100		FIELD_PREP_CONST(AIROHA_PCS_USXGMII_MODE, 0x4)
@@ -214,7 +208,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define   AIROHA_PCS_ANA_CMN_EN			BIT(0)
  #define AIROHA_PCS_ANA_PXP_JCPLL_IB_EXT_EN	0x4
  #define   AIROHA_PCS_ANA_JCPLL_CHP_IOFST	GENMASK(29, 24)
-@@ -347,6 +370,8 @@
+@@ -384,6 +407,8 @@
  #define   AIROHA_PCS_ANA_JCPLL_TCL_KBAND_VREF	GENMASK(20, 16)
  #define   AIROHA_PCS_ANA_JCPLL_SPARE_L		GENMASK(15, 8)
  #define     AIROHA_PCS_ANA_JCPLL_SPARE_L_LDO	FIELD_PREP_CONST(AIROHA_PCS_ANA_JCPLL_SPARE_L, BIT(5))
@@ -223,7 +217,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_ANA_PXP_TXPLL_CHP_IBIAS	0x50
  #define   AIROHA_PCS_ANA_TXPLL_LPF_BC		GENMASK(28, 24)
  #define   AIROHA_PCS_ANA_TXPLL_LPF_BR		GENMASK(20, 16)
-@@ -370,6 +395,9 @@
+@@ -407,6 +432,9 @@
  #define   AIROHA_PCS_ANA_TXPLL_MMD_PREDIV_MODE_1 FIELD_PREP_CONST(AIROHA_PCS_ANA_TXPLL_MMD_PREDIV_MODE, 0x3)
  #define   AIROHA_PCS_ANA_TXPLL_POSTDIV_EN	BIT(8)
  #define   AIROHA_PCS_ANA_TXPLL_KBAND_KS		GENMASK(1, 0)
@@ -233,7 +227,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_ANA_PXP_TXPLL_REFIN_INTERNAL	0x64
  #define   AIROHA_PCS_ANA_TXPLL_PLL_RSTB		BIT(24)
  #define   AIROHA_PCS_ANA_TXPLL_RST_DLY		GENMASK(18, 16)
-@@ -435,16 +463,41 @@
+@@ -472,16 +500,41 @@
  #define   AIROHA_PCS_ANA_TXPLL_LDO_VCO_OUT	GENMASK(25, 24)
  #define   AIROHA_PCS_ANA_TXPLL_LDO_OUT		GENMASK(17, 16)
  #define   AIROHA_PCS_ANA_TXPLL_SSC_PERIOD	GENMASK(15, 0)
@@ -275,7 +269,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_ANA_PXP_RX_REV_0		0xd4
  #define   AIROHA_PCS_ANA_RX_REV_1		GENMASK(31, 16)
  #define     AIROHA_PCS_ANA_REV_1_FE_EQ_BIAS_CTRL GENMASK(30, 28)
-@@ -452,6 +505,16 @@
+@@ -489,6 +542,16 @@
  #define     AIROHA_PCS_ANA_REV_1_FE_BUF2_BIAS_CTRL GENMASK(22, 20)
  #define     AIROHA_PCS_ANA_REV_1_SIGDET_ILEAK	GENMASK(19, 18)
  #define     AIROHA_PCS_ANA_REV_1_FECUR_PWDB	BIT(16)
@@ -292,7 +286,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_ANA_PXP_RX_PHYCK_DIV		0xd8
  #define   AIROHA_PCS_ANA_RX_TDC_CK_SEL		BIT(24)
  #define   AIROHA_PCS_ANA_RX_PHYCK_RSTB		BIT(16)
-@@ -460,6 +523,8 @@
+@@ -497,6 +560,8 @@
  #define AIROHA_PCS_ANA_PXP_CDR_PD_PICAL_CKD8_INV 0xdc
  #define   AIROHA_PCS_ANA_CDR_PD_EDGE_DIS	BIT(8)
  #define   AIROHA_PCS_ANA_CDR_PD_PICAL_CKD8_INV	BIT(0)
@@ -301,7 +295,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_ANA_PXP_CDR_LPF_RATIO	0xe8
  #define   AIROHA_PCS_ANA_CDR_LPF_TOP_LIM	GENMASK(26, 8)
  #define   AIROHA_PCS_ANA_CDR_LPF_RATIO		GENMASK(1, 0)
-@@ -475,6 +540,19 @@
+@@ -512,6 +577,19 @@
  #define   AIROHA_PCS_ANA_CDR_PR_DAC_BAND	GENMASK(20, 16)
  #define   AIROHA_PCS_ANA_CDR_PR_VREG_CKBUF_VAL	GENMASK(10, 8)
  #define   AIROHA_PCS_ANA_CDR_PR_VREG_IBAND_VAL	GENMASK(2, 0)
@@ -321,7 +315,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_ANA_PXP_CDR_PR_MONPR_EN	0x10c
  #define   AIROHA_PCS_ANA_RX_DAC_MON		GENMASK(28, 24)
  #define   AIROHA_PCS_ANA_CDR_PR_CAP_EN		BIT(19)
-@@ -484,6 +562,7 @@
+@@ -521,6 +599,7 @@
  #define   AIROHA_PCS_ANA_CDR_PR_MONDPR_EN	BIT(0)
  #define AIROHA_PCS_ANA_PXP_RX_DAC_RANGE		0x110
  #define   AIROHA_PCS_ANA_RX_SIGDET_LPF_CTRL	GENMASK(25, 24)
@@ -329,7 +323,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_ANA_PXP_RX_SIGDET_NOVTH	0x114
  #define   AIROHA_PCS_ANA_RX_FE_50OHMS_SEL	GENMASK(25, 24)
  #define   AIROHA_PCS_ANA_RX_SIGDET_VTH_SEL	GENMASK(20, 16)
-@@ -532,7 +611,70 @@
+@@ -569,7 +648,70 @@
  #define AIROHA_PCS_PMA_SS_LCPLL_PWCTL_SETTING_0	0x0
  #define   AIROHA_PCS_PMA_SW_LCPLL_EN		BIT(24)
  #define AIROHA_PCS_PMA_SS_LCPLL_PWCTL_SETTING_1	0x4
@@ -400,7 +394,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_PMA_RX_EYE_TOP_EYECNT_CTRL_2	0x88
  #define   AIROHA_PCS_PMA_DATA_SHIFT		BIT(8)
  #define   AIROHA_PCS_PMA_EYECNT_FAST		BIT(0)
-@@ -564,14 +706,49 @@
+@@ -601,14 +743,49 @@
  #define   AIROHA_PCS_PMA_RX_BLWC_RDY_EN		GENMASK(15, 0)
  #define AIROHA_PCS_PMA_RX_CTRL_SEQUENCE_CTRL_6	0x104
  #define   AIROHA_PCS_PMA_RX_OS_END		GENMASK(15, 0)
@@ -450,7 +444,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_PMA_SS_RX_FREQ_DET_1		0x14c
  #define   AIROHA_PCS_PMA_UNLOCK_CYCLECNT	GENMASK(31, 16)
  #define   AIROHA_PCS_PMA_LOCK_CYCLECNT		GENMASK(15, 0)
-@@ -590,31 +767,182 @@
+@@ -627,31 +804,182 @@
  #define   AIROHA_PCS_PMA_FREQLOCK_DET_EN_WAIT	FIELD_PREP_CONST(AIROHA_PCS_PMA_FREQLOCK_DET_EN, 0x2)
  #define   AIROHA_PCS_PMA_FREQLOCK_DET_EN_NORMAL	FIELD_PREP_CONST(AIROHA_PCS_PMA_FREQLOCK_DET_EN, 0x3)
  #define   AIROHA_PCS_PMA_FREQLOCK_DET_EN_RX_STATE FIELD_PREP_CONST(AIROHA_PCS_PMA_FREQLOCK_DET_EN, 0x7)
@@ -633,7 +627,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_PMA_SS_DA_XPON_PWDB_0	0x34c
  #define   AIROHA_PCS_PMA_XPON_CDR_PD_PWDB	BIT(24)
  #define   AIROHA_PCS_PMA_XPON_CDR_PR_PIEYE_PWDB	BIT(16)
-@@ -637,7 +965,32 @@
+@@ -674,7 +1002,32 @@
  #define   AIROHA_PCS_PMA_PLL_LOCK_TARGET_BEG	GENMASK(15, 0)
  #define AIROHA_PCS_PMA_PLL_TDC_FREQDET_3	0x39c
  #define   AIROHA_PCS_PMA_PLL_LOCK_LOCKTH	GENMASK(11, 8)
@@ -666,7 +660,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define   AIROHA_PCS_PMA_SW_HSG_RXPCS_RST_N	BIT(11)
  #define   AIROHA_PCS_PMA_SW_HSG_TXPCS_RST_N	BIT(10)
  #define   AIROHA_PCS_PMA_SW_XFI_RXPCS_BIST_RST_N BIT(9)
-@@ -650,17 +1003,32 @@
+@@ -687,17 +1040,32 @@
  #define   AIROHA_PCS_PMA_SW_TX_RST_N		BIT(2)
  #define   AIROHA_PCS_PMA_SW_RX_RST_N		BIT(1)
  #define   AIROHA_PCS_PMA_SW_RX_FIFO_RST_N	BIT(0)
@@ -699,7 +693,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_PMA_PXP_JCPLL_SDM_SCAN	0x768
  #define   AIROHA_PCS_PMA_FORCE_SEL_DA_RX_FE_PEAKING_CTRL BIT(24)
  #define   AIROHA_PCS_PMA_FORCE_DA_RX_FE_PEAKING_CTRL GENMASK(19, 16)
-@@ -683,8 +1051,13 @@
+@@ -720,8 +1088,13 @@
  #define   AIROHA_PCS_PMA_FORCE_SEL_DA_TX_FIR_C1 BIT(8)
  #define   AIROHA_PCS_PMA_FORCE_DA_TX_FIR_C1	GENMASK(5, 0)
  #define AIROHA_PCS_PMA_PXP_TX_RATE_CTRL		0x784
@@ -713,7 +707,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_PMA_PXP_CDR_PR_IDAC		0x794
  #define   AIROHA_PCS_PMA_FORCE_SEL_DA_TXPLL_SDM_PCW BIT(24)
  #define   AIROHA_PCS_PMA_FORCE_SEL_DA_CDR_PR_IDAC BIT(16)
-@@ -729,6 +1102,14 @@
+@@ -766,6 +1139,14 @@
  #define   AIROHA_PCS_PMA_FORCE_DA_JCPLL_EN	BIT(16)
  #define   AIROHA_PCS_PMA_FORCE_SEL_DA_JCPLL_CKOUT_EN BIT(8)
  #define   AIROHA_PCS_PMA_FORCE_DA_JCPLL_CKOUT_EN BIT(0)
@@ -728,7 +722,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_PMA_PXP_RX_SCAN_RST_B	0x84c
  #define   AIROHA_PCS_PMA_FORCE_SEL_DA_RX_SIGDET_PWDB BIT(24)
  #define   AIROHA_PCS_PMA_FORCE_DA_RX_SIGDET_PWDB BIT(16)
-@@ -739,6 +1120,12 @@
+@@ -776,6 +1157,12 @@
  #define   AIROHA_PCS_PMA_FORCE_DA_TXPLL_EN	BIT(16)
  #define   AIROHA_PCS_PMA_FORCE_SEL_DA_TXPLL_CKOUT_EN BIT(8)
  #define   AIROHA_PCS_PMA_FORCE_DA_TXPLL_CKOUT_EN BIT(0)
@@ -741,7 +735,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  #define AIROHA_PCS_PMA_PXP_TX_ACJTAG_EN		0x874
  #define   AIROHA_PCS_PMA_FORCE_SEL_DA_TX_CKIN_SEL BIT(24)
  #define   AIROHA_PCS_PMA_FORCE_DA_TX_CKIN_SEL	BIT(16)
-@@ -750,10 +1137,31 @@
+@@ -787,10 +1174,31 @@
  #define   AIROHA_PCS_PMA_FORCE_DA_RX_PDOSCAL_EN	BIT(16)
  #define   AIROHA_PCS_PMA_FORCE_SEL_DA_RX_FE_PWDB BIT(8)
  #define   AIROHA_PCS_PMA_FORCE_DA_RX_FE_PWDB	 BIT(0)
@@ -773,7 +767,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  enum xfi_port_type {
  	AIROHA_PCS_ETH,
  	AIROHA_PCS_PON,
-@@ -790,6 +1198,11 @@ struct airoha_pcs_port {
+@@ -829,6 +1237,11 @@ struct airoha_pcs_port {
  struct airoha_pcs_match_data {
  	enum xfi_port_type port_type;
  
@@ -785,7 +779,7 @@ index 93ddec60d6dd..790adbe5179c 100644
  	int (*bringup)(struct airoha_pcs_priv *priv,
  			phy_interface_t interface);
  	void (*link_up)(struct airoha_pcs_priv *priv);
-@@ -820,3 +1233,20 @@ static inline int an7581_pcs_rxlock_workaround(struct airoha_pcs_priv *priv)
+@@ -867,3 +1280,20 @@ static inline int an7581_pcs_rxlock_workaround(struct airoha_pcs_priv *priv)
  	return 0;
  }
  #endif
