@@ -536,9 +536,13 @@
 
 		afe: afe@1fbe2200 {
 			compatible = "airoha,an7581-afe";
-			reg = <0x0 0x1fbe2200 0x0 0x9000>;
+			reg = <0x0 0x1fbe2200 0x0 0x100>,
+			      <0x0 0x1fbe2f00 0x0 0x100>;
 
 			interrupts = <GIC_SPI 48 IRQ_TYPE_LEVEL_HIGH>;
+			resets = <&scuclk EN7581_I2S_RST>;
+
+			status = "disabled";
 		};
 
 		pcm@1fbd0000 {

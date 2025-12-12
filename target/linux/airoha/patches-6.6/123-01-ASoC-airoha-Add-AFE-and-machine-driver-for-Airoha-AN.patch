@@ -161,7 +161,7 @@ new file mode 100644
 index 000000000000..34ff0ca6cf4e
 --- /dev/null
 +++ b/sound/soc/mediatek/an7581/an7581-afe-pcm.c
-@@ -0,0 +1,456 @@
+@@ -0,0 +1,466 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Airoha ALSA SoC AFE platform driver for AN7581
@@ -365,7 +365,7 @@ index 000000000000..34ff0ca6cf4e
 +	},
 +};
 +
-+static const struct mtk_base_irq_data irq_data[AN7581_IRQ_NUM] = {
++static struct mtk_base_irq_data irq_data[AN7581_IRQ_NUM] = {
 +	[AN7581_IRQ_0] = {
 +		.id = AN7581_IRQ_0,
 +		.irq_cnt_reg = -1,
@@ -479,6 +479,7 @@ index 000000000000..34ff0ca6cf4e
 +	struct an7581_afe_private *afe_priv;
 +	struct device *dev;
 +	int i, irq_id, ret;
++	void *base;
 +
 +	afe = devm_kzalloc(&pdev->dev, sizeof(*afe), GFP_KERNEL);
 +	if (!afe)
@@ -498,6 +499,10 @@ index 000000000000..34ff0ca6cf4e
 +	if (IS_ERR(afe->base_addr))
 +		return PTR_ERR(afe->base_addr);
 +
++	base = devm_platform_ioremap_resource(pdev, 1);
++	if (IS_ERR(base))
++		return PTR_ERR(base);
++
 +	ret = devm_pm_runtime_enable(dev);
 +	if (ret)
 +		return ret;
@@ -510,6 +515,11 @@ index 000000000000..34ff0ca6cf4e
 +	pm_runtime_put_sync(&pdev->dev);
 +	if (IS_ERR(afe->regmap))
 +		return PTR_ERR(afe->regmap);
++
++	irq_data[AN7581_IRQ_1].regmap = devm_regmap_init_mmio(&pdev->dev, base,
++							      &an7581_afe_regmap_config);
++	if (IS_ERR(irq_data[AN7581_IRQ_1].regmap))
++		return PTR_ERR(irq_data[AN7581_IRQ_1].regmap);
 +
 +	mutex_init(&afe->irq_alloc_lock);
 +
