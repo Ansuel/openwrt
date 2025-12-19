@@ -116,7 +116,7 @@ index 73f9cb2e2844..1dc7a8dd7fae 100644
  
  	/* Assert the reset signal */
 -	phy_device_reset(phydev, 1);
-+	if (!(phydev->drv->flags & PHY_DETACH_NO_HW_RESET))
++	if (phydev->drv && !(phydev->drv->flags & PHY_DETACH_NO_HW_RESET))
 +		phy_device_reset(phydev, 1);
  
  	/*
