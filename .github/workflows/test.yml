@@ -1,0 +1,29 @@
+name: learn-github-actions
+run-name: ${{ github.actor }} is learning GitHub Actions
+on: [push]
+jobs:
+  check-bats-version:
+    runs-on: ubuntu-latest
+    container:
+        image: ghcr.io/openwrt/buildbot/buildworker-v3.11.8:v23
+        # volumes:
+        #         - /var/run/docker.sock:/var/run/docker.sock
+        options: --privileged --pid=host
+    steps:
+        # - run: apk add util-linux rsync
+
+        # - run: nsenter -t 1 -a sh -c 'ln -s /home/runner/work /home/runner/__w'
+        - shell: sh -c "nsenter -t 1 -a sh -e /home/runner/$(echo {0} | sed s#^/__w#work#)"
+          run: df -h
+
+        - shell: sh -c "nsenter -t 1 -a sh -e /home/runner/$(echo {0} | sed s#^/__w#work#)"
+          env:
+            DELETE_DIR: /usr/local/lib/android /usr/local/.ghcup /usr/share/dotnet /usr/share/swift
+          run: |
+            mkdir /empty
+            for dir in $DELETE_DIR; do
+              sudo rsync -a --delete /empty/ $dir
+            done
+
+        - shell: sh -c "nsenter -t 1 -a sh -e /home/runner/$(echo {0} | sed s#^/__w#work#)"
+          run: df -h
