@@ -44,6 +44,7 @@ define Device/airoha_an7581-evb-emmc
   DEVICE_MODEL := AN7581 Evaluation Board (EMMC)
   DEVICE_DTS := an7581-evb-emmc
   DEVICE_PACKAGES := kmod-i2c-an7581
+  IMAGE/sysupgrade.bin := append-kernel | pad-to 8M | append-rootfs | pad-rootfs | append-metadata
   ARTIFACT/preloader.bin := an7581-preloader rfb
   ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot rfb
   ARTIFACTS := preloader.bin bl31-uboot.fip
