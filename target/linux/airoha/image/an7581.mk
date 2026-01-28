@@ -98,3 +98,17 @@ define Device/airoha_an7581-evb-10g-lan
   DEVICE_DTS := an7581-evb-10g-lan
 endef
 TARGET_DEVICES += airoha_an7581-evb-10g-lan
+
+define Device/nokia_valyrian
+  DEVICE_VENDOR := Nokia
+  DEVICE_MODEL := Valyrian
+  DEVICE_DTS := an7581-nokia-valyrian
+  DEVICE_PACKAGES := kmod-spi-gpio kmod-gpio-nxp-74hc164 kmod-leds-gpio \
+    kmod-i2c-an7581 kmod-i2c-gpio kmod-iio-richtek-rtq6056 \
+    kmod-sfp kmod-phy-aeonsemi-as21xxx \
+    kmod-mt7996-firmware
+  ARTIFACT/preloader.bin := an7581-preloader nokia_valyrian
+  ARTIFACT/bl31-uboot.fip := an7581-bl31-uboot nokia_valyrian
+  ARTIFACTS := preloader.bin bl31-uboot.fip
+endef
+TARGET_DEVICES += nokia_valyrian
