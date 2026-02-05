@@ -35,9 +35,20 @@ define U-Boot/an7583_rfb
   BL31_IMAGE:=an7583-bl31.bin
 endef
 
+define U-Boot/an7581_nokia_valyrian
+  NAME:=Nokia Valyrian
+  UBOOT_CONFIG:=an7581_nokia_valyrian
+  BUILD_DEVICES:=nokia_valyrian
+  BUILD_SUBTARGET:=an7581
+  UBOOT_IMAGE:=u-boot.fip
+  BL2_IMAGE:=an7581-bl2.bin
+  BL31_IMAGE:=an7581-bl31.bin
+endef
+
 UBOOT_TARGETS := \
 	an7581_rfb \
-	an7583_rfb
+	an7583_rfb \
+	an7581_nokia_valyrian
 
 UBOOT_CUSTOMIZE_CONFIG := \
 	--disable TOOLS_KWBIMAGE \
