@@ -1,10 +1,10 @@
-From 38e466e03df92fdd05c6ef87cda6ef4380f8dda9 Mon Sep 17 00:00:00 2001
-Message-ID: <38e466e03df92fdd05c6ef87cda6ef4380f8dda9.1764515564.git.lorenzo@kernel.org>
-In-Reply-To: <ebd1eb325210ac6caf6b7a242083f41e3b9f0acd.1764515564.git.lorenzo@kernel.org>
-References: <ebd1eb325210ac6caf6b7a242083f41e3b9f0acd.1764515564.git.lorenzo@kernel.org>
+From cd51dc6ce708c606a430499bd1b6ad62c30be7d9 Mon Sep 17 00:00:00 2001
+Message-ID: <cd51dc6ce708c606a430499bd1b6ad62c30be7d9.1771966444.git.lorenzo@kernel.org>
+In-Reply-To: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+References: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sun, 2 Nov 2025 10:12:05 +0100
-Subject: [PATCH nf-next 6/6] net: airoha: rename get_src_port_id callback in
+Subject: [bpf-next 09/16] net: airoha: rename get_src_port_id callback in
  get_sport
 
 In order to be consistent rename get_src_port_id callback in get_sport.
@@ -18,7 +18,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1768,7 +1768,7 @@ static int airhoha_set_gdm2_loopback(str
+@@ -1756,7 +1756,7 @@ static int airhoha_set_gdm2_loopback(str
  	airoha_fe_clear(eth, REG_FE_VIP_PORT_EN, BIT(AIROHA_GDM2_IDX));
  	airoha_fe_clear(eth, REG_FE_IFC_PORT_EN, BIT(AIROHA_GDM2_IDX));
  
@@ -27,7 +27,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (src_port < 0)
  		return src_port;
  
-@@ -3377,7 +3377,7 @@ static const char * const en7581_xsi_rst
+@@ -3388,7 +3388,7 @@ static const char * const en7581_xsi_rst
  	"xfp-mac",
  };
  
@@ -36,7 +36,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  {
  	switch (port->id) {
  	case AIROHA_GDM3_IDX:
-@@ -3437,7 +3437,7 @@ static const char * const an7583_xsi_rst
+@@ -3449,7 +3449,7 @@ static const char * const an7583_xsi_rst
  	"xfp-mac",
  };
  
@@ -45,7 +45,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  {
  	switch (port->id) {
  	case AIROHA_GDM3_IDX:
-@@ -3492,7 +3492,7 @@ static const struct airoha_eth_soc_data
+@@ -3505,7 +3505,7 @@ static const struct airoha_eth_soc_data
  	.num_xsi_rsts = ARRAY_SIZE(en7581_xsi_rsts_names),
  	.num_ppe = 2,
  	.ops = {
@@ -54,7 +54,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		.get_dev_from_sport = airoha_en7581_get_dev_from_sport,
  	},
  };
-@@ -3503,7 +3503,7 @@ static const struct airoha_eth_soc_data
+@@ -3516,7 +3516,7 @@ static const struct airoha_eth_soc_data
  	.num_xsi_rsts = ARRAY_SIZE(an7583_xsi_rsts_names),
  	.num_ppe = 1,
  	.ops = {
@@ -65,7 +65,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  };
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -588,7 +588,7 @@ struct airoha_eth_soc_data {
+@@ -589,7 +589,7 @@ struct airoha_eth_soc_data {
  	int num_xsi_rsts;
  	int num_ppe;
  	struct {

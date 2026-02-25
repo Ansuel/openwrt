@@ -1,0 +1,43 @@
+From 20cc439daa9e54044788da82671abe2654ae0bca Mon Sep 17 00:00:00 2001
+Message-ID: <20cc439daa9e54044788da82671abe2654ae0bca.1771966444.git.lorenzo@kernel.org>
+In-Reply-To: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+References: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sat, 27 Dec 2025 08:47:38 +0100
+Subject: [bpf-next 15/16] net: airoha: Disable GDM2 forwarding before
+ configuring GDM2 loopback
+
+Hw requires to disable GDM2 forwarding before enabling GDM2 loopback.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -1740,11 +1740,8 @@ static int airhoha_enable_gdm2_loopback(
+ 	u32 val, pse_port, chan;
+ 	int src_port;
+ 
+-	/* Forward the traffic to the proper GDM port */
+-	pse_port = port->id == AIROHA_GDM3_IDX ? FE_PSE_PORT_GDM3
+-					       : FE_PSE_PORT_GDM4;
+ 	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(AIROHA_GDM2_IDX),
+-				    pse_port);
++				    FE_PSE_PORT_DROP);
+ 	airoha_fe_clear(eth, REG_GDM_FWD_CFG(AIROHA_GDM2_IDX),
+ 			GDM_STRIP_CRC_MASK);
+ 
+@@ -1762,6 +1759,11 @@ static int airhoha_enable_gdm2_loopback(
+ 		      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
+ 		      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
+ 		      FIELD_PREP(GDM_LONG_LEN_MASK, AIROHA_MAX_MTU));
++	/* Forward the traffic to the proper GDM port */
++	pse_port = port->id == AIROHA_GDM3_IDX ? FE_PSE_PORT_GDM3
++					       : FE_PSE_PORT_GDM4;
++	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(AIROHA_GDM2_IDX),
++				    pse_port);
+ 
+ 	/* Disable VIP and IFC for GDM2 */
+ 	airoha_fe_clear(eth, REG_FE_VIP_PORT_EN, BIT(AIROHA_GDM2_IDX));

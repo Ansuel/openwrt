@@ -1,0 +1,57 @@
+From d9052fd98149a180a5caa5f220f9c498a3db5df6 Mon Sep 17 00:00:00 2001
+Message-ID: <d9052fd98149a180a5caa5f220f9c498a3db5df6.1771966444.git.lorenzo@kernel.org>
+In-Reply-To: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+References: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Sat, 1 Nov 2025 11:52:06 +0100
+Subject: [bpf-next 06/16] net: airoha: Add addr pointer to
+ airoha_ppe_init_upd_mem signature
+
+This is a preliminary patch to support multiple net_devices connected
+to the same Frame Engine GDM port via an external arbiter.
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 2 +-
+ drivers/net/ethernet/airoha/airoha_eth.h | 2 +-
+ drivers/net/ethernet/airoha/airoha_ppe.c | 4 +---
+ 3 files changed, 3 insertions(+), 5 deletions(-)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -94,7 +94,7 @@ static void airoha_set_macaddr(struct ai
+ 	airoha_fe_wr(eth, REG_FE_MAC_LMIN(reg), val);
+ 	airoha_fe_wr(eth, REG_FE_MAC_LMAX(reg), val);
+ 
+-	airoha_ppe_init_upd_mem(dev);
++	airoha_ppe_init_upd_mem(dev, addr);
+ }
+ 
+ static void airoha_set_gdm_port_fwd_cfg(struct airoha_eth *eth, u32 addr,
+--- a/drivers/net/ethernet/airoha/airoha_eth.h
++++ b/drivers/net/ethernet/airoha/airoha_eth.h
+@@ -666,7 +666,7 @@ void airoha_ppe_check_skb(struct airoha_
+ int airoha_ppe_setup_tc_block_cb(struct airoha_ppe_dev *dev, void *type_data);
+ int airoha_ppe_init(struct airoha_eth *eth);
+ void airoha_ppe_deinit(struct airoha_eth *eth);
+-void airoha_ppe_init_upd_mem(struct airoha_gdm_dev *dev);
++void airoha_ppe_init_upd_mem(struct airoha_gdm_dev *dev, const u8 *addr);
+ u32 airoha_ppe_get_total_num_entries(struct airoha_ppe *ppe);
+ struct airoha_foe_entry *airoha_ppe_foe_get_entry(struct airoha_ppe *ppe,
+ 						  u32 hash);
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -1400,12 +1400,10 @@ void airoha_ppe_check_skb(struct airoha_
+ 	airoha_ppe_foe_insert_entry(ppe, skb, hash, rx_wlan);
+ }
+ 
+-void airoha_ppe_init_upd_mem(struct airoha_gdm_dev *dev)
++void airoha_ppe_init_upd_mem(struct airoha_gdm_dev *dev, const u8 *addr)
+ {
+ 	struct airoha_gdm_port *port = dev->port;
+-	struct net_device *netdev = dev->dev;
+ 	struct airoha_eth *eth = dev->eth;
+-	const u8 *addr = netdev->dev_addr;
+ 	u32 val;
+ 
+ 	val = (addr[2] << 24) | (addr[3] << 16) | (addr[4] << 8) | addr[5];

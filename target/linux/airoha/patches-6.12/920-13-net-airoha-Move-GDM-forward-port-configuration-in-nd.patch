@@ -1,8 +1,10 @@
-From 6bf608096a7800f2d95eca05052fb5ad2d09e47c Mon Sep 17 00:00:00 2001
-Message-ID: <6bf608096a7800f2d95eca05052fb5ad2d09e47c.1766931873.git.lorenzo@kernel.org>
+From 98d59d08aae62fc237ea72f0b6d295d1c23a8a21 Mon Sep 17 00:00:00 2001
+Message-ID: <98d59d08aae62fc237ea72f0b6d295d1c23a8a21.1771966444.git.lorenzo@kernel.org>
+In-Reply-To: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+References: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sat, 27 Dec 2025 11:54:31 +0100
-Subject: [PATCH net] net: airoha: Move GDM forward port configuration in
+Subject: [bpf-next 13/16] net: airoha: Move GDM forward port configuration in
  ndo_open/ndo_stop callbacks
 
 This change allows to set GDM forward port configuration to
@@ -11,20 +13,20 @@ Moreover, PPE firmware requires to use PPE1 for GDM3 or GDM4.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/airoha/airoha_eth.c | 22 ++++++++++++----------
- 1 file changed, 12 insertions(+), 10 deletions(-)
+ drivers/net/ethernet/airoha/airoha_eth.c | 22 +++++++++++++---------
+ 1 file changed, 13 insertions(+), 9 deletions(-)
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1631,6 +1631,7 @@ static int airoha_dev_open(struct net_de
- 	int err, len = ETH_HLEN + dev->mtu + ETH_FCS_LEN;
- 	struct airoha_gdm_port *port = netdev_priv(dev);
- 	struct airoha_qdma *qdma = port->qdma;
+@@ -1629,6 +1629,7 @@ static int airoha_dev_open(struct net_de
+ 	struct airoha_gdm_dev *dev = netdev_priv(netdev);
+ 	struct airoha_gdm_port *port = dev->port;
+ 	struct airoha_qdma *qdma = dev->qdma;
 +	u32 pse_port = FE_PSE_PORT_PPE1;
  
  #if defined(CONFIG_PCS_AIROHA)
  	if (airhoa_is_phy_external(port)) {
-@@ -1668,6 +1669,14 @@ static int airoha_dev_open(struct net_de
+@@ -1666,12 +1667,21 @@ static int airoha_dev_open(struct net_de
  			GLOBAL_CFG_RX_DMA_EN_MASK);
  	atomic_inc(&qdma->users);
  
@@ -39,9 +41,16 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	return 0;
  }
  
-@@ -1685,6 +1694,9 @@ static int airoha_dev_stop(struct net_de
+ static int airoha_dev_stop(struct net_device *netdev)
+ {
+ 	struct airoha_gdm_dev *dev = netdev_priv(netdev);
++	struct airoha_gdm_port *port = dev->port;
+ 	struct airoha_qdma *qdma = dev->qdma;
+ 	int i, err;
+ 
+@@ -1683,6 +1693,9 @@ static int airoha_dev_stop(struct net_de
  	for (i = 0; i < ARRAY_SIZE(qdma->q_tx); i++)
- 		netdev_tx_reset_subqueue(dev, i);
+ 		netdev_tx_reset_subqueue(netdev, i);
  
 +	airoha_set_gdm_port_fwd_cfg(qdma->eth, REG_GDM_FWD_CFG(port->id),
 +				    FE_PSE_PORT_DROP);
@@ -49,15 +58,15 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	if (atomic_dec_and_test(&qdma->users)) {
  		airoha_qdma_clear(qdma, REG_QDMA_GLOBAL_CFG,
  				  GLOBAL_CFG_TX_DMA_EN_MASK |
-@@ -1782,7 +1794,6 @@ static int airoha_dev_init(struct net_de
- {
- 	struct airoha_gdm_port *port = netdev_priv(dev);
- 	struct airoha_eth *eth = port->qdma->eth;
+@@ -1783,7 +1796,6 @@ static int airoha_dev_init(struct net_de
+ 	struct airoha_gdm_port *port = dev->port;
+ 	struct airoha_qdma *qdma = dev->qdma;
+ 	struct airoha_eth *eth = qdma->eth;
 -	u32 pse_port = FE_PSE_PORT_PPE1;
  	int i;
  
- 	airoha_set_macaddr(port, dev->dev_addr);
-@@ -1798,19 +1809,11 @@ static int airoha_dev_init(struct net_de
+ 	airoha_set_macaddr(dev, netdev->dev_addr);
+@@ -1799,19 +1811,11 @@ static int airoha_dev_init(struct net_de
  			if (err)
  				return err;
  		}
@@ -75,5 +84,5 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
 -	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(port->id), pse_port);
  	for (i = 0; i < eth->soc->num_ppe; i++)
- 		airoha_ppe_set_def_cport(port, i);
+ 		airoha_ppe_set_def_cport(dev, i);
  

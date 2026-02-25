@@ -1,15 +1,15 @@
-From e3e901eb07c8dc92cf3c9c6327e6153f0f05097c Mon Sep 17 00:00:00 2001
-Message-ID: <e3e901eb07c8dc92cf3c9c6327e6153f0f05097c.1766621957.git.lorenzo@kernel.org>
-In-Reply-To: <c805a2db19bae3e2a1b9a49b0aba78bda9ce2c65.1766621957.git.lorenzo@kernel.org>
-References: <c805a2db19bae3e2a1b9a49b0aba78bda9ce2c65.1766621957.git.lorenzo@kernel.org>
+From ae628c9e5b16c88866d225c8cc2a390c88aac4e1 Mon Sep 17 00:00:00 2001
+Message-ID: <ae628c9e5b16c88866d225c8cc2a390c88aac4e1.1771966444.git.lorenzo@kernel.org>
+In-Reply-To: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+References: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Tue, 23 Dec 2025 09:04:20 +0100
-Subject: [net 2/2] net: airoha: Fix GDM2 loopback configuration for USB serdes
+Subject: [bpf-next 07/16] net: airoha: Fix GDM2 loopback configuration for USB
+ serdes
 
-Fix Flow Control source port mapping for USB serdes.
-Moreover disable packet forwarding during GDM2 configuration.
+This is a preliminary patch in order to fix Flow Control source port
+mapping for USB serdes since nbq parameter needs to be read from DTS.
 
-Fixes: 9cd451d414f6e ("net: airoha: Add loopback support for GDM2")
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
  drivers/net/ethernet/airoha/airoha_eth.c  | 10 ++++++----
@@ -18,7 +18,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1782,10 +1782,12 @@ static int airhoha_set_gdm2_loopback(str
+@@ -1776,10 +1776,12 @@ static int airhoha_set_gdm2_loopback(str
  		      SP_CPORT_MASK(val),
  		      FE_PSE_PORT_CDM2 << __ffs(SP_CPORT_MASK(val)));
  
@@ -37,7 +37,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  }
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
-@@ -387,10 +387,7 @@
+@@ -388,10 +388,7 @@
  #define SP_CPORT_MASK(_n)		GENMASK(3 + ((_n) << 2), ((_n) << 2))
  
  #define REG_SRC_PORT_FC_MAP6		0x2298

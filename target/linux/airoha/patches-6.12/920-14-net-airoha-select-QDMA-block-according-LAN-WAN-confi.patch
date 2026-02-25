@@ -1,0 +1,121 @@
+From d829d04be7318ee1e61b5be29570fef12ab8b709 Mon Sep 17 00:00:00 2001
+Message-ID: <d829d04be7318ee1e61b5be29570fef12ab8b709.1771966444.git.lorenzo@kernel.org>
+In-Reply-To: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+References: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+From: Lorenzo Bianconi <lorenzo@kernel.org>
+Date: Tue, 24 Feb 2026 20:31:56 +0100
+Subject: [bpf-next 14/16] net: airoha: select QDMA block according LAN/WAN
+ configuration
+
+Select QDMA block according to the port confiugration:
+- QDMA0 is used for LAN devices
+- QDMA1 is used for WAN device
+
+Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
+---
+ drivers/net/ethernet/airoha/airoha_eth.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+--- a/drivers/net/ethernet/airoha/airoha_eth.c
++++ b/drivers/net/ethernet/airoha/airoha_eth.c
+@@ -1794,8 +1794,7 @@ static int airoha_dev_init(struct net_de
+ {
+ 	struct airoha_gdm_dev *dev = netdev_priv(netdev);
+ 	struct airoha_gdm_port *port = dev->port;
+-	struct airoha_qdma *qdma = dev->qdma;
+-	struct airoha_eth *eth = qdma->eth;
++	struct airoha_eth *eth = dev->eth;
+ 	int i;
+ 
+ 	airoha_set_macaddr(dev, netdev->dev_addr);
+@@ -1815,6 +1814,9 @@ static int airoha_dev_init(struct net_de
+ 	default:
+ 		break;
+ 	}
++	/* QDMA0 is used for lan ports while QDMA1 is used for WAN ports */
++	dev->qdma = &eth->qdma[!airhoa_is_lan_gdm_dev(dev)];
++	dev->dev->irq = dev->qdma->irq_banks[0].irq;
+ 
+ 	for (i = 0; i < eth->soc->num_ppe; i++)
+ 		airoha_ppe_set_def_cport(dev, i);
+@@ -3023,7 +3025,6 @@ static int airoha_setup_phylink(struct n
+ #endif
+ 
+ static int airoha_alloc_gdm_device(struct airoha_eth *eth,
+-				   struct airoha_qdma *qdma,
+ 				   struct airoha_gdm_port *port,
+ 				   int nbq, struct device_node *np)
+ {
+@@ -3050,7 +3051,6 @@ static int airoha_alloc_gdm_device(struc
+ 	netdev->features |= netdev->hw_features;
+ 	netdev->vlan_features = netdev->hw_features;
+ 	netdev->dev.of_node = np;
+-	netdev->irq = qdma->irq_banks[0].irq;
+ 	SET_NETDEV_DEV(netdev, eth->dev);
+ 
+ 	/* reserve hw queues for HTB offloading */
+@@ -3082,7 +3082,6 @@ static int airoha_alloc_gdm_device(struc
+ 
+ 	dev = netdev_priv(netdev);
+ 	dev->dev = netdev;
+-	dev->qdma = qdma;
+ 	dev->port = port;
+ 	dev->eth = eth;
+ 	dev->nbq = nbq;
+@@ -3092,11 +3091,10 @@ static int airoha_alloc_gdm_device(struc
+ }
+ 
+ static int airoha_alloc_gdm_port(struct airoha_eth *eth,
+-				 struct device_node *np, int index)
++				 struct device_node *np)
+ {
+ 	const __be32 *id_ptr = of_get_property(np, "reg", NULL);
+ 	struct airoha_gdm_port *port;
+-	struct airoha_qdma *qdma;
+ 	struct device_node *node;
+ 	int err, p, d = 0;
+ 	u32 id;
+@@ -3123,7 +3121,6 @@ static int airoha_alloc_gdm_port(struct
+ 	if (!port)
+ 		return -ENOMEM;
+ 
+-	qdma = &eth->qdma[index % AIROHA_MAX_NUM_QDMA];
+ 	u64_stats_init(&port->stats.syncp);
+ 	spin_lock_init(&port->stats.lock);
+ 	port->id = id;
+@@ -3162,15 +3159,15 @@ static int airoha_alloc_gdm_port(struct
+ 			break;
+ 		}
+ 
+-		err = airoha_alloc_gdm_device(eth, qdma, port,
+-					      be32_to_cpup(nbq_ptr), node);
++		err = airoha_alloc_gdm_device(eth, port, be32_to_cpup(nbq_ptr),
++					      node);
+ 		if (err) {
+ 			of_node_put(node);
+ 			return err;
+ 		}
+ 	}
+ 
+-	return !d ? airoha_alloc_gdm_device(eth, qdma, port, 0, np) : 0;
++	return !d ? airoha_alloc_gdm_device(eth, port, 0, np) : 0;
+ }
+ 
+ static int airoha_register_gdm_devices(struct airoha_eth *eth)
+@@ -3273,7 +3270,6 @@ static int airoha_probe(struct platform_
+ 	for (i = 0; i < ARRAY_SIZE(eth->qdma); i++)
+ 		airoha_qdma_start_napi(&eth->qdma[i]);
+ 
+-	i = 0;
+ 	for_each_child_of_node(pdev->dev.of_node, np) {
+ 		if (!of_device_is_compatible(np, "airoha,eth-mac"))
+ 			continue;
+@@ -3281,7 +3277,7 @@ static int airoha_probe(struct platform_
+ 		if (!of_device_is_available(np))
+ 			continue;
+ 
+-		err = airoha_alloc_gdm_port(eth, np, i++);
++		err = airoha_alloc_gdm_port(eth, np);
+ 		if (err) {
+ 			of_node_put(np);
+ 			goto error_napi_stop;

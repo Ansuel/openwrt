@@ -16,17 +16,14 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  drivers/net/ethernet/airoha/airoha_eth.c | 14 ++------------
  1 file changed, 2 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/airoha/airoha_eth.c b/drivers/net/ethernet/airoha/airoha_eth.c
-index 62bcbbbe2a95..1f1c41bf65b8 100644
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1886,18 +1886,8 @@ static u32 airoha_get_dsa_tag(struct sk_buff *skb, struct net_device *dev)
- 
- static int airoha_get_fe_port(struct airoha_gdm_port *port)
+@@ -2003,17 +2003,9 @@ static u32 airoha_get_dsa_tag(struct sk_
+ int airoha_get_fe_port(struct airoha_gdm_dev *dev)
  {
--	struct airoha_qdma *qdma = port->qdma;
--	struct airoha_eth *eth = qdma->eth;
--
+ 	struct airoha_gdm_port *port = dev->port;
+-	struct airoha_eth *eth = dev->eth;
+ 
 -	switch (eth->soc->version) {
 -	case 0x7583:
 -		return port->id == AIROHA_GDM3_IDX ? FE_PSE_PORT_GDM3
@@ -41,6 +38,3 @@ index 62bcbbbe2a95..1f1c41bf65b8 100644
  }
  
  static netdev_tx_t airoha_dev_xmit(struct sk_buff *skb,
--- 
-2.51.0
-

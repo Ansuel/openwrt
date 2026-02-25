@@ -1,67 +1,44 @@
-From 71a09b4c2e1d075fce9c0ae09e044dbde36bffba Mon Sep 17 00:00:00 2001
-Message-ID: <71a09b4c2e1d075fce9c0ae09e044dbde36bffba.1765628489.git.lorenzo@kernel.org>
-In-Reply-To: <533ca4c0e73e768cd82fe76fb30f814043f1f718.1765628489.git.lorenzo@kernel.org>
-References: <533ca4c0e73e768cd82fe76fb30f814043f1f718.1765628489.git.lorenzo@kernel.org>
+From b80426c1ecc6df524442d2d9132a180d966fee90 Mon Sep 17 00:00:00 2001
+Message-ID: <b80426c1ecc6df524442d2d9132a180d966fee90.1771966444.git.lorenzo@kernel.org>
+In-Reply-To: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+References: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sat, 13 Dec 2025 09:45:09 +0100
-Subject: [nf-next 11/11] net: airoha: Add ethtool priv_flags callbacks
+Subject: [bpf-next 16/16] net: airoha: Add ethtool priv_flags callbacks
 
 Introduce ethtool priv_flags callbacks in order to allow the user to
-select if the configured device will be used as hw lan or wan.
+select if the configured device will be used as hw lan or wan and enable
+or disable gdm2 loopback (used for hw QoS).
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/airoha/airoha_eth.c | 66 ++++++++++++++++++++++--
- drivers/net/ethernet/airoha/airoha_eth.h | 31 +++++++++--
- 2 files changed, 88 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/airoha/airoha_eth.c  | 191 +++++++++++++++++++++-
+ drivers/net/ethernet/airoha/airoha_eth.h  |  13 +-
+ drivers/net/ethernet/airoha/airoha_ppe.c  |   2 +-
+ drivers/net/ethernet/airoha/airoha_regs.h |   1 +
+ 4 files changed, 195 insertions(+), 12 deletions(-)
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1631,6 +1631,11 @@ static int airoha_dev_open(struct net_de
- 	struct airoha_qdma *qdma = port->qdma;
- 	u32 pse_port = FE_PSE_PORT_PPE1;
+@@ -1644,6 +1644,11 @@ static int airoha_dev_open(struct net_de
+ 	}
+ #endif
  
 +	if (port->id == AIROHA_GDM2_IDX && airhoa_is_lan_gdm_dev(dev)) {
 +		/* GDM2 cab be used just as wan */
 +		return -EBUSY;
 +	}
 +
- #if defined(CONFIG_PCS_AIROHA)
- 	if (airhoa_is_phy_external(port)) {
- 		err = phylink_of_phy_connect(dev->phylink,
-@@ -1741,11 +1746,8 @@ static int airhoha_enable_gdm2_loopback(
- 	u32 val, pse_port, chan;
- 	int src_port;
- 
--	/* Forward the traffic to the proper GDM port */
--	pse_port = port->id == AIROHA_GDM3_IDX ? FE_PSE_PORT_GDM3
--					       : FE_PSE_PORT_GDM4;
- 	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(AIROHA_GDM2_IDX),
--				    pse_port);
-+				    FE_PSE_PORT_DROP);
- 	airoha_fe_clear(eth, REG_GDM_FWD_CFG(AIROHA_GDM2_IDX),
- 			GDM_STRIP_CRC_MASK);
- 
-@@ -1763,6 +1765,11 @@ static int airhoha_enable_gdm2_loopback(
- 		      GDM_SHORT_LEN_MASK | GDM_LONG_LEN_MASK,
- 		      FIELD_PREP(GDM_SHORT_LEN_MASK, 60) |
- 		      FIELD_PREP(GDM_LONG_LEN_MASK, AIROHA_MAX_MTU));
-+	/* Forward the traffic to the proper GDM port */
-+	pse_port = port->id == AIROHA_GDM3_IDX ? FE_PSE_PORT_GDM3
-+					       : FE_PSE_PORT_GDM4;
-+	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(AIROHA_GDM2_IDX),
-+				    pse_port);
- 
- 	/* Disable VIP and IFC for GDM2 */
- 	airoha_fe_clear(eth, REG_FE_VIP_PORT_EN, BIT(AIROHA_GDM2_IDX));
-@@ -1791,6 +1798,59 @@ static int airhoha_enable_gdm2_loopback(
+ 	netif_tx_start_all_queues(netdev);
+ 	err = airoha_set_vip_for_gdm_port(dev, true);
+ 	if (err)
+@@ -1792,6 +1797,58 @@ static int airhoha_enable_gdm2_loopback(
  	return 0;
  }
  
 +static void airhoha_disable_gdm2_loopback(struct airoha_gdm_dev *dev)
 +{
-+	struct airoha_gdm_port *port = dev->port;
-+	struct airoha_eth *eth = port->qdma->eth;
++	struct airoha_eth *eth = dev->eth;
 +	u32 pse_port, len;
 +
 +	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(AIROHA_GDM2_IDX),
@@ -114,8 +91,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static int airoha_dev_init(struct net_device *netdev)
  {
  	struct airoha_gdm_dev *dev = netdev_priv(netdev);
-@@ -1798,24 +1858,28 @@ static int airoha_dev_init(struct net_de
- 	struct airoha_eth *eth = port->qdma->eth;
+@@ -1799,18 +1856,21 @@ static int airoha_dev_init(struct net_de
+ 	struct airoha_eth *eth = dev->eth;
  	int i;
  
 -	airoha_set_macaddr(dev, netdev->dev_addr);
@@ -140,14 +117,15 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		}
  		break;
  	default:
- 		break;
- 	}
+@@ -1820,6 +1880,7 @@ static int airoha_dev_init(struct net_de
+ 	dev->qdma = &eth->qdma[!airhoa_is_lan_gdm_dev(dev)];
+ 	dev->dev->irq = dev->qdma->irq_banks[0].irq;
  
 +	airoha_set_macaddr(dev, netdev->dev_addr);
  	for (i = 0; i < eth->soc->num_ppe; i++)
- 		airoha_ppe_set_def_cport(port, i);
+ 		airoha_ppe_set_def_cport(dev, i);
  
-@@ -2080,6 +2144,74 @@ error:
+@@ -2083,6 +2144,73 @@ error:
  	return NETDEV_TX_OK;
  }
  
@@ -160,10 +138,13 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +{
 +	struct airoha_gdm_dev *dev = netdev_priv(netdev);
 +	struct airoha_gdm_port *port = dev->port;
-+	struct airoha_eth *eth = port->qdma->eth;
++	struct airoha_eth *eth = dev->eth;
 +
 +	if (!((dev->flags ^ flags) & PRIV_FLAG_WAN))
 +		return 0;
++
++	if (netif_running(netdev))
++		return -EBUSY;
 +
 +	if (flags & PRIV_FLAG_WAN) {
 +		struct airoha_gdm_dev *wan_dev;
@@ -194,12 +175,6 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		airoha_set_macaddr(dev, netdev->dev_addr);
 +	} else {
 +		switch (port->id) {
-+		case AIROHA_GDM2_IDX:
-+			if (netif_running(netdev)) {
-+				/* GDM2 cab be used just as wan */
-+				return -EBUSY;
-+			}
-+			break;
 +		case AIROHA_GDM3_IDX:
 +		case AIROHA_GDM4_IDX:
 +			airoha_fe_wr(eth, REG_SRC_PORT_FC_MAP6,
@@ -210,6 +185,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		}
 +		dev->flags &= ~PRIV_FLAG_WAN;
 +	}
++	/* If the device is used as WAN is always using QDMA1 */
++	dev->qdma = &eth->qdma[!airhoa_is_lan_gdm_dev(dev)];
 +
 +	return 0;
 +}
@@ -222,7 +199,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_ethtool_get_drvinfo(struct net_device *netdev,
  				       struct ethtool_drvinfo *info)
  {
-@@ -2089,6 +2221,7 @@ static void airoha_ethtool_get_drvinfo(s
+@@ -2091,6 +2219,7 @@ static void airoha_ethtool_get_drvinfo(s
  
  	strscpy(info->driver, eth->dev->driver->name, sizeof(info->driver));
  	strscpy(info->bus_info, dev_name(eth->dev), sizeof(info->bus_info));
@@ -230,7 +207,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  }
  
  static void airoha_ethtool_get_mac_stats(struct net_device *netdev,
-@@ -2153,6 +2286,56 @@ airoha_ethtool_get_rmon_stats(struct net
+@@ -2155,6 +2284,56 @@ airoha_ethtool_get_rmon_stats(struct net
  	} while (u64_stats_fetch_retry(&port->stats.syncp, start));
  }
  
@@ -284,12 +261,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	}
 +}
 +
- static int airoha_qdma_set_chan_tx_sched(struct airoha_gdm_port *port,
+ static int airoha_qdma_set_chan_tx_sched(struct airoha_gdm_dev *dev,
  					 int channel, enum tx_sched_mode mode,
  					 const u16 *weights, u8 n_weights)
-@@ -2861,6 +3044,10 @@ static const struct ethtool_ops airoha_e
- 	.get_eth_mac_stats      = airoha_ethtool_get_mac_stats,
+@@ -2861,6 +3040,10 @@ static const struct ethtool_ops airoha_e
  	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
+ 	.get_link_ksettings	= phy_ethtool_get_link_ksettings,
  	.get_link		= ethtool_op_get_link,
 +	.set_priv_flags		= airoha_ethtool_set_priv_flags,
 +	.get_priv_flags		= airoha_ethtool_get_priv_flags,
@@ -300,7 +277,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #if defined(CONFIG_PCS_AIROHA)
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -532,6 +532,10 @@ struct airoha_qdma {
+@@ -532,12 +532,17 @@ struct airoha_qdma {
  	struct airoha_queue q_rx[AIROHA_NUM_RX_RING];
  };
  
@@ -310,16 +287,15 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +
  struct airoha_gdm_dev {
  	struct airoha_gdm_port *port;
+ 	struct airoha_qdma *qdma;
+ 	struct airoha_eth *eth;
  	struct net_device *dev;
-@@ -542,6 +546,7 @@ struct airoha_gdm_dev {
- 	struct phylink_pcs *pcs;
- #endif
  
 +	u32 flags;
  	int nbq;
  };
  
-@@ -644,13 +649,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -645,13 +650,7 @@ u32 airoha_rmw(void __iomem *base, u32 o
  
  static inline bool airhoa_is_lan_gdm_dev(struct airoha_gdm_dev *dev)
  {
@@ -334,6 +310,17 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  }
  
  static inline bool airoha_is_7581(struct airoha_eth *eth)
+--- a/drivers/net/ethernet/airoha/airoha_ppe.c
++++ b/drivers/net/ethernet/airoha/airoha_ppe.c
+@@ -340,7 +340,7 @@ static int airoha_ppe_foe_entry_prepare(
+ 				return -EINVAL;
+ 
+ 			port = dev->port;
+-			if (dsa_port >= 0 || eth->ports[1])
++			if (dsa_port >= 0 || airhoa_is_lan_gdm_dev(dev))
+ 				pse_port = port->id == 4 ? FE_PSE_PORT_GDM4
+ 							 : port->id;
+ 			else
 --- a/drivers/net/ethernet/airoha/airoha_regs.h
 +++ b/drivers/net/ethernet/airoha/airoha_regs.h
 @@ -388,6 +388,7 @@

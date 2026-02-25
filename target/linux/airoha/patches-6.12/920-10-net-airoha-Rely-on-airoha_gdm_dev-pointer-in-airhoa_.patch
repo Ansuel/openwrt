@@ -1,10 +1,10 @@
-From 1e38ae5b1e65f19e61169920b3b9aa9febee0fa3 Mon Sep 17 00:00:00 2001
-Message-ID: <1e38ae5b1e65f19e61169920b3b9aa9febee0fa3.1765628489.git.lorenzo@kernel.org>
-In-Reply-To: <533ca4c0e73e768cd82fe76fb30f814043f1f718.1765628489.git.lorenzo@kernel.org>
-References: <533ca4c0e73e768cd82fe76fb30f814043f1f718.1765628489.git.lorenzo@kernel.org>
+From fae16fa0bb1f4203181aff0c7496518c2c8a4b9c Mon Sep 17 00:00:00 2001
+Message-ID: <fae16fa0bb1f4203181aff0c7496518c2c8a4b9c.1771966444.git.lorenzo@kernel.org>
+In-Reply-To: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+References: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sat, 13 Dec 2025 10:06:45 +0100
-Subject: [nf-next 10/11] net: airoha: Rely on airoha_gdm_dev pointer in
+Subject: [bpf-next 10/16] net: airoha: Rely on airoha_gdm_dev pointer in
  airhoa_is_lan_gdm_port()
 
 Rename airhoa_is_lan_gdm_port in airhoa_is_lan_gdm_dev.
@@ -13,22 +13,19 @@ connected to the same GDM port.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/airoha/airoha_eth.c | 10 +++++-----
- drivers/net/ethernet/airoha/airoha_eth.h |  4 +++-
- drivers/net/ethernet/airoha/airoha_ppe.c |  2 +-
- 3 files changed, 9 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/airoha/airoha_eth.c | 4 +---
+ drivers/net/ethernet/airoha/airoha_eth.h | 4 +++-
+ drivers/net/ethernet/airoha/airoha_ppe.c | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -79,13 +79,13 @@ static bool airhoa_is_phy_external(struc
- }
- #endif
+@@ -81,12 +81,10 @@ static bool airhoa_is_phy_external(struc
  
--static void airoha_set_macaddr(struct airoha_gdm_port *port, const u8 *addr)
-+static void airoha_set_macaddr(struct airoha_gdm_dev *dev, const u8 *addr)
+ static void airoha_set_macaddr(struct airoha_gdm_dev *dev, const u8 *addr)
  {
-+	struct airoha_gdm_port *port = dev->port;
- 	struct airoha_eth *eth = port->qdma->eth;
+-	struct airoha_gdm_port *port = dev->port;
+ 	struct airoha_eth *eth = dev->eth;
  	u32 val, reg;
  
 -	reg = airhoa_is_lan_gdm_port(port) ? REG_FE_LAN_MAC_H
@@ -37,27 +34,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	val = (addr[0] << 16) | (addr[1] << 8) | addr[2];
  	airoha_fe_wr(eth, reg, val);
  
-@@ -1729,7 +1729,7 @@ static int airoha_dev_set_macaddr(struct
- 	if (err)
- 		return err;
- 
--	airoha_set_macaddr(dev->port, netdev->dev_addr);
-+	airoha_set_macaddr(dev, netdev->dev_addr);
- 
- 	return 0;
- }
-@@ -1798,7 +1798,7 @@ static int airoha_dev_init(struct net_de
- 	struct airoha_eth *eth = port->qdma->eth;
- 	int i;
- 
--	airoha_set_macaddr(port, netdev->dev_addr);
-+	airoha_set_macaddr(dev, netdev->dev_addr);
- 
- 	switch (port->id) {
- 	case AIROHA_GDM3_IDX:
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
-@@ -642,8 +642,10 @@ u32 airoha_rmw(void __iomem *base, u32 o
+@@ -643,8 +643,10 @@ u32 airoha_rmw(void __iomem *base, u32 o
  #define airoha_qdma_clear(qdma, offset, val)			\
  	airoha_rmw((qdma)->regs, (offset), (val), 0)
  
@@ -71,7 +50,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	 * phy module.
 --- a/drivers/net/ethernet/airoha/airoha_ppe.c
 +++ b/drivers/net/ethernet/airoha/airoha_ppe.c
-@@ -345,7 +345,7 @@ static int airoha_ppe_foe_entry_prepare(
+@@ -324,7 +324,7 @@ static int airoha_ppe_foe_entry_prepare(
  			/* For downlink traffic consume SRAM memory for hw
  			 * forwarding descriptors queue.
  			 */

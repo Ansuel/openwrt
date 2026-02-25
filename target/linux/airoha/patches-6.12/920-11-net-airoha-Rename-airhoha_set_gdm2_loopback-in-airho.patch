@@ -1,8 +1,10 @@
-From 49d07625a8da33e2817ef369a4add676aab794f7 Mon Sep 17 00:00:00 2001
-Message-ID: <49d07625a8da33e2817ef369a4add676aab794f7.1766183574.git.lorenzo@kernel.org>
+From b483873253558513d0478dfc1e0d65ea81dc9df1 Mon Sep 17 00:00:00 2001
+Message-ID: <b483873253558513d0478dfc1e0d65ea81dc9df1.1771966444.git.lorenzo@kernel.org>
+In-Reply-To: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+References: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Fri, 19 Dec 2025 23:12:32 +0100
-Subject: [net 1/2] net: airoha: Rename airhoha_set_gdm2_loopback in
+Subject: [bpf-next 11/16] net: airoha: Rename airhoha_set_gdm2_loopback in
  airhoha_enable_gdm2_loopback
 
 This is a preliminary patch in order to allow the user to select if the
@@ -15,7 +17,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1734,7 +1734,7 @@ static int airoha_dev_set_macaddr(struct
+@@ -1720,7 +1720,7 @@ static int airoha_dev_set_macaddr(struct
  	return 0;
  }
  
@@ -23,8 +25,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +static int airhoha_enable_gdm2_loopback(struct airoha_gdm_dev *dev)
  {
  	struct airoha_gdm_port *port = dev->port;
- 	struct airoha_eth *eth = port->qdma->eth;
-@@ -1807,7 +1807,7 @@ static int airoha_dev_init(struct net_de
+ 	struct airoha_eth *eth = dev->eth;
+@@ -1795,7 +1795,7 @@ static int airoha_dev_init(struct net_de
  		if (!eth->ports[1]) {
  			int err;
  

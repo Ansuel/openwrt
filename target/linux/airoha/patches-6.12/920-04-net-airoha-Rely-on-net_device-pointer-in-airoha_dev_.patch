@@ -1,10 +1,10 @@
-From 1abd1927f468a85918b27a6ecfdd1374478b0566 Mon Sep 17 00:00:00 2001
-Message-ID: <1abd1927f468a85918b27a6ecfdd1374478b0566.1764515564.git.lorenzo@kernel.org>
-In-Reply-To: <ebd1eb325210ac6caf6b7a242083f41e3b9f0acd.1764515564.git.lorenzo@kernel.org>
-References: <ebd1eb325210ac6caf6b7a242083f41e3b9f0acd.1764515564.git.lorenzo@kernel.org>
+From 214b17244d96066f65f061a019c5d7b530eb3280 Mon Sep 17 00:00:00 2001
+Message-ID: <214b17244d96066f65f061a019c5d7b530eb3280.1771966444.git.lorenzo@kernel.org>
+In-Reply-To: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+References: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sat, 1 Nov 2025 12:19:58 +0100
-Subject: [PATCH nf-next 4/6] net: airoha: Rely on net_device pointer in
+Subject: [bpf-next 04/16] net: airoha: Rely on net_device pointer in
  airoha_dev_setup_tc_block signature
 
 This is a preliminary patch to support multiple net_devices connected
@@ -17,7 +17,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2709,7 +2709,7 @@ static int airoha_dev_setup_tc_block_cb(
+@@ -2719,7 +2719,7 @@ static int airoha_dev_setup_tc_block_cb(
  	}
  }
  
@@ -26,7 +26,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  				     struct flow_block_offload *f)
  {
  	flow_setup_cb_t *cb = airoha_dev_setup_tc_block_cb;
-@@ -2722,13 +2722,12 @@ static int airoha_dev_setup_tc_block(str
+@@ -2732,13 +2732,12 @@ static int airoha_dev_setup_tc_block(str
  	f->driver_block_list = &block_cb_list;
  	switch (f->command) {
  	case FLOW_BLOCK_BIND:
@@ -42,7 +42,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		if (IS_ERR(block_cb))
  			return PTR_ERR(block_cb);
  
-@@ -2737,7 +2736,7 @@ static int airoha_dev_setup_tc_block(str
+@@ -2747,7 +2746,7 @@ static int airoha_dev_setup_tc_block(str
  		list_add_tail(&block_cb->driver_list, &block_cb_list);
  		return 0;
  	case FLOW_BLOCK_UNBIND:
@@ -51,7 +51,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  		if (!block_cb)
  			return -ENOENT;
  
-@@ -2844,7 +2843,7 @@ static int airoha_dev_tc_setup(struct ne
+@@ -2851,7 +2850,7 @@ static int airoha_dev_tc_setup(struct ne
  		return airoha_tc_setup_qdisc_htb(netdev, type_data);
  	case TC_SETUP_BLOCK:
  	case TC_SETUP_FT:

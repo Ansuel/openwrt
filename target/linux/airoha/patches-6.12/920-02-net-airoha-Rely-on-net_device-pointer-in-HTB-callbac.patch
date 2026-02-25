@@ -1,10 +1,10 @@
-From 3f7e0283cece5c42625211d3bf08d0cbeb29527c Mon Sep 17 00:00:00 2001
-Message-ID: <3f7e0283cece5c42625211d3bf08d0cbeb29527c.1764515564.git.lorenzo@kernel.org>
-In-Reply-To: <ebd1eb325210ac6caf6b7a242083f41e3b9f0acd.1764515564.git.lorenzo@kernel.org>
-References: <ebd1eb325210ac6caf6b7a242083f41e3b9f0acd.1764515564.git.lorenzo@kernel.org>
+From e97fdde136717ca32813c6d115004898b779efcf Mon Sep 17 00:00:00 2001
+Message-ID: <e97fdde136717ca32813c6d115004898b779efcf.1771966444.git.lorenzo@kernel.org>
+In-Reply-To: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
+References: <2cd15ef3379025ea1ae1f6c36c70621aa578c270.1771966444.git.lorenzo@kernel.org>
 From: Lorenzo Bianconi <lorenzo@kernel.org>
 Date: Sat, 1 Nov 2025 12:10:22 +0100
-Subject: [PATCH nf-next 3/6] net: airoha: Rely on net_device pointer in HTB
+Subject: [bpf-next 02/16] net: airoha: Rely on net_device pointer in HTB
  callbacks
 
 This is a preliminary patch to support multiple net_devices connected
@@ -12,12 +12,25 @@ to the same Frame Engine GDM port via an external arbiter.
 
 Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 ---
- drivers/net/ethernet/airoha/airoha_eth.c | 45 ++++++++++++++----------
- 1 file changed, 26 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/airoha/airoha_eth.c | 54 ++++++++++++++----------
+ 1 file changed, 31 insertions(+), 23 deletions(-)
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2535,14 +2535,14 @@ static int airoha_qdma_set_tx_rate_limit
+@@ -2517,10 +2517,11 @@ static int airoha_qdma_set_trtcm_token_b
+ 					   mode, val);
+ }
+ 
+-static int airoha_qdma_set_tx_rate_limit(struct airoha_gdm_port *port,
++static int airoha_qdma_set_tx_rate_limit(struct airoha_gdm_dev *dev,
+ 					 int channel, u32 rate,
+ 					 u32 bucket_size)
+ {
++	struct airoha_gdm_port *port = dev->port;
+ 	int i, err;
+ 
+ 	for (i = 0; i <= TRTCM_PEAK_MODE; i++) {
+@@ -2540,21 +2541,21 @@ static int airoha_qdma_set_tx_rate_limit
  	return 0;
  }
  
@@ -36,16 +49,27 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	if (opt->parent_classid != TC_HTB_CLASSID_ROOT) {
  		NL_SET_ERR_MSG_MOD(opt->extack, "invalid parent classid");
-@@ -2559,7 +2559,7 @@ static int airoha_tc_htb_alloc_leaf_queu
+ 		return -EINVAL;
+ 	}
+ 
+-	err = airoha_qdma_set_tx_rate_limit(port, channel, rate, opt->quantum);
++	err = airoha_qdma_set_tx_rate_limit(dev, channel, rate, opt->quantum);
+ 	if (err) {
+ 		NL_SET_ERR_MSG_MOD(opt->extack,
+ 				   "failed configuring htb offload");
+@@ -2564,9 +2565,9 @@ static int airoha_tc_htb_alloc_leaf_queu
  	if (opt->command == TC_HTB_NODE_MODIFY)
  		return 0;
  
 -	err = netif_set_real_num_tx_queues(dev, num_tx_queues + 1);
 +	err = netif_set_real_num_tx_queues(netdev, num_tx_queues + 1);
  	if (err) {
- 		airoha_qdma_set_tx_rate_limit(port, channel, 0, opt->quantum);
+-		airoha_qdma_set_tx_rate_limit(port, channel, 0, opt->quantum);
++		airoha_qdma_set_tx_rate_limit(dev, channel, 0, opt->quantum);
  		NL_SET_ERR_MSG_MOD(opt->extack,
-@@ -2751,44 +2751,51 @@ static int airoha_dev_setup_tc_block(str
+ 				   "failed setting real_num_tx_queues");
+ 		return err;
+@@ -2756,44 +2757,51 @@ static int airoha_dev_setup_tc_block(str
  	}
  }
  
@@ -57,8 +81,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	struct airoha_gdm_port *port = dev->port;
  
 -	netif_set_real_num_tx_queues(dev, dev->real_num_tx_queues - 1);
+-	airoha_qdma_set_tx_rate_limit(port, queue + 1, 0, 0);
 +	netif_set_real_num_tx_queues(netdev, netdev->real_num_tx_queues - 1);
- 	airoha_qdma_set_tx_rate_limit(port, queue + 1, 0, 0);
++	airoha_qdma_set_tx_rate_limit(dev, queue + 1, 0, 0);
  	clear_bit(queue, port->qos_sq_bmap);
  }
  
@@ -105,7 +130,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	if (!test_bit(channel, port->qos_sq_bmap)) {
  		NL_SET_ERR_MSG_MOD(opt->extack, "invalid queue id");
-@@ -2800,23 +2807,23 @@ static int airoha_tc_get_htb_get_leaf_qu
+@@ -2805,23 +2813,23 @@ static int airoha_tc_get_htb_get_leaf_qu
  	return 0;
  }
  
@@ -134,7 +159,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	default:
  		return -EOPNOTSUPP;
  	}
-@@ -2834,7 +2841,7 @@ static int airoha_dev_tc_setup(struct ne
+@@ -2839,7 +2847,7 @@ static int airoha_dev_tc_setup(struct ne
  	case TC_SETUP_QDISC_ETS:
  		return airoha_tc_setup_qdisc_ets(port, type_data);
  	case TC_SETUP_QDISC_HTB:
