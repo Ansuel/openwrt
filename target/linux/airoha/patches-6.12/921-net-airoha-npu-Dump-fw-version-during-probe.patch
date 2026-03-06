@@ -13,7 +13,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_npu.c
 +++ b/drivers/net/ethernet/airoha/airoha_npu.c
-@@ -663,6 +663,7 @@ static int airoha_npu_probe(struct platf
+@@ -698,6 +698,7 @@ static int airoha_npu_probe(struct platf
  	struct device_node *np;
  	void __iomem *base;
  	int i, irq, err;
@@ -21,7 +21,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	base = devm_platform_ioremap_resource(pdev, 0);
  	if (IS_ERR(base))
-@@ -762,6 +763,11 @@ static int airoha_npu_probe(struct platf
+@@ -797,6 +798,11 @@ static int airoha_npu_probe(struct platf
  	regmap_write(npu->regmap, REG_CR_BOOT_TRIGGER, 0x1);
  	msleep(100);
  

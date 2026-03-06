@@ -32,13 +32,16 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	netif_tx_start_all_queues(netdev);
  	err = airoha_set_vip_for_gdm_port(dev, true);
  	if (err)
-@@ -1792,6 +1797,58 @@ static int airhoha_enable_gdm2_loopback(
+@@ -1792,36 +1797,102 @@ static int airhoha_enable_gdm2_loopback(
  	return 0;
  }
  
+-static int airoha_dev_init(struct net_device *netdev)
 +static void airhoha_disable_gdm2_loopback(struct airoha_gdm_dev *dev)
-+{
-+	struct airoha_eth *eth = dev->eth;
+ {
+-	struct airoha_gdm_dev *dev = netdev_priv(netdev);
+-	struct airoha_gdm_port *port = dev->port;
+ 	struct airoha_eth *eth = dev->eth;
 +	u32 pse_port, len;
 +
 +	airoha_set_gdm_port_fwd_cfg(eth, REG_GDM_FWD_CFG(AIROHA_GDM2_IDX),
@@ -63,8 +66,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +static struct airoha_gdm_dev *
 +airhoa_get_wan_gdm_dev(struct airoha_eth *eth)
 +{
-+	int i;
-+
+ 	int i;
+ 
+-	airoha_set_macaddr(dev, netdev->dev_addr);
 +	for (i = 0; i < ARRAY_SIZE(eth->ports); i++) {
 +		struct airoha_gdm_port *port = eth->ports[i];
 +		int j;
@@ -88,24 +92,36 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	return NULL;
 +}
 +
- static int airoha_dev_init(struct net_device *netdev)
- {
- 	struct airoha_gdm_dev *dev = netdev_priv(netdev);
-@@ -1799,18 +1856,21 @@ static int airoha_dev_init(struct net_de
- 	struct airoha_eth *eth = dev->eth;
- 	int i;
++static void airoha_dev_set_qdma(struct airoha_gdm_dev *dev)
++{
++	struct airoha_eth *eth = dev->eth;
++	int i;
++
++	/* QDMA0 is used for lan ports while QDMA1 is used for WAN ports */
++	dev->qdma = &eth->qdma[!airhoa_is_lan_gdm_dev(dev)];
++	dev->dev->irq = dev->qdma->irq_banks[0].irq;
++
++	for (i = 0; i < eth->soc->num_ppe; i++)
++		airoha_ppe_set_def_cport(dev, i);
++}
++
++static int airoha_dev_init(struct net_device *netdev)
++{
++	struct airoha_gdm_dev *dev = netdev_priv(netdev);
++	struct airoha_gdm_port *port = dev->port;
  
--	airoha_set_macaddr(dev, netdev->dev_addr);
--
  	switch (port->id) {
 +	case AIROHA_GDM2_IDX:
 +		/* GDM2 is always used as wan */
 +		dev->flags |= PRIV_FLAG_WAN;
 +		break;
  	case AIROHA_GDM3_IDX:
- 	case AIROHA_GDM4_IDX:
+-	case AIROHA_GDM4_IDX:
 -		/* If GDM2 is active we can't enable loopback */
 -		if (!eth->ports[1]) {
++	case AIROHA_GDM4_IDX: {
++		struct airoha_eth *eth = dev->eth;
++
 +		if (!eth->ports[1] && !airhoa_get_wan_gdm_dev(eth)) {
  			int err;
  
@@ -116,16 +132,22 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +			dev->flags |= PRIV_FLAG_WAN;
  		}
  		break;
++	}
  	default:
-@@ -1820,6 +1880,7 @@ static int airoha_dev_init(struct net_de
- 	dev->qdma = &eth->qdma[!airhoa_is_lan_gdm_dev(dev)];
- 	dev->dev->irq = dev->qdma->irq_banks[0].irq;
+ 		break;
+ 	}
+-	/* QDMA0 is used for lan ports while QDMA1 is used for WAN ports */
+-	dev->qdma = &eth->qdma[!airhoa_is_lan_gdm_dev(dev)];
+-	dev->dev->irq = dev->qdma->irq_banks[0].irq;
  
+-	for (i = 0; i < eth->soc->num_ppe; i++)
+-		airoha_ppe_set_def_cport(dev, i);
 +	airoha_set_macaddr(dev, netdev->dev_addr);
- 	for (i = 0; i < eth->soc->num_ppe; i++)
- 		airoha_ppe_set_def_cport(dev, i);
++	airoha_dev_set_qdma(dev);
  
-@@ -2083,6 +2144,73 @@ error:
+ 	return 0;
+ }
+@@ -2083,6 +2154,73 @@ error:
  	return NETDEV_TX_OK;
  }
  
@@ -185,8 +207,8 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +		}
 +		dev->flags &= ~PRIV_FLAG_WAN;
 +	}
-+	/* If the device is used as WAN is always using QDMA1 */
-+	dev->qdma = &eth->qdma[!airhoa_is_lan_gdm_dev(dev)];
++
++	airoha_dev_set_qdma(dev);
 +
 +	return 0;
 +}
@@ -199,7 +221,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static void airoha_ethtool_get_drvinfo(struct net_device *netdev,
  				       struct ethtool_drvinfo *info)
  {
-@@ -2091,6 +2219,7 @@ static void airoha_ethtool_get_drvinfo(s
+@@ -2091,6 +2229,7 @@ static void airoha_ethtool_get_drvinfo(s
  
  	strscpy(info->driver, eth->dev->driver->name, sizeof(info->driver));
  	strscpy(info->bus_info, dev_name(eth->dev), sizeof(info->bus_info));
@@ -207,7 +229,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  }
  
  static void airoha_ethtool_get_mac_stats(struct net_device *netdev,
-@@ -2155,6 +2284,56 @@ airoha_ethtool_get_rmon_stats(struct net
+@@ -2155,6 +2294,56 @@ airoha_ethtool_get_rmon_stats(struct net
  	} while (u64_stats_fetch_retry(&port->stats.syncp, start));
  }
  
@@ -264,9 +286,9 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  static int airoha_qdma_set_chan_tx_sched(struct airoha_gdm_dev *dev,
  					 int channel, enum tx_sched_mode mode,
  					 const u16 *weights, u8 n_weights)
-@@ -2861,6 +3040,10 @@ static const struct ethtool_ops airoha_e
+@@ -2860,6 +3049,10 @@ static const struct ethtool_ops airoha_e
+ 	.get_eth_mac_stats      = airoha_ethtool_get_mac_stats,
  	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
- 	.get_link_ksettings	= phy_ethtool_get_link_ksettings,
  	.get_link		= ethtool_op_get_link,
 +	.set_priv_flags		= airoha_ethtool_set_priv_flags,
 +	.get_priv_flags		= airoha_ethtool_get_priv_flags,

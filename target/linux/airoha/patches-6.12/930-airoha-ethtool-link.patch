@@ -1,7 +1,7 @@
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2292,6 +2292,30 @@ airoha_ethtool_get_rmon_stats(struct net
- 	} while (u64_stats_fetch_retry(&dev->stats.syncp, start));
+@@ -2328,6 +2328,30 @@ static u32 airoha_ethtool_get_priv_flags
+ 	return dev->flags;
  }
  
 +static int
@@ -31,7 +31,7 @@
  static int airoha_ethtool_get_sset_count(struct net_device *netdev, int sset)
  {
  	switch (sset) {
-@@ -2991,6 +3015,8 @@ static const struct ethtool_ops airoha_e
+@@ -3058,6 +3082,8 @@ static const struct ethtool_ops airoha_e
  	.get_eth_mac_stats      = airoha_ethtool_get_mac_stats,
  	.get_rmon_stats		= airoha_ethtool_get_rmon_stats,
  	.get_link		= ethtool_op_get_link,
