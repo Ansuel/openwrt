@@ -22,7 +22,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  }
  
 -static int airhoha_set_gdm2_loopback(struct airoha_gdm_dev *dev)
-+static int airhoha_enable_gdm2_loopback(struct airoha_gdm_dev *dev)
++static int airoha_enable_gdm2_loopback(struct airoha_gdm_dev *dev)
  {
  	struct airoha_gdm_port *port = dev->port;
  	struct airoha_eth *eth = dev->eth;
@@ -31,7 +31,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  			int err;
  
 -			err = airhoha_set_gdm2_loopback(dev);
-+			err = airhoha_enable_gdm2_loopback(dev);
++			err = airoha_enable_gdm2_loopback(dev);
  			if (err)
  				return err;
  		}

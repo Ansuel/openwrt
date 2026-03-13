@@ -231,7 +231,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  }
  
  static int airoha_dev_open(struct net_device *netdev)
-@@ -1885,6 +1893,10 @@ static int airoha_dev_init(struct net_de
+@@ -1896,6 +1904,10 @@ static int airoha_dev_init(struct net_de
  
  			dev->flags |= PRIV_FLAG_WAN;
  		}
@@ -242,7 +242,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  		break;
  	}
  	default:
-@@ -1901,23 +1913,22 @@ static void airoha_dev_get_stats64(struc
+@@ -1912,23 +1924,22 @@ static void airoha_dev_get_stats64(struc
  				   struct rtnl_link_stats64 *storage)
  {
  	struct airoha_gdm_dev *dev = netdev_priv(netdev);
@@ -278,7 +278,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  }
  
  static int airoha_dev_change_mtu(struct net_device *netdev, int mtu)
-@@ -2236,20 +2247,19 @@ static void airoha_ethtool_get_mac_stats
+@@ -2250,20 +2261,19 @@ static void airoha_ethtool_get_mac_stats
  					 struct ethtool_eth_mac_stats *stats)
  {
  	struct airoha_gdm_dev *dev = netdev_priv(netdev);
@@ -308,7 +308,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  }
  
  static const struct ethtool_rmon_hist_range airoha_ethtool_rmon_ranges[] = {
-@@ -2269,8 +2279,7 @@ airoha_ethtool_get_rmon_stats(struct net
+@@ -2283,8 +2293,7 @@ airoha_ethtool_get_rmon_stats(struct net
  			      const struct ethtool_rmon_hist_range **ranges)
  {
  	struct airoha_gdm_dev *dev = netdev_priv(netdev);
@@ -318,7 +318,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	unsigned int start;
  
  	BUILD_BUG_ON(ARRAY_SIZE(airoha_ethtool_rmon_ranges) !=
-@@ -2283,7 +2292,7 @@ airoha_ethtool_get_rmon_stats(struct net
+@@ -2297,7 +2306,7 @@ airoha_ethtool_get_rmon_stats(struct net
  	do {
  		int i;
  
@@ -327,7 +327,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  		stats->fragments = hw_stats->rx_fragment;
  		stats->jabbers = hw_stats->rx_jabber;
  		for (i = 0; i < ARRAY_SIZE(airoha_ethtool_rmon_ranges) - 1;
-@@ -2291,7 +2300,7 @@ airoha_ethtool_get_rmon_stats(struct net
+@@ -2305,7 +2314,7 @@ airoha_ethtool_get_rmon_stats(struct net
  			stats->hist[i] = hw_stats->rx_len[i];
  			stats->hist_tx[i] = hw_stats->tx_len[i];
  		}
@@ -336,7 +336,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  }
  
  static int airoha_ethtool_set_priv_flags(struct net_device *netdev, u32 flags)
-@@ -3279,6 +3288,8 @@ static int airoha_alloc_gdm_device(struc
+@@ -3293,6 +3302,8 @@ static int airoha_alloc_gdm_device(struc
  	dev->port = port;
  	dev->eth = eth;
  	dev->nbq = nbq;
@@ -345,7 +345,7 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  	port->devs[index] = dev;
  
  #if defined(CONFIG_PCS_AIROHA)
-@@ -3323,8 +3334,6 @@ static int airoha_alloc_gdm_port(struct
+@@ -3337,8 +3348,6 @@ static int airoha_alloc_gdm_port(struct
  	if (!port)
  		return -ENOMEM;
  

@@ -38,7 +38,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
  	for (i = 0; i < eth->soc->num_ppe; i++)
  		airoha_ppe_set_def_cport(dev, i);
-@@ -3023,7 +3025,6 @@ static int airoha_setup_phylink(struct n
+@@ -3022,7 +3024,6 @@ static int airoha_setup_phylink(struct n
  #endif
  
  static int airoha_alloc_gdm_device(struct airoha_eth *eth,
@@ -46,7 +46,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  				   struct airoha_gdm_port *port,
  				   int nbq, struct device_node *np)
  {
-@@ -3050,7 +3051,6 @@ static int airoha_alloc_gdm_device(struc
+@@ -3049,7 +3050,6 @@ static int airoha_alloc_gdm_device(struc
  	netdev->features |= netdev->hw_features;
  	netdev->vlan_features = netdev->hw_features;
  	netdev->dev.of_node = np;
@@ -54,7 +54,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	SET_NETDEV_DEV(netdev, eth->dev);
  
  	/* reserve hw queues for HTB offloading */
-@@ -3082,7 +3082,6 @@ static int airoha_alloc_gdm_device(struc
+@@ -3081,7 +3081,6 @@ static int airoha_alloc_gdm_device(struc
  
  	dev = netdev_priv(netdev);
  	dev->dev = netdev;
@@ -62,7 +62,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	dev->port = port;
  	dev->eth = eth;
  	dev->nbq = nbq;
-@@ -3092,11 +3091,10 @@ static int airoha_alloc_gdm_device(struc
+@@ -3091,11 +3090,10 @@ static int airoha_alloc_gdm_device(struc
  }
  
  static int airoha_alloc_gdm_port(struct airoha_eth *eth,
@@ -75,7 +75,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	struct device_node *node;
  	int err, p, d = 0;
  	u32 id;
-@@ -3123,7 +3121,6 @@ static int airoha_alloc_gdm_port(struct
+@@ -3122,7 +3120,6 @@ static int airoha_alloc_gdm_port(struct
  	if (!port)
  		return -ENOMEM;
  
@@ -83,7 +83,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	u64_stats_init(&port->stats.syncp);
  	spin_lock_init(&port->stats.lock);
  	port->id = id;
-@@ -3162,15 +3159,15 @@ static int airoha_alloc_gdm_port(struct
+@@ -3161,15 +3158,15 @@ static int airoha_alloc_gdm_port(struct
  			break;
  		}
  
@@ -102,7 +102,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  }
  
  static int airoha_register_gdm_devices(struct airoha_eth *eth)
-@@ -3273,7 +3270,6 @@ static int airoha_probe(struct platform_
+@@ -3272,7 +3269,6 @@ static int airoha_probe(struct platform_
  	for (i = 0; i < ARRAY_SIZE(eth->qdma); i++)
  		airoha_qdma_start_napi(&eth->qdma[i]);
  
@@ -110,7 +110,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  	for_each_child_of_node(pdev->dev.of_node, np) {
  		if (!of_device_is_compatible(np, "airoha,eth-mac"))
  			continue;
-@@ -3281,7 +3277,7 @@ static int airoha_probe(struct platform_
+@@ -3280,7 +3276,7 @@ static int airoha_probe(struct platform_
  		if (!of_device_is_available(np))
  			continue;
  

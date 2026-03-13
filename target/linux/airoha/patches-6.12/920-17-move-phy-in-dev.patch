@@ -29,7 +29,7 @@
  	}
  #endif
  
-@@ -3059,10 +3059,10 @@ static const struct ethtool_ops airoha_e
+@@ -3073,10 +3073,10 @@ static const struct ethtool_ops airoha_e
  static struct phylink_pcs *airoha_phylink_mac_select_pcs(struct phylink_config *config,
  							 phy_interface_t interface)
  {
@@ -43,7 +43,7 @@
  }
  
  static void airoha_mac_config(struct phylink_config *config, unsigned int mode,
-@@ -3128,9 +3128,10 @@ static void airoha_mac_link_up(struct ph
+@@ -3142,9 +3142,10 @@ static void airoha_mac_link_up(struct ph
  			       unsigned int mode, phy_interface_t interface,
  			       int speed, int duplex, bool tx_pause, bool rx_pause)
  {
@@ -57,7 +57,7 @@
  	struct airoha_eth *eth = qdma->eth;
  	u32 frag_size_tx, frag_size_rx;
  
-@@ -3171,48 +3172,47 @@ static const struct phylink_mac_ops airo
+@@ -3185,48 +3186,47 @@ static const struct phylink_mac_ops airo
  	.mac_link_down = airoha_mac_link_down,
  };
  
@@ -123,7 +123,7 @@
  
  	return 0;
  }
-@@ -3281,6 +3281,14 @@ static int airoha_alloc_gdm_device(struc
+@@ -3295,6 +3295,14 @@ static int airoha_alloc_gdm_device(struc
  	dev->nbq = nbq;
  	port->devs[index] = dev;
  
@@ -138,7 +138,7 @@
  	return 0;
  }
  
-@@ -3324,14 +3332,6 @@ static int airoha_alloc_gdm_port(struct
+@@ -3338,14 +3346,6 @@ static int airoha_alloc_gdm_port(struct
  	if (err)
  		return err;
  
@@ -153,7 +153,7 @@
  	for_each_child_of_node(np, node) {
  		/* Multiple external serdes connected to the FE GDM port via an
  		 * external arbiter.
-@@ -3500,19 +3500,19 @@ error_hw_cleanup:
+@@ -3514,19 +3514,19 @@ error_hw_cleanup:
  			continue;
  
  		airoha_metadata_dst_free(port);
@@ -180,7 +180,7 @@
  			if (dev->dev->reg_state == NETREG_REGISTERED)
  				unregister_netdev(dev->dev);
  		}
-@@ -3542,18 +3542,19 @@ static void airoha_remove(struct platfor
+@@ -3556,18 +3556,19 @@ static void airoha_remove(struct platfor
  
  		airoha_metadata_dst_free(port);
  
