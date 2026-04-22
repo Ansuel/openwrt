@@ -11,14 +11,18 @@ include $(INCLUDE_DIR)/u-boot.mk
 include $(INCLUDE_DIR)/package.mk
 include $(INCLUDE_DIR)/host-build.mk
 
+define U-Boot/Default
+  BUILD_TARGET:=airoha
+  FIP_COMPRESS:=1
+  HIDDEN:=1
+endef
+
 define U-Boot/an7581_rfb
   NAME:=AN7581 Reference Board
   UBOOT_CONFIG:=an7581_evb
-  BUILD_DEVICES:=an7581-evb
-  BUILD_TARGET:=airoha
+  BUILD_DEVICES:=airoha_an7581-evb airoha_an7581-evb-emmc
   BUILD_SUBTARGET:=an7581
   UBOOT_IMAGE:=u-boot.fip
-  FIP_COMPRESS:=1
   BL2_IMAGE:=an7581-bl2.bin
   BL31_IMAGE:=an7581-bl31.bin
 endef
@@ -26,11 +30,9 @@ endef
 define U-Boot/an7583_rfb
   NAME:=AN7583 Reference Board
   UBOOT_CONFIG:=an7583_evb
-  BUILD_DEVICES:=an7583-evb
-  BUILD_TARGET:=airoha
+  BUILD_DEVICES:=airoha_an7583-evb
   BUILD_SUBTARGET:=an7583
   UBOOT_IMAGE:=u-boot.fip
-  FIP_COMPRESS:=1
   BL2_IMAGE:=an7583-bl2.bin
   BL31_IMAGE:=an7583-bl31.bin
 endef
