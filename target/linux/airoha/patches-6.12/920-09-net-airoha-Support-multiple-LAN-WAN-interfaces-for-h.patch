@@ -30,7 +30,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -80,20 +80,69 @@ static bool airhoa_is_phy_external(struc
+@@ -80,20 +80,70 @@ static bool airhoa_is_phy_external(struc
  }
  #endif
  
@@ -81,11 +81,12 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 +	}
 +
 +	if (!is_zero_ether_addr(ref_addr) && memcmp(ref_addr, addr, 3)) {
-+		/* According to the HW design, hw mac address MS bits
-+		 * must be the same for each net_device with the same
-+		 * LAN/WAN configuration.
++		/* According to the HW design, hw mac address MSBs must be
++		 * the same for each net_device with the same LAN/WAN
++		 * configuration.
 +		 */
-+		netdev_err(dev->dev, "wrong mac addr for shared GDM port\n");
++		netdev_warn(dev->dev,
++			    "wrong addr, FE forwarding wont work properly\n");
 +		return -EINVAL;
 +	}
  
@@ -98,15 +99,15 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 -	airoha_fe_wr(eth, REG_FE_MAC_LMAX(reg), val);
 +	airoha_fe_wr(eth, REG_FE_MAC_LMIN(reg), lmin);
 +	airoha_fe_wr(eth, REG_FE_MAC_LMAX(reg), lmax);
++
++	airoha_ppe_init_upd_mem(dev, addr);
  
 -	airoha_ppe_init_upd_mem(dev);
-+	airoha_ppe_init_upd_mem(dev, addr);
-+
 +	return 0;
  }
  
  static void airoha_set_gdm_port_fwd_cfg(struct airoha_eth *eth, u32 addr,
-@@ -1972,13 +2021,18 @@ static int airoha_dev_stop(struct net_de
+@@ -1972,13 +2022,18 @@ static int airoha_dev_stop(struct net_de
  static int airoha_dev_set_macaddr(struct net_device *netdev, void *p)
  {
  	struct airoha_gdm_dev *dev = netdev_priv(netdev);
@@ -115,42 +116,18 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  
 -	err = eth_mac_addr(netdev, p);
 +	err = eth_prepare_mac_addr_change(netdev, p);
++	if (err)
++		return err;
++
++	err = airoha_set_macaddr(dev, addr->sa_data);
  	if (err)
  		return err;
  
 -	airoha_set_macaddr(dev, netdev->dev_addr);
-+	err = airoha_set_macaddr(dev, addr->sa_data);
-+	if (err)
-+		return err;
-+
 +	eth_commit_mac_addr_change(netdev, p);
  
  	return 0;
  }
-@@ -2083,6 +2137,7 @@ static int airoha_dev_init(struct net_de
- {
- 	struct airoha_gdm_dev *dev = netdev_priv(netdev);
- 	struct airoha_gdm_port *port = dev->port;
-+	int err;
- 
- 	switch (port->id) {
- 	case AIROHA_GDM3_IDX:
-@@ -2107,12 +2162,12 @@ static int airoha_dev_init(struct net_de
- 	}
- 
- 	airoha_dev_set_qdma(dev);
--	airoha_set_macaddr(dev, netdev->dev_addr);
-+	err = airoha_set_macaddr(dev, netdev->dev_addr);
-+	if (err)
-+		return err;
- 
- 	if (!airoha_is_lan_gdm_dev(dev) &&
- 	    (port->id == AIROHA_GDM3_IDX || port->id == AIROHA_GDM4_IDX)) {
--		int err;
--
- 		err = airoha_set_gdm2_loopback(dev);
- 		if (err)
- 			return err;
 --- a/drivers/net/ethernet/airoha/airoha_eth.h
 +++ b/drivers/net/ethernet/airoha/airoha_eth.h
 @@ -712,7 +712,7 @@ void airoha_ppe_check_skb(struct airoha_

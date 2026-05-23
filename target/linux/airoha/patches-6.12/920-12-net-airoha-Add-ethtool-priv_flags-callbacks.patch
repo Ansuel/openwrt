@@ -19,7 +19,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -1895,6 +1895,11 @@ static int airoha_dev_open(struct net_de
+@@ -1896,6 +1896,11 @@ static int airoha_dev_open(struct net_de
  	u32 cur_len, pse_port = FE_PSE_PORT_PPE1;
  	struct airoha_qdma *qdma = dev->qdma;
  
@@ -31,7 +31,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  #if defined(CONFIG_PCS_AIROHA)
  	if (airhoa_is_phy_external(port)) {
  		err = phylink_of_phy_connect(dev->phylink, netdev->dev.of_node, 0);
-@@ -2099,6 +2104,45 @@ static int airoha_enable_gdm2_loopback(s
+@@ -2100,6 +2105,45 @@ static int airoha_enable_gdm2_loopback(s
  	return 0;
  }
  

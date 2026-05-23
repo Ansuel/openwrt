@@ -17,7 +17,7 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
 
 --- a/drivers/net/ethernet/airoha/airoha_eth.c
 +++ b/drivers/net/ethernet/airoha/airoha_eth.c
-@@ -2037,7 +2037,7 @@ static int airoha_dev_set_macaddr(struct
+@@ -2038,7 +2038,7 @@ static int airoha_dev_set_macaddr(struct
  	return 0;
  }
  
@@ -26,10 +26,10 @@ Signed-off-by: Lorenzo Bianconi <lorenzo@kernel.org>
  {
  	struct airoha_gdm_port *port = dev->port;
  	struct airoha_eth *eth = dev->eth;
-@@ -2168,7 +2168,7 @@ static int airoha_dev_init(struct net_de
- 
- 	if (!airoha_is_lan_gdm_dev(dev) &&
+@@ -2170,7 +2170,7 @@ static int airoha_dev_init(struct net_de
  	    (port->id == AIROHA_GDM3_IDX || port->id == AIROHA_GDM4_IDX)) {
+ 		int err;
+ 
 -		err = airoha_set_gdm2_loopback(dev);
 +		err = airoha_enable_gdm2_loopback(dev);
  		if (err)
