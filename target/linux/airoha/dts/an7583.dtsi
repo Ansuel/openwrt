@@ -715,6 +715,8 @@
 
 			mediatek,pbus-csr = <&pbus_csr 0x0 0x4>;
 
+			airoha,np-scu = <&scuclk>;
+
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			bus-range = <0x00 0xff>;
 			#interrupt-cells = <1>;
