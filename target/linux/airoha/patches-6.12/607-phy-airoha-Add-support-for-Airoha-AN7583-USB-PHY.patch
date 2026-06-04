@@ -54,7 +54,7 @@ new file mode 100644
 index 000000000000..3c948336c871
 --- /dev/null
 +++ b/drivers/phy/airoha/phy-an7583-usb.c
-@@ -0,0 +1,2020 @@
+@@ -0,0 +1,2021 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Author: Christian Marangi <ansuelsmth@gmail.com>
@@ -457,7 +457,8 @@ index 000000000000..3c948336c871
 +	regmap_update_bits(priv->regs[AIROHA_USB_PHY_PHY],
 +			   AIROHA_USB_PHY_FMCR0 + offset,
 +			   AIROHA_USB_PHY_MONCLK_SEL,
-+			   instance->monclk_sel);
++			   FIELD_PREP(AIROHA_USB_PHY_MONCLK_SEL,
++				      instance->monclk_sel));
 +
 +	/* Set cyclecnt */
 +	regmap_update_bits(priv->regs[AIROHA_USB_PHY_PHY],
