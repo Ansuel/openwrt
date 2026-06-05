@@ -1,5 +1,8 @@
+From 59f5a9954e0090572100e715e15ebb54f60327bb Mon Sep 17 00:00:00 2001
 From: Ryan Chen <rchen14b@gmail.com>
-Subject: PCI: mediatek-gen3: Add PCIe x2 link support for Airoha EN7581
+Date: Fri, 5 Jun 2026 16:10:01 +0200
+Subject: [PATCH] PCI: mediatek-gen3: Add PCIe x2 link support for Airoha
+ EN7581
 
 The Airoha EN7581 SoC supports PCIe x2 mode where two PCIe lanes are
 bonded together for a single x2 link. This requires coordination with
@@ -19,65 +22,129 @@ Gen3 capability from the Link Capabilities 2 register, allowing the
 link to retrain at Gen3 x2 (8 GT/s).
 
 Signed-off-by: Ryan Chen <rchen14b@gmail.com>
+Co-developed-by: Christian Marangi <ansuelsmth@gmail.com>
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/pci/controller/pcie-mediatek-gen3.c | 243 ++++++++++++++++++--
+ 1 file changed, 229 insertions(+), 14 deletions(-)
+
+diff --git a/drivers/pci/controller/pcie-mediatek-gen3.c b/drivers/pci/controller/pcie-mediatek-gen3.c
+index 3b62b47ff41c..7628865f50a7 100644
 --- a/drivers/pci/controller/pcie-mediatek-gen3.c
 +++ b/drivers/pci/controller/pcie-mediatek-gen3.c
-@@ -61,6 +61,14 @@
- #define PCIE_LTSSM_STATE(val)		((val & PCIE_LTSSM_STATE_MASK) >> 24)
- #define PCIE_LTSSM_STATE_L2_IDLE	0x14
+@@ -32,7 +32,26 @@
  
-+/* EN7581 x2 mode support */
-+#define PCIE_SETTING_REG_X1_MODE	BIT(13)
-+
-+/* EN7581 NP_SCU register offsets for x2 link init */
-+#define NP_SCU_LANE_CFG0		0x830
-+#define NP_SCU_LANE_CFG1		0x834
-+#define NP_SCU_CTRL_REG			0x88
-+
- #define PCIE_LINK_STATUS_REG		0x154
- #define PCIE_PORT_LINKUP		BIT(8)
+ #include "../pci.h"
  
-@@ -205,6 +213,11 @@ struct mtk_gen3_pcie {
++/* SCU register offsets for x2 link init */
++#define SCU_PCIC			0x88
++#define SCU_PCIC_PCIE_CTRL		GENMASK(7, 0)
++#define SCU_PCIC_PERSTOUT2		BIT(16)
++#define SCU_PCIC_PERSTOUT1		BIT(26)
++#define SCU_PCIC_PERSTOUT0		BIT(29)
++
++#define SCU_RSTCTRL2			0x830
++#define SCU_RSTCTRL2_XSI_MAC		BIT(7)
++#define SCU_RSTCTRL2_XSI_PHY		BIT(8)
++#define SCU_RSTCTRL2_PCIE2		BIT(27)
++
++#define SCU_RSTCTRL1			0x834
++#define SCU_RSTCTRL1_PCIE0		BIT(26)
++#define SCU_RSTCTRL1_PCIE1		BIT(27)
++
++/* PCIe register */
+ #define PCIE_SETTING_REG		0x80
++#define PCIE_SETTING_REG_X1_MODE	BIT(13) /* x2 mode support */
++
+ #define PCIE_PCI_IDS_1			0x9c
+ #define PCI_CLASS(class)		(class << 8)
+ #define PCIE_RC_MODE			BIT(0)
+@@ -222,6 +241,42 @@ struct mtk_gen3_pcie {
  	DECLARE_BITMAP(msi_irq_in_use, PCIE_MSI_IRQS_NUM);
  
  	const struct mtk_gen3_pcie_pdata *soc;
 +
 +	/* EN7581 x2 mode support */
-+	struct regmap *np_scu;
-+	bool x2_mode;
++	struct regmap *scu;
++	struct device_node *sister_node;
++	u16 sister_domain_nr;
 +	void __iomem *sister_base;
++};
++
++struct airoha_pcie_reset_info {
++	u32 scu_reg;
++	u32 scu_reset_bit;
++	u32 perstout_bit;
++};
++
++enum airoha_pcie_line {
++	AIROHA_PCIE0,
++	AIROHA_PCIE1,
++	AIROHA_PCIE2,
++};
++
++static struct airoha_pcie_reset_info airoha_pcie_reset_map[] = {
++	[AIROHA_PCIE0] = {
++		.scu_reg = SCU_RSTCTRL1,
++		.scu_reset_bit = SCU_RSTCTRL1_PCIE0,
++		.perstout_bit = SCU_PCIC_PERSTOUT0,
++	},
++	[AIROHA_PCIE1] = {
++		.scu_reg = SCU_RSTCTRL1,
++		.scu_reset_bit = SCU_RSTCTRL1_PCIE1,
++		.perstout_bit = SCU_PCIC_PERSTOUT1,
++	},
++	[AIROHA_PCIE2] = {
++		.scu_reg = SCU_RSTCTRL2,
++		.scu_reset_bit = SCU_RSTCTRL2_PCIE2,
++		.perstout_bit = SCU_PCIC_PERSTOUT2,
++	},
  };
  
  /* LTSSM state in PCIE_LTSSM_STATUS_REG bit[28:24] */
-@@ -925,6 +938,28 @@ static int mtk_pcie_en7581_power_up(stru
+@@ -955,6 +1010,8 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
+ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
+ {
+ 	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
++	struct airoha_pcie_reset_info *info, *sister_info;
++	unsigned int domain_nr = pci_domain_nr(host->bus);
+ 	struct device *dev = pcie->dev;
+ 	struct resource_entry *entry;
+ 	struct regmap *pbus_regmap;
+@@ -992,6 +1049,32 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
  	size = lower_32_bits(resource_size(entry->res));
  	regmap_write(pbus_regmap, args[1], GENMASK(31, __fls(size)));
  
 +	/* Lookup NP_SCU regmap for x2 mode support */
-+	pcie->np_scu = syscon_regmap_lookup_by_phandle(dev->of_node, "airoha,np-scu");
-+	if (IS_ERR(pcie->np_scu)) {
-+		dev_dbg(dev, "np_scu not available, x2 mode disabled\n");
-+		pcie->np_scu = NULL;
-+	}
++	pcie->scu = syscon_regmap_lookup_by_phandle_optional(dev->of_node,
++							     "airoha,scu");
++	if (IS_ERR_OR_NULL(pcie->scu))
++		dev_dbg(dev, "scu not available, x2 mode disabled\n");
 +
-+	/* Check for x2 mode property */
-+	pcie->x2_mode = of_property_read_bool(dev->of_node, "airoha,x2-mode");
-+	if (pcie->x2_mode)
++	/* Check for sister pcie property (for x2 mode) */
++	pcie->sister_node = of_parse_phandle(dev->of_node, "airoha,sister-pcie", 0);
++	if (pcie->sister_node)
 +		dev_info(dev, "x2 mode enabled\n");
 +
-+	/* Map sister MAC for x2 mode (MAC1 at +0x20000) */
-+	if (pcie->x2_mode) {
-+		pcie->sister_base = devm_ioremap(dev,
-+			pcie->reg_base + 0x20000, 0x20000);
++	/* Map sister PCIe for x2 mode */
++	if (pcie->sister_node) {
++		pcie->sister_domain_nr = of_get_pci_domain_nr(pcie->sister_node);
++		if (pcie->sister_domain_nr < 0) {
++			dev_err(dev, "failed to get linux,pci-domain for Sister PCIe");
++			return err;
++		}
++
++		pcie->sister_base = devm_of_iomap(dev, pcie->sister_node, 0, NULL);
 +		if (!pcie->sister_base)
-+			dev_warn(dev, "failed to map sister MAC for x2\n");
++			dev_warn(dev, "failed to map sister PCIe for x2\n");
 +		else
-+			dev_info(dev, "x2 mode: sister MAC mapped\n");
++			dev_info(dev, "x2 mode: sister PCIe mapped\n");
 +	}
 +
  	err = phy_set_mode(pcie->phy, PHY_MODE_PCIE);
  	if (err) {
  		dev_err(dev, "failed to set PHY mode\n");
-@@ -962,17 +997,30 @@ static int mtk_pcie_en7581_power_up(stru
+@@ -1030,17 +1113,37 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
  	pm_runtime_enable(dev);
  	pm_runtime_get_sync(dev);
  
@@ -97,29 +164,36 @@ Signed-off-by: Ryan Chen <rchen14b@gmail.com>
 +	 * so that MAC registers can be configured while devices are held
 +	 * in reset, ensuring link trains with the correct x2 settings.
 +	 */
-+	if (pcie->np_scu) {
-+		/* Assert serdes reset on all lanes */
-+		regmap_update_bits(pcie->np_scu, NP_SCU_LANE_CFG1,
-+				   BIT(26) | BIT(27), BIT(26) | BIT(27));
-+		regmap_update_bits(pcie->np_scu, NP_SCU_LANE_CFG0,
-+				   BIT(27), BIT(27));
++	if (pcie->scu) {
++		info = &airoha_pcie_reset_map[domain_nr];
++		if (pcie->sister_node)
++			sister_info = &airoha_pcie_reset_map[pcie->sister_domain_nr];
++
++		regmap_set_bits(pcie->scu, info->scu_reg, info->scu_reset_bit);
++		if (pcie->sister_node)
++			regmap_set_bits(pcie->scu, sister_info->scu_reg,
++					sister_info->scu_reset_bit);
++
 +		msleep(100);
 +
 +		/* Assert PERST on all ports */
-+		regmap_update_bits(pcie->np_scu, NP_SCU_CTRL_REG,
-+				   BIT(16) | BIT(26) | BIT(29), 0);
++		regmap_clear_bits(pcie->scu, SCU_PCIC, info->perstout_bit);
++		if (pcie->sister_node)
++			regmap_clear_bits(pcie->scu, SCU_PCIC,
++					sister_info->perstout_bit);
 +
 +		/* Set serdes mux for 2-lane mode (bits[1:0] = 2) */
-+		if (pcie->x2_mode) {
-+			regmap_update_bits(pcie->np_scu, NP_SCU_CTRL_REG,
-+					   BIT(0) | BIT(1), BIT(1));
++		if (pcie->sister_node) {
++			regmap_update_bits(pcie->scu, SCU_PCIC,
++					   SCU_PCIC_PCIE_CTRL,
++					   FIELD_PREP(SCU_PCIC_PCIE_CTRL, 0x2));
 +			mdelay(1);
 +		}
 +	}
  
  	err = clk_bulk_prepare_enable(pcie->num_clks, pcie->clks);
  	if (err) {
-@@ -981,12 +1027,121 @@ static int mtk_pcie_en7581_power_up(stru
+@@ -1049,12 +1152,124 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
  	}
  
  	/*
@@ -132,19 +206,14 @@ Signed-off-by: Ryan Chen <rchen14b@gmail.com>
  	 */
  	msleep(PCIE_T_PVPERL_MS);
  
-+	if (pcie->x2_mode && pcie->np_scu) {
-+		/*
-+		 * EN7581 x2: PERST asserted, serdes reset asserted,
-+		 * refclk now stable. Complete the init sequence.
-+		 */
-+		msleep(30);
++	if (pcie->scu) {
++		regmap_clear_bits(pcie->scu, info->scu_reg, info->scu_reset_bit);
++		if (pcie->sister_node)
++			regmap_clear_bits(pcie->scu, sister_info->scu_reg,
++					sister_info->scu_reset_bit);
++	}
 +
-+		/* Deassert serdes reset on all lanes */
-+		regmap_update_bits(pcie->np_scu, NP_SCU_LANE_CFG1,
-+				   BIT(26) | BIT(27), 0);
-+		regmap_update_bits(pcie->np_scu, NP_SCU_LANE_CFG0,
-+				   BIT(27), 0);
-+
++	if (pcie->sister_node && pcie->scu) {
 +		/* Clear SETTING_REG bit 13 for x2 mode on both MACs */
 +		val = readl_relaxed(pcie->base + PCIE_SETTING_REG);
 +		writel_relaxed(val & ~PCIE_SETTING_REG_X1_MODE,
@@ -165,9 +234,10 @@ Signed-off-by: Ryan Chen <rchen14b@gmail.com>
 +
 +		/* Deassert PERST for all ports - link training starts */
 +		msleep(10);
-+		regmap_update_bits(pcie->np_scu, NP_SCU_CTRL_REG,
-+				   BIT(16) | BIT(26) | BIT(29),
-+				   BIT(16) | BIT(26) | BIT(29));
++		regmap_set_bits(pcie->scu, SCU_PCIC, info->perstout_bit);
++		if (pcie->sister_node)
++			regmap_set_bits(pcie->scu, SCU_PCIC,
++					sister_info->perstout_bit);
 +
 +		/* Wait for link training to complete */
 +		msleep(800);
@@ -197,15 +267,21 @@ Signed-off-by: Ryan Chen <rchen14b@gmail.com>
 +
 +			if (speed > 0 && speed < 3) {
 +				dev_info(dev, "x2: link at Gen%d, toggling serdes for Gen3\n", speed);
-+				regmap_update_bits(pcie->np_scu, NP_SCU_LANE_CFG0,
-+						   BIT(7) | BIT(8), BIT(7) | BIT(8));
-+				regmap_update_bits(pcie->np_scu, NP_SCU_LANE_CFG1,
-+						   BIT(26) | BIT(27), BIT(26) | BIT(27));
++				regmap_set_bits(pcie->scu, SCU_RSTCTRL2,
++						SCU_RSTCTRL2_XSI_MAC | SCU_RSTCTRL2_XSI_PHY);
++				regmap_set_bits(pcie->scu, info->scu_reg, info->scu_reset_bit);
++				if (pcie->sister_node)
++					regmap_set_bits(pcie->scu, sister_info->scu_reg,
++							sister_info->scu_reset_bit);
++
 +				msleep(1000);
-+				regmap_update_bits(pcie->np_scu, NP_SCU_LANE_CFG0,
-+						   BIT(7) | BIT(8), 0);
-+				regmap_update_bits(pcie->np_scu, NP_SCU_LANE_CFG1,
-+						   BIT(26) | BIT(27), 0);
++
++				regmap_clear_bits(pcie->scu, SCU_RSTCTRL2,
++						  SCU_RSTCTRL2_XSI_MAC | SCU_RSTCTRL2_XSI_PHY);
++				regmap_clear_bits(pcie->scu, info->scu_reg, info->scu_reset_bit);
++				if (pcie->sister_node)
++					regmap_clear_bits(pcie->scu, sister_info->scu_reg,
++							  sister_info->scu_reset_bit);
 +				msleep(2000);
 +				dev_info(dev, "x2: serdes toggle done, link retraining\n");
 +			} else {
@@ -233,10 +309,11 @@ Signed-off-by: Ryan Chen <rchen14b@gmail.com>
 +		writel_relaxed(val, pcie->base + PCIE_PIPE4_PIE8_REG);
 +
 +		/* Deassert PERST for all ports */
-+		if (pcie->np_scu) {
-+			regmap_update_bits(pcie->np_scu, NP_SCU_CTRL_REG,
-+					   BIT(16) | BIT(26) | BIT(29),
-+					   BIT(16) | BIT(26) | BIT(29));
++		if (pcie->scu) {
++			regmap_set_bits(pcie->scu, SCU_PCIC, info->perstout_bit);
++			if (pcie->sister_node)
++				regmap_set_bits(pcie->scu, SCU_PCIC,
++						sister_info->perstout_bit);
 +			msleep(100);
 +		}
 +	}
@@ -244,3 +321,6 @@ Signed-off-by: Ryan Chen <rchen14b@gmail.com>
  	return 0;
  
  err_clk_prepare_enable:
+-- 
+2.53.0
+
