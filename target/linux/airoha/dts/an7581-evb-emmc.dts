@@ -26,3 +26,12 @@
 		reg = <0x0 0x80000000 0x2 0x00000000>;
 	};
 };
+
+
+&pcie0 {
+	airoha,sister-pcie = <&pcie1>;
+};
+
+&pcie1 {
+	status = "disabled";
+};
