@@ -1,7 +1,7 @@
-From 59f5a9954e0090572100e715e15ebb54f60327bb Mon Sep 17 00:00:00 2001
+From a13ec57ceb5c173f42f70f803978a7981d963c5f Mon Sep 17 00:00:00 2001
 From: Ryan Chen <rchen14b@gmail.com>
 Date: Fri, 5 Jun 2026 16:10:01 +0200
-Subject: [PATCH] PCI: mediatek-gen3: Add PCIe x2 link support for Airoha
+Subject: [PATCH 1/2] PCI: mediatek-gen3: Add PCIe x2 link support for Airoha
  EN7581
 
 The Airoha EN7581 SoC supports PCIe x2 mode where two PCIe lanes are
@@ -25,11 +25,11 @@ Signed-off-by: Ryan Chen <rchen14b@gmail.com>
 Co-developed-by: Christian Marangi <ansuelsmth@gmail.com>
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/pci/controller/pcie-mediatek-gen3.c | 243 ++++++++++++++++++--
- 1 file changed, 229 insertions(+), 14 deletions(-)
+ drivers/pci/controller/pcie-mediatek-gen3.c | 244 ++++++++++++++++++--
+ 1 file changed, 230 insertions(+), 14 deletions(-)
 
 diff --git a/drivers/pci/controller/pcie-mediatek-gen3.c b/drivers/pci/controller/pcie-mediatek-gen3.c
-index 3b62b47ff41c..7628865f50a7 100644
+index 3b62b47ff41c..87c27997613b 100644
 --- a/drivers/pci/controller/pcie-mediatek-gen3.c
 +++ b/drivers/pci/controller/pcie-mediatek-gen3.c
 @@ -32,7 +32,26 @@
@@ -102,19 +102,28 @@ index 3b62b47ff41c..7628865f50a7 100644
  };
  
  /* LTSSM state in PCIE_LTSSM_STATUS_REG bit[28:24] */
-@@ -955,6 +1010,8 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
+@@ -955,9 +1010,11 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
  static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
  {
  	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
 +	struct airoha_pcie_reset_info *info, *sister_info;
-+	unsigned int domain_nr = pci_domain_nr(host->bus);
  	struct device *dev = pcie->dev;
  	struct resource_entry *entry;
  	struct regmap *pbus_regmap;
-@@ -992,6 +1049,32 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
++	unsigned int domain_nr;
+ 	u32 val, args[2], size;
+ 	resource_size_t addr;
+ 	int err;
+@@ -992,6 +1049,38 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
  	size = lower_32_bits(resource_size(entry->res));
  	regmap_write(pbus_regmap, args[1], GENMASK(31, __fls(size)));
  
++	domain_nr = of_get_pci_domain_nr(dev->of_node);
++	if (domain_nr < 0) {
++		dev_err(dev, "failed to get linux,pci-domain for PCIe");
++		return -EINVAL;
++	}
++
 +	/* Lookup NP_SCU regmap for x2 mode support */
 +	pcie->scu = syscon_regmap_lookup_by_phandle_optional(dev->of_node,
 +							     "airoha,scu");
@@ -131,7 +140,7 @@ index 3b62b47ff41c..7628865f50a7 100644
 +		pcie->sister_domain_nr = of_get_pci_domain_nr(pcie->sister_node);
 +		if (pcie->sister_domain_nr < 0) {
 +			dev_err(dev, "failed to get linux,pci-domain for Sister PCIe");
-+			return err;
++			return -EINVAL;
 +		}
 +
 +		pcie->sister_base = devm_of_iomap(dev, pcie->sister_node, 0, NULL);
@@ -144,7 +153,7 @@ index 3b62b47ff41c..7628865f50a7 100644
  	err = phy_set_mode(pcie->phy, PHY_MODE_PCIE);
  	if (err) {
  		dev_err(dev, "failed to set PHY mode\n");
-@@ -1030,17 +1113,37 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
+@@ -1030,17 +1119,41 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
  	pm_runtime_enable(dev);
  	pm_runtime_get_sync(dev);
  
@@ -169,31 +178,35 @@ index 3b62b47ff41c..7628865f50a7 100644
 +		if (pcie->sister_node)
 +			sister_info = &airoha_pcie_reset_map[pcie->sister_domain_nr];
 +
-+		regmap_set_bits(pcie->scu, info->scu_reg, info->scu_reset_bit);
++		val = info->scu_reset_bit;
 +		if (pcie->sister_node)
-+			regmap_set_bits(pcie->scu, sister_info->scu_reg,
-+					sister_info->scu_reset_bit);
++			val |= sister_info->scu_reset_bit;
++		regmap_set_bits(pcie->scu, info->scu_reg, val);
 +
 +		msleep(100);
 +
-+		/* Assert PERST on all ports */
-+		regmap_clear_bits(pcie->scu, SCU_PCIC, info->perstout_bit);
++		/* Assert PERST on related ports */
++		val = info->perstout_bit;
 +		if (pcie->sister_node)
-+			regmap_clear_bits(pcie->scu, SCU_PCIC,
-+					sister_info->perstout_bit);
++			val |= sister_info->perstout_bit;
++		regmap_clear_bits(pcie->scu, SCU_PCIC, val);
 +
-+		/* Set serdes mux for 2-lane mode (bits[1:0] = 2) */
-+		if (pcie->sister_node) {
-+			regmap_update_bits(pcie->scu, SCU_PCIC,
-+					   SCU_PCIC_PCIE_CTRL,
-+					   FIELD_PREP(SCU_PCIC_PCIE_CTRL, 0x2));
++		if (domain_nr == 0) {
++			/* Set serdes mux for 2-lane mode (bits[1:0] = 2) */
++			if (pcie->sister_node)
++				val = 0x2;
++			else
++				val = 0x3;
++
++			regmap_update_bits(pcie->scu, SCU_PCIC, SCU_PCIC_PCIE_CTRL,
++					FIELD_PREP(SCU_PCIC_PCIE_CTRL, val));
 +			mdelay(1);
 +		}
 +	}
  
  	err = clk_bulk_prepare_enable(pcie->num_clks, pcie->clks);
  	if (err) {
-@@ -1049,12 +1152,124 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
+@@ -1049,12 +1162,112 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
  	}
  
  	/*
@@ -207,10 +220,10 @@ index 3b62b47ff41c..7628865f50a7 100644
  	msleep(PCIE_T_PVPERL_MS);
  
 +	if (pcie->scu) {
-+		regmap_clear_bits(pcie->scu, info->scu_reg, info->scu_reset_bit);
++		val = info->scu_reset_bit;
 +		if (pcie->sister_node)
-+			regmap_clear_bits(pcie->scu, sister_info->scu_reg,
-+					sister_info->scu_reset_bit);
++			val |= sister_info->scu_reset_bit;
++		regmap_clear_bits(pcie->scu, info->scu_reg, val);
 +	}
 +
 +	if (pcie->sister_node && pcie->scu) {
@@ -218,26 +231,21 @@ index 3b62b47ff41c..7628865f50a7 100644
 +		val = readl_relaxed(pcie->base + PCIE_SETTING_REG);
 +		writel_relaxed(val & ~PCIE_SETTING_REG_X1_MODE,
 +			       pcie->base + PCIE_SETTING_REG);
-+		if (pcie->sister_base) {
-+			val = readl_relaxed(pcie->sister_base + 0x80);
-+			writel_relaxed(val & ~PCIE_SETTING_REG_X1_MODE,
-+				       pcie->sister_base + 0x80);
-+		}
++		val = readl_relaxed(pcie->sister_base + PCIE_SETTING_REG);
++		writel_relaxed(val & ~PCIE_SETTING_REG_X1_MODE,
++			       pcie->sister_base + PCIE_SETTING_REG);
 +
 +		/* EQ presets on both MACs */
 +		writel_relaxed(0x41474147, pcie->base + PCIE_EQ_PRESET_01_REG);
-+		if (pcie->sister_base)
-+			writel_relaxed(0x41474147, pcie->sister_base + 0x100);
++		writel_relaxed(0x41474147, pcie->sister_base + PCIE_EQ_PRESET_01_REG);
 +		writel_relaxed(0x1018020f, pcie->base + PCIE_PIPE4_PIE8_REG);
-+		if (pcie->sister_base)
-+			writel_relaxed(0x1018020f, pcie->sister_base + 0x338);
++		writel_relaxed(0x1018020f, pcie->sister_base + PCIE_PIPE4_PIE8_REG);
 +
 +		/* Deassert PERST for all ports - link training starts */
 +		msleep(10);
-+		regmap_set_bits(pcie->scu, SCU_PCIC, info->perstout_bit);
-+		if (pcie->sister_node)
-+			regmap_set_bits(pcie->scu, SCU_PCIC,
-+					sister_info->perstout_bit);
++		val = info->perstout_bit;
++		val |= sister_info->perstout_bit;
++		regmap_set_bits(pcie->scu, SCU_PCIC, val);
 +
 +		/* Wait for link training to complete */
 +		msleep(800);
@@ -269,19 +277,15 @@ index 3b62b47ff41c..7628865f50a7 100644
 +				dev_info(dev, "x2: link at Gen%d, toggling serdes for Gen3\n", speed);
 +				regmap_set_bits(pcie->scu, SCU_RSTCTRL2,
 +						SCU_RSTCTRL2_XSI_MAC | SCU_RSTCTRL2_XSI_PHY);
-+				regmap_set_bits(pcie->scu, info->scu_reg, info->scu_reset_bit);
-+				if (pcie->sister_node)
-+					regmap_set_bits(pcie->scu, sister_info->scu_reg,
-+							sister_info->scu_reset_bit);
++				val = info->scu_reset_bit;
++				val |= sister_info->scu_reset_bit;
++				regmap_set_bits(pcie->scu, info->scu_reg, val);
 +
 +				msleep(1000);
 +
 +				regmap_clear_bits(pcie->scu, SCU_RSTCTRL2,
 +						  SCU_RSTCTRL2_XSI_MAC | SCU_RSTCTRL2_XSI_PHY);
-+				regmap_clear_bits(pcie->scu, info->scu_reg, info->scu_reset_bit);
-+				if (pcie->sister_node)
-+					regmap_clear_bits(pcie->scu, sister_info->scu_reg,
-+							  sister_info->scu_reset_bit);
++				regmap_clear_bits(pcie->scu, info->scu_reg, val);
 +				msleep(2000);
 +				dev_info(dev, "x2: serdes toggle done, link retraining\n");
 +			} else {
@@ -311,9 +315,6 @@ index 3b62b47ff41c..7628865f50a7 100644
 +		/* Deassert PERST for all ports */
 +		if (pcie->scu) {
 +			regmap_set_bits(pcie->scu, SCU_PCIC, info->perstout_bit);
-+			if (pcie->sister_node)
-+				regmap_set_bits(pcie->scu, SCU_PCIC,
-+						sister_info->perstout_bit);
 +			msleep(100);
 +		}
 +	}
