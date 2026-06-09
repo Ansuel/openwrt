@@ -1,4 +1,4 @@
-From c4bcb7564abb948d941bfcb3e3f3e40cb37fa172 Mon Sep 17 00:00:00 2001
+From 666efff14cf32275f9a9788e80943601a0591f3f Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 5 Jun 2026 17:44:11 +0200
 Subject: [PATCH] PCI: mediatek: handle reset for AN7583 startup
@@ -7,11 +7,11 @@ Handle reset from SCU register for AN7583 SoC in startup OP PCIe driver.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/pci/controller/pcie-mediatek.c | 32 +++++++++++++++++++++++++-
- 1 file changed, 31 insertions(+), 1 deletion(-)
+ drivers/pci/controller/pcie-mediatek.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
 
 diff --git a/drivers/pci/controller/pcie-mediatek.c b/drivers/pci/controller/pcie-mediatek.c
-index 4bebf968e65e..a0fe2d0633b8 100644
+index 4bebf968e65e..bc76f42a70e0 100644
 --- a/drivers/pci/controller/pcie-mediatek.c
 +++ b/drivers/pci/controller/pcie-mediatek.c
 @@ -30,6 +30,13 @@
@@ -20,10 +20,10 @@ index 4bebf968e65e..a0fe2d0633b8 100644
  
 +/* SCU */
 +#define SCU_PCIC			0x88
-+#define SCU_PCIC_PERSTOUT2		BIT(16)
++#define SCU_PCIC_PERSTOUT1		BIT(26)
 +
-+#define SCU_RSTCTRL2			0x830
-+#define SCU_RSTCTRL2_PCIE2		BIT(27)
++#define SCU_RSTCTRL1			0x834
++#define SCU_RSTCTRL1_PCIE1		BIT(27)
 +
  /* PCIe shared registers */
  #define PCIE_SYS_CFG		0x00
@@ -37,7 +37,7 @@ index 4bebf968e65e..a0fe2d0633b8 100644
  };
  
  static void mtk_pcie_subsys_powerdown(struct mtk_pcie *pcie)
-@@ -673,6 +682,16 @@ static int mtk_pcie_startup_port_v2(struct mtk_pcie_port *port)
+@@ -673,6 +682,22 @@ static int mtk_pcie_startup_port_v2(struct mtk_pcie_port *port)
  	u32 val;
  	int err;
  
@@ -45,28 +45,21 @@ index 4bebf968e65e..a0fe2d0633b8 100644
 +		pcie->scu = syscon_regmap_lookup_by_phandle_optional(pcie->dev->of_node,
 +								"airoha,scu");
 +		if (pcie->scu) {
-+			regmap_set_bits(pcie->scu, SCU_RSTCTRL2, SCU_RSTCTRL2_PCIE2);
++			regmap_set_bits(pcie->scu, SCU_RSTCTRL1, SCU_RSTCTRL1_PCIE1);
 +
-+			regmap_clear_bits(pcie->scu, SCU_PCIC, SCU_PCIC_PERSTOUT2);
++			regmap_clear_bits(pcie->scu, SCU_PCIC, SCU_PCIC_PERSTOUT1);
++
++			msleep(100);
++
++			regmap_set_bits(pcie->scu, SCU_PCIC, SCU_PCIC_PERSTOUT1);
++
++			regmap_clear_bits(pcie->scu, SCU_RSTCTRL1, SCU_RSTCTRL1_PCIE1);
 +		}
 +	}
 +
  	entry = resource_list_first_type(&host->windows, IORESOURCE_MEM);
  	if (entry)
  		mem = entry->res;
-@@ -750,6 +769,12 @@ static int mtk_pcie_startup_port_v2(struct mtk_pcie_port *port)
- 	val = PCIE2AHB_SIZE | WIN_ENABLE;
- 	writel(val, port->base + PCIE_AXI_WINDOW0);
- 
-+	if (device_is_compatible(pcie->dev, "airoha,an7583-pcie") && pcie->scu) {
-+		regmap_clear_bits(pcie->scu, SCU_RSTCTRL2, SCU_RSTCTRL2_PCIE2);
-+
-+		regmap_set_bits(pcie->scu, SCU_PCIC, SCU_PCIC_PERSTOUT2);
-+	}
-+
- 	return 0;
- }
- 
 -- 
 2.53.0
 
