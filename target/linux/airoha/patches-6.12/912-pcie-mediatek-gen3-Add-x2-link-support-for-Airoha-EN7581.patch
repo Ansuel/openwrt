@@ -173,7 +173,7 @@ index 3b62b47ff41c..87c27997613b 100644
 +	 * so that MAC registers can be configured while devices are held
 +	 * in reset, ensuring link trains with the correct x2 settings.
 +	 */
-+	if (pcie->scu) {
++	if (!IS_ERR_OR_NULL(pcie->scu)) {
 +		info = &airoha_pcie_reset_map[domain_nr];
 +		if (pcie->sister_node)
 +			sister_info = &airoha_pcie_reset_map[pcie->sister_domain_nr];
@@ -219,14 +219,14 @@ index 3b62b47ff41c..87c27997613b 100644
  	 */
  	msleep(PCIE_T_PVPERL_MS);
  
-+	if (pcie->scu) {
++	if (!IS_ERR_OR_NULL(pcie->scu)) {
 +		val = info->scu_reset_bit;
 +		if (pcie->sister_node)
 +			val |= sister_info->scu_reset_bit;
 +		regmap_clear_bits(pcie->scu, info->scu_reg, val);
 +	}
 +
-+	if (pcie->sister_node && pcie->scu) {
++	if (pcie->sister_base && !IS_ERR_OR_NULL(pcie->scu)) {
 +		/* Clear SETTING_REG bit 13 for x2 mode on both MACs */
 +		val = readl_relaxed(pcie->base + PCIE_SETTING_REG);
 +		writel_relaxed(val & ~PCIE_SETTING_REG_X1_MODE,
@@ -313,7 +313,7 @@ index 3b62b47ff41c..87c27997613b 100644
 +		writel_relaxed(val, pcie->base + PCIE_PIPE4_PIE8_REG);
 +
 +		/* Deassert PERST for all ports */
-+		if (pcie->scu) {
++		if (!IS_ERR_OR_NULL(pcie->scu)) {
 +			regmap_set_bits(pcie->scu, SCU_PCIC, info->perstout_bit);
 +			msleep(100);
 +		}
