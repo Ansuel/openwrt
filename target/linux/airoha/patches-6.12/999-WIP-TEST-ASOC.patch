@@ -16,14 +16,14 @@ index 3809068f5620..666ae787cf71 100644
  int mtk_memif_set_rate_substream(struct snd_pcm_substream *substream,
  				 int id, unsigned int rate)
  {
-+	pr_info("SET RATE SUBSTREAM %x\n", substream);
++	pr_info("SET RATE SUBSTREAM %lx\n", (unsigned long int)substream);
  	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
-+	pr_info("SET RATE RTD %x\n", rtd);
++	pr_info("SET RATE RTD %lx\n", (unsigned long int)rtd);
  	struct snd_soc_component *component =
  		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
-+	pr_info("SET RATE COMPONENT %x\n", component);
++	pr_info("SET RATE COMPONENT %lx\n", (unsigned long int)component);
  	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
-+	pr_info("SET RATE AFE %x\n", afe);
++	pr_info("SET RATE AFE %lx\n", (unsigned long int)afe);
  
  	int fs = 0;
  
