@@ -516,8 +516,8 @@ index 000000000000..a72948ae9190
 +	switch (cmd) {
 +	case SNDRV_PCM_TRIGGER_START:
 +	case SNDRV_PCM_TRIGGER_RESUME:
-+		regmap_clear_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_SOFT_RESET);
-+		regmap_set_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_SOFT_RESET);
++		//regmap_clear_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_SOFT_RESET);
++		//regmap_set_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_SOFT_RESET);
 +
 +		/* Trigger PCM to POLL new descriptor */
 +		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -540,8 +540,8 @@ index 000000000000..a72948ae9190
 +				     AN7581_PCM_RX_POLLING);
 +		}
 +
-+		regmap_clear_bits(priv->map, AN7581_PCM_PICR,
-+				  AN7581_PCM_CFG_VALID);
++		//regmap_clear_bits(priv->map, AN7581_PCM_PICR,
++		//		  AN7581_PCM_CFG_VALID);
 +
 +		break;
 +	case SNDRV_PCM_TRIGGER_STOP:
