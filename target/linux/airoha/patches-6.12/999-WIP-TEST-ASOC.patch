@@ -1,31 +1,55 @@
-From 578228c855abc6caf46790e692182d0a18003370 Mon Sep 17 00:00:00 2001
+From 4b7a3cd76835924a6401f3ef6d9cb8585b9e7c48 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 12 Jun 2026 01:27:57 +0200
 Subject: [PATCH] WIP: TEST ASOC
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- sound/soc/mediatek/common/mtk-afe-fe-dai.c | 4 ++++
- 1 file changed, 4 insertions(+)
+ sound/soc/mediatek/common/mtk-afe-fe-dai.c | 5 +++++
+ sound/soc/soc-core.c                       | 4 ++++
+ 2 files changed, 9 insertions(+)
 
 diff --git a/sound/soc/mediatek/common/mtk-afe-fe-dai.c b/sound/soc/mediatek/common/mtk-afe-fe-dai.c
-index 3809068f5620..666ae787cf71 100644
+index 3809068f5620..7ba68a62669a 100644
 --- a/sound/soc/mediatek/common/mtk-afe-fe-dai.c
 +++ b/sound/soc/mediatek/common/mtk-afe-fe-dai.c
-@@ -503,10 +503,14 @@ static int mtk_memif_set_rate_fs(struct mtk_base_afe *afe,
+@@ -503,10 +503,15 @@ static int mtk_memif_set_rate_fs(struct mtk_base_afe *afe,
  int mtk_memif_set_rate_substream(struct snd_pcm_substream *substream,
  				 int id, unsigned int rate)
  {
-+	pr_info("SET RATE SUBSTREAM %lx\n", (unsigned long int)substream);
++	pr_info("SET RATE SUBSTREAM %x\n", substream);
  	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
-+	pr_info("SET RATE RTD %lx\n", (unsigned long int)rtd);
++	pr_info("SET RATE RTD %x\n", rtd);
  	struct snd_soc_component *component =
  		snd_soc_rtdcom_lookup(rtd, AFE_PCM_NAME);
-+	pr_info("SET RATE COMPONENT %lx\n", (unsigned long int)component);
++	pr_info("SET RATE COMPONENT %x\n", component);
++	pr_info("NAME LOOKUP %s\n", AFE_PCM_NAME);
  	struct mtk_base_afe *afe = snd_soc_component_get_drvdata(component);
-+	pr_info("SET RATE AFE %lx\n", (unsigned long int)afe);
++	pr_info("SET RATE AFE %x\n", afe);
  
  	int fs = 0;
+ 
+diff --git a/sound/soc/soc-core.c b/sound/soc/soc-core.c
+index 3fecf9fc903c..e90e12498d41 100644
+--- a/sound/soc/soc-core.c
++++ b/sound/soc/soc-core.c
+@@ -333,6 +333,8 @@ struct snd_soc_component *snd_soc_rtdcom_lookup(struct snd_soc_pcm_runtime *rtd,
+ 	struct snd_soc_component *component;
+ 	int i;
+ 
++	pr_info("DRIVER NAME %s\n", driver_name);
++
+ 	if (!driver_name)
+ 		return NULL;
+ 
+@@ -347,6 +349,8 @@ struct snd_soc_component *snd_soc_rtdcom_lookup(struct snd_soc_pcm_runtime *rtd,
+ 	for_each_rtd_components(rtd, i, component) {
+ 		const char *component_name = component->driver->name;
+ 
++		pr_info("COMP NAME %s\n", component_name);
++
+ 		if (!component_name)
+ 			continue;
  
 -- 
 2.53.0
