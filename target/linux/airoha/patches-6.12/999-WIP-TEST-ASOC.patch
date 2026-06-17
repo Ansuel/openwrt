@@ -1,16 +1,16 @@
-From 4b7a3cd76835924a6401f3ef6d9cb8585b9e7c48 Mon Sep 17 00:00:00 2001
+From 25494ac4d5589c647e389420d0b78c3d37747225 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Fri, 12 Jun 2026 01:27:57 +0200
 Subject: [PATCH] WIP: TEST ASOC
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- sound/soc/mediatek/common/mtk-afe-fe-dai.c | 5 +++++
- sound/soc/soc-core.c                       | 4 ++++
- 2 files changed, 9 insertions(+)
+ sound/soc/mediatek/common/mtk-afe-fe-dai.c |  5 +++++
+ sound/soc/soc-core.c                       | 10 ++++++++++
+ 2 files changed, 15 insertions(+)
 
 diff --git a/sound/soc/mediatek/common/mtk-afe-fe-dai.c b/sound/soc/mediatek/common/mtk-afe-fe-dai.c
-index 3809068f5620..7ba68a62669a 100644
+index 3809068f5620..cccf2ef13768 100644
 --- a/sound/soc/mediatek/common/mtk-afe-fe-dai.c
 +++ b/sound/soc/mediatek/common/mtk-afe-fe-dai.c
 @@ -503,10 +503,15 @@ static int mtk_memif_set_rate_fs(struct mtk_base_afe *afe,
@@ -30,7 +30,7 @@ index 3809068f5620..7ba68a62669a 100644
  	int fs = 0;
  
 diff --git a/sound/soc/soc-core.c b/sound/soc/soc-core.c
-index 3fecf9fc903c..e90e12498d41 100644
+index 3fecf9fc903c..0ae461a377dd 100644
 --- a/sound/soc/soc-core.c
 +++ b/sound/soc/soc-core.c
 @@ -333,6 +333,8 @@ struct snd_soc_component *snd_soc_rtdcom_lookup(struct snd_soc_pcm_runtime *rtd,
@@ -51,6 +51,33 @@ index 3fecf9fc903c..e90e12498d41 100644
  		if (!component_name)
  			continue;
  
+@@ -2886,6 +2890,8 @@ int snd_soc_add_component(struct snd_soc_component *component,
+ 	int i;
+ 	guard(mutex)(&client_mutex);
+ 
++	pr_info("CALL ADD COMPONENT\n");
++
+ 	if (component->driver->endianness) {
+ 		for (i = 0; i < num_dai; i++) {
+ 			convert_endianness_formats(&dai_drv[i].playback);
+@@ -2916,6 +2922,8 @@ int snd_soc_add_component(struct snd_soc_component *component,
+ 	if (ret < 0)
+ 		snd_soc_del_component_unlocked(component);
+ 
++	pr_info("ADD COMPONENT %d", ret);
++
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(snd_soc_add_component);
+@@ -2928,6 +2936,8 @@ int snd_soc_register_component(struct device *dev,
+ 	struct snd_soc_component *component;
+ 	int ret;
+ 
++	pr_info("CALL REGISTER COMPONENT %s\n", component_driver->name);
++
+ 	component = devm_kzalloc(dev, sizeof(*component), GFP_KERNEL);
+ 	if (!component)
+ 		return -ENOMEM;
 -- 
 2.53.0
 
