@@ -1,0 +1,186 @@
+From db5680161a28526476ae4f89350d20941850723d Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Thu, 25 Jun 2026 16:20:16 +0200
+Subject: [PATCH] PCI: mediatek-gen3: Add 2-lines mode support for Airoha
+ AN7581
+
+The Airoha AN7581 SoC supports configuring the first PCIe0 line
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/pci/controller/pcie-mediatek-gen3.c | 98 +++++++++++++++++----
+ 1 file changed, 80 insertions(+), 18 deletions(-)
+
+diff --git a/drivers/pci/controller/pcie-mediatek-gen3.c b/drivers/pci/controller/pcie-mediatek-gen3.c
+index b0accd828589..f750759bbc1d 100644
+--- a/drivers/pci/controller/pcie-mediatek-gen3.c
++++ b/drivers/pci/controller/pcie-mediatek-gen3.c
+@@ -32,6 +32,11 @@
+ 
+ #include "../pci.h"
+ 
++/* AN7581 SCU register */
++#define SCU_PCIC			0x88
++#define SCU_PCIC_PCIE_CTRL		GENMASK(7, 0)
++
++/* PCIe register */
+ #define PCIE_BASE_CFG_REG		0x14
+ #define PCIE_BASE_CFG_SPEED		GENMASK(15, 8)
+ 
+@@ -131,6 +136,7 @@
+ #define PCIE_ATR_TLP_TYPE_IO		PCIE_ATR_TLP_TYPE(2)
+ 
+ #define MAX_NUM_PHY_RESETS		3
++#define MAX_NUM_PERSTOUT_RESETS		2
+ 
+ #define PCIE_MTK_RESET_TIME_US		10
+ 
+@@ -203,9 +209,11 @@ struct mtk_msi_set {
+ struct mtk_gen3_pcie {
+ 	struct device *dev;
+ 	void __iomem *base;
++	void __iomem *sec_base;
+ 	phys_addr_t reg_base;
+ 	struct reset_control *mac_reset;
+ 	struct reset_control_bulk_data phy_resets[MAX_NUM_PHY_RESETS];
++	struct reset_control_bulk_data perstout_resets[MAX_NUM_PERSTOUT_RESETS];
+ 	struct phy *phy;
+ 	struct clk_bulk_data *clks;
+ 	int num_clks;
+@@ -222,6 +230,9 @@ struct mtk_gen3_pcie {
+ 	DECLARE_BITMAP(msi_irq_in_use, PCIE_MSI_IRQS_NUM);
+ 
+ 	const struct mtk_gen3_pcie_pdata *soc;
++
++	/* AN7581 specific */
++	struct regmap *scu;
+ };
+ 
+ /* LTSSM state in PCIE_LTSSM_STATUS_REG bit[28:24] */
+@@ -928,6 +939,14 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
+ 	if (ret)
+ 		return dev_err_probe(dev, ret, "failed to get PHY bulk reset\n");
+ 
++	pcie->perstout_resets[0].id = "perstout";
++	pcie->perstout_resets[1].id = "sec-perstout";
++
++	ret = devm_reset_control_bulk_get_optional_exclusive(dev, MAX_NUM_PERSTOUT_RESETS,
++							     pcie->perstout_resets);
++	if (ret)
++		return dev_err_probe(dev, ret, "failed to get PERSTOUT bulk reset\n");
++
+ 	pcie->mac_reset = devm_reset_control_get_optional_exclusive(dev, "mac");
+ 	if (IS_ERR(pcie->mac_reset))
+ 		return dev_err_probe(dev, PTR_ERR(pcie->mac_reset), "failed to get MAC reset\n");
+@@ -955,12 +974,29 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
+ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
+ {
+ 	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
++	unsigned int num_lanes = max(1, pcie->num_lanes);
+ 	struct device *dev = pcie->dev;
+ 	struct resource_entry *entry;
+ 	struct regmap *pbus_regmap;
+ 	u32 val, args[2], size;
+ 	resource_size_t addr;
+-	int err;
++	int i, err;
++
++	if (num_lanes == 2) {
++		struct platform_device *pdev = to_platform_device(dev);
++		struct resource *regs;
++
++		regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sec-pcie-mac");
++		if (!regs)
++			return -EINVAL;
++		pcie->sec_base = devm_ioremap_resource(dev, regs);
++		if (IS_ERR(pcie->sec_base))
++			return dev_err_probe(dev, PTR_ERR(pcie->sec_base), "failed to map secondary register base\n");
++
++		pcie->scu = syscon_regmap_lookup_by_phandle(dev->of_node, "airoha,scu");
++		if (IS_ERR(pcie->scu))
++			return dev_err_probe(dev, PTR_ERR(pcie->scu), "failed to map SCU regmap\n");
++	}
+ 
+ 	/*
+ 	 * The controller may have been left out of reset by the bootloader
+@@ -1024,34 +1060,60 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
+ 	pm_runtime_enable(dev);
+ 	pm_runtime_get_sync(dev);
+ 
+-	val = FIELD_PREP(PCIE_VAL_LN0_DOWNSTREAM, 0x47) |
+-	      FIELD_PREP(PCIE_VAL_LN1_DOWNSTREAM, 0x47) |
+-	      FIELD_PREP(PCIE_VAL_LN0_UPSTREAM, 0x41) |
+-	      FIELD_PREP(PCIE_VAL_LN1_UPSTREAM, 0x41);
+-	writel_relaxed(val, pcie->base + PCIE_EQ_PRESET_01_REG);
++	/* Assert PERSTOUT for all relevant lines */
++	err = reset_control_bulk_assert(MAX_NUM_PERSTOUT_RESETS,
++					pcie->perstout_resets);
++	if (err) {
++		dev_err(dev, "failed to assert PERSTOUTs\n");
++		goto err_perstout_assert;
++	}
++
++	/* Configure SCU MUX to disable PCIE1 for 2 lines mode */
++	if (num_lanes == 2)
++		regmap_update_bits(pcie->scu, SCU_PCIC, SCU_PCIC_PCIE_CTRL,
++				   FIELD_PREP(SCU_PCIC_PCIE_CTRL, BIT(1)));
+ 
+-	val = PCIE_K_PHYPARAM_QUERY | PCIE_K_QUERY_TIMEOUT |
+-	      FIELD_PREP(PCIE_K_PRESET_TO_USE_16G, 0x80) |
+-	      FIELD_PREP(PCIE_K_PRESET_TO_USE, 0x2) |
+-	      FIELD_PREP(PCIE_K_FINETUNE_MAX, 0xf);
+-	writel_relaxed(val, pcie->base + PCIE_PIPE4_PIE8_REG);
+ 
+ 	err = clk_bulk_prepare_enable(pcie->num_clks, pcie->clks);
+ 	if (err) {
+ 		dev_err(dev, "failed to prepare clock\n");
+-		goto err_clk_prepare_enable;
++		goto err_perstout_assert;
+ 	}
+ 
+-	/*
+-	 * Airoha EN7581 performs PCIe reset via clk callbacks since it has a
+-	 * hw issue with PCIE_PE_RSTB signal. Add wait for the time needed to
+-	 * complete the PCIe reset.
+-	 */
++	/* Wait for refclk to stabilize */
+ 	msleep(PCIE_T_PVPERL_MS);
+ 
++	/* Configure all the lines to the same EQ config */
++	for (i = 0; i < num_lanes; i++) {
++		void __iomem *base = pcie->base;
++
++		if (i == 1)
++			base = pcie->sec_base;
++
++		val = FIELD_PREP(PCIE_VAL_LN0_DOWNSTREAM, 0x47) |
++			FIELD_PREP(PCIE_VAL_LN1_DOWNSTREAM, 0x47) |
++			FIELD_PREP(PCIE_VAL_LN0_UPSTREAM, 0x41) |
++			FIELD_PREP(PCIE_VAL_LN1_UPSTREAM, 0x41);
++		writel_relaxed(val, base + PCIE_EQ_PRESET_01_REG);
++
++		val = PCIE_K_PHYPARAM_QUERY | PCIE_K_QUERY_TIMEOUT |
++			FIELD_PREP(PCIE_K_PRESET_TO_USE_16G, 0x80) |
++			FIELD_PREP(PCIE_K_PRESET_TO_USE, 0x2) |
++			FIELD_PREP(PCIE_K_FINETUNE_MAX, 0xf);
++		writel_relaxed(val, base + PCIE_PIPE4_PIE8_REG);
++	}
++
++	/* Deassert PERSTOUT for all relevant lines */
++	err = reset_control_bulk_deassert(MAX_NUM_PERSTOUT_RESETS,
++					  pcie->perstout_resets);
++	if (err) {
++		dev_err(dev, "failed to deassert PERSTOUTs\n");
++		goto err_perstout_assert;
++	}
++
+ 	return 0;
+ 
+-err_clk_prepare_enable:
++err_perstout_assert:
+ 	pm_runtime_put_sync(dev);
+ 	pm_runtime_disable(dev);
+ 	reset_control_bulk_assert(pcie->soc->phy_resets.num_resets,
+-- 
+2.53.0
+
