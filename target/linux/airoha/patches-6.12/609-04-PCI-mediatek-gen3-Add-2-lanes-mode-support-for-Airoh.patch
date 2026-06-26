@@ -1,18 +1,34 @@
-From db5680161a28526476ae4f89350d20941850723d Mon Sep 17 00:00:00 2001
+From 3f6041d4e07c9336bcfd4a5866b3cf60f539f8b5 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Thu, 25 Jun 2026 16:20:16 +0200
-Subject: [PATCH] PCI: mediatek-gen3: Add 2-lines mode support for Airoha
+Subject: [PATCH 4/4] PCI: mediatek-gen3: Add 2-lanes mode support for Airoha
  AN7581
 
-The Airoha AN7581 SoC supports configuring the first PCIe0 line
+The Airoha AN7581 SoC supports configuring the first PCIe0 line to 2-lanes
+mode by bonding it with the second PCIe line. This is done by configuring
+the PCIe MUX in the SCU register.
+
+To correctly configure the line for 2-lanes mode, it's required to define
+in DT an additional reg, 'sec-pcie-mac' for the secondary PCIe.
+It's also needed to define the additional reset and the PERSTOUT reset.
+Also 'airoha,scu' property is mandatory to correctly configure the SCU
+register for the PCIe MUX.
+
+Finally to toggle 2-lanes mode, it's needed to define in DT 'num-lanes' as
+2.
+
+In such configuration the EQ preset are configured to the same values.
+
+To permit correct configuration of the PCIe line, additional logic is added
+to assert and deassert the PERSTOUT resets.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/pci/controller/pcie-mediatek-gen3.c | 98 +++++++++++++++++----
- 1 file changed, 80 insertions(+), 18 deletions(-)
+ drivers/pci/controller/pcie-mediatek-gen3.c | 101 ++++++++++++++++----
+ 1 file changed, 82 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/pci/controller/pcie-mediatek-gen3.c b/drivers/pci/controller/pcie-mediatek-gen3.c
-index b0accd828589..f750759bbc1d 100644
+index b0accd828589..14893cff135a 100644
 --- a/drivers/pci/controller/pcie-mediatek-gen3.c
 +++ b/drivers/pci/controller/pcie-mediatek-gen3.c
 @@ -32,6 +32,11 @@
@@ -47,17 +63,7 @@ index b0accd828589..f750759bbc1d 100644
  	struct phy *phy;
  	struct clk_bulk_data *clks;
  	int num_clks;
-@@ -222,6 +230,9 @@ struct mtk_gen3_pcie {
- 	DECLARE_BITMAP(msi_irq_in_use, PCIE_MSI_IRQS_NUM);
- 
- 	const struct mtk_gen3_pcie_pdata *soc;
-+
-+	/* AN7581 specific */
-+	struct regmap *scu;
- };
- 
- /* LTSSM state in PCIE_LTSSM_STATUS_REG bit[28:24] */
-@@ -928,6 +939,14 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
+@@ -928,6 +936,14 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
  	if (ret)
  		return dev_err_probe(dev, ret, "failed to get PHY bulk reset\n");
  
@@ -72,38 +78,68 @@ index b0accd828589..f750759bbc1d 100644
  	pcie->mac_reset = devm_reset_control_get_optional_exclusive(dev, "mac");
  	if (IS_ERR(pcie->mac_reset))
  		return dev_err_probe(dev, PTR_ERR(pcie->mac_reset), "failed to get MAC reset\n");
-@@ -955,12 +974,29 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
- static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
- {
- 	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
-+	unsigned int num_lanes = max(1, pcie->num_lanes);
- 	struct device *dev = pcie->dev;
- 	struct resource_entry *entry;
- 	struct regmap *pbus_regmap;
- 	u32 val, args[2], size;
- 	resource_size_t addr;
--	int err;
-+	int i, err;
-+
-+	if (num_lanes == 2) {
-+		struct platform_device *pdev = to_platform_device(dev);
-+		struct resource *regs;
-+
+@@ -949,18 +965,38 @@ static int mtk_pcie_parse_port(struct mtk_gen3_pcie *pcie)
+ 			pcie->num_lanes = num_lanes;
+ 	}
+ 
++	/* Map secondary PCIe for 2-lanes mode for EN7581 */
++	if (num_lanes == 2 && device_is_compatible(dev, "airoha,en7581-pcie")) {
 +		regs = platform_get_resource_byname(pdev, IORESOURCE_MEM, "sec-pcie-mac");
 +		if (!regs)
 +			return -EINVAL;
 +		pcie->sec_base = devm_ioremap_resource(dev, regs);
 +		if (IS_ERR(pcie->sec_base))
 +			return dev_err_probe(dev, PTR_ERR(pcie->sec_base), "failed to map secondary register base\n");
++	}
 +
-+		pcie->scu = syscon_regmap_lookup_by_phandle(dev->of_node, "airoha,scu");
-+		if (IS_ERR(pcie->scu))
-+			return dev_err_probe(dev, PTR_ERR(pcie->scu), "failed to map SCU regmap\n");
+ 	return 0;
+ }
+ 
+ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
+ {
+ 	struct pci_host_bridge *host = pci_host_bridge_from_priv(pcie);
++	unsigned int num_lanes = max(1, pcie->num_lanes);
++	struct regmap *pbus_regmap, *scu;
+ 	struct device *dev = pcie->dev;
+ 	struct resource_entry *entry;
+-	struct regmap *pbus_regmap;
+ 	u32 val, args[2], size;
+ 	resource_size_t addr;
+-	int err;
++	int i, err;
++
++	if (num_lanes > 2)
++		return dev_err_probe(dev, -EINVAL, "unsupported num-lanes, maximum 2 lanes supported\n");
++
++	if (num_lanes == 2) {
++		scu = syscon_regmap_lookup_by_phandle(dev->of_node, "airoha,scu");
++		if (IS_ERR(scu))
++			return dev_err_probe(dev, PTR_ERR(scu), "failed to map SCU regmap\n");
 +	}
  
  	/*
  	 * The controller may have been left out of reset by the bootloader
-@@ -1024,34 +1060,60 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
+@@ -992,6 +1028,19 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
+ 	size = lower_32_bits(resource_size(entry->res));
+ 	regmap_write(pbus_regmap, args[1], GENMASK(31, __fls(size)));
+ 
++	/* Assert PERSTOUT for all relevant lines */
++	err = reset_control_bulk_assert(MAX_NUM_PERSTOUT_RESETS,
++					pcie->perstout_resets);
++	if (err) {
++		dev_err(dev, "failed to assert PERSTOUTs\n");
++		return err;
++	}
++
++	/* Configure SCU MUX to disable PCIE1 for 2 lines mode */
++	if (num_lanes == 2)
++		regmap_update_bits(scu, SCU_PCIC, SCU_PCIC_PCIE_CTRL,
++				   FIELD_PREP(SCU_PCIC_PCIE_CTRL, BIT(1)));
++
+ 	/*
+ 	 * Unlike the other MediaTek Gen3 controllers, the Airoha EN7581
+ 	 * requires PHY initialization and power-on before PHY reset deassert.
+@@ -1024,33 +1073,47 @@ static int mtk_pcie_en7581_power_up(struct mtk_gen3_pcie *pcie)
  	pm_runtime_enable(dev);
  	pm_runtime_get_sync(dev);
  
@@ -112,30 +148,17 @@ index b0accd828589..f750759bbc1d 100644
 -	      FIELD_PREP(PCIE_VAL_LN0_UPSTREAM, 0x41) |
 -	      FIELD_PREP(PCIE_VAL_LN1_UPSTREAM, 0x41);
 -	writel_relaxed(val, pcie->base + PCIE_EQ_PRESET_01_REG);
-+	/* Assert PERSTOUT for all relevant lines */
-+	err = reset_control_bulk_assert(MAX_NUM_PERSTOUT_RESETS,
-+					pcie->perstout_resets);
-+	if (err) {
-+		dev_err(dev, "failed to assert PERSTOUTs\n");
-+		goto err_perstout_assert;
-+	}
-+
-+	/* Configure SCU MUX to disable PCIE1 for 2 lines mode */
-+	if (num_lanes == 2)
-+		regmap_update_bits(pcie->scu, SCU_PCIC, SCU_PCIC_PCIE_CTRL,
-+				   FIELD_PREP(SCU_PCIC_PCIE_CTRL, BIT(1)));
- 
+-
 -	val = PCIE_K_PHYPARAM_QUERY | PCIE_K_QUERY_TIMEOUT |
 -	      FIELD_PREP(PCIE_K_PRESET_TO_USE_16G, 0x80) |
 -	      FIELD_PREP(PCIE_K_PRESET_TO_USE, 0x2) |
 -	      FIELD_PREP(PCIE_K_FINETUNE_MAX, 0xf);
 -	writel_relaxed(val, pcie->base + PCIE_PIPE4_PIE8_REG);
- 
+-
  	err = clk_bulk_prepare_enable(pcie->num_clks, pcie->clks);
  	if (err) {
  		dev_err(dev, "failed to prepare clock\n");
--		goto err_clk_prepare_enable;
-+		goto err_perstout_assert;
+ 		goto err_clk_prepare_enable;
  	}
  
 -	/*
@@ -171,16 +194,16 @@ index b0accd828589..f750759bbc1d 100644
 +					  pcie->perstout_resets);
 +	if (err) {
 +		dev_err(dev, "failed to deassert PERSTOUTs\n");
-+		goto err_perstout_assert;
++		goto err_perstout_deassert;
 +	}
 +
  	return 0;
  
--err_clk_prepare_enable:
-+err_perstout_assert:
++err_perstout_deassert:
++	clk_bulk_disable_unprepare(pcie->num_clks, pcie->clks);
+ err_clk_prepare_enable:
  	pm_runtime_put_sync(dev);
  	pm_runtime_disable(dev);
- 	reset_control_bulk_assert(pcie->soc->phy_resets.num_resets,
 -- 
 2.53.0
 

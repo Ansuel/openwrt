@@ -1,7 +1,7 @@
-From a6096ff6319961cb2b32f5cc4be76eefe3098bfe Mon Sep 17 00:00:00 2001
+From 335db8dda524add9d8ec3bdd88eddc339d5d3439 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Thu, 25 Jun 2026 13:49:39 +0200
-Subject: [PATCH 2/3] clk: en7523: add support for dedicated PCIe PERSTOUT
+Subject: [PATCH 2/4] clk: en7523: add support for dedicated PCIe PERSTOUT
  reset
 
 Add support for resetting the PCIe lines with the PERSTOUT reset. These
@@ -16,11 +16,11 @@ reset handling.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/clk/clk-en7523.c | 27 ++++++++++++++++++---------
- 1 file changed, 18 insertions(+), 9 deletions(-)
+ drivers/clk/clk-en7523.c | 39 ++++++++++++++++++++++++++++-----------
+ 1 file changed, 28 insertions(+), 11 deletions(-)
 
 diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
-index 1ab0e2eca5d3..a33cf2e1b76f 100644
+index 1ab0e2eca5d3..c9b21d9bf2f3 100644
 --- a/drivers/clk/clk-en7523.c
 +++ b/drivers/clk/clk-en7523.c
 @@ -338,6 +338,7 @@ static const struct en_clk_desc en7581_base_clks[] = {
@@ -82,6 +82,24 @@ index 1ab0e2eca5d3..a33cf2e1b76f 100644
 +			   val);
  
  	return 0;
+@@ -783,10 +792,16 @@ static int en7523_reset_status(struct reset_controller_dev *rcdev,
+ {
+ 	struct en_rst_data *rst_data = container_of(rcdev, struct en_rst_data, rcdev);
+ 	u32 addr = rst_data->bank_ofs[id / RST_NR_PER_BANK];
++	bool inverted = false;
+ 	u32 val;
+ 
++	/* For PCIC reset logic is inverted, 0:assert 1:deassert*/
++	if (addr == REG_NP_SCU_PCIC)
++		inverted = true;
++
+ 	regmap_read(rst_data->map, addr, &val);
+-	return !!(val & BIT(id % RST_NR_PER_BANK));
++	val &= BIT(id % RST_NR_PER_BANK);
++	return inverted ? !val : !!val;
+ }
+ 
+ static int en7523_reset_xlate(struct reset_controller_dev *rcdev,
 -- 
 2.53.0
 
