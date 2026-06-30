@@ -710,12 +710,10 @@
 
 			ranges = <0x02000000 0 0x20000000 0x0 0x20000000 0 0x4000000>;
 
-			resets = <&scuclk AN7583_PCIE0_RST>;
-			reset-names = "phy-lane0";
+			resets = <&scuclk AN7583_PCIE0_RST>, <&scuclk AN7583_PCIC_PERSTOUT0_RST>;
+			reset-names = "phy-lane0", "perstout";
 
 			mediatek,pbus-csr = <&pbus_csr 0x0 0x4>;
-
-			airoha,scu = <&scuclk>;
 
 			interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			bus-range = <0x00 0xff>;
