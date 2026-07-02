@@ -79,10 +79,11 @@ index 5f1a118875fb..6c1985ae0444 100644
  	netif_tx_start_all_queues(netdev);
  	err = airoha_set_vip_for_gdm_port(dev, true);
  	if (err)
-@@ -1907,6 +1916,9 @@ static int airoha_dev_stop(struct net_device *netdev)
- 		}
- 	}
- 
+@@ -1907,6 +1916,10 @@ static int airoha_dev_stop(struct net_device *netdev)
+ 		airoha_set_gdm_port_fwd_cfg(qdma->eth,
+ 					    REG_GDM_FWD_CFG(port->id),
+ 					    FE_PSE_PORT_DROP);
++
 +	phylink_stop(dev->phylink);
 +	phylink_disconnect_phy(dev->phylink);
 +
