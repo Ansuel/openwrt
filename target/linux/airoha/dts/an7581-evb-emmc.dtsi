@@ -82,17 +82,17 @@
 		};
 	};
 
-	mdio_pins: mdio-pins {
-		mux {
-			function = "mdio";
-			groups = "mdio";
-		};
+	// mdio_pins: mdio-pins {
+	// 	mux {
+	// 		function = "mdio";
+	// 		groups = "mdio";
+	// 	};
 
-		conf {
-			pins = "gpio2";
-			output-high;
-		};
-	};
+	// 	conf {
+	// 		pins = "gpio2";
+	// 		output-high;
+	// 	};
+	// };
 
 	pcie0_rst_pins: pcie0-rst-pins {
 		conf {
@@ -324,8 +324,8 @@
 };
 
 &switch {
-	pinctrl-names = "default";
-	pinctrl-0 = <&mdio_pins>;
+	// pinctrl-names = "default";
+	// pinctrl-0 = <&mdio_pins>;
 	status = "okay";
 };
 
