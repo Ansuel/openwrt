@@ -1,4 +1,4 @@
-From f0d1a963fc7e00a45f1a8b6eab45040946eec5cd Mon Sep 17 00:00:00 2001
+From dd2aeb609929e4073d4c667ce7f9ed8bd3bb321b Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Sun, 24 Aug 2025 23:35:44 +0200
 Subject: [PATCH] sound: airoha: add support for AN7581 PCM driver
@@ -12,8 +12,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  sound/Makefile            |   2 +-
  sound/airoha/Kconfig      |   9 +
  sound/airoha/Makefile     |   3 +
- sound/airoha/an7581-pcm.c | 800 ++++++++++++++++++++++++++++++++++++++
- 5 files changed, 815 insertions(+), 1 deletion(-)
+ sound/airoha/an7581-pcm.c | 811 ++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 826 insertions(+), 1 deletion(-)
  create mode 100644 sound/airoha/Kconfig
  create mode 100644 sound/airoha/Makefile
  create mode 100644 sound/airoha/an7581-pcm.c
@@ -70,10 +70,10 @@ index 000000000000..039b8853d5a2
 +obj-$(CONFIG_SND_AN7581_PCM) += an7581-pcm.o
 diff --git a/sound/airoha/an7581-pcm.c b/sound/airoha/an7581-pcm.c
 new file mode 100644
-index 000000000000..a72948ae9190
+index 000000000000..6baaaab4b1e8
 --- /dev/null
 +++ b/sound/airoha/an7581-pcm.c
-@@ -0,0 +1,804 @@
+@@ -0,0 +1,817 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Airoha ALSA SoC PCM platform driver for AN7581
@@ -90,6 +90,7 @@ index 000000000000..a72948ae9190
 +#include <linux/spinlock.h>
 +#include <sound/pcm.h>
 +#include <sound/pcm_params.h>
++#include <linux/pinctrl/consumer.h>
 +#include <sound/soc.h>
 +
 +#define AN7581_PCM_PICR				0x0
@@ -516,8 +517,8 @@ index 000000000000..a72948ae9190
 +	switch (cmd) {
 +	case SNDRV_PCM_TRIGGER_START:
 +	case SNDRV_PCM_TRIGGER_RESUME:
-+		//regmap_clear_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_SOFT_RESET);
-+		//regmap_set_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_SOFT_RESET);
++		// regmap_clear_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_SOFT_RESET);
++		// regmap_set_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_SOFT_RESET);
 +
 +		/* Trigger PCM to POLL new descriptor */
 +		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -729,8 +730,8 @@ index 000000000000..a72948ae9190
 +
 +		rcu_read_unlock();
 +
-+		regmap_set_bits(priv->map, AN7581_PCM_PICR,
-+				AN7581_PCM_CFG_VALID);
++		//regmap_set_bits(priv->map, AN7581_PCM_PICR,
++		//		AN7581_PCM_CFG_VALID);
 +	}
 +
 +	return IRQ_HANDLED;
@@ -742,6 +743,7 @@ index 000000000000..a72948ae9190
 +	struct snd_soc_dai_link *dai_link;
 +	struct device *dev = &pdev->dev;
 +	struct an7581_pcm_priv *priv;
++	const char *connection_type;
 +	int irq;
 +	int ret;
 +	int i;
@@ -752,6 +754,17 @@ index 000000000000..a72948ae9190
 +
 +	/* set clock source to ZSI and enable fractional divider */
 +	regmap_set_bits(chip_scu, 0x1d0, BIT(10) | BIT(0));
++
++	if (!device_property_read_string(dev, "airoha,connection-type",
++					 &connection_type)) {
++		if (!strcmp(connection_type, "slic")) {
++			struct pinctrl *pinctrl;
++
++			pinctrl = devm_pinctrl_get_select(dev, "pcm_spi");
++			if (IS_ERR(pinctrl))
++				dev_err(dev, "Failed to setup PCM SPI pinctrl\n");
++		}
++	}
 +
 +	card->dev = dev;
 +

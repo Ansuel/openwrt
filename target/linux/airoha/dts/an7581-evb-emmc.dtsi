@@ -50,8 +50,11 @@
 };
 
 &pcm {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "pcm_spi";
 	pinctrl-0 = <&pcm_pins>;
+	pinctrl-1 = <&pcm_spi_pins>;
+
+	airoha,connection-type = "slic";
 };
 
 &en7581_pinctrl {
@@ -61,6 +64,14 @@
 		mux {
 			function = "pcm";
 			groups = "pcm1";
+		};
+	};
+
+	pcm_spi_pins: pcm-spi-pins {
+		mux {
+			function = "pcm_spi";
+			groups = "pcm_spi", "pcm_spi_int",
+				 "pcm_spi_rst";
 		};
 	};
 
