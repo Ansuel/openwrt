@@ -504,6 +504,32 @@ static int qca_uniphy_pcs_config_mode(struct phylink_pcs *pcs,
 			clk_prepare_enable(uniphy->ref_clk.hw.clk);
 	}
 
+	/* TODO: Fix for IPQ6018 and IPQ8074 */
+	if (uniphy->data->uniphy_type == UNIPHY_IPQ5018) {
+		//set force mode for fixed link
+		if (neg_mode == PHYLINK_PCS_NEG_OUTBAND && !phylink_expects_phy(pcs->phylink)) {
+			regmap_set_bits(uniphy->regmap,
+					UNIPHY_CH_CTRL(upcs->channel),
+					UNIPHY_CH_FORCE_MODE);
+		}
+	}
+
+	/*
+	 * Everything below acts on the whole UNIPHY instance, not on the
+	 * calling channel: the analog PLL reset and the soft reset take
+	 * down every channel of the instance and calibration re-locks the
+	 * SerDes from scratch. On a multi-channel instance (PSGMII/QSGMII)
+	 * phylink calls pcs_config once per port, and re-running the
+	 * instance-wide reset for a later port tears down the channels
+	 * that already synced: the attached PHY's SerDes does not reliably
+	 * re-lock its lanes against a re-calibrated UNIPHY, leaving a port
+	 * with link up but a dead receive path. Configure the instance
+	 * once per interface mode - as the vendor driver does - and treat
+	 * further pcs_config calls for the same mode as channel-only.
+	 */
+	if (uniphy->interface == interface)
+		return 0;
+
 	/* First update misc2 PHY mode... */
 	regmap_update_bits(uniphy->regmap, UNIPHY_MISC2_PHY_MODE,
 			   UNIPHY_MISC2_PHY_MODE_MASK, misc2_phy_mode);
@@ -523,16 +549,6 @@ static int qca_uniphy_pcs_config_mode(struct phylink_pcs *pcs,
 	/* ...and disable PHY clock */
 	clk_disable(uniphy->clks[port_rx_clk_idx(upcs)].clk);
 	clk_disable(uniphy->clks[port_tx_clk_idx(upcs)].clk);
-
-	/* TODO: Fix for IPQ6018 and IPQ8074 */
-	if (uniphy->data->uniphy_type == UNIPHY_IPQ5018) {
-		//set force mode for fixed link
-		if (neg_mode == PHYLINK_PCS_NEG_OUTBAND && !phylink_expects_phy(pcs->phylink)) {
-			regmap_set_bits(uniphy->regmap,
-					UNIPHY_CH_CTRL(upcs->channel),
-					UNIPHY_CH_FORCE_MODE);
-		}
-	}
 
 	/* Third update the mode ctrl... */
 	regmap_update_bits(uniphy->regmap, UNIPHY_MODE_CTRL,
@@ -562,6 +578,8 @@ static int qca_uniphy_pcs_config_mode(struct phylink_pcs *pcs,
 		dev_err(uniphy->dev, "PCS calibration timeout\n");
 		return -EINVAL;
 	}
+
+	uniphy->interface = interface;
 
 	/* Trigger UNIPHY ref clock to recal rate */
 	clk_hw_recalc_rate(&uniphy->rx_clk.hw);
