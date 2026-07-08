@@ -982,6 +982,19 @@ static void qca_ppe_mac_link_down(struct phylink_config *config,
 	struct qca_ppe_priv *priv = ds_to_priv(dp->ds);
 	int port = dp->index;
 
+	/*
+	 * Disable the PPE switch-fabric TX-MAC for this port before the MAC is
+	 * torn down, and leave it disabled until the MAC is fully back up (see
+	 * qca_ppe_mac_link_up). Across a carrier flap the fabric must not dequeue
+	 * into a MAC that is still being re-clocked: on IPQ807x that can latch the
+	 * port's egress queue-manager scheduler into a state that no longer
+	 * drains, silently black-holing the port's egress until reboot. The
+	 * reference ssdk switch driver gates the bridge TX-MAC the same way on
+	 * every link change (qca_hppe_mac_sw_sync_task); the qca_ppe rewrite
+	 * dropped it.
+	 */
+	ppe_port_bridge_txmac_set(priv, port, false);
+
 	switch (interface) {
 	case PHY_INTERFACE_MODE_SGMII:
 	case PHY_INTERFACE_MODE_QSGMII:
@@ -1124,6 +1137,13 @@ static void qca_ppe_mac_link_up(struct phylink_config *config,
 	default:
 		return;
 	}
+
+	/*
+	 * Re-enable switch-fabric forwarding into the port only now, as the very
+	 * last step, after the MAC has been fully brought back up above. See the
+	 * matching disable in qca_ppe_mac_link_down for why the ordering matters.
+	 */
+	ppe_port_bridge_txmac_set(priv, port, true);
 }
 
 static const struct phylink_mac_ops qca_ppe_phylink_mac_ops = {
