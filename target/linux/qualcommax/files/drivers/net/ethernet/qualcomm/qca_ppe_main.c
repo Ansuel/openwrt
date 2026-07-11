@@ -881,20 +881,20 @@ static void ppe_pcs_set_mux_cppe(struct qca_ppe_priv *priv, int port,
 		case PHY_INTERFACE_MODE_SGMII:
 		case PHY_INTERFACE_MODE_1000BASEX:
 			val = FIELD_PREP(CPPE_PORT5_PCS_SEL,
-					 CPPE_PORT5_PCS1_CH0) |
-			      CPPE_PORT5_GMAC_SEL;
+					 CPPE_PORT5_PCS1_CH0);
 			break;
 		case PHY_INTERFACE_MODE_2500BASEX:
 			val = FIELD_PREP(CPPE_PORT5_PCS_SEL,
 					 CPPE_PORT5_PCS1_CH0);
 			/* In-Band is only supported by XGMAC */
-			if (!phylink_autoneg_inband(mode))
+			if (phylink_autoneg_inband(mode))
 				val |= CPPE_PORT5_GMAC_SEL;
 			break;
 		case PHY_INTERFACE_MODE_10GBASER:
 		case PHY_INTERFACE_MODE_USXGMII:
 			val = FIELD_PREP(CPPE_PORT5_PCS_SEL,
-					 CPPE_PORT5_PCS1_CH0);
+					 CPPE_PORT5_PCS1_CH0) |
+					 CPPE_PORT5_GMAC_SEL;
 			break;
 		default:
 			return;
