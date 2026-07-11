@@ -1126,11 +1126,38 @@ static void qca_ppe_mac_link_up(struct phylink_config *config,
 	}
 }
 
+/*
+ * The QCA807x PHYs advertise 802.3az EEE by default. On an idle EEE-active port
+ * the PHY cycles low-power idle; the NSS firmware then injects egress into a MAC
+ * coming out of an LPI wake and latches the port's queue-manager egress
+ * scheduler, silently black-holing the port's egress until reboot (an idle LAN
+ * port loses RX; an idle WAN port loses PPPoE PADI and never redials). The
+ * reference ssdk switch driver disables EEE on every port at init
+ * (qca_hppe_interface_mode_init: port_eee_cfg.enable = lpi_tx_enable = A_FALSE);
+ * the qca_ppe rewrite dropped it. We never enable phylink-managed LPI (no
+ * config->lpi_capabilities), so supplying these ops makes phylink_bringup_phy()
+ * take its "MAC supports EEE ops but EEE disabled" path and call
+ * phy_disable_eee() before autonegotiation, clearing the PHY EEE advertisement
+ * per-port, device-agnostically. The ops themselves are never invoked because
+ * LPI is never enabled.
+ */
+static int qca_ppe_mac_enable_tx_lpi(struct phylink_config *config, u32 timer,
+				     bool tx_clk_stop)
+{
+	return 0;
+}
+
+static void qca_ppe_mac_disable_tx_lpi(struct phylink_config *config)
+{
+}
+
 static const struct phylink_mac_ops qca_ppe_phylink_mac_ops = {
 	.mac_prepare	= qca_ppe_mac_prepare,
 	.mac_config	= qca_ppe_mac_config,
 	.mac_link_down	= qca_ppe_mac_link_down,
 	.mac_link_up	= qca_ppe_mac_link_up,
+	.mac_enable_tx_lpi	= qca_ppe_mac_enable_tx_lpi,
+	.mac_disable_tx_lpi	= qca_ppe_mac_disable_tx_lpi,
 };
 
 struct qca_ppe_mib_desc {
