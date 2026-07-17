@@ -1276,7 +1276,7 @@ new file mode 100644
 index 000000000000..4e60e112018c
 --- /dev/null
 +++ b/sound/soc/mediatek/an7581/an7581-wm8960.c
-@@ -0,0 +1,156 @@
+@@ -0,0 +1,161 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Airoha ALSA SoC I2S platform driver for AN7581
@@ -1291,17 +1291,17 @@ index 000000000000..4e60e112018c
 +SND_SOC_DAILINK_DEFS(playback,
 +		     DAILINK_COMP_ARRAY(COMP_CPU("DL1")),
 +		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
-+		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++		     DAILINK_COMP_ARRAY(COMP_EMPTY(), COMP_EMPTY()));
 +
 +SND_SOC_DAILINK_DEFS(capture,
 +		     DAILINK_COMP_ARRAY(COMP_CPU("UL1")),
 +		     DAILINK_COMP_ARRAY(COMP_DUMMY()),
-+		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++		     DAILINK_COMP_ARRAY(COMP_EMPTY(), COMP_EMPTY()));
 +
 +SND_SOC_DAILINK_DEFS(codec,
 +		     DAILINK_COMP_ARRAY(COMP_CPU("ETDM")),
 +		     DAILINK_COMP_ARRAY(COMP_CODEC(NULL, "wm8960-hifi")),
-+		     DAILINK_COMP_ARRAY(COMP_EMPTY()));
++		     DAILINK_COMP_ARRAY(COMP_EMPTY(), COMP_EMPTY()));
 +
 +static struct snd_soc_dai_link an7581_wm8960_dai_links[] = {
 +	/* FE */
@@ -1346,17 +1346,17 @@ index 000000000000..4e60e112018c
 +{
 +	struct device_node *platform_dai_node, *codec_dai_node;
 +	struct snd_soc_card *card = &an7581_wm8960_card;
-+	struct device_node *platform, *codec;
++	struct device_node *of_platform, *codec;
 +	struct snd_soc_dai_link *dai_link;
 +	int ret, i;
 +
 +	card->dev = &pdev->dev;
 +
-+	platform = of_get_child_by_name(pdev->dev.of_node, "platform");
++	of_platform = of_get_child_by_name(pdev->dev.of_node, "platform");
 +
-+	if (platform) {
-+		platform_dai_node = of_parse_phandle(platform, "sound-dai", 0);
-+		of_node_put(platform);
++	if (of_platform) {
++		platform_dai_node = of_parse_phandle(of_platform, "sound-dai", 0);
++		of_node_put(of_platform);
 +
 +		if (!platform_dai_node) {
 +			dev_err(&pdev->dev, "Failed to parse platform/sound-dai property\n");
@@ -1368,9 +1368,14 @@ index 000000000000..4e60e112018c
 +	}
 +
 +	for_each_card_prelinks(card, i, dai_link) {
-+		if (dai_link->platforms->name)
-+			continue;
-+		dai_link->platforms->of_node = platform_dai_node;
++		struct snd_soc_dai_link_component *platform;
++
++		dai_link->num_platforms = 2;
++		for_each_link_platforms(dai_link, d, platform) {
++			if (dai_link->platforms->name)
++				continue;
++			dai_link->platforms->of_node = platform_dai_node;
++		}
 +	}
 +
 +	codec = of_get_child_by_name(pdev->dev.of_node, "codec");
