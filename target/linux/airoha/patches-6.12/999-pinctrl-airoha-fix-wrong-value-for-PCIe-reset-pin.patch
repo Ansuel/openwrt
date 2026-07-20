@@ -1,0 +1,48 @@
+From 774b82577ab972e42c1814d81303cd72e31946e6 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Mon, 20 Jul 2026 23:56:25 +0200
+Subject: [PATCH] pinctrl: airoha: fix wrong value for PCIe reset pin
+
+The PCIe reset pin actually require the bit to be set as 0 to work as PCIe
+reset pin. When the bit is set as 1, then the PCIe reset pin act as a GPIO
+for GPIO44, GPIO45 and GPIO46.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/pinctrl/airoha/pinctrl-airoha.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/pinctrl/airoha/pinctrl-airoha.c b/drivers/pinctrl/airoha/pinctrl-airoha.c
+index 04b4424c688b..6409572c0a4b 100644
+--- a/drivers/pinctrl/airoha/pinctrl-airoha.c
++++ b/drivers/pinctrl/airoha/pinctrl-airoha.c
+@@ -1412,7 +1412,7 @@ static const struct airoha_pinctrl_func_group pcie_reset_func_group[] = {
+ 			AIROHA_FUNC_MUX,
+ 			REG_GPIO_PON_MODE,
+ 			GPIO_PCIE_RESET0_MASK,
+-			GPIO_PCIE_RESET0_MASK
++			0
+ 		},
+ 		.regmap_size = 1,
+ 	}, {
+@@ -1421,7 +1421,7 @@ static const struct airoha_pinctrl_func_group pcie_reset_func_group[] = {
+ 			AIROHA_FUNC_MUX,
+ 			REG_GPIO_PON_MODE,
+ 			GPIO_PCIE_RESET1_MASK,
+-			GPIO_PCIE_RESET1_MASK
++			0
+ 		},
+ 		.regmap_size = 1,
+ 	}, {
+@@ -1430,7 +1430,7 @@ static const struct airoha_pinctrl_func_group pcie_reset_func_group[] = {
+ 			AIROHA_FUNC_MUX,
+ 			REG_GPIO_PON_MODE,
+ 			GPIO_PCIE_RESET2_MASK,
+-			GPIO_PCIE_RESET2_MASK
++			0
+ 		},
+ 		.regmap_size = 1,
+ 	},
+-- 
+2.53.0
+
