@@ -1372,9 +1372,9 @@ index 000000000000..4e60e112018c
 +
 +		dai_link->num_platforms = 2;
 +		for_each_link_platforms(dai_link, d, platform) {
-+			if (dai_link->platforms->name)
++			if (platform->name)
 +				continue;
-+			dai_link->platforms->of_node = platform_dai_node;
++			platform->of_node = platform_dai_node;
 +		}
 +	}
 +
