@@ -833,9 +833,9 @@ index 000000000000..1022bedea991
 +static void mtk_dai_etdm_shutdown(struct snd_pcm_substream *substream,
 +				  struct snd_soc_dai *dai)
 +{
-+	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
-+	struct an7581_afe_private *afe_priv = afe->platform_priv;
-+
++//	struct mtk_base_afe *afe = snd_soc_dai_get_drvdata(dai);
++//	struct an7581_afe_private *afe_priv = afe->platform_priv;
++//
 +//	if (atomic_dec_and_test(&afe_priv->users))
 +//		regmap_clear_bits(afe->regmap, AFE_DAC_CON0,
 +//				  BIT(AFE_AFE_ENABLE_SHIFT));
@@ -1348,7 +1348,7 @@ index 000000000000..4e60e112018c
 +	struct snd_soc_card *card = &an7581_wm8960_card;
 +	struct device_node *of_platform, *codec;
 +	struct snd_soc_dai_link *dai_link;
-+	int ret, i;
++	int i, d, ret;
 +
 +	card->dev = &pdev->dev;
 +
