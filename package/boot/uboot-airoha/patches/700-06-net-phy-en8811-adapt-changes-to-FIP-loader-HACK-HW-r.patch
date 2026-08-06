@@ -1,0 +1,106 @@
+From c27fcbfb2ddbef4aa3dafafffebe7bd73786f767 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Tue, 14 Oct 2025 19:15:37 +0200
+Subject: [PATCH 51/59] net: phy: en8811: adapt changes to FIP loader + HACK HW
+ reset
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/phy/airoha/air_en8811.c | 65 +++++++++++++----------------
+ 1 file changed, 30 insertions(+), 35 deletions(-)
+
+diff --git a/drivers/net/phy/airoha/air_en8811.c b/drivers/net/phy/airoha/air_en8811.c
+index 1a628ede82b..cf61cf21c76 100644
+--- a/drivers/net/phy/airoha/air_en8811.c
++++ b/drivers/net/phy/airoha/air_en8811.c
+@@ -419,50 +419,36 @@ static int en8811h_wait_mcu_ready(struct phy_device *phydev)
+ 	return ret;
+ }
+ 
+-int en8811h_read_fw(void **fw, size_t *fwsize)
++static int en8811h_load_firmware(struct phy_device *phydev)
+ {
+-	void *buffer;
++	struct en8811h_priv *priv = phydev->priv;
++	struct udevice *fw_loader;
++	const char *fw_string;
++	int fw_size;
++	u8 *buffer;
+ 	int ret;
+ 
+-	buffer = malloc(EN8811H_MD32_DM_SIZE + EN8811H_MD32_DSP_SIZE);
+-	if (!buffer)
+-		return -ENOMEM;
+-
+-	ret = request_firmware_into_buf_via_script(buffer,
+-						   EN8811H_MD32_DM_SIZE + EN8811H_MD32_DSP_SIZE,
+-						   "en8811h_load_firmware", fwsize);
+-	if (ret) {
+-		free(buffer);
+-		return ret;
+-	}
+-
+-	*fw = buffer;
++	fw_size = EN8811H_MD32_DM_SIZE + EN8811H_MD32_DSP_SIZE;
+ 
+-	debug("Found Airoha Firmware.\n");
++	if (!IS_ENABLED(CONFIG_FW_LOADER))
++		return -EOPNOTSUPP;
+ 
+-	return 0;
+-}
++	fw_string = ofnode_read_string(phydev->node, "firmware-name");
++	if (!fw_string)
++		return -EINVAL;
+ 
+-static int en8811h_load_firmware(struct phy_device *phydev)
+-{
+-	struct en8811h_priv *priv = phydev->priv;
+-	size_t fw_size;
+-	void *buffer;
+-	int ret;
++	buffer = malloc(EN8811H_MD32_DM_SIZE + EN8811H_MD32_DSP_SIZE);
++	if (!buffer)
++		return -ENOMEM;
+ 
+-	ret = en8811h_read_fw(&buffer, &fw_size);
+-	if (ret < 0) {
+-		dev_err(phydev->dev, "Failed to get firmware data\n");
+-		return -EINVAL;
+-	}
++	ret = get_fw_loader_from_node(phydev->node, &fw_loader);
++	if (ret)
++		goto en8811h_load_firmware_out;
+ 
+-	if (fw_size != EN8811H_MD32_DM_SIZE + EN8811H_MD32_DSP_SIZE) {
+-		dev_err(phydev->dev,
+-			"MD32 firmware size mismatch (0x%zx != 0x%x)\n",
+-			fw_size, EN8811H_MD32_DM_SIZE + EN8811H_MD32_DSP_SIZE);
+-		ret = -EINVAL;
++	ret = request_firmware_into_buf(fw_loader, fw_string, buffer,
++					fw_size, 0);
++	if (ret < 0)
+ 		goto en8811h_load_firmware_out;
+-	}
+ 
+ 	ret = air_buckpbus_reg_write(phydev, EN8811H_FW_CTRL_1,
+ 				     EN8811H_FW_CTRL_1_START);
+@@ -673,6 +659,15 @@ static int en8811h_config(struct phy_device *phydev)
+ 		if (ret < 0)
+ 			return ret;
+ 	} else {
++		/* HACK to trigger HW reset on GPIO 28 */
++		writel(0x1000000, 0x1fbf0220);
++		writel(0x10000000, 0x1fbf0214);
++		writel(0x0, 0x1fbf0204);
++		udelay(10000);
++		writel(0x10000000, 0x1fbf0204);
++		udelay(20000);
++
++		printf("Loading firmware... ");
+ 		ret = en8811h_load_firmware(phydev);
+ 		if (ret) {
+ 			dev_err(phydev->dev, "Load firmware fail.\n");
+-- 
+2.51.0
+

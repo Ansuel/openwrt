@@ -1,0 +1,42 @@
+From 601ff5c3371b5ed56ad13fa25edd62b880544472 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Wed, 15 Oct 2025 02:40:17 +0200
+Subject: [PATCH 59/59] configs: enable AS21xxx PHY config for Airoha RFB board
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ configs/an7581_evb_defconfig | 3 +++
+ configs/an7583_evb_defconfig | 3 +++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
+index 4d69ebee0aa..a654748b3df 100644
+--- a/configs/an7581_evb_defconfig
++++ b/configs/an7581_evb_defconfig
+@@ -73,6 +73,9 @@ CONFIG_SPI_FLASH_MTD=y
+ CONFIG_AIROHA_ETH=y
+ CONFIG_PCS_AIROHA_AN7581=y
+ CONFIG_PHY_AIROHA_EN8811=y
++CONFIG_PHY_ANEG_TIMEOUT=10000
++CONFIG_PHY_ETHERNET_ID=y
++CONFIG_PHY_AS21XXX=y
+ CONFIG_DM_MDIO=y
+ CONFIG_CMD_MII=y
+ CONFIG_CMD_MDIO=y
+diff --git a/configs/an7583_evb_defconfig b/configs/an7583_evb_defconfig
+index fba494ca93e..b0087aab48e 100644
+--- a/configs/an7583_evb_defconfig
++++ b/configs/an7583_evb_defconfig
+@@ -72,6 +72,9 @@ CONFIG_SPI_FLASH_MTD=y
+ CONFIG_AIROHA_ETH=y
+ CONFIG_PCS_AIROHA_AN7583=y
+ CONFIG_PHY_AIROHA_EN8811=y
++CONFIG_PHY_ANEG_TIMEOUT=10000
++CONFIG_PHY_ETHERNET_ID=y
++CONFIG_PHY_AS21XXX=y
+ CONFIG_DM_MDIO=y
+ CONFIG_CMD_MII=y
+ CONFIG_CMD_MDIO=y
+-- 
+2.51.0
+

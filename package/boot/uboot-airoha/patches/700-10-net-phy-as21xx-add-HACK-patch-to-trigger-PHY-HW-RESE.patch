@@ -1,0 +1,57 @@
+From 4c81db3e672b1721d81748b90bcd6d9e4dc5667e Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Wed, 15 Oct 2025 02:17:08 +0200
+Subject: [PATCH 55/59] net: phy: as21xx: add HACK patch to trigger PHY HW
+ RESET
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/net/phy/as21xxx.c | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/drivers/net/phy/as21xxx.c b/drivers/net/phy/as21xxx.c
+index d2f856cc0f3..3342c2c3b9e 100644
+--- a/drivers/net/phy/as21xxx.c
++++ b/drivers/net/phy/as21xxx.c
+@@ -523,6 +523,9 @@ static int as21xxx_set_led_default(struct phy_device *phydev)
+ 			     		 VEND1_LED_REG_A_EVENT_ON_LINK_BLINK_ACT));
+ }
+ 
++static bool phy1_reset = false;
++static bool phy2_reset = false;
++
+ static int as21xxx_config(struct phy_device *phydev)
+ {
+ 	struct as21xxx_priv *priv = phydev->priv;
+@@ -530,6 +533,28 @@ static int as21xxx_config(struct phy_device *phydev)
+ 	u16 ret_sts;
+ 	int ret;
+ 
++	/* HACK to trigger HW reset on GPIO 32 */
++	if (!phy1_reset && (phydev->addr == 0x1c || phydev->addr == 0x1f)) {
++		writel(BIT(0), 0x1fbf0260);
++		writel(BIT(0), 0x1fbf0278);
++		writel(0x0, 0x1fbf0270);
++		udelay(200000);
++		writel(BIT(0), 0x1fbf0270);
++		udelay(350000);
++		phy1_reset = true;
++	}
++
++	/* HACK to trigger HW reset on GPIO 31 */
++	if (!phy2_reset && phydev->addr == 0x1d) {
++		writel(BIT(30), 0x1fbf0220);
++		writel(BIT(31), 0x1fbf0214);
++		writel(0x0, 0x1fbf0204);
++		udelay(200000);
++		writel(BIT(31), 0x1fbf0204);
++		udelay(350000);
++		phy2_reset = true;
++	}
++
+ 	get_phy_id(phydev->bus, phydev->addr, MDIO_MMD_PCS, &phyid);
+ 
+ 	/* Firmware needs to be loaded */
+-- 
+2.51.0
+

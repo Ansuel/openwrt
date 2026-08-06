@@ -1,0 +1,69 @@
+From 977c70d004167362ac9af0f716b7e6d94a6a99c8 Mon Sep 17 00:00:00 2001
+From: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+Date: Mon, 13 Oct 2025 20:48:00 +0300
+Subject: [PATCH 44/59] arm: airoha: disable environment inside mtd partition
+
+When booting on en7581_evb board equipped with spinand flash, a u-boot
+panic occurs. The panic is caused by the absence any available mtd
+partition.
+
+Disable CONFIG_ENV_IS_IN_MTD to avoid an issue. The environment will
+be stored in the EMMC or in UBI, so actually CONFIG_ENV_IS_IN_MTD is
+not needed.
+
+Signed-off-by: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+---
+ configs/an7581_evb_defconfig | 2 +-
+ configs/an7583_evb_defconfig | 2 +-
+ configs/en7523_evb_defconfig | 3 +--
+ 3 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
+index 96e9910232b..93619e72a2e 100644
+--- a/configs/an7581_evb_defconfig
++++ b/configs/an7581_evb_defconfig
+@@ -45,6 +44,7 @@ CONFIG_CMD_LOG=y
+ CONFIG_OF_UPSTREAM=y
+ CONFIG_ENV_OVERWRITE=y
+ CONFIG_ENV_IS_IN_MMC=y
++# CONFIG_ENV_IS_IN_MTD is not set
+ CONFIG_ENV_RELOC_GD_ENV_ADDR=y
+ CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
+ CONFIG_NET_RANDOM_ETHADDR=y
+diff --git a/configs/an7583_evb_defconfig b/configs/an7583_evb_defconfig
+index f00eb071a94..bcb938d42be 100644
+--- a/configs/an7583_evb_defconfig
++++ b/configs/an7583_evb_defconfig
+@@ -44,6 +43,7 @@ CONFIG_CMD_MTDPARTS=y
+ CONFIG_CMD_LOG=y
+ CONFIG_ENV_OVERWRITE=y
+ CONFIG_ENV_IS_IN_MMC=y
++# CONFIG_ENV_IS_IN_MTD is not set
+ CONFIG_ENV_RELOC_GD_ENV_ADDR=y
+ CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
+ CONFIG_NET_RANDOM_ETHADDR=y
+diff --git a/configs/en7523_evb_defconfig b/configs/en7523_evb_defconfig
+index 698f6ece0e2..71b8668b1fd 100644
+--- a/configs/en7523_evb_defconfig
++++ b/configs/en7523_evb_defconfig
+@@ -8,7 +8,6 @@ CONFIG_TEXT_BASE=0x81E00000
+ CONFIG_SYS_MALLOC_F_LEN=0x4000
+ CONFIG_NR_DRAM_BANKS=1
+ CONFIG_ENV_SIZE=0x4000
+-CONFIG_ENV_OFFSET=0x7c000
+ CONFIG_DM_GPIO=y
+ CONFIG_DEFAULT_DEVICE_TREE="airoha/en7523-evb"
+ CONFIG_SYS_LOAD_ADDR=0x81800000
+@@ -41,8 +40,8 @@ CONFIG_CMD_MTDPARTS=y
+ CONFIG_CMD_LOG=y
+ CONFIG_OF_UPSTREAM=y
+ CONFIG_ENV_OVERWRITE=y
++# CONFIG_ENV_IS_IN_MTD is not set
+ CONFIG_ENV_RELOC_GD_ENV_ADDR=y
+-CONFIG_ENV_MTD_DEV="spi-nand0"
+ CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
+ CONFIG_NET_RANDOM_ETHADDR=y
+ CONFIG_SYS_RX_ETH_BUFFER=8
+-- 
+2.51.0
+

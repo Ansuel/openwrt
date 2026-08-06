@@ -1,0 +1,36 @@
+From ba48795dbe6763dce7cb455f18d793bf14ac2211 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Tue, 23 Sep 2025 20:10:25 +0200
+Subject: [PATCH 49/59] airoha: enable FIP laoder config
+
+Enable FIP loader config in an7581/an7583 deconfig.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ configs/an7581_evb_defconfig | 1 +
+ configs/an7583_evb_defconfig | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/configs/an7581_evb_defconfig b/configs/an7581_evb_defconfig
+index 5456cc13feb..d95aea44aef 100644
+--- a/configs/an7581_evb_defconfig
++++ b/configs/an7581_evb_defconfig
+@@ -107,4 +107,5 @@ CONFIG_UBI_BLOCK=y
+ # CONFIG_UBIFS_SILENCE_DEBUG_DUMP is not set
+ CONFIG_ENV_USE_DEFAULT_ENV_TEXT_FILE=y
+ CONFIG_ENV_DEFAULT_ENV_TEXT_FILE="defenvs/an7581_rfb_env"
++CONFIG_FIP_LOADER=y
+ CONFIG_SHA512=y
+diff --git a/configs/an7583_evb_defconfig b/configs/an7583_evb_defconfig
+index 4efe6ff7d2d..f9292f95207 100644
+--- a/configs/an7583_evb_defconfig
++++ b/configs/an7583_evb_defconfig
+@@ -107,4 +107,5 @@ CONFIG_UBI_BLOCK=y
+ # CONFIG_UBIFS_SILENCE_DEBUG_DUMP is not set
+ CONFIG_ENV_USE_DEFAULT_ENV_TEXT_FILE=y
+ CONFIG_ENV_DEFAULT_ENV_TEXT_FILE="defenvs/an7583_rfb_env"
++CONFIG_FIP_LOADER=y
+ CONFIG_SHA512=y
+-- 
+2.51.0
+
