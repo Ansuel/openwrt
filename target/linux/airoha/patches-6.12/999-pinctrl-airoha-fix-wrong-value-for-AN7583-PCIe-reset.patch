@@ -11,13 +11,13 @@ Update the function group table for AN7583 SoC.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- drivers/pinctrl/airoha/pinctrl-airoha.c | 4 ++--
+ drivers/pinctrl/mediatek/pinctrl-airoha.c | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/pinctrl/airoha/pinctrl-airoha.c b/drivers/pinctrl/airoha/pinctrl-airoha.c
+diff --git a/drivers/pinctrl/mediatek/pinctrl-airoha.c b/drivers/pinctrl/mediatek/pinctrl-airoha.c
 index 6409572c0a4b..a45045f1b70f 100644
---- a/drivers/pinctrl/airoha/pinctrl-airoha.c
-+++ b/drivers/pinctrl/airoha/pinctrl-airoha.c
+--- a/drivers/pinctrl/mediatek/pinctrl-airoha.c
++++ b/drivers/pinctrl/mediatek/pinctrl-airoha.c
 @@ -1443,7 +1443,7 @@ static const struct airoha_pinctrl_func_group an7583_pcie_reset_func_group[] = {
  			AIROHA_FUNC_MUX,
  			REG_GPIO_PON_MODE,
