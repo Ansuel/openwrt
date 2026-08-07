@@ -1,0 +1,118 @@
+From 6a0897feb96404d74e7bf5dcc9983aabc7483790 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Fri, 7 Aug 2026 08:57:54 +0200
+Subject: [PATCH] sound: airoha: add debug loopback test
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ sound/airoha/an7581-pcm.c | 55 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 55 insertions(+)
+
+diff --git a/sound/airoha/an7581-pcm.c b/sound/airoha/an7581-pcm.c
+index 6baaaab4b1e8..61c9ecc66231 100644
+--- a/sound/airoha/an7581-pcm.c
++++ b/sound/airoha/an7581-pcm.c
+@@ -17,8 +17,12 @@
+ #include <linux/pinctrl/consumer.h>
+ #include <sound/soc.h>
+ 
++#include <linux/fs.h>
++#include <linux/uaccess.h>
++
+ #define AN7581_PCM_PICR				0x0
+ #define   AN7581_PCM_CFG_VALID			BIT(26)
++#define   AN7581_PCM_LPBK_ENABLE		BIT(25)
+ #define   AN7581_PCM_SOFT_RESET			BIT(24)
+ #define   AN7581_PCM_ONE_BIT_DELAY		BIT(12)
+ #define   AN7581_PCM_SAMPLE_CLK			BIT(4)
+@@ -191,8 +195,45 @@ struct an7581_pcm_priv {
+ 	struct an7581_pcm_desc *rx_descs;
+ 	int rx_desc_idx;
+ 	dma_addr_t rx_dma;
++
++	struct file *debug_file;
++	loff_t debug_pos;
+ };
+ 
++static void an7581_pcm_debug_open(struct an7581_pcm_priv *priv)
++{
++        if (priv->debug_file)
++                return;
++
++        priv->debug_pos = 0;
++
++        priv->debug_file = filp_open("/tmp/loopback_record.wav",
++                                     O_CREAT | O_WRONLY | O_TRUNC,
++                                     0644);
++        if (IS_ERR(priv->debug_file)) {
++                pr_err("an7581-pcm: failed to open debug loopback_record file\n");
++                priv->debug_file = NULL;
++        }
++}
++
++static void an7581_pcm_debug_close(struct an7581_pcm_priv *priv)
++{
++        if (!priv->debug_file)
++                return;
++
++        filp_close(priv->debug_file, NULL);
++        priv->debug_file = NULL;
++}
++
++static void an7581_pcm_debug_write(struct an7581_pcm_priv *priv,
++                                   const void *buf, size_t len)
++{
++        if (!priv->debug_file)
++                return;
++
++        kernel_write(priv->debug_file, buf, len, &priv->debug_pos);
++}
++
+ static const struct snd_pcm_hardware an7581_pcm_hardware = {
+ 	.info			= SNDRV_PCM_INFO_MMAP |
+ 				  SNDRV_PCM_INFO_MMAP_VALID |
+@@ -360,6 +401,9 @@ static int an7581_pcm_fe_hw_params(struct snd_pcm_substream *substream,
+ 		num_desc = AN7581_PCM_RX_DESCRIPTORS;
+ 	}
+ 
++	/* XXX: Enable Loopback */
++	regmap_set_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_LPBK_ENABLE);
++
+ 	/* one bit delay for ZSI */
+ 	regmap_set_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_ONE_BIT_DELAY);
+ 
+@@ -444,6 +488,9 @@ static int an7581_pcm_fe_trigger(struct snd_pcm_substream *substream, int cmd,
+ 		// regmap_clear_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_SOFT_RESET);
+ 		// regmap_set_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_SOFT_RESET);
+ 
++		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
++			an7581_pcm_debug_open(priv);
++
+ 		/* Trigger PCM to POLL new descriptor */
+ 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+ 			rcu_assign_pointer(priv->playback_stream, substream);
+@@ -468,6 +515,9 @@ static int an7581_pcm_fe_trigger(struct snd_pcm_substream *substream, int cmd,
+ 		break;
+ 	case SNDRV_PCM_TRIGGER_STOP:
+ 	case SNDRV_PCM_TRIGGER_SUSPEND:
++		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
++			an7581_pcm_debug_close(priv);
++
+ 		regmap_set_bits(priv->map, AN7581_PCM_PICR,
+ 				AN7581_PCM_CFG_VALID);
+ 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+@@ -652,6 +702,11 @@ static irqreturn_t an7581_pcm_irq_handler(int irq, void *data)
+ 		rcu_read_unlock();
+ 	}
+ 
++	size_t bytes = snd_pcm_lib_period_bytes(substream);
++
++	an7581_pcm_debug_write(priv, substream->runtime->dma_area + i * bytes,
++			       bytes);
++
+ 	return IRQ_HANDLED;
+ }
+ 
+-- 
+2.53.0
+
