@@ -1,4 +1,4 @@
-From 434fbb4388877bb042a2b620ae7acfddaea262a0 Mon Sep 17 00:00:00 2001
+From 10cf3cbc28ca7db9d2082a391c447224b6765171 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Sun, 24 Aug 2025 23:35:44 +0200
 Subject: [PATCH] sound: airoha: add support for AN7581 PCM driver
@@ -12,8 +12,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  sound/Makefile            |   2 +-
  sound/airoha/Kconfig      |   9 +
  sound/airoha/Makefile     |   3 +
- sound/airoha/an7581-pcm.c | 984 ++++++++++++++++++++++++++++++++++++++
- 5 files changed, 999 insertions(+), 1 deletion(-)
+ sound/airoha/an7581-pcm.c | 996 ++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 1011 insertions(+), 1 deletion(-)
  create mode 100644 sound/airoha/Kconfig
  create mode 100644 sound/airoha/Makefile
  create mode 100644 sound/airoha/an7581-pcm.c
@@ -70,10 +70,10 @@ index 000000000000..039b8853d5a2
 +obj-$(CONFIG_SND_AN7581_PCM) += an7581-pcm.o
 diff --git a/sound/airoha/an7581-pcm.c b/sound/airoha/an7581-pcm.c
 new file mode 100644
-index 000000000000..64d6f15d39d9
+index 000000000000..1d8ebd673d4d
 --- /dev/null
 +++ b/sound/airoha/an7581-pcm.c
-@@ -0,0 +1,984 @@
+@@ -0,0 +1,996 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Airoha ALSA SoC PCM platform driver for AN7581
@@ -282,48 +282,49 @@ index 000000000000..64d6f15d39d9
 +	int rx_desc_idx;
 +	dma_addr_t rx_dma;
 +
-+	void *rx_buf[AN7581_PCM_RX_DESCRIPTORS];
-+	dma_addr_t rx_buf_dma[AN7581_PCM_RX_DESCRIPTORS];
++	// void *rx_buf[AN7581_PCM_RX_DESCRIPTORS];
++	// dma_addr_t rx_buf_dma[AN7581_PCM_RX_DESCRIPTORS];
 +
 +	unsigned int tx_pos;
++	unsigned int rx_pos;
 +
-+	struct file *debug_file;
-+	loff_t debug_pos;
++	// struct file *debug_file;
++	// loff_t debug_pos;
 +};
 +
-+static void an7581_pcm_debug_open(struct an7581_pcm_priv *priv)
-+{
-+        if (priv->debug_file)
-+                return;
++// static void an7581_pcm_debug_open(struct an7581_pcm_priv *priv)
++// {
++//         if (priv->debug_file)
++//                 return;
 +
-+        priv->debug_pos = 0;
++//         priv->debug_pos = 0;
 +
-+        priv->debug_file = filp_open("/tmp/loopback_record.wav",
-+                                     O_CREAT | O_WRONLY | O_TRUNC,
-+                                     0644);
-+        if (IS_ERR(priv->debug_file)) {
-+                pr_err("an7581-pcm: failed to open debug loopback_record file\n");
-+                priv->debug_file = NULL;
-+        }
-+}
++//         priv->debug_file = filp_open("/tmp/loopback_record.wav",
++//                                      O_CREAT | O_WRONLY | O_TRUNC,
++//                                      0644);
++//         if (IS_ERR(priv->debug_file)) {
++//                 pr_err("an7581-pcm: failed to open debug loopback_record file\n");
++//                 priv->debug_file = NULL;
++//         }
++// }
 +
-+static void an7581_pcm_debug_close(struct an7581_pcm_priv *priv)
-+{
-+        if (!priv->debug_file)
-+                return;
++// static void an7581_pcm_debug_close(struct an7581_pcm_priv *priv)
++// {
++//         if (!priv->debug_file)
++//                 return;
 +
-+        filp_close(priv->debug_file, NULL);
-+        priv->debug_file = NULL;
-+}
++//         filp_close(priv->debug_file, NULL);
++//         priv->debug_file = NULL;
++// }
 +
-+static void an7581_pcm_debug_write(struct an7581_pcm_priv *priv,
-+                                   const void *buf, size_t len)
-+{
-+        if (!priv->debug_file)
-+                return;
++// static void an7581_pcm_debug_write(struct an7581_pcm_priv *priv,
++//                                    const void *buf, size_t len)
++// {
++//         if (!priv->debug_file)
++//                 return;
 +
-+        kernel_write(priv->debug_file, buf, len, &priv->debug_pos);
-+}
++//         kernel_write(priv->debug_file, buf, len, &priv->debug_pos);
++// }
 +
 +static const struct snd_pcm_hardware an7581_pcm_hardware = {
 +	.info			= SNDRV_PCM_INFO_MMAP |
@@ -425,7 +426,7 @@ index 000000000000..64d6f15d39d9
 +	if (ret < 0)
 +		dev_err(rtd->card->dev, "snd_pcm_hw_constraint_integer failed\n");
 +
-+			an7581_pcm_debug_open(priv);
++	// an7581_pcm_debug_open(priv);
 +
 +	return ret;
 +}
@@ -435,14 +436,14 @@ index 000000000000..64d6f15d39d9
 +{
 +	struct snd_soc_pcm_runtime *rtd = snd_soc_substream_to_rtd(substream);
 +	struct an7581_pcm_priv *priv = snd_soc_card_get_drvdata(rtd->card);
-+	unsigned long flags;
-+	int i;
++	// unsigned long flags;
++	// int i;
 +
-+	spin_lock_irqsave(&priv->desc_lock, flags);
-+	for (i = 0; i < priv->rx_desc_idx; i++) {
-+		an7581_pcm_debug_write(priv, priv->rx_buf[i], 80);
-+	}
-+	spin_unlock_irqrestore(&priv->desc_lock, flags);
++	// spin_lock_irqsave(&priv->desc_lock, flags);
++	// for (i = 0; i < priv->rx_desc_idx; i++) {
++	// 	an7581_pcm_debug_write(priv, priv->rx_buf[i], 80);
++	// }
++	// spin_unlock_irqrestore(&priv->desc_lock, flags);
 +
 +	/* On close mask interrupt and disable DMA */
 +	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -464,8 +465,8 @@ index 000000000000..64d6f15d39d9
 +	regmap_clear_bits(priv->map, AN7581_PCM_PICR,
 +			  AN7581_PCM_CFG_VALID);
 +
-+	/* Loopback */
-+	an7581_pcm_debug_close(priv);
++	// /* Loopback */
++	// an7581_pcm_debug_close(priv);
 +}
 +
 +static int an7581_pcm_fe_prepare(struct snd_pcm_substream *substream,
@@ -475,37 +476,40 @@ index 000000000000..64d6f15d39d9
 +	struct an7581_pcm_priv *priv = snd_soc_card_get_drvdata(rtd->card);
 +	struct snd_pcm_runtime *runtime = substream->runtime;
 +	struct an7581_pcm_desc *desc;
-+	unsigned long flags;
++	// unsigned long flags;
 +	int i;
 +
 +	/* loopback */
-+	spin_lock_irqsave(&priv->desc_lock, flags);
-+	for (i = 0; i < priv->rx_desc_idx; i++) {
-+		an7581_pcm_debug_write(priv, priv->rx_buf[i], 80);
++	// spin_lock_irqsave(&priv->desc_lock, flags);
++	// for (i = 0; i < priv->rx_desc_idx; i++) {
++	// 	an7581_pcm_debug_write(priv, priv->rx_buf[i], 80);
++	// }
++
++	// priv->rx_desc_idx = 0;
++	// spin_unlock_irqrestore(&priv->desc_lock, flags);
++
++	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
++		priv->tx_pos = 0;
++		priv->tx_desc_idx = 0;
++		desc = priv->tx_descs;
++	} else {
++		priv->rx_pos = 0;
++		priv->rx_desc_idx = 0;
++		desc = priv->rx_descs;
 +	}
 +
-+	priv->rx_desc_idx = 0;
-+	spin_unlock_irqrestore(&priv->desc_lock, flags);
-+
-+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-+		desc = priv->tx_descs;
-+	else
-+		desc = priv->rx_descs;
-+
-+	priv->tx_pos = 0;
-+	priv->tx_desc_idx = 0;
 +	for (i = 0; i < AN7581_PCM_TX_DESCRIPTORS; i++) {
 +		desc->status |= AN7581_PCM_DESC_STATUS_OWNERSHIP_DMA;
 +		desc->dma_addr = runtime->dma_addr + i * AN7581_PCM_SAMPLE_SIZE;
 +		desc++;
 +	}
 +
-+	/* loopback */
-+	desc = priv->rx_descs;
-+	for (i = 0; i < AN7581_PCM_RX_DESCRIPTORS; i++) {
-+		desc->status |= AN7581_PCM_DESC_STATUS_OWNERSHIP_DMA;
-+		desc++;
-+	}
++	// /* loopback */
++	// desc = priv->rx_descs;
++	// for (i = 0; i < AN7581_PCM_RX_DESCRIPTORS; i++) {
++	// 	desc->status |= AN7581_PCM_DESC_STATUS_OWNERSHIP_DMA;
++	// 	desc++;
++	// }
 +
 +	return 0;
 +}
@@ -528,8 +532,8 @@ index 000000000000..64d6f15d39d9
 +		num_desc = AN7581_PCM_RX_DESCRIPTORS;
 +	}
 +
-+	/* XXX: Enable Loopback */
-+	regmap_set_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_LPBK_ENABLE);
++	// /* XXX: Enable Loopback */
++	// regmap_set_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_LPBK_ENABLE);
 +
 +	/* one bit delay for ZSI */
 +	regmap_set_bits(priv->map, AN7581_PCM_PICR, AN7581_PCM_ONE_BIT_DELAY);
@@ -559,8 +563,8 @@ index 000000000000..64d6f15d39d9
 +	an7581_pcm_setup_time_slot(priv, substream->stream,
 +				   runtime->rate == 16000 ? 16 : 8);
 +	/* Loopback */
-+	an7581_pcm_setup_time_slot(priv, SNDRV_PCM_STREAM_CAPTURE,
-+				   runtime->rate == 16000 ? 16 : 8);
++	// an7581_pcm_setup_time_slot(priv, SNDRV_PCM_STREAM_CAPTURE,
++	// 			   runtime->rate == 16000 ? 16 : 8);
 +
 +	/* Setup Descriptor size and number */
 +	regmap_update_bits(priv->map, AN7581_PCM_TRDRSR,
@@ -581,7 +585,7 @@ index 000000000000..64d6f15d39d9
 +		regmap_write(priv->map, AN7581_PCM_RDRBAR, priv->rx_dma);
 +
 +	/* Loopback */
-+	regmap_write(priv->map, AN7581_PCM_RDRBAR, priv->rx_dma);
++	// regmap_write(priv->map, AN7581_PCM_RDRBAR, priv->rx_dma);
 +
 +	/* Configure each RX descriptor for DMA ownership and sample size */
 +	for (i = 0; i < num_desc; i++) {
@@ -592,14 +596,14 @@ index 000000000000..64d6f15d39d9
 +	}
 +
 +	/* Loopback */
-+	for (i = 0; i < AN7581_PCM_RX_DESCRIPTORS; i++) {
-+		/* Assign to each descriptor the dma_addr + offset of period bytes */
-+		priv->rx_descs[i].dma_addr = priv->rx_buf_dma[i];
-+		priv->rx_descs[i].status = FIELD_PREP(AN7581_PCM_DESC_STATUS_SAMPLE_SIZE,
-+						      AN7581_PCM_SAMPLE_SIZE);
-+		priv->rx_descs[i].channel_mask = 1;
++	// for (i = 0; i < AN7581_PCM_RX_DESCRIPTORS; i++) {
++	// 	/* Assign to each descriptor the dma_addr + offset of period bytes */
++	// 	priv->rx_descs[i].dma_addr = priv->rx_buf_dma[i];
++	// 	priv->rx_descs[i].status = FIELD_PREP(AN7581_PCM_DESC_STATUS_SAMPLE_SIZE,
++	// 					      AN7581_PCM_SAMPLE_SIZE);
++	// 	priv->rx_descs[i].channel_mask = 1;
 +
-+	}
++	// }
 +
 +	/* Enable channels */
 +	regmap_update_bits(priv->map, AN7581_PCM_DCHENR,
@@ -643,15 +647,15 @@ index 000000000000..64d6f15d39d9
 +				     AN7581_PCM_TX_POLLING);
 +
 +			/* Loopback */
-+			regmap_set_bits(priv->map, AN7581_PCM_TRDCR,
-+					AN7581_PCM_RXDMA_ENABLE);
++			// regmap_set_bits(priv->map, AN7581_PCM_TRDCR,
++			// 		AN7581_PCM_RXDMA_ENABLE);
 +
-+			regmap_set_bits(priv->map, AN7581_PCM_IMR,
-+					AN7581_PCM_IMR_RDESC_END_INT |
-+					AN7581_PCM_IMR_RDESC_UPDATE_INT);
++			// regmap_set_bits(priv->map, AN7581_PCM_IMR,
++			// 		AN7581_PCM_IMR_RDESC_END_INT |
++			// 		AN7581_PCM_IMR_RDESC_UPDATE_INT);
 +
-+			regmap_write(priv->map, AN7581_PCM_RPDR,
-+				     AN7581_PCM_RX_POLLING);
++			// regmap_write(priv->map, AN7581_PCM_RPDR,
++			// 	     AN7581_PCM_RX_POLLING);
 +		} else {
 +			rcu_assign_pointer(priv->capture_stream, substream);
 +
@@ -743,7 +747,10 @@ index 000000000000..64d6f15d39d9
 +	priv = snd_soc_card_get_drvdata(card);
 +
 +	spin_lock_irqsave(&priv->desc_lock, flags);
-+	pos = bytes_to_frames(runtime, priv->tx_pos);
++	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
++		pos = bytes_to_frames(runtime, priv->tx_pos);
++	else
++		pos = bytes_to_frames(runtime, priv->rx_pos);
 +	spin_unlock_irqrestore(&priv->desc_lock, flags);
 +
 +	return pos % runtime->buffer_size;
@@ -816,6 +823,7 @@ index 000000000000..64d6f15d39d9
 +	/* Scan descriptor on receiving RX desc update interrupt */
 +	if (isr & AN7581_PCM_IMR_RDESC_UPDATE_INT ||
 +	    isr & AN7581_PCM_IMR_RDESC_END_INT) {
++		unsigned int sample_size;
 +		bool rx_poll = false;
 +
 +		spin_lock_irqsave(&priv->desc_lock, flags);
@@ -826,6 +834,10 @@ index 000000000000..64d6f15d39d9
 +				      desc->status) == AN7581_PCM_DESC_STATUS_OWNERSHIP_DMA)
 +				break;
 +
++			sample_size = FIELD_GET(AN7581_PCM_DESC_STATUS_SAMPLE_SIZE,
++						desc->status);
++
++			priv->rx_pos += sample_size;
 +			priv->rx_desc_idx++;
 +		}
 +
@@ -981,11 +993,11 @@ index 000000000000..64d6f15d39d9
 +	}
 +
 +	/* loopback */
-+	for (i = 0; i < AN7581_PCM_RX_DESCRIPTORS; i++) {
-+		priv->rx_buf[i] = dma_alloc_coherent(dev,
-+			AN7581_PCM_MAX_CHANNELS * AN7581_PCM_BUFFER_SIZE,
-+			&priv->rx_buf_dma[i], GFP_KERNEL);
-+	}
++	// for (i = 0; i < AN7581_PCM_RX_DESCRIPTORS; i++) {
++	// 	priv->rx_buf[i] = dma_alloc_coherent(dev,
++	// 		AN7581_PCM_MAX_CHANNELS * AN7581_PCM_BUFFER_SIZE,
++	// 		&priv->rx_buf_dma[i], GFP_KERNEL);
++	// }
 +
 +	for_each_card_prelinks(card, i, dai_link)
 +		dai_link->platforms->of_node = dev->of_node;
