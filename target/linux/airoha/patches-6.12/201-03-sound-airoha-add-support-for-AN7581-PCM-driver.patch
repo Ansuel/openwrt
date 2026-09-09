@@ -1,4 +1,4 @@
-From 10cf3cbc28ca7db9d2082a391c447224b6765171 Mon Sep 17 00:00:00 2001
+From 3d856c9a39a4c1957c4bb76e666308aecddc1618 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Sun, 24 Aug 2025 23:35:44 +0200
 Subject: [PATCH] sound: airoha: add support for AN7581 PCM driver
@@ -8,12 +8,12 @@ dedicated for VoIP application.
 
 Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
 ---
- sound/Kconfig             |   2 +
- sound/Makefile            |   2 +-
- sound/airoha/Kconfig      |   9 +
- sound/airoha/Makefile     |   3 +
- sound/airoha/an7581-pcm.c | 996 ++++++++++++++++++++++++++++++++++++++
- 5 files changed, 1011 insertions(+), 1 deletion(-)
+ sound/Kconfig             |    2 +
+ sound/Makefile            |    2 +-
+ sound/airoha/Kconfig      |    9 +
+ sound/airoha/Makefile     |    3 +
+ sound/airoha/an7581-pcm.c | 1002 +++++++++++++++++++++++++++++++++++++
+ 5 files changed, 1017 insertions(+), 1 deletion(-)
  create mode 100644 sound/airoha/Kconfig
  create mode 100644 sound/airoha/Makefile
  create mode 100644 sound/airoha/an7581-pcm.c
@@ -70,10 +70,10 @@ index 000000000000..039b8853d5a2
 +obj-$(CONFIG_SND_AN7581_PCM) += an7581-pcm.o
 diff --git a/sound/airoha/an7581-pcm.c b/sound/airoha/an7581-pcm.c
 new file mode 100644
-index 000000000000..1d8ebd673d4d
+index 000000000000..070f447896f5
 --- /dev/null
 +++ b/sound/airoha/an7581-pcm.c
-@@ -0,0 +1,996 @@
+@@ -0,0 +1,1002 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Airoha ALSA SoC PCM platform driver for AN7581
@@ -477,7 +477,7 @@ index 000000000000..1d8ebd673d4d
 +	struct snd_pcm_runtime *runtime = substream->runtime;
 +	struct an7581_pcm_desc *desc;
 +	// unsigned long flags;
-+	int i;
++	int num_desc, i;
 +
 +	/* loopback */
 +	// spin_lock_irqsave(&priv->desc_lock, flags);
@@ -492,13 +492,15 @@ index 000000000000..1d8ebd673d4d
 +		priv->tx_pos = 0;
 +		priv->tx_desc_idx = 0;
 +		desc = priv->tx_descs;
++		num_desc = AN7581_PCM_TX_DESCRIPTORS;
 +	} else {
 +		priv->rx_pos = 0;
 +		priv->rx_desc_idx = 0;
 +		desc = priv->rx_descs;
++		num_desc = AN7581_PCM_RX_DESCRIPTORS;
 +	}
 +
-+	for (i = 0; i < AN7581_PCM_TX_DESCRIPTORS; i++) {
++	for (i = 0; i < num_desc; i++) {
 +		desc->status |= AN7581_PCM_DESC_STATUS_OWNERSHIP_DMA;
 +		desc->dma_addr = runtime->dma_addr + i * AN7581_PCM_SAMPLE_SIZE;
 +		desc++;
@@ -570,8 +572,7 @@ index 000000000000..1d8ebd673d4d
 +	regmap_update_bits(priv->map, AN7581_PCM_TRDRSR,
 +			   AN7581_DESC_OFFSET | AN7581_DESC_SIZE,
 +			   FIELD_PREP(AN7581_DESC_OFFSET, sizeof(*desc) / sizeof(u32)) |
-+			   FIELD_PREP(AN7581_DESC_SIZE,
-+			   	      AN7581_PCM_TX_DESCRIPTORS));
++			   FIELD_PREP(AN7581_DESC_SIZE, num_desc));
 +
 +	/* FIXME: Confirm this actually set buffer size */
 +	regmap_update_bits(priv->map, AN7581_PCM_CHBFOSR,
@@ -608,8 +609,7 @@ index 000000000000..1d8ebd673d4d
 +	/* Enable channels */
 +	regmap_update_bits(priv->map, AN7581_PCM_DCHENR,
 +			   AN7581_PCM_CHAN_EN,
-+			   FIELD_PREP(AN7581_PCM_CHAN_EN,
-+				      1));
++			   FIELD_PREP(AN7581_PCM_CHAN_EN, 1));
 +
 +	regmap_clear_bits(priv->map, AN7581_PCM_PICR,
 +			  AN7581_PCM_CFG_VALID);
@@ -826,6 +826,10 @@ index 000000000000..1d8ebd673d4d
 +		unsigned int sample_size;
 +		bool rx_poll = false;
 +
++		substream = rcu_dereference(priv->capture_stream);
++		if (!substream)
++			return IRQ_HANDLED;
++
 +		spin_lock_irqsave(&priv->desc_lock, flags);
 +		while (priv->rx_desc_idx < AN7581_PCM_RX_DESCRIPTORS) {
 +			struct an7581_pcm_desc *desc = &priv->rx_descs[priv->rx_desc_idx];
@@ -836,6 +840,8 @@ index 000000000000..1d8ebd673d4d
 +
 +			sample_size = FIELD_GET(AN7581_PCM_DESC_STATUS_SAMPLE_SIZE,
 +						desc->status);
++
++			snd_pcm_period_elapsed(substream);
 +
 +			priv->rx_pos += sample_size;
 +			priv->rx_desc_idx++;
