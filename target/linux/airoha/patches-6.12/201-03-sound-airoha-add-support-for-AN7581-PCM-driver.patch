@@ -1,4 +1,4 @@
-From 3d856c9a39a4c1957c4bb76e666308aecddc1618 Mon Sep 17 00:00:00 2001
+From 0be1a0fe28268eacb051e807f18fddf063a99788 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Sun, 24 Aug 2025 23:35:44 +0200
 Subject: [PATCH] sound: airoha: add support for AN7581 PCM driver
@@ -12,8 +12,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  sound/Makefile            |    2 +-
  sound/airoha/Kconfig      |    9 +
  sound/airoha/Makefile     |    3 +
- sound/airoha/an7581-pcm.c | 1002 +++++++++++++++++++++++++++++++++++++
- 5 files changed, 1017 insertions(+), 1 deletion(-)
+ sound/airoha/an7581-pcm.c | 1028 +++++++++++++++++++++++++++++++++++++
+ 5 files changed, 1043 insertions(+), 1 deletion(-)
  create mode 100644 sound/airoha/Kconfig
  create mode 100644 sound/airoha/Makefile
  create mode 100644 sound/airoha/an7581-pcm.c
@@ -70,10 +70,10 @@ index 000000000000..039b8853d5a2
 +obj-$(CONFIG_SND_AN7581_PCM) += an7581-pcm.o
 diff --git a/sound/airoha/an7581-pcm.c b/sound/airoha/an7581-pcm.c
 new file mode 100644
-index 000000000000..070f447896f5
+index 000000000000..6f304c18e3dc
 --- /dev/null
 +++ b/sound/airoha/an7581-pcm.c
-@@ -0,0 +1,1002 @@
+@@ -0,0 +1,1028 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Airoha ALSA SoC PCM platform driver for AN7581
@@ -823,33 +823,59 @@ index 000000000000..070f447896f5
 +	/* Scan descriptor on receiving RX desc update interrupt */
 +	if (isr & AN7581_PCM_IMR_RDESC_UPDATE_INT ||
 +	    isr & AN7581_PCM_IMR_RDESC_END_INT) {
++		struct snd_pcm_runtime *runtime;
++		struct an7581_pcm_desc *desc;
 +		unsigned int sample_size;
 +		bool rx_poll = false;
++		unsigned int idx;
++		int i;
 +
 +		substream = rcu_dereference(priv->capture_stream);
 +		if (!substream)
 +			return IRQ_HANDLED;
 +
-+		spin_lock_irqsave(&priv->desc_lock, flags);
-+		while (priv->rx_desc_idx < AN7581_PCM_RX_DESCRIPTORS) {
-+			struct an7581_pcm_desc *desc = &priv->rx_descs[priv->rx_desc_idx];
++		runtime = substream->runtime;
 +
++		spin_lock_irqsave(&priv->desc_lock, flags);
++
++		idx = priv->rx_desc_idx;
++		desc = &priv->rx_descs[idx];
++
++		for (i = 0; i < AN7581_PCM_RX_DESCRIPTORS; i++) {
 +			if (FIELD_GET(AN7581_PCM_DESC_STATUS_OWNERSHIP,
-+				      desc->status) == AN7581_PCM_DESC_STATUS_OWNERSHIP_DMA)
++				      desc->status) ==
++			    AN7581_PCM_DESC_STATUS_OWNERSHIP_DMA) {
++				spin_unlock_irqrestore(&priv->desc_lock,
++						       flags);
 +				break;
++			}
 +
 +			sample_size = FIELD_GET(AN7581_PCM_DESC_STATUS_SAMPLE_SIZE,
 +						desc->status);
++
++			priv->rx_pos += sample_size;
++			priv->rx_desc_idx++;
++			if (priv->rx_desc_idx == AN7581_PCM_RX_DESCRIPTORS)
++				priv->rx_desc_idx = 0;
++
++			spin_unlock_irqrestore(&priv->desc_lock, flags);
 +
 +			snd_pcm_period_elapsed(substream);
 +
 +			priv->rx_pos += sample_size;
 +			priv->rx_desc_idx++;
-+		}
 +
-+		if (priv->rx_desc_idx < AN7581_PCM_RX_DESCRIPTORS)
++			desc->status &= ~AN7581_PCM_DESC_STATUS_OWNERSHIP;
++			desc->status |= AN7581_PCM_DESC_STATUS_OWNERSHIP_DMA;
++
++			if (snd_pcm_playback_hw_avail(runtime) < runtime->period_size) {
++				break;
++			}
++
 +			rx_poll = true;
-+		spin_unlock_irqrestore(&priv->desc_lock, flags);
++
++			desc = &priv->rx_descs[priv->rx_desc_idx];
++		}
 +
 +		if (rx_poll)
 +			regmap_write(priv->map, AN7581_PCM_RPDR, AN7581_PCM_RX_POLLING);
