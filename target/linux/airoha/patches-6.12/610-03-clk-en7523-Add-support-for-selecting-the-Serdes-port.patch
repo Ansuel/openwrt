@@ -1,0 +1,37 @@
+From 2c7044c686d399d321c093f62511828a23ca2a07 Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Tue, 15 Sep 2026 14:59:17 +0200
+Subject: [PATCH 5/5] clk: en7523: Add support for selecting the Serdes port in
+ SCU for AN7583
+
+The Airoha AN7583 SoC follow the same implementation of Airoha AN7581 for
+selecting the Serdes with SCU. Reuse the same function to also support the
+feature on this specific SoC.
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ drivers/clk/clk-en7523.c | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/clk/clk-en7523.c b/drivers/clk/clk-en7523.c
+index 4668af72800e..3f609a6b77be 100644
+--- a/drivers/clk/clk-en7523.c
++++ b/drivers/clk/clk-en7523.c
+@@ -1311,8 +1311,12 @@ static int an7583_clk_hw_init(struct platform_device *pdev,
+ 	val &= ~REG_PCIE_HB_RST;
+ 	writel(val, base + REG_RST_CTRL1);
+ 
+-	return en7581_reset_register(dev, clk_map, an7583_rst_map,
+-				     ARRAY_SIZE(an7583_rst_map));
++	err = en7581_reset_register(dev, clk_map, an7583_rst_map,
++				    ARRAY_SIZE(an7583_rst_map));
++	if (err)
++		return err;
++
++	return en7581_serdes_phy_register(&pdev->dev);
+ }
+ 
+ static enum en_hir get_hw_id(void __iomem *np_base)
+-- 
+2.53.0
+
