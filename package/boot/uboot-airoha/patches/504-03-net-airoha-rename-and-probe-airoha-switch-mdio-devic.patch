@@ -1,0 +1,68 @@
+From 83bbba4eeb67112cd2bd469256da5fc4818e2641 Mon Sep 17 00:00:00 2001
+From: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+Date: Thu, 23 Oct 2025 02:58:17 +0200
+Subject: [PATCH 37/60] net: airoha: rename and probe airoha switch mdio device
+
+Current code just bind airoha switch mdio with it's driver, so mdio device
+might not be probed. This restricts a bit mdio device usage.
+
+This patch:
+ * Renames the mt7531 mdio bus interface to 'mt7531-mdio'. We may have
+   multiple available MDIO, so the name 'mdio' isn't descriptive enough.
+ * Forces probing of airoha switch mdio device
+
+Signed-off-by: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+---
+ drivers/net/airoha_eth.c | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/airoha_eth.c b/drivers/net/airoha_eth.c
+index 1b135c4009f..5df842c301a 100644
+--- a/drivers/net/airoha_eth.c
++++ b/drivers/net/airoha_eth.c
+@@ -353,6 +353,7 @@ struct airoha_gdm_port {
+ struct airoha_eth {
+ 	void __iomem *fe_regs;
+ 	void __iomem *switch_regs;
++	struct udevice *switch_mdio_dev;
+ 
+ 	struct reset_ctl_bulk rsts;
+ 	struct reset_ctl_bulk xsi_rsts;
+@@ -991,6 +992,11 @@ static int airoha_eth_probe(struct udevice *dev)
+ 	if (ret)
+ 		return ret;
+ 
++	if (eth->switch_mdio_dev) {
++		if (!device_probe(eth->switch_mdio_dev))
++			debug("Warning: failed to probe airoha switch mdio\n");
++	}
++
+ 	ofnode_for_each_subnode(node, dev_ofnode(dev)) {
+ 		if (!ofnode_device_is_compatible(node, "airoha,eth-mac"))
+ 			continue;
+@@ -1281,9 +1287,9 @@ static int arht_eth_write_hwaddr(struct udevice *dev)
+ static int airoha_eth_bind(struct udevice *dev)
+ {
+ 	struct airoha_eth_soc_data *data = (void *)dev_get_driver_data(dev);
++	struct airoha_eth *eth = dev_get_priv(dev);
+ 	ofnode switch_node, mdio_node;
+-	struct udevice *mdio_dev;
+-	int ret = 0;
++	int ret;
+ 
+ 	/*
+ 	 * Force Probe as we set the Main ETH driver as misc
+@@ -1307,8 +1313,8 @@ static int airoha_eth_bind(struct udevice *dev)
+ 		return 0;
+ 	}
+ 
+-	ret = device_bind_driver_to_node(dev, "mt7531-mdio-mmio", "mdio",
+-					 mdio_node, &mdio_dev);
++	ret = device_bind_driver_to_node(dev, "mt7531-mdio-mmio", "mt7531-mdio",
++					 mdio_node, &eth->switch_mdio_dev);
+ 	if (ret)
+ 		debug("Warning: failed to bind mdio controller\n");
+ 
+-- 
+2.51.0
+

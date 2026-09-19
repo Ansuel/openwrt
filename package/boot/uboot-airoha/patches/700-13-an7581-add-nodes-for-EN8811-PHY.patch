@@ -1,0 +1,56 @@
+From 68812eafb9eb8b832a307e647fc0d562547dfc9f Mon Sep 17 00:00:00 2001
+From: Christian Marangi <ansuelsmth@gmail.com>
+Date: Tue, 14 Oct 2025 20:08:46 +0200
+Subject: [PATCH 58/59] an7581: add nodes for EN8811 PHY
+
+Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
+---
+ arch/arm/dts/en7581-evb-u-boot.dtsi | 18 ++++++++++++++++++
+ 1 file changed, 18 insertions(+)
+
+diff --git a/arch/arm/dts/en7581-evb-u-boot.dtsi b/arch/arm/dts/en7581-evb-u-boot.dtsi
+index c52bd3eb547..7c0c826dadb 100644
+--- a/arch/arm/dts/en7581-evb-u-boot.dtsi
++++ b/arch/arm/dts/en7581-evb-u-boot.dtsi
+@@ -13,6 +13,13 @@
+ 		phandlepart = <&mmc0 0>;
+ 		partoffset = <0x100>;
+ 	};
++
++	fs_loader1: fip-loader-ubi {
++		bootph-all;
++		compatible = "u-boot,fip-loader";
++		mtdpart = "ubi";
++		ubivol = "fip";
++	};
+ };
+ 
+ #include "an7581-u-boot.dtsi"
+@@ -40,6 +47,13 @@
+ };
+ 
+ &mdio {
++	en8811: ethernet-phy@f {
++		reg = <0xf>;
++
++		firmware-name = "d39d2cf2-9bd0-3ca7-93e9-e71b4f9250b2";
++		firmware-loader = <&fs_loader0>;
++	};
++
+ 	as21xxx_0: ethernet-phy@1c {
+ 		reg = <0x1c>;
+ 
+@@ -73,6 +87,10 @@
+ &gdm4 {
+ 	status = "okay";
+ 
++	/* For en8811 */
++	// phy-handle = <&en8811>;
++	// phy-mode = "2500base-x";
++
+ 	phy-handle = <&as21xxx_1>;
+ 	phy-mode = "usxgmii";
+ };
+-- 
+2.51.0
+

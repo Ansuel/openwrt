@@ -1,0 +1,41 @@
+From f1a17d94156b2a8af4805e6d1c69d546f38051fd Mon Sep 17 00:00:00 2001
+From: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+Date: Wed, 15 Oct 2025 10:36:16 +0300
+Subject: [PATCH 25/59] net: airoha: init switch before GDM port initialization
+
+Call airoha_switch_init() before creating GDM instances, so if
+allocation of GDM port fails, early created GDM instances will work
+normally.
+
+Signed-off-by: Mikhail Kshevetskiy <mikhail.kshevetskiy@iopsys.eu>
+---
+ drivers/net/airoha_eth.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/airoha_eth.c b/drivers/net/airoha_eth.c
+index 7c634584db9..ab2d8ee9f4a 100644
+--- a/drivers/net/airoha_eth.c
++++ b/drivers/net/airoha_eth.c
+@@ -938,6 +938,10 @@ static int airoha_eth_probe(struct udevice *dev)
+ 	if (ret)
+ 		return ret;
+ 
++	ret = airoha_switch_init(dev, eth);
++	if (ret)
++		return ret;
++
+ 	ofnode_for_each_subnode(node, dev_ofnode(dev)) {
+ 		if (!ofnode_device_is_compatible(node, "airoha,eth-mac"))
+ 			continue;
+@@ -950,7 +954,7 @@ static int airoha_eth_probe(struct udevice *dev)
+ 			return ret;
+ 	}
+ 
+-	return airoha_switch_init(dev, eth);
++	return 0;
+ }
+ 
+ static int airoha_eth_port_of_to_plat(struct udevice *dev)
+-- 
+2.51.0
+
