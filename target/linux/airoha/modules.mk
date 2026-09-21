@@ -77,8 +77,8 @@ $(eval $(call KernelPackage,sound-soc-an7581-wm8960))
 
 define KernelPackage/sound-an7581-pcm
   TITLE:=Airoha AN7581 PCM Audio support
-  KCONFIG:=CONFIG_SND_AN7581_PCM
-  FILES:=$(LINUX_DIR)/sound/airoha/an7581-pcm.ko
+  KCONFIG:=CONFIG_SND_SOC_AN7581_PCM
+  FILES:=$(LINUX_DIR)/sound/soc/airoha/an7581-pcm.ko
   AUTOLOAD:=$(call AutoLoad,56,an7581-pcm)
   DEPENDS:=@TARGET_airoha +kmod-sound-soc-core
   $(call AddDepends/sound)
