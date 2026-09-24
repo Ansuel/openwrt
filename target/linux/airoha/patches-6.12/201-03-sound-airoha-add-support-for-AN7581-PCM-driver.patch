@@ -1,4 +1,4 @@
-From e867196e61c17425ca541d57374ea9ec3ffc84cd Mon Sep 17 00:00:00 2001
+From a270a80e7fdf491663b00201c5f0329e3eec8b64 Mon Sep 17 00:00:00 2001
 From: Christian Marangi <ansuelsmth@gmail.com>
 Date: Sun, 24 Aug 2025 23:35:44 +0200
 Subject: [PATCH] sound: airoha: add support for AN7581 PCM driver
@@ -12,8 +12,8 @@ Signed-off-by: Christian Marangi <ansuelsmth@gmail.com>
  sound/soc/Makefile            |   1 +
  sound/soc/airoha/Kconfig      |  10 +
  sound/soc/airoha/Makefile     |   3 +
- sound/soc/airoha/an7581-pcm.c | 925 ++++++++++++++++++++++++++++++++++
- 5 files changed, 940 insertions(+)
+ sound/soc/airoha/an7581-pcm.c | 926 ++++++++++++++++++++++++++++++++++
+ 5 files changed, 941 insertions(+)
  create mode 100644 sound/soc/airoha/Kconfig
  create mode 100644 sound/soc/airoha/Makefile
  create mode 100644 sound/soc/airoha/an7581-pcm.c
@@ -69,10 +69,10 @@ index 000000000000..2522fe705d9a
 +obj-$(CONFIG_SND_SOC_AN7581_PCM) += an7581-pcm.o
 diff --git a/sound/soc/airoha/an7581-pcm.c b/sound/soc/airoha/an7581-pcm.c
 new file mode 100644
-index 000000000000..0a6d62f409d9
+index 000000000000..11b27ec57d42
 --- /dev/null
 +++ b/sound/soc/airoha/an7581-pcm.c
-@@ -0,0 +1,925 @@
+@@ -0,0 +1,926 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * Airoha ALSA SoC PCM platform driver for AN7581
@@ -416,7 +416,8 @@ index 000000000000..0a6d62f409d9
 +
 +	if (priv->users)
 +		priv->users--;
-+	else
++
++	if (!priv->users)
 +		regmap_clear_bits(priv->map, AN7581_PCM_PICR,
 +				  AN7581_PCM_CFG_VALID);
 +
